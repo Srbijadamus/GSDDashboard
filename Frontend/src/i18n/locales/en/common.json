@@ -1,0 +1,59 @@
+{
+  "nav": {
+    "overview": "Overview",
+    "shifts": "Shift Plan",
+    "wicShifts": "WIC Shifts",
+    "wicLocations": "WIC Locations",
+    "attendance": "Daily Attendance",
+    "sickLeave": "Sick Leave",
+    "vacations": "Vacations",
+    "alBalance": "AL Balance",
+    "employees": "Employees"
+  },
+  "status": {
+    "working": "Working",
+    "annualLeave": "Annual Leave",
+    "sickLeave": "Sick Leave",
+    "training": "Training",
+    "publicHoliday": "Public Holiday",
+    "offWeekend": "Off Weekend",
+    "occupied": "Occupied",
+    "unoccupied": "Unoccupied",
+    "closed": "Closed"
+  },
+  "download": {
+    "today": "Today",
+    "last7": "Last 7 Days",
+    "last30": "Last 30 Days"
+  },
+  "table": {
+    "employeeId": "Employee ID",
+    "fullName": "Full Name",
+    "engagement": "Engagement",
+    "primaryRole": "Primary Role",
+    "secondaryRole": "Secondary Role",
+    "teamLead": "Team Lead",
+    "firstDay": "First Day",
+    "lastDay": "Last Day",
+    "duration": "Duration",
+    "workDaysNet": "Work Days Net",
+    "comments": "Comments",
+    "approved": "Approved",
+    "denied": "Denied",
+    "pending": "Pending",
+    "location": "Location",
+    "openingHours": "Opening Hours",
+    "workingShift": "Working Shift",
+    "type": "Type"
+  },
+  "overview": {
+    "voiceAgents": "Voice Agents",
+    "chatSsp": "Chat & SSP",
+    "dispatcher": "Dispatcher / SME",
+    "training": "Training",
+    "annualLeave": "Annual Leave",
+    "sickLeave": "Sick Leave",
+    "totalActive": "Total Active",
+    "wicUnoccupied": "WIC Unoccupied"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "nav": {
+    "overview": "Übersicht",
+    "shifts": "Schichtplan",
+    "wicShifts": "WIC-Schichten",
+    "wicLocations": "WIC-Standorte",
+    "attendance": "Tägliche Anwesenheit",
+    "sickLeave": "Krankmeldung",
+    "vacations": "Urlaub",
+    "alBalance": "Urlaubssaldo",
+    "employees": "Mitarbeiter"
+  },
+  "status": {
+    "working": "Arbeitet",
+    "annualLeave": "Jahresurlaub",
+    "sickLeave": "Krank",
+    "training": "Schulung",
+    "publicHoliday": "Feiertag",
+    "offWeekend": "Wochenende",
+    "occupied": "Besetzt",
+    "unoccupied": "Unbesetzt",
+    "closed": "Geschlossen"
+  },
+  "download": {
+    "today": "Heute",
+    "last7": "Letzte 7 Tage",
+    "last30": "Letzte 30 Tage"
+  },
+  "table": {
+    "employeeId": "Mitarbeiter-ID",
+    "fullName": "Vollständiger Name",
+    "engagement": "Beschäftigungsart",
+    "primaryRole": "Hauptrolle",
+    "secondaryRole": "Nebenrolle",
+    "teamLead": "Teamleiter",
+    "firstDay": "Erster Tag",
+    "lastDay": "Letzter Tag",
+    "duration": "Dauer",
+    "workDaysNet": "Arbeitstage netto",
+    "comments": "Kommentare",
+    "approved": "Genehmigt",
+    "denied": "Abgelehnt",
+    "pending": "Ausstehend",
+    "location": "Standort",
+    "openingHours": "Öffnungszeiten",
+    "workingShift": "Arbeitsschicht",
+    "type": "Typ"
+  },
+  "overview": {
+    "voiceAgents": "Voice Agenten",
+    "chatSsp": "Chat & SSP",
+    "dispatcher": "Dispatcher / SME",
+    "training": "Schulung",
+    "annualLeave": "Jahresurlaub",
+    "sickLeave": "Krankmeldung",
+    "totalActive": "Gesamt Aktiv",
+    "wicUnoccupied": "WIC Unbesetzt"
+  }
+}
