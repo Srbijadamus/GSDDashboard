@@ -1,0 +1,8 @@
+Backend/wwwroot/assets/
+Backend/wwwroot/index.html
+Backend/wwwroot/favicon.svg
+Backend/wwwroot/icons.svg
+Backend/obj/
+Backend/bin/
+Frontend/node_modules/
+Frontend/dist/
