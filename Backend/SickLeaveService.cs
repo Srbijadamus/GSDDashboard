@@ -32,6 +32,24 @@ public record SickLeaveStatsDto(
 
 public record TLBreakdownDto(string TeamLead, int Count);
 
+public record CreateSickLeaveRequest(
+    string? EmployeeId,
+    string? FirstName,
+    string? LastName,
+    string StartDate,
+    string EndDate,
+    string? Type,
+    string? ChildName,
+    string? Notes
+);
+
+public record PatchSickLeaveRequest(
+    string? StartDate,
+    string? EndDate,
+    string? Type,
+    string? Notes
+);
+
 public class SickLeaveService
 {
     private readonly GSDContext _db;
@@ -97,6 +115,57 @@ public class SickLeaveService
         );
     }
 
+    public async Task<SickLeaveDto> CreateAsync(CreateSickLeaveRequest req)
+    {
+        var emp = req.EmployeeId != null ? await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId) : null;
+        var start = DateOnly.Parse(req.StartDate);
+        var end   = DateOnly.Parse(req.EndDate);
+        var entry = new SickLeaveModel
+        {
+            EmployeeId   = req.EmployeeId,
+            FirstName    = emp?.FirstName    ?? req.FirstName,
+            LastName     = emp?.LastName     ?? req.LastName,
+            TeamLeadName = emp?.TeamLeadName,
+            FirstDay     = start,
+            LastDay      = end,
+            DurationDays = (end.DayNumber - start.DayNumber) + 1,
+            LeaveType    = req.Type ?? "Self",
+            ChildName    = req.ChildName,
+            Comments     = req.Notes,
+            SourceSheet  = "UI",
+        };
+        _db.SickLeaves.Add(entry);
+        await _db.SaveChangesAsync();
+        return new SickLeaveDto(entry.Id, entry.EmployeeId, entry.FirstName, entry.LastName,
+            ((entry.FirstName ?? "") + " " + (entry.LastName ?? "")).Trim(),
+            entry.TeamLeadName, entry.FirstDay.ToString("yyyy-MM-dd"), entry.LastDay.ToString("yyyy-MM-dd"),
+            entry.DurationDays, entry.LeaveType, entry.ChildName, entry.Comments, entry.SourceSheet);
+    }
+
+    public async Task<SickLeaveDto?> PatchAsync(int id, PatchSickLeaveRequest req)
+    {
+        var entry = await _db.SickLeaves.FindAsync(id);
+        if (entry == null) return null;
+        if (req.EndDate   != null) { entry.LastDay  = DateOnly.Parse(req.EndDate);   entry.DurationDays = (entry.LastDay.DayNumber - entry.FirstDay.DayNumber) + 1; }
+        if (req.StartDate != null) { entry.FirstDay = DateOnly.Parse(req.StartDate); entry.DurationDays = (entry.LastDay.DayNumber - entry.FirstDay.DayNumber) + 1; }
+        if (req.Type      != null) entry.LeaveType = req.Type;
+        if (req.Notes     != null) entry.Comments  = req.Notes;
+        await _db.SaveChangesAsync();
+        return new SickLeaveDto(entry.Id, entry.EmployeeId, entry.FirstName, entry.LastName,
+            ((entry.FirstName ?? "") + " " + (entry.LastName ?? "")).Trim(),
+            entry.TeamLeadName, entry.FirstDay.ToString("yyyy-MM-dd"), entry.LastDay.ToString("yyyy-MM-dd"),
+            entry.DurationDays, entry.LeaveType, entry.ChildName, entry.Comments, entry.SourceSheet);
+    }
+
+    public async Task<bool> DeleteAsync(int id)
+    {
+        var entry = await _db.SickLeaves.FindAsync(id);
+        if (entry == null) return false;
+        _db.SickLeaves.Remove(entry);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<byte[]> ExportToExcelAsync(string? from, string? to)
     {
         var rows = await GetSickLeavesAsync(from, to, null, null, null);
@@ -136,12 +205,6 @@ public class SickLeaveService
         wb.SaveAs(ms);
         return ms.ToArray();
     }
-
-    private static SickLeaveDto Map(SickLeaveModel s) => new(
-        s.Id, s.EmployeeId, s.FirstName, s.LastName, s.FullName,
-        s.TeamLeadName, s.FirstDay.ToString("yyyy-MM-dd"), s.LastDay.ToString("yyyy-MM-dd"),
-        s.DurationDays, s.LeaveType, s.ChildName, s.Comments, s.SourceSheet
-    );
 }
 
 public static class SickLeaveEndpointMapper
@@ -162,6 +225,24 @@ public static class SickLeaveEndpointMapper
         grp.MapGet("/stats", async (string? from, string? to, SickLeaveService svc) =>
             Results.Ok(await svc.GetStatsAsync(from, to)));
 
+        grp.MapPost("/", async (CreateSickLeaveRequest req, SickLeaveService svc) =>
+        {
+            var result = await svc.CreateAsync(req);
+            return Results.Created($"/api/sickleave/{result.Id}", result);
+        });
+
+        grp.MapPatch("/{id:int}", async (int id, PatchSickLeaveRequest req, SickLeaveService svc) =>
+        {
+            var result = await svc.PatchAsync(id, req);
+            return result == null ? Results.NotFound() : Results.Ok(result);
+        });
+
+        grp.MapDelete("/{id:int}", async (int id, SickLeaveService svc) =>
+        {
+            var ok = await svc.DeleteAsync(id);
+            return ok ? Results.NoContent() : Results.NotFound();
+        });
+
         grp.MapGet("/download", async (string? from, string? to, SickLeaveService svc, HttpContext ctx) =>
         {
             var bytes = await svc.ExportToExcelAsync(from, to);
@@ -171,4 +252,3 @@ public static class SickLeaveEndpointMapper
         });
     }
 }
-

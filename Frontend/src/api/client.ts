@@ -1,4 +1,4 @@
-﻿const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000"
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000"
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, options)
@@ -54,6 +54,9 @@ export const api = {
     downloadToday: () => downloadExcel(`/api/sickleave/download?from=${today()}&to=${today()}`, `SickLeave_${today()}.xlsx`),
     download7:     () => downloadExcel(`/api/sickleave/download?from=${daysAgo(7)}&to=${today()}`, `SickLeave_7days.xlsx`),
     download30:    () => downloadExcel(`/api/sickleave/download?from=${daysAgo(30)}&to=${today()}`, `SickLeave_30days.xlsx`),
+    create:        (body: any)             => apiFetch<any>("/api/sickleave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    patch:         (id: number, body: any)  => apiFetch<any>(`/api/sickleave/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    remove:        (id: number)             => fetch(`${API_BASE}/api/sickleave/${id}`, { method: "DELETE" }),
   },
   vacations: {
     get:          (params: string) => apiFetch<any[]>(`/api/vacations?${params}`),
@@ -79,6 +82,8 @@ export const api = {
     download30:    () => downloadExcel(`/api/attendance/download?from=${daysAgo(30)}&to=${today()}`, `Attendance_30days.xlsx`),
   },
 }
+
+
 
 
 

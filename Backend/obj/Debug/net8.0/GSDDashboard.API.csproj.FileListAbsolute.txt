@@ -145,3 +145,4 @@ C:\GSDDashboard\Backend\obj\Debug\net8.0\GSDDashboard.API.pdb
 C:\GSDDashboard\Backend\obj\Debug\net8.0\GSDDashboard.API.genruntimeconfig.cache
 C:\GSDDashboard\Backend\obj\Debug\net8.0\ref\GSDDashboard.API.dll
 C:\GSDDashboard\Backend\bin\Debug\net8.0\GSDDashboard.API.staticwebassets.runtime.json
+C:\GSDDashboard\Backend\obj\Debug\net8.0\GSDDashboard.API.sourcelink.json

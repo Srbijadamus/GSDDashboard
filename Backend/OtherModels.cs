@@ -16,6 +16,7 @@ public class WicShiftEntry
     public bool IsOnSite { get; set; } = false;
     public bool IsGSDDay { get; set; } = false;
     public bool IsOffDay { get; set; } = false;
+    [MaxLength(20)]  public string? Task { get; set; } = "WIC";
 }
 
 [Table("WicLocations")]
@@ -99,4 +100,7 @@ public class DailyAttendance
     [MaxLength(20)]  public string? AttendanceType { get; set; }
     [MaxLength(20)]  public string? AssignedEmployeeId { get; set; }
 }
+
+
+
 
