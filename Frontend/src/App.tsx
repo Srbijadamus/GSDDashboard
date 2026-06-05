@@ -10,7 +10,8 @@ import Employees from "./pages/Employees"
 import SickLeave from "./pages/SickLeave"
 import Vacations from "./pages/Vacations"
 import WicLocations from "./pages/WicLocations"
-import WicShifts from "./pages/WicShifts"
+// @ts-ignore
+import WicShifts from "./pages/WICShifts"
 import Shifts from "./pages/Shifts"
 import ALBalance from "./pages/ALBalance"
 import Attendance from "./pages/Attendance"
@@ -133,5 +134,7 @@ export default function App() {
     </BrowserRouter>
   )
 }
+
+
 
 
