@@ -69,6 +69,36 @@ function OverrideConfirmModal({ type, onConfirm, onCancel }: {
   )
 }
 
+function LegalViolationModal({ violations, onClose, onConfirmAnyway }: {
+  violations: any[]; onClose: () => void; onConfirmAnyway?: () => void
+}) {
+  const hardBlocks = violations.filter((v: any) => v.isHardBlock)
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:3000, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ background:"var(--card)", border:`1px solid ${hardBlocks.length > 0 ? "rgba(255,59,92,.4)" : "rgba(250,204,21,.4)"}`, borderRadius:10, padding:24, width:480, maxHeight:"80vh", overflowY:"auto" }}>
+        <h2 style={{ fontSize:15, fontWeight:600, color: hardBlocks.length > 0 ? "var(--danger)" : "#facc15", marginBottom:16 }}>
+          {hardBlocks.length > 0 ? "⛔ Shift Validation Failed" : "⚠ Shift Warning"}
+        </h2>
+        {violations.map((v: any, i: number) => (
+          <div key={i} style={{ background: v.isHardBlock ? "rgba(255,59,92,.08)" : "rgba(250,204,21,.08)", border:`1px solid ${v.isHardBlock ? "rgba(255,59,92,.2)" : "rgba(250,204,21,.2)"}`, borderRadius:6, padding:"10px 14px", marginBottom:8 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+              <span style={{ fontSize:11, fontWeight:700, color: v.isHardBlock ? "var(--danger)" : "#facc15", fontFamily:"IBM Plex Mono" }}>{v.rule}</span>
+              <span style={{ fontSize:10, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{v.law}</span>
+            </div>
+            <div style={{ fontSize:12, color:"var(--text2)" }}>{v.description}</div>
+          </div>
+        ))}
+        <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:16 }}>
+          <button onClick={onClose} style={{ background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text2)", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer" }}>Cancel</button>
+          {hardBlocks.length === 0 && onConfirmAnyway && (
+            <button onClick={onConfirmAnyway} style={{ background:"#facc15", border:"none", color:"#000", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>Save Anyway</button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function LocationPicker({ onSelect, onClose }: { onSelect: (locId: string, locName: string) => void; onClose: () => void }) {
   const { data: locations } = useQuery({ queryKey:["wic-locations"], queryFn: api.wic.locations })
   const ref = useRef<HTMLDivElement>(null)
@@ -355,6 +385,7 @@ export default function Shifts() {
 
   const dragIdx = useRef<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
+  const [legalModal, setLegalModal] = useState<{violations:any[]; pendingUpdate:()=>void} | null>(null)
 
   const dates: string[] = []
   for (let i = 0; i < days; i++) {
@@ -389,6 +420,20 @@ export default function Shifts() {
   const orderedEmps = order.length > 0 ? order.map(id => byEmployee[id]).filter(Boolean) : empList
 
   const updateShift = async (id: number, type: string, start?: string, end?: string) => {
+    try {
+      const vRes = await fetch(`/api/shifts/validate`, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ shiftId: id, shiftType: type, shiftStart: start ?? null, shiftEnd: end ?? null })
+      })
+      const vData = await vRes.json()
+      if (!vData.valid || vData.violations?.length > 0) {
+        setLegalModal({ violations: vData.violations, pendingUpdate: () => doUpdateShift(id, type, start, end) })
+        return
+      }
+    } catch {}
+    await doUpdateShift(id, type, start, end)
+  }
+  const doUpdateShift = async (id: number, type: string, start?: string, end?: string) => {
     await apiFetch(`/api/shifts/${id}`, {
       method:"PATCH", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ shiftType:type, shiftStart:start ?? null, shiftEnd:end ?? null })
@@ -595,11 +640,13 @@ export default function Shifts() {
           {orderedEmps.length} agents · {dates.length} days
         </div>
       </div>
+      {legalModal && (
+        <LegalViolationModal
+          violations={legalModal.violations}
+          onClose={() => setLegalModal(null)}
+          onConfirmAnyway={legalModal.violations.every((v:any) => !v.isHardBlock) ? () => { legalModal.pendingUpdate(); setLegalModal(null) } : undefined}
+        />
+      )}
     </div>
   )
 }
-
-
-
-
-

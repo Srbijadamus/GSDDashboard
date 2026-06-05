@@ -32,6 +32,7 @@ builder.Services.AddScoped<SickLeaveService>();
 builder.Services.AddScoped<VacationService>();
 builder.Services.AddScoped<ShiftSyncService>();
 builder.Services.AddScoped<PublicHolidayService>();
+builder.Services.AddScoped<ShiftValidationService>();
 builder.Services.AddScoped<EmployeeService>();
 builder.Services.AddScoped<ALBalanceService>();
 builder.Services.AddScoped<AttendanceService>();
@@ -83,6 +84,7 @@ app.MapOverviewEndpoints();
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.MapFallbackToFile("index.html");
 app.Run();
+
 
 
 

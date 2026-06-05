@@ -33,6 +33,7 @@ public record ShiftFilterParams(
     string? ShiftType
 );
 
+public record ShiftValidateRequest(int ShiftId, string ShiftType, string? ShiftStart, string? ShiftEnd);
 public record ShiftUpdateDto(
     string? ShiftType,
     string? ShiftStart,
@@ -265,6 +266,12 @@ public static class ShiftEndpointMapper
             return Results.Ok(await svc.GetCoverageAsync(d));
         });
 
+        grp.MapPost("/validate", async (ShiftValidateRequest req, ShiftValidationService svc) =>
+        {
+            var result = await svc.ValidateAsync(req.ShiftId, req.ShiftType, req.ShiftStart, req.ShiftEnd);
+            return Results.Ok(result);
+        });
+
         grp.MapGet("/download", async (string? from, string? to, string? teamLead, string? role, ShiftService svc, HttpContext ctx) =>
         {
             var f = new ShiftFilterParams(from, to, teamLead, role, null, null);
@@ -275,4 +282,6 @@ public static class ShiftEndpointMapper
         });
     }
 }
+
+
 
