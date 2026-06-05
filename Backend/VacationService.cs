@@ -13,6 +13,10 @@ public record VacationDto(
     string? SourceSheet, bool IsOverhead
 );
 
+public record DailyLeaveCountDto(
+    string Date, int MaxLeave, int TotalOff, int AlCount, int SlCount, int Remaining, bool IsFull
+);
+
 public class VacationService
 {
     private readonly GSDContext _db;
@@ -61,6 +65,26 @@ public class VacationService
         return rows.Select(Map).ToList();
     }
 
+
+    public async Task<List<DailyLeaveCountDto>> GetLeaveAvailabilityAsync(string from, string to, int maxLeave)
+    {
+        var fromDate = DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTime.Today);
+        var toDate   = DateOnly.TryParse(to,   out var td) ? td : fromDate.AddDays(13);
+
+        var vacations  = await _db.Vacations.Where(v => v.FirstDay <= toDate && v.LastDay >= fromDate).ToListAsync();
+        var sickLeaves = await _db.SickLeaves.Where(s => s.FirstDay <= toDate && s.LastDay >= fromDate).ToListAsync();
+
+        var result = new List<DailyLeaveCountDto>();
+        for (var d = fromDate; d <= toDate; d = d.AddDays(1))
+        {
+            if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday) continue;
+            int alCount = vacations.Count(v => v.FirstDay <= d && v.LastDay >= d);
+            int slCount = sickLeaves.Count(s => s.FirstDay <= d && s.LastDay >= d);
+            int total = alCount + slCount;
+            result.Add(new DailyLeaveCountDto(d.ToString("yyyy-MM-dd"), maxLeave, total, alCount, slCount, Math.Max(0, maxLeave - total), total >= maxLeave));
+        }
+        return result;
+    }
 
     public async Task<bool> DeleteAsync(int id)
     {
@@ -148,6 +172,13 @@ public static class VacationEndpointMapper
             Results.Ok(await svc.GetUpcomingAsync(days ?? 7)));
 
 
+        grp.MapGet("/availability", async (string? from, string? to, int? maxLeave, VacationService svc) =>
+        {
+            var f = from ?? DateTime.Today.ToString("yyyy-MM-dd");
+            var t = to   ?? DateTime.Today.AddDays(13).ToString("yyyy-MM-dd");
+            return Results.Ok(await svc.GetLeaveAvailabilityAsync(f, t, maxLeave ?? 8));
+        });
+
         grp.MapDelete("/{id:int}", async (int id, VacationService svc) =>
         {
             var ok = await svc.DeleteAsync(id);
@@ -163,5 +194,6 @@ public static class VacationEndpointMapper
         });
     }
 }
+
 
 

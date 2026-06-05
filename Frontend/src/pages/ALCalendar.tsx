@@ -1,3 +1,5 @@
+// @ts-ignore
+import LeaveAvailabilityBar from './LeaveAvailabilityBar'
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { apiFetch } from "../api/client"
@@ -85,6 +87,8 @@ export default function ALCalendar() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* @ts-ignore */}
+      <LeaveAvailabilityBar from={from} to={to} maxLeave={8} />
 
       {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -399,4 +403,6 @@ export default function ALCalendar() {
     </div>
   )
 }
+
+
 
