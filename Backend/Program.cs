@@ -8,6 +8,7 @@ using GSDDashboard.API.Modules.Shifts;
 using GSDDashboard.API.Modules.WicShifts;
 using GSDDashboard.API.Modules.SickLeave;
 using GSDDashboard.API.Modules.Vacations;
+using GSDDashboard.API.Modules.PublicHolidays;
 using GSDDashboard.API.Services;
 using GSDDashboard.API.Services;
 using GSDDashboard.API.Modules.Employees;
@@ -30,6 +31,7 @@ builder.Services.AddScoped<WicCardsService>();
 builder.Services.AddScoped<SickLeaveService>();
 builder.Services.AddScoped<VacationService>();
 builder.Services.AddScoped<ShiftSyncService>();
+builder.Services.AddScoped<PublicHolidayService>();
 builder.Services.AddScoped<EmployeeService>();
 builder.Services.AddScoped<ALBalanceService>();
 builder.Services.AddScoped<AttendanceService>();
@@ -69,6 +71,7 @@ app.MapWicCardsEndpoints();
 app.MapAttendanceEndpoints();
 app.MapSickLeaveEndpoints();
 app.MapVacationEndpoints();
+app.MapPublicHolidayEndpoints();
 app.MapALBalanceEndpoints();
 app.MapEmployeeEndpoints();
 app.MapShiftReorderEndpoints();
@@ -80,6 +83,8 @@ app.MapOverviewEndpoints();
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.MapFallbackToFile("index.html");
 app.Run();
+
+
 
 
 

@@ -9,7 +9,7 @@ public record EmployeeDto(
     int Id, string EmployeeId, string? FirstName, string? LastName, string? FullName,
     string? Engagement, string? PrimaryRole, string? SecondaryRole,
     string? TeamLeadName, string? Category, bool IsActive, bool IsTrainee,
-    string? PlannedRole, string? SourceSheet, string? Birthday
+    string? PlannedRole, string? SourceSheet, string? Birthday, string? Bundesland
 );
 
 public record ShiftTimelineItem(string Date, string ShiftType, string? ShiftStart, string? ShiftEnd, bool IsWicDuty);
@@ -83,6 +83,7 @@ public class EmployeeService
         if (dto.TeamLeadName != null) emp.TeamLeadName = dto.TeamLeadName;
         if (dto.Category     != null) emp.Category     = dto.Category;
         if (dto.IsActive.HasValue)    emp.IsActive      = dto.IsActive.Value;
+        if (dto.Bundesland   != null) emp.Bundesland   = dto.Bundesland;
 
         await _db.SaveChangesAsync();
         return Map(emp);
@@ -162,7 +163,8 @@ public class EmployeeService
         e.Engagement, e.PrimaryRole, e.SecondaryRole,
         e.TeamLeadName, e.Category, e.IsActive, e.IsTrainee,
         e.PlannedRole, e.SourceSheet,
-        e.Birthday.HasValue ? e.Birthday.Value.ToString("MM-dd") : null
+        e.Birthday.HasValue ? e.Birthday.Value.ToString("MM-dd") : null,
+        e.Bundesland
     );
 }
 
@@ -174,7 +176,7 @@ public record CreateEmployeeDto(
 public record UpdateEmployeeDto(
     string? FullName, string? Engagement, string? PrimaryRole,
     string? TeamLeadName, string? Category, bool? IsActive
-);
+, string? Bundesland);
 public record ALBalanceUpdateDto(int AlUsed);
 
 public static class EmployeeEndpointMapper
@@ -228,5 +230,7 @@ public static class EmployeeEndpointMapper
         });
     }
 }
+
+
 
 

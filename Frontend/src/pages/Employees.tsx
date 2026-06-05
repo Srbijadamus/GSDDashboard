@@ -10,6 +10,7 @@ const ROLES = ["Voice","SSP","Chat","Dispatcher","SME","WIC","Bulk PWs"]
 const TEAM_LEADS = ["Karlo Coric","Oliver Schleusen","Tobias Rossberg","Delia Panaitescu","Ion Ciuceanu","Jaroslaw Brzeszkiewicz"]
 const ENGAGEMENTS = ["Full Time","Part-Time","Student"]
 const SOURCES = ["GSD_DE","GSD_NL","GSD_WIC"]
+const BUNDESLAENDER = ["Bayern","NRW","Hamburg","Berlin","Baden-Württemberg","Sachsen","Thüringen","Brandenburg","Sachsen-Anhalt","Mecklenburg-Vorpommern","Niedersachsen","Bremen","Hessen","Rheinland-Pfalz","Saarland","Schleswig-Holstein"]
 
 const badge = (type: string) => {
   const styles: Record<string,any> = {
@@ -50,6 +51,7 @@ function EmployeeModal({ emp, onClose, onSave }: {
     teamLeadName: emp?.teamLeadName ?? TEAM_LEADS[0],
     sourceSheet:  emp?.sourceSheet ?? "GSD_DE",
     category:     emp?.category ?? "",
+    bundesland:   emp?.bundesland ?? "",
   })
   const [errors, setErrors] = useState<Record<string,string>>({})
 
@@ -136,6 +138,14 @@ function EmployeeModal({ emp, onClose, onSave }: {
             <label style={{ fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }}>Source Sheet</label>
             <select value={form.sourceSheet} onChange={e => handleChange("sourceSheet", e.target.value)} style={selectStyle}>
               {SOURCES.map(s => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+          {/* Bundesland */}
+          <div>
+            <label style={{ fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }}>Bundesland</label>
+            <select value={(form as any).bundesland} onChange={e => handleChange("bundesland", e.target.value)} style={selectStyle}>
+              <option value="">-- Select Bundesland --</option>
+              {BUNDESLAENDER.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
         </div>
@@ -313,7 +323,7 @@ export default function Employees() {
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
             <thead>
               <tr style={{ background:"var(--card2)" }}>
-                {["ID","Full Name","Type","Primary Role","Team Lead","Source","Actions"].map(h => (
+                {["ID","Full Name","Type","Primary Role","Team Lead","Source","Bundesland","Actions"].map(h => (
                   <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontSize:10,
                     fontWeight:500, textTransform:"uppercase", letterSpacing:".07em",
                     color:"var(--text3)", borderBottom:"1px solid var(--border)" }}>{h}</th>
@@ -321,7 +331,7 @@ export default function Employees() {
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={7} style={{ padding:24, textAlign:"center", color:"var(--text3)" }}>Loading...</td></tr>}
+              {isLoading && <tr><td colSpan={8} style={{ padding:24, textAlign:"center", color:"var(--text3)" }}>Loading...</td></tr>}
               {filtered.map((e: any) => (
                 <tr key={e.employeeId}
                   style={{ borderBottom:"1px solid rgba(30,45,69,.5)" }}
@@ -333,6 +343,7 @@ export default function Employees() {
                   <td style={{ padding:"9px 12px" }}>{roleBadge(e.primaryRole)}</td>
                   <td style={{ padding:"9px 12px", color:"var(--text2)", fontSize:11 }}>{e.teamLeadName}</td>
                   <td style={{ padding:"9px 12px", fontSize:10, fontFamily:"IBM Plex Mono", color:"var(--text3)" }}>{e.sourceSheet}</td>
+                  <td style={{ padding:"9px 12px" }}>{(e as any).bundesland && <span style={{ background:"rgba(250,204,21,0.1)", border:"1px solid rgba(250,204,21,0.3)", color:"#facc15", borderRadius:4, fontSize:9, padding:"2px 6px", fontWeight:600 }}>{(e as any).bundesland}</span>}</td>
                   <td style={{ padding:"9px 12px" }}>
                     <div style={{ display:"flex", gap:6 }}>
                       <button onClick={() => setEditEmp(e)} style={{
@@ -364,4 +375,8 @@ export default function Employees() {
     </div>
   )
 }
+
+
+
+
 

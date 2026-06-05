@@ -22,4 +22,6 @@ public class Employee
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateOnly? Birthday { get; set; }
     [MaxLength(20)]  public string? SourceSheet { get; set; }
+    [MaxLength(50)]  public string? Bundesland { get; set; }
 }
+
