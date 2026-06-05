@@ -9,7 +9,7 @@ public record WicShiftDto(
     int Id, string EmployeeId, string? FullName, string? TeamLeadName,
     string ShiftDate, string? DayOfWeek, string? SupportLocation,
     string? WicOpeningHours, string? WorkingShift,
-    bool IsOnSite, bool IsGSDDay, bool IsOffDay, string? Task
+    bool IsOnSite, bool IsGSDDay, bool IsOffDay, string? Task, string? AgentStatus
 );
 
 public record WicCoverageDto(
@@ -52,16 +52,33 @@ public class WicShiftService
             q = q.Where(x => x.Emp.TeamLeadName == teamLead);
 
         var rows = await q.OrderBy(x => x.Wic.ShiftDate).ThenBy(x => x.Emp.FullName).ToListAsync();
-        return rows.Select(x => new WicShiftDto(
-            x.Wic.Id, x.Wic.EmployeeId,
-            x.Emp.FullName ?? x.Wic.EmployeeId,
-            x.Emp.TeamLeadName,
-            x.Wic.ShiftDate.ToString("yyyy-MM-dd"),
-            x.Wic.DayOfWeek, x.Wic.SupportLocation,
-            x.Wic.WicOpeningHours, x.Wic.WorkingShift,
-            x.Wic.IsOnSite, x.Wic.IsGSDDay, x.Wic.IsOffDay,
-            x.Wic.Task ?? "WIC"
-        )).ToList();
+
+        // Get ShiftEntries for same date range to get agent statuses
+        var empIds = rows.Select(r => r.Wic.EmployeeId).Distinct().ToList();
+        var shiftStatuses = await _db.ShiftEntries
+            .Where(s => s.ShiftDate >= fromDate && s.ShiftDate <= toDate && empIds.Contains(s.EmployeeId))
+            .Select(s => new { s.EmployeeId, s.ShiftDate, s.ShiftType })
+            .ToListAsync();
+
+        var statusMap = shiftStatuses.ToDictionary(
+            s => s.EmployeeId + "_" + s.ShiftDate.ToString("yyyy-MM-dd"),
+            s => s.ShiftType
+        );
+
+        return rows.Select(x => {
+            var key = x.Wic.EmployeeId + "_" + x.Wic.ShiftDate.ToString("yyyy-MM-dd");
+            var agentStatus = statusMap.TryGetValue(key, out var st) ? st : null;
+            return new WicShiftDto(
+                x.Wic.Id, x.Wic.EmployeeId,
+                x.Emp.FullName ?? x.Wic.EmployeeId,
+                x.Emp.TeamLeadName,
+                x.Wic.ShiftDate.ToString("yyyy-MM-dd"),
+                x.Wic.DayOfWeek, x.Wic.SupportLocation,
+                x.Wic.WicOpeningHours, x.Wic.WorkingShift,
+                x.Wic.IsOnSite, x.Wic.IsGSDDay, x.Wic.IsOffDay,
+                x.Wic.Task ?? "WIC", agentStatus
+            );
+        }).ToList();
     }
 
     public async Task<WicShiftDto?> PatchWicShiftAsync(int id, PatchWicShiftRequest req)
@@ -73,18 +90,19 @@ public class WicShiftService
         if (req.SupportLocation != null) entry.SupportLocation = req.SupportLocation == "" ? null : req.SupportLocation;
         if (req.IsOnSite != null) entry.IsOnSite = req.IsOnSite.Value;
 
-        // If moving to Voice or Backlog, clear location and set not on site
         if (req.Task == "Voice" || req.Task == "Backlog")
         {
             entry.SupportLocation = null;
             entry.IsOnSite = false;
         }
-
-        // If moving to WIC with location, set on site
-        if (req.Task == "WIC" && !string.IsNullOrEmpty(req.SupportLocation))
+        var specialStatuses = new[] { "SL", "AL", "Training", "OFF", "GSD" };
+        if (specialStatuses.Contains(req.Task) && req.SupportLocation != null)
         {
             entry.IsOnSite = true;
         }
+
+        if (req.Task == "WIC" && !string.IsNullOrEmpty(req.SupportLocation))
+            entry.IsOnSite = true;
 
         await _db.SaveChangesAsync();
 
@@ -97,7 +115,7 @@ public class WicShiftService
             entry.DayOfWeek, entry.SupportLocation,
             entry.WicOpeningHours, entry.WorkingShift,
             entry.IsOnSite, entry.IsGSDDay, entry.IsOffDay,
-            entry.Task ?? "WIC"
+            entry.Task ?? "WIC", null
         );
     }
 
@@ -109,16 +127,12 @@ public class WicShiftService
         var locations = await _db.WicLocations.Where(l => l.IsActive).ToListAsync();
         var entries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate == date && w.IsOnSite)
-            .Join(_db.Employees, w => w.EmployeeId, e => e.EmployeeId,
-                  (w, e) => new { w, e })
+            .Join(_db.Employees, w => w.EmployeeId, e => e.EmployeeId, (w, e) => new { w, e })
             .ToListAsync();
 
-        var byLocation = entries
-            .GroupBy(x => x.w.SupportLocation ?? "")
-            .ToDictionary(g => g.Key, g => g.ToList());
+        var byLocation = entries.GroupBy(x => x.w.SupportLocation ?? "").ToDictionary(g => g.Key, g => g.ToList());
 
-        return locations.Select(loc =>
-        {
+        return locations.Select(loc => {
             var agents = byLocation.TryGetValue(loc.DisplayName, out var list) ? list : [];
             var agentInfos = agents.Select(x => new WicAgentInfo(
                 x.e.EmployeeId, x.e.FullName ?? x.e.EmployeeId,
@@ -177,11 +191,7 @@ public class WicShiftService
             string status;
             double freeHours;
 
-            if (agentEndAdj < wicCloseAdj)
-            {
-                status = "shift_too_short";
-                freeHours = 0;
-            }
+            if (agentEndAdj < wicCloseAdj) { status = "shift_too_short"; freeHours = 0; }
             else
             {
                 freeHours = (agentEndAdj - wicCloseAdj).TotalHours;
@@ -206,7 +216,7 @@ public class WicShiftService
         var rows = await GetWicShiftsAsync(from, to, null, null, null);
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("WIC Shifts");
-        var headers = new[] { "Emp ID", "Name", "Team Lead", "Date", "Day", "Location", "Opening Hours", "Working Shift", "On Site", "GSD Day", "Task" };
+        var headers = new[] { "Emp ID", "Name", "Team Lead", "Date", "Day", "Location", "Opening Hours", "Working Shift", "On Site", "GSD Day", "Task", "Status" };
         for (var i = 0; i < headers.Length; i++)
         {
             ws.Cell(1, i + 1).Value = headers[i];
@@ -228,6 +238,7 @@ public class WicShiftService
             ws.Cell(er, 9).Value = row.IsOnSite ? "Yes" : "No";
             ws.Cell(er, 10).Value = row.IsGSDDay ? "Yes" : "No";
             ws.Cell(er, 11).Value = row.Task ?? "WIC";
+            ws.Cell(er, 12).Value = row.AgentStatus ?? "";
             if (row.IsOnSite)
                 ws.Row(er).Style.Fill.BackgroundColor = XLColor.FromHtml("#cffafe");
         }
@@ -295,3 +306,4 @@ public static class WicEndpointMapper
         });
     }
 }
+

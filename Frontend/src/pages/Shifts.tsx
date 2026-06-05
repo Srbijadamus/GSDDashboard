@@ -495,9 +495,6 @@ export default function Shifts() {
                   borderBottom:"1px solid var(--border)", minWidth:70 }}>Role</th>
                 <th style={{ padding:"8px 10px", textAlign:"left", fontSize:10, fontWeight:500,
                   textTransform:"uppercase", letterSpacing:".07em", color:"var(--text3)",
-                  borderBottom:"1px solid var(--border)", minWidth:110 }}>Team Lead</th>
-                <th style={{ padding:"8px 10px", textAlign:"left", fontSize:10, fontWeight:500,
-                  textTransform:"uppercase", letterSpacing:".07em", color:"var(--text3)",
                   borderBottom:"1px solid var(--border)", minWidth:120 }}>Task</th>
                 {dates.map(d => {
                   const we  = isWeekend(d)
@@ -549,7 +546,6 @@ export default function Shifts() {
                       <div style={{ fontFamily:"IBM Plex Mono", fontSize:9, color:"var(--text3)" }}>{emp.id}</div>
                     </td>
                     <td style={{ padding:"6px 10px", fontSize:11, fontFamily:"IBM Plex Mono", color:"var(--accent2)", whiteSpace:"nowrap" }}>{emp.role}</td>
-                    <td style={{ padding:"6px 10px", fontSize:11, color:"var(--text2)", whiteSpace:"nowrap" }}>{emp.teamLead}</td>
                     <td style={{ padding:"6px 10px" }}>
                       {todayShift ? (
                         <TaskBadge shift={todayShift} onTaskChange={updateTask} />
@@ -599,5 +595,6 @@ export default function Shifts() {
     </div>
   )
 }
+
 
 

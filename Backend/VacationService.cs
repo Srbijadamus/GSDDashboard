@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using Microsoft.EntityFrameworkCore;
+using GSDDashboard.API.Services;
 
 namespace GSDDashboard.API.Modules.Vacations;
 
@@ -15,7 +16,8 @@ public record VacationDto(
 public class VacationService
 {
     private readonly GSDContext _db;
-    public VacationService(GSDContext db) => _db = db;
+    private readonly ShiftSyncService _shiftSync;
+    public VacationService(GSDContext db, ShiftSyncService shiftSync) { _db = db; _shiftSync = shiftSync; }
 
     public async Task<List<VacationDto>> GetVacationsAsync(
         string? from, string? to, int? year, string? sheet, string? employeeId)
@@ -79,6 +81,8 @@ public class VacationService
 
         _db.Vacations.Remove(vac);
         await _db.SaveChangesAsync();
+        if (vac.EmployeeId != null)
+            await _shiftSync.RevertVacationAsync(vac.EmployeeId, vac.FirstDay, vac.LastDay, vac.Id);
         return true;
     }
 
@@ -159,4 +163,5 @@ public static class VacationEndpointMapper
         });
     }
 }
+
 

@@ -4,6 +4,7 @@ using GSDDashboard.API.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
 using SickLeaveModel = GSDDashboard.API.Data.Models.SickLeave;
+using GSDDashboard.API.Services;
 namespace GSDDashboard.API.Modules.SickLeave;
 
 public record SickLeaveDto(
@@ -53,7 +54,8 @@ public record PatchSickLeaveRequest(
 public class SickLeaveService
 {
     private readonly GSDContext _db;
-    public SickLeaveService(GSDContext db) => _db = db;
+    private readonly ShiftSyncService _shiftSync;
+    public SickLeaveService(GSDContext db, ShiftSyncService shiftSync) { _db = db; _shiftSync = shiftSync; }
 
     public async Task<List<SickLeaveDto>> GetSickLeavesAsync(
         string? from, string? to, string? teamLead, string? type, bool? activeOnly)
@@ -136,6 +138,7 @@ public class SickLeaveService
         };
         _db.SickLeaves.Add(entry);
         await _db.SaveChangesAsync();
+        await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id);
         return new SickLeaveDto(entry.Id, entry.EmployeeId, entry.FirstName, entry.LastName,
             ((entry.FirstName ?? "") + " " + (entry.LastName ?? "")).Trim(),
             entry.TeamLeadName, entry.FirstDay.ToString("yyyy-MM-dd"), entry.LastDay.ToString("yyyy-MM-dd"),
@@ -252,3 +255,4 @@ public static class SickLeaveEndpointMapper
         });
     }
 }
+
