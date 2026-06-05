@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { api, apiFetch } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
+// @ts-ignore
+import CoverageBar from "./CoverageBar"
 import { MoreVertical, Pencil, Trash2, UserMinus, ChevronUp, ChevronDown } from "lucide-react"
 
 // const READONLY_TYPES = ["OFF_WEEKEND", "PH"]
@@ -448,6 +450,7 @@ export default function Shifts() {
         <h1 style={{ fontSize:22, fontWeight:600, color:"var(--text)" }}>{t("nav.shifts")}</h1>
         <DownloadButtons onToday={api.shifts.downloadToday} on7Days={api.shifts.download7} on30Days={api.shifts.download30} />
       </div>
+      <CoverageBar date={from} />
 
       <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
         <input placeholder="Search name or ID..." value={search} onChange={e => setSearch(e.target.value)}
@@ -595,6 +598,8 @@ export default function Shifts() {
     </div>
   )
 }
+
+
 
 
 

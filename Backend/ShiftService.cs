@@ -154,6 +154,49 @@ public class ShiftService
         );
     }
 
+    public record CoverageSlot(string Hour, int Voice, int Wic, int Al, int Sick, int Training, int Off, bool BelowThreshold);
+public record CoverageResponse(string Date, List<CoverageSlot> Slots, int Threshold);
+
+    public async Task<CoverageResponse> GetCoverageAsync(DateOnly date)
+    {
+        const int threshold = 3;
+        var shifts = await _db.ShiftEntries
+            .Where(s => s.ShiftDate == date)
+            .Join(_db.Employees, s => s.EmployeeId, e => e.EmployeeId, (s, e) => new { Shift = s, Employee = e })
+            .Where(x => x.Employee.IsActive)
+            .ToListAsync();
+
+        var slots = new List<CoverageSlot>();
+        for (int h = 7; h <= 18; h++)
+        {
+            var hour = $"{h:D2}:00";
+            var timeSpan = new TimeSpan(h, 0, 0);
+            int voice = 0, wic = 0, al = 0, sick = 0, training = 0, off = 0;
+
+            foreach (var x in shifts)
+            {
+                var s = x.Shift;
+                var st = s.ShiftType;
+                if (st == ShiftTypes.AnnualLeave || st == ShiftTypes.HalfAL) { al++; continue; }
+                if (st == ShiftTypes.SickLeave) { sick++; continue; }
+                if (st == ShiftTypes.Training) { training++; continue; }
+                if (st == ShiftTypes.Off || st == ShiftTypes.OffWeekend || st == ShiftTypes.PublicHol) { off++; continue; }
+                if (st == ShiftTypes.Working || st == ShiftTypes.WicDuty)
+                {
+                    if (s.ShiftStart == null || s.ShiftEnd == null) continue;
+                    if (!TimeSpan.TryParse(s.ShiftStart, out var start) || !TimeSpan.TryParse(s.ShiftEnd, out var end)) continue;
+                    if (timeSpan >= start && timeSpan < end)
+                    {
+                        if (st == ShiftTypes.WicDuty || s.IsWicDuty) wic++;
+                        else voice++;
+                    }
+                }
+            }
+            slots.Add(new CoverageSlot(hour, voice, wic, al, sick, training, off, (voice + wic) < threshold));
+        }
+        return new CoverageResponse(date.ToString("yyyy-MM-dd"), slots, threshold);
+    }
+
     public async Task<byte[]> ExportToExcelAsync(ShiftFilterParams f)
     {
         var rows = await GetShiftsAsync(f);
@@ -216,6 +259,12 @@ public static class ShiftEndpointMapper
             return result == null ? Results.NotFound() : Results.Ok(result);
         });
 
+        grp.MapGet("/coverage", async (string? date, ShiftService svc) =>
+        {
+            var d = date != null && DateOnly.TryParse(date, out var pd) ? pd : DateOnly.FromDateTime(DateTime.Today);
+            return Results.Ok(await svc.GetCoverageAsync(d));
+        });
+
         grp.MapGet("/download", async (string? from, string? to, string? teamLead, string? role, ShiftService svc, HttpContext ctx) =>
         {
             var f = new ShiftFilterParams(from, to, teamLead, role, null, null);
@@ -226,3 +275,4 @@ public static class ShiftEndpointMapper
         });
     }
 }
+
