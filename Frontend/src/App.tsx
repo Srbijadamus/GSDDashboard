@@ -12,6 +12,13 @@ import Vacations from "./pages/Vacations"
 import WicLocations from "./pages/WicLocations"
 // @ts-ignore
 import WicShifts from "./pages/WICShifts"
+// @ts-ignore
+import Pipeline from "./pages/Pipeline"
+import Training from "./pages/Training"
+// @ts-ignore
+import WicAttendance from "./pages/WicAttendance"
+// @ts-ignore
+import WicSchedule from "./pages/WicSchedule"
 import Shifts from "./pages/Shifts"
 import ALBalance from "./pages/ALBalance"
 import Attendance from "./pages/Attendance"
@@ -42,7 +49,11 @@ export default function App() {
   const navItems = [
     { to: "/",           icon: LayoutDashboard, label: t("nav.overview") },
     { to: "/shifts",     icon: ClipboardList,   label: t("nav.shifts") },
-    { to: "/wic-shifts", icon: Building2,       label: t("nav.wicShifts") },
+    { to: "/wic-shifts",     icon: Building2,   label: t("nav.wicShifts") },
+    { to: "/wic-attendance", icon: Calendar,  label: "WIC Attendance" },
+    { to: "/wic-schedule",    icon: MapPin,    label: "WIC Schedule" },
+    { to: "/pipeline",   icon: ClipboardList,   label: "Pipeline" },
+    { to: "/training",   icon: Users,           label: "Training" },
     { to: "/wic",        icon: MapPin,          label: t("nav.wicLocations") },
     { to: "/attendance", icon: Calendar,        label: t("nav.attendance") },
     { to: "/sickleave",  icon: Heart,           label: t("nav.sickLeave") },
@@ -119,7 +130,11 @@ export default function App() {
             <Routes>
               <Route path="/"           element={<Overview />} />
               <Route path="/shifts"     element={<Shifts />} />
-              <Route path="/wic-shifts" element={<WicShifts />} />
+              <Route path="/wic-shifts"     element={<WicShifts />} />
+              <Route path="/wic-attendance" element={<WicAttendance />} />
+              <Route path="/wic-schedule"    element={<WicSchedule />} />
+              <Route path="/pipeline"   element={<Pipeline />} />
+              <Route path="/training"   element={<Training />} />
               <Route path="/wic"        element={<WicLocations />} />
               <Route path="/attendance" element={<Attendance />} />
               <Route path="/sickleave"  element={<SickLeave />} />
@@ -134,6 +149,10 @@ export default function App() {
     </BrowserRouter>
   )
 }
+
+
+
+
 
 
 

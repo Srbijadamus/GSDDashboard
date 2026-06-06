@@ -43,6 +43,10 @@ public class WicPipelineItem
     [MaxLength(20)]   public string? HandledBy { get; set; }
     [MaxLength(200)]  public string? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [MaxLength(20)] public string Status { get; set; } = "PLANNED";
+    [MaxLength(10)] public string? StartTime { get; set; }
+    [MaxLength(10)] public string? EndTime { get; set; }
+    public int AgentsRequired { get; set; } = 1;
 }
 
 [Table("LeaveQuotas")]
@@ -55,3 +59,4 @@ public class LeaveQuota
     [MaxLength(200)] public string? Notes { get; set; }
     [MaxLength(200)] public string? CreatedBy { get; set; }
 }
+

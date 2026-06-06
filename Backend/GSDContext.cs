@@ -19,6 +19,8 @@ public class GSDContext : DbContext
     public DbSet<WicOpeningHour>     WicOpeningHours     { get; set; }
     public DbSet<WicPipelineItem>    WicPipeline         { get; set; }
     public DbSet<PublicHoliday>      PublicHolidays      { get; set; }
+    public DbSet<TrainingTopic>      TrainingTopics      { get; set; }
+    public DbSet<TrainingSession>    TrainingSessions    { get; set; }
     public DbSet<LeaveQuota>         LeaveQuotas         { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -80,4 +82,5 @@ public class GSDContext : DbContext
         base.OnModelCreating(modelBuilder);
     }
 }
+
 

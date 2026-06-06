@@ -9,6 +9,9 @@ using GSDDashboard.API.Modules.WicShifts;
 using GSDDashboard.API.Modules.SickLeave;
 using GSDDashboard.API.Modules.Vacations;
 using GSDDashboard.API.Modules.PublicHolidays;
+using GSDDashboard.API.Modules.Pipeline;
+using GSDDashboard.API.Modules.WicSchedule;
+using GSDDashboard.API.Modules.Training;
 using GSDDashboard.API.Services;
 using GSDDashboard.API.Services;
 using GSDDashboard.API.Modules.Employees;
@@ -33,6 +36,9 @@ builder.Services.AddScoped<VacationService>();
 builder.Services.AddScoped<ShiftSyncService>();
 builder.Services.AddScoped<PublicHolidayService>();
 builder.Services.AddScoped<ShiftValidationService>();
+builder.Services.AddScoped<PipelineService>();
+builder.Services.AddScoped<WicScheduleService>();
+builder.Services.AddScoped<TrainingService>();
 builder.Services.AddScoped<EmployeeService>();
 builder.Services.AddScoped<ALBalanceService>();
 builder.Services.AddScoped<AttendanceService>();
@@ -73,6 +79,9 @@ app.MapAttendanceEndpoints();
 app.MapSickLeaveEndpoints();
 app.MapVacationEndpoints();
 app.MapPublicHolidayEndpoints();
+app.MapPipelineEndpoints();
+app.MapWicScheduleEndpoints();
+app.MapTrainingEndpoints();
 app.MapALBalanceEndpoints();
 app.MapEmployeeEndpoints();
 app.MapShiftReorderEndpoints();
@@ -84,6 +93,9 @@ app.MapOverviewEndpoints();
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.MapFallbackToFile("index.html");
 app.Run();
+
+
+
 
 
 

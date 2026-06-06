@@ -385,6 +385,13 @@ export default function Shifts() {
 
   const dragIdx = useRef<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
+  useEffect(() => {
+    const bot = document.getElementById("shifts-scroll-bot")
+    const topInner = document.getElementById("shifts-scroll-top-inner")
+    if (!bot || !topInner) return
+    const table = bot.querySelector("table") as HTMLElement
+    if (table) topInner.style.width = table.scrollWidth + "px"
+  })
   const [legalModal, setLegalModal] = useState<{violations:any[]; pendingUpdate:()=>void} | null>(null)
 
   const dates: string[] = []
@@ -529,7 +536,14 @@ export default function Shifts() {
       </div>
 
       <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, overflow:"hidden" }}>
-        <div style={{ overflowX:"auto" }}>
+        <div style={{ overflowX:"auto", direction:"rtl" }} onScroll={e => { const el = e.currentTarget; el.querySelectorAll("[data-scroll-sync]").forEach((s: any) => { if (s !== el) s.scrollLeft = el.scrollLeft }) }}>
+        <div style={{ direction:"ltr" }}>
+        </div>
+      </div>
+      <div id="shifts-scroll-top" style={{ overflowX:"auto", height:12, marginBottom:2 }} onScroll={e => { const b = document.getElementById("shifts-scroll-bot"); if(b) b.scrollLeft = e.currentTarget.scrollLeft }}>
+        <div id="shifts-scroll-top-inner" style={{ height:1 }} />
+      </div>
+      <div id="shifts-scroll-bot" style={{ overflowX:"auto" }} onScroll={e => { const t = document.getElementById("shifts-scroll-top"); if(t) t.scrollLeft = e.currentTarget.scrollLeft }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
             <thead>
               <tr style={{ background:"var(--card2)" }}>
@@ -650,3 +664,6 @@ export default function Shifts() {
     </div>
   )
 }
+
+
+
