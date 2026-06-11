@@ -61,6 +61,14 @@ public class WicCardsService
             .Where(h => h.DayOfWeek == dow)
             .ToListAsync();
 
+        var sickToday = await _db.SickLeaves
+            .Where(s => s.FirstDay <= date && s.LastDay >= date)
+            .Select(s => s.EmployeeId)
+            .ToListAsync();
+        var alToday = await _db.Vacations
+            .Where(v => v.FirstDay <= date && v.LastDay >= date)
+            .Select(v => v.EmployeeId)
+            .ToListAsync();
         var wicShifts = await _db.WicShiftEntries
             .Where(w => w.ShiftDate == date && w.IsOnSite)
             .Join(_db.Employees, w => w.EmployeeId, e => e.EmployeeId,
@@ -78,8 +86,48 @@ public class WicCardsService
         var cards = locations.Select(loc =>
         {
             var hours = openingHours.FirstOrDefault(h => h.LocationCode == loc.LocationCode);
-            var locShifts = wicShifts.Where(x => x.w.SupportLocation == loc.DisplayName ||
-                                                  x.w.SupportLocation == loc.City).ToList();
+            var locationAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "Essen BP1",             "DE_Essen_BP1" },
+                { "Essen TK1",             "DE_Essen_TK1" },
+                { "Halle",                 "DE_Halle" },
+                { "Berlin - Gaussstr",     "DE_Berlin_Gauss" },
+                { "Furstenwalde",          "DE_Furstenwalde" },
+                { "Munchen",               "DE_Munchen" },
+                { "Osnabruck",             "DE_Osnabruck" },
+                { "Saarbrucken",           "DE_Saarbrucken" },
+                { "Demmin - Am Hanseufer", "DE_Demmin_Hanse" },
+                { "Denbosch",              "NL_Denbosch" },
+                { "Augsburg",              "DE_Augsburg" },
+                { "Bamberg",               "DE_Bamberg" },
+                { "Brokdorf",              "DE_Brokdorf" },
+                { "Dortmund",              "DE_Dortmund" },
+                { "Emmerthal",             "DE_Emmerthal" },
+                { "Essenbach",             "DE_Essenbach" },
+                { "Grafenrheinfeld",       "DE_Grafenrheinfeld" },
+                { "Hamburg",               "DE_Hamburg" },
+                { "Hannover",              "DE_Hannover" },
+                { "Helmstedt",             "DE_Helmstedt" },
+                { "Neu-Isenburg",          "DE_NeuIsenburg" },
+                { "Pfaffenhofen",          "PFAFFENHOFEN" },
+                { "Potsdam",               "DE_Potsdam" },
+                { "Quickborn",             "DE_Quickborn" },
+                { "Regensburg",            "DE_Regensburg" },
+                { "Rendsburg",             "RENDSBURG" },
+                { "Salzgitter",            "DE_Salzgitter" },
+                { "Stade",                 "DE_Stade" },
+                { "Stadland",              "DE_Stadland" },
+                { "Zwolle",                "NL_Zwolle" },
+            };
+            var locShifts = wicShifts.Where(x =>
+            {
+                if (x.w.SupportLocation == null) return false;
+                if (x.w.SupportLocation == loc.DisplayName) return true;
+                if (x.w.SupportLocation == loc.City) return true;
+                if (locationAliases.TryGetValue(x.w.SupportLocation, out var mappedCode) && mappedCode == loc.LocationCode)
+                    return true;
+                return false;
+            }).ToList();
 
             var todaySchedule = new TodaySchedule(
                 IsClosed: hours == null || hours.IsClosed,
@@ -104,8 +152,10 @@ public class WicCardsService
             var agentList = locShifts.Select(x =>
             {
                 var shiftEntry = shiftEntries.FirstOrDefault(s => s.EmployeeId == x.e.EmployeeId);
-                var shiftStart = shiftEntry?.ShiftStart ?? x.w.WorkingShift?.Split('-').FirstOrDefault()?.Trim();
-                var shiftEnd   = shiftEntry?.ShiftEnd   ?? x.w.WorkingShift?.Split('-').LastOrDefault()?.Trim();
+                var isSick = sickToday.Contains(x.e.EmployeeId);
+                var isAL = !isSick && alToday.Contains(x.e.EmployeeId);
+                var shiftStart = isSick ? "SICK" : isAL ? "AL" : (shiftEntry?.ShiftStart ?? x.w.WorkingShift?.Split('-').FirstOrDefault()?.Trim());
+                var shiftEnd   = isSick ? "SICK" : isAL ? "AL" : (shiftEntry?.ShiftEnd   ?? x.w.WorkingShift?.Split('-').LastOrDefault()?.Trim());
                 var isMain = mainAgentNames.Contains(x.e.FullName ?? "");
 
                 var covered = todaySchedule.IsClosed ? 0 :
@@ -180,3 +230,4 @@ public static class WicCardsEndpointMapper
         }).WithTags("WIC");
     }
 }
+

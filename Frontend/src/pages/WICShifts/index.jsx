@@ -3,15 +3,14 @@ import UncoveredBanner from "./UncoveredBanner"
 import LocationCard from "./LocationCard"
 import MultiSelectFilter from "./MultiSelectFilter"
 import ReassignModal from "./ReassignModal"
-import { mockData } from "./mockData"
 import AvailableHoursPanel from './AvailableHoursPanel'
 
 const BASE = "https://n8jlr9dr-5000.euw.devtunnels.ms"
 const POLL_INTERVAL = 30000
 
 export default function WICShifts() {
-  const [locations, setLocations] = useState(mockData)
-  const [filtered, setFiltered] = useState(mockData)
+  const [locations, setLocations] = useState([])
+  const [filtered, setFiltered] = useState([])
   const [selectedLocs, setSelectedLocs] = useState([])
   const [modalAgent, setModalAgent] = useState(null)
   const [secondsAgo, setSecondsAgo] = useState(0)
@@ -20,17 +19,19 @@ export default function WICShifts() {
   const [dragAgent, setDragAgent] = useState(null)
   const intervalRef = useRef(null)
   const tickRef = useRef(null)
-
   const today = new Date().toISOString().split("T")[0]
 
   const fetchData = useCallback(async () => {
     setPolling(true)
     try {
-      const res = await fetch(`${BASE}/api/wic?from=${today}&to=${today}`)
-      if (!res.ok) throw new Error("fetch failed")
-      const shifts = await res.json()
+      const [cardsRes, shiftsRes] = await Promise.all([
+        fetch(`${BASE}/api/wic/cards?date=${today}`),
+        fetch(`${BASE}/api/wic?from=${today}&to=${today}`)
+      ])
+      if (!cardsRes.ok || !shiftsRes.ok) throw new Error("fetch failed")
+      const cards = await cardsRes.json()
+      const shifts = await shiftsRes.json()
 
-      // Build agent map per location
       const agentsByLoc = {}
       shifts.forEach(s => {
         if (!s.supportLocation) return
@@ -43,25 +44,33 @@ export default function WICShifts() {
           role: "primary",
           time: s.workingShift ?? null,
           al: s.task === 'AL',
-          agentStatus: s.agentStatus || (s.task === 'AL' ? 'AL' : null) || (s.task === 'SL' ? 'SL' : null) || (s.task === 'Training' ? 'Training' : null) || (s.task === 'OFF' ? 'OFF' : null) || (s.task === 'PH' ? 'PH' : null) || (s.isOffDay === true ? 'OFF' : null) || null,
+          agentStatus: s.task === 'AL' ? 'AL' : s.task === 'SL' ? 'SL' : s.task === 'Training' ? 'Training' : s.task === 'OFF' ? 'OFF' : s.task === 'PH' ? 'PH' : s.isOffDay ? 'OFF' : null,
           assignedTo: s.supportLocation
         })
       })
 
-      setLocations(prev => prev.map(loc => {
-        const agents = agentsByLoc[loc.name] ?? []
-        const INACTIVE = ["SL","AL","OFF","OFF_WEEKEND","PH"]
-        const activeAgents = agents.filter(a => {
-          const st = a.agentStatus || (a.al ? 'AL' : null) || (a.time === 'AL' ? 'AL' : null)
-          return !INACTIVE.includes(st)
+      const INACTIVE = ['SL','AL','OFF','OFF_WEEKEND','PH']
+      const newLocations = cards
+        .filter(c => !c.todaySchedule?.isClosed)
+        .map(c => {
+          const shiftAgents = agentsByLoc[c.displayName] ?? []
+          const cardAgents = (c.assignedAgents ?? []).map(a => ({
+            id: a.employeeId ?? a.name,
+            name: a.name,
+            role: a.isMain ? 'primary' : 'backup',
+            time: a.shiftStart === 'SICK' ? null : (a.shiftStart && a.shiftEnd ? a.shiftStart + ' - ' + a.shiftEnd : null),
+            al: false, agentStatus: a.shiftStart === 'SICK' ? 'SL' : a.shiftStart === 'AL' ? 'AL' : null, assignedTo: c.displayName
+          }))
+          const agents = shiftAgents.length > 0 ? shiftAgents : cardAgents
+          const status = c.coverageStatus?.toLowerCase() === 'covered' ? 'covered'
+            : c.coverageStatus?.toLowerCase() === 'partial' ? 'partial' : 'uncovered'
+          return {
+            id: c.locationCode, name: c.displayName, city: c.city, country: c.country,
+            required: c.todaySchedule?.rawSchedule ?? '', status, agents,
+            mainAgents: c.mainAgents ?? [], backupAgents: c.backupAgents ?? []
+          }
         })
-        const status = agents.length === 0 ? "uncovered"
-          : activeAgents.length === 0 ? "uncovered"
-          : activeAgents.length < agents.length ? "partial"
-          : "covered"
-        return { ...loc, agents, status }
-      }))
-
+      setLocations(newLocations)
       setSecondsAgo(0)
       setConnectionLost(false)
     } catch {
@@ -88,7 +97,6 @@ export default function WICShifts() {
 
   const SPECIAL_STATUSES = ["SL","AL","Training","OFF","GSD"]
 
-
   async function handleReassign(agentId, newLocation, role, isAL) {
     setLocations(prev => prev.map(loc => ({
       ...loc,
@@ -99,7 +107,7 @@ export default function WICShifts() {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           SPECIAL_STATUSES.includes(newLocation)
-            ? { task: newLocation, supportLocation: modalAgent?.currentLocation ?? agent.assignedTo }
+            ? { task: newLocation, supportLocation: modalAgent?.currentLocation }
             : { task: "WIC", supportLocation: newLocation }
         )
       })
@@ -138,7 +146,6 @@ export default function WICShifts() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0, minHeight: "100%" }}>
       <UncoveredBanner locations={locations.filter(l => l.status === "uncovered")} />
-
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0 12px", gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#e2e8f0", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
@@ -157,7 +164,6 @@ export default function WICShifts() {
           <MultiSelectFilter options={locations.map(l => l.name)} selected={selectedLocs} onChange={setSelectedLocs} />
         </div>
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
         {filtered.map(loc => (
           <LocationCard key={loc.id} location={loc}
@@ -165,12 +171,10 @@ export default function WICShifts() {
             onDrop={handleDrop} dragAgent={dragAgent} setDragAgent={setDragAgent} />
         ))}
       </div>
-
       {modalAgent && (
         <ReassignModal agent={modalAgent.agent} currentLocation={modalAgent.currentLocation}
           locations={locations} onSave={handleReassign} onClose={() => setModalAgent(null)} />
       )}
-
       <AvailableHoursPanel />
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }`}</style>
     </div>
@@ -182,19 +186,3 @@ function Pill({ color, label }) {
     <span style={{ fontSize: 11, color, background: color + "1a", border: `1px solid ${color}44`, padding: "3px 10px", borderRadius: 20, fontFamily: "IBM Plex Mono" }}>{label}</span>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

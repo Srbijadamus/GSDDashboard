@@ -1,0 +1,1453 @@
+[
+  {
+    "locationCode": "DE_Arnsberg",
+    "displayName": "Arnsberg",
+    "city": "Arnsberg",
+    "country": "DE",
+    "address": "Hellefelder Str. 8",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "10:00",
+      "closeTime": "14:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 240,
+      "rawSchedule": "10:00-14:00"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Angelika Weber"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "UNCOVERED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Augsburg",
+    "displayName": "Augsburg",
+    "city": "Augsburg",
+    "country": "DE",
+    "address": "Schaezlerstr. 3",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "07:30",
+      "closeTime": "12:00",
+      "openTime2": "12:30",
+      "closeTime2": "16:00",
+      "totalOpenMinutes": 480,
+      "rawSchedule": "07:30-12:00/12:30-16:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9112561",
+        "name": "Kamil Filipowicz",
+        "teamLead": "Tobias Rossberg",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 480,
+        "totalOpenMinutes": 480,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Kamil Filipowicz"
+    ],
+    "backupAgents": [
+      "Mohamad Nasir Amany"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Bamberg",
+    "displayName": "Bamberg",
+    "city": "Bamberg",
+    "country": "DE",
+    "address": "Doktor-Robert-Pfleger-Str. 20",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:00",
+      "closeTime": "16:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 480,
+      "rawSchedule": "08:00-16:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9128153",
+        "name": "Francois Sicot",
+        "teamLead": "Tobias Rossberg",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": false,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 480,
+        "totalOpenMinutes": 480,
+        "mismatchNote": null
+      },
+      {
+        "employeeId": "9128157",
+        "name": "Mariusz Kozinski",
+        "teamLead": "Tobias Rossberg",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 480,
+        "totalOpenMinutes": 480,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Mariusz Kozinski"
+    ],
+    "backupAgents": [
+      "Francois Sicot"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Berlin_Gauss",
+    "displayName": "Berlin (Gaußstr.)",
+    "city": "Berlin",
+    "country": "DE",
+    "address": "Gaußstr. 11",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9074431",
+        "name": "Erik Goecks",
+        "teamLead": "Delia Panaitescu",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": true,
+        "coverageMatch": "NONE",
+        "coveredMinutes": 0,
+        "totalOpenMinutes": 0,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Erik Goecks"
+    ],
+    "backupAgents": [
+      "Krishnendu Das"
+    ],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Berlin_Kopenick",
+    "displayName": "Berlin (Köpenicker)",
+    "city": "Berlin",
+    "country": "DE",
+    "address": "Köpenicker Str. 32",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 480,
+      "rawSchedule": "09:00-17:00"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Erik Goecks"
+    ],
+    "backupAgents": [
+      "Krishnendu Das"
+    ],
+    "coverageStatus": "UNCOVERED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Brokdorf",
+    "displayName": "Brokdorf",
+    "city": "Brokdorf",
+    "country": "DE",
+    "address": "Osterende",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "07:30",
+      "closeTime": "15:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 450,
+      "rawSchedule": "07:30-15:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9126874",
+        "name": "Jannik Borner",
+        "teamLead": "Ion Ciuceanu",
+        "shiftStart": "07:00",
+        "shiftEnd": "16:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 450,
+        "totalOpenMinutes": 450,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Jannik Borner"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Demmin_Hanse",
+    "displayName": "Demmin (Am Hanseufer)",
+    "city": "Demmin",
+    "country": "DE",
+    "address": "Am Hanseufer 2",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "10:00",
+      "closeTime": "12:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 120,
+      "rawSchedule": "10:00-12:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9133995",
+        "name": "Viktor Winter",
+        "teamLead": "Delia Panaitescu",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": false,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 120,
+        "totalOpenMinutes": 120,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Rene Altmeyer"
+    ],
+    "backupAgents": [
+      "Maik Kopperschmidt"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Demmin_Wold",
+    "displayName": "Demmin (Woldeforster)",
+    "city": "Demmin",
+    "country": "DE",
+    "address": "Woldeforster Str. 6",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "13:00",
+      "closeTime": "15:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 120,
+      "rawSchedule": "13:00-15:00"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Rene Altmeyer"
+    ],
+    "backupAgents": [
+      "Maik Kopperschmidt"
+    ],
+    "coverageStatus": "UNCOVERED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Dortmund",
+    "displayName": "Dortmund",
+    "city": "Dortmund",
+    "country": "DE",
+    "address": "Florianstraße 15-21",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:00",
+      "closeTime": "16:30",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 510,
+      "rawSchedule": "08:00-16:30"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9124688",
+        "name": "Christian Martino",
+        "teamLead": "Oliver Schleusen",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 510,
+        "totalOpenMinutes": 510,
+        "mismatchNote": null
+      },
+      {
+        "employeeId": "9074573",
+        "name": "Sebastian Höck",
+        "teamLead": "Tobias Rossberg",
+        "shiftStart": "SICK",
+        "shiftEnd": "SICK",
+        "isMain": false,
+        "coverageMatch": "NONE",
+        "coveredMinutes": 0,
+        "totalOpenMinutes": 510,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Christian Martino"
+    ],
+    "backupAgents": [
+      "Holger Kuhlmann",
+      "Angelika Weber"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Emmerthal",
+    "displayName": "Emmerthal",
+    "city": "Emmerthal",
+    "country": "DE",
+    "address": "Kraftwerksgelände",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:30",
+      "closeTime": "15:30",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 420,
+      "rawSchedule": "08:30-15:30"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9125517",
+        "name": "Holger Petzholdt",
+        "teamLead": "Ion Ciuceanu",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 420,
+        "totalOpenMinutes": 420,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Holger Petzholdt"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Essen_BP1",
+    "displayName": "Essen (Brüsseler Pl.)",
+    "city": "Essen",
+    "country": "DE",
+    "address": "Brüsseler Platz 1",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "09:00",
+      "closeTime": "16:30",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 450,
+      "rawSchedule": "09:00-16:30"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9122676",
+        "name": "Erdal Coskun",
+        "teamLead": "Oliver Schleusen",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 450,
+        "totalOpenMinutes": 450,
+        "mismatchNote": null
+      },
+      {
+        "employeeId": "9122674",
+        "name": "Holger Kuhlmann",
+        "teamLead": "Oliver Schleusen",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 450,
+        "totalOpenMinutes": 450,
+        "mismatchNote": null
+      },
+      {
+        "employeeId": "9128149",
+        "name": "Kavinraj Pathmanathan",
+        "teamLead": "Ion Ciuceanu",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": false,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 450,
+        "totalOpenMinutes": 450,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Holger Kuhlmann",
+      "Mark Bachmann",
+      "Erdal Coskun"
+    ],
+    "backupAgents": [
+      "Kavinraj Pathmanathan",
+      "Angelika Weber",
+      "Kevin Heynen"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Essen_TK1",
+    "displayName": "Essen (ThyssenKrupp)",
+    "city": "Essen",
+    "country": "DE",
+    "address": "ThyssenKrupp Allee 1",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:00",
+      "closeTime": "16:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 480,
+      "rawSchedule": "08:00-16:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9120971",
+        "name": "Kaan Arslan",
+        "teamLead": "Oliver Schleusen",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 480,
+        "totalOpenMinutes": 480,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Kaan Arslan"
+    ],
+    "backupAgents": [
+      "Kavinraj Pathmanathan",
+      "Angelika Weber",
+      "Kevin Heynen"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Essenbach",
+    "displayName": "Essenbach",
+    "city": "Essenbach",
+    "country": "DE",
+    "address": "Dammstraße",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:00",
+      "closeTime": "15:30",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 450,
+      "rawSchedule": "08:00-15:30"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9126881",
+        "name": "Adam Szilvagyi",
+        "teamLead": "Ion Ciuceanu",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 450,
+        "totalOpenMinutes": 450,
+        "mismatchNote": null
+      },
+      {
+        "employeeId": "9129427",
+        "name": "John Daniel Wendland",
+        "teamLead": "Ion Ciuceanu",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 450,
+        "totalOpenMinutes": 450,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "John Daniel Wendland",
+      "Adam Szilvagyi"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Furstenwalde",
+    "displayName": "Fürstenwalde",
+    "city": "Fürstenwalde",
+    "country": "DE",
+    "address": "Langewahler Str. 60",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:00",
+      "closeTime": "12:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 240,
+      "rawSchedule": "08:00-12:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9107616",
+        "name": "Klaus Friedrich",
+        "teamLead": "Delia Panaitescu",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 240,
+        "totalOpenMinutes": 240,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Klaus Friedrich"
+    ],
+    "backupAgents": [
+      "Hamyaz Pathan"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Grafenrheinfeld",
+    "displayName": "Grafenrheinfeld",
+    "city": "Grafenrheinfeld",
+    "country": "DE",
+    "address": "Kraftwerkstraße",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "07:30",
+      "closeTime": "15:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 450,
+      "rawSchedule": "07:30-15:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9125521",
+        "name": "Tim Boger",
+        "teamLead": "Ion Ciuceanu",
+        "shiftStart": "07:00",
+        "shiftEnd": "16:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 450,
+        "totalOpenMinutes": 450,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Tim Boger"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Halle",
+    "displayName": "Halle (Saale)",
+    "city": "Halle (Saale)",
+    "country": "DE",
+    "address": "Magdeburger Str. 51",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:00",
+      "closeTime": "16:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 480,
+      "rawSchedule": "08:00-16:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9126883",
+        "name": "Ion Bodnariuc",
+        "teamLead": "Ion Ciuceanu",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 480,
+        "totalOpenMinutes": 480,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Ion Bodnariuc"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Hamburg",
+    "displayName": "Hamburg",
+    "city": "Hamburg",
+    "country": "DE",
+    "address": "Normannenweg 9",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 480,
+      "rawSchedule": "09:00-17:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9117834",
+        "name": "Bishal Maharjan",
+        "teamLead": "Delia Panaitescu",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 480,
+        "totalOpenMinutes": 480,
+        "mismatchNote": null
+      },
+      {
+        "employeeId": "9133998",
+        "name": "Önder Arslan",
+        "teamLead": "Delia Panaitescu",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": false,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 480,
+        "totalOpenMinutes": 480,
+        "mismatchNote": null
+      },
+      {
+        "employeeId": "9135516",
+        "name": "Mehmet Tigli",
+        "teamLead": "Tobias Rossberg",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": false,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 480,
+        "totalOpenMinutes": 480,
+        "mismatchNote": null
+      },
+      {
+        "employeeId": "9135517",
+        "name": "Mohammad Al Masalama",
+        "teamLead": "Oliver Schleusen",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": false,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 480,
+        "totalOpenMinutes": 480,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Bishal Maharjan"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Hannover",
+    "displayName": "Hannover",
+    "city": "Hannover",
+    "country": "DE",
+    "address": "Ricklinger Stadtweg 123-127",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "09:00",
+      "closeTime": "12:00",
+      "openTime2": "13:00",
+      "closeTime2": "15:00",
+      "totalOpenMinutes": 300,
+      "rawSchedule": "09:00-12:00/13:00-15:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9124144",
+        "name": "Olaf Wittenberg",
+        "teamLead": "Karlo Coric",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 300,
+        "totalOpenMinutes": 300,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Olaf Wittenberg"
+    ],
+    "backupAgents": [
+      "Lukas Schiefele"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Helmstedt",
+    "displayName": "Helmstedt",
+    "city": "Helmstedt",
+    "country": "DE",
+    "address": "Schillerstr. 3",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 480,
+      "rawSchedule": "09:00-17:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9124697",
+        "name": "Merlin Voss",
+        "teamLead": "Karlo Coric",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 480,
+        "totalOpenMinutes": 480,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Merlin Voss"
+    ],
+    "backupAgents": [
+      "Senthuran Shanmugalingam"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Landshut",
+    "displayName": "Landshut",
+    "city": "Landshut",
+    "country": "DE",
+    "address": "Kiem-Pauli Str. 2",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Khaled Alali"
+    ],
+    "backupAgents": [
+      "Eyup Akyurek"
+    ],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Markkleeberg",
+    "displayName": "Markkleeberg",
+    "city": "Markkleeberg",
+    "country": "DE",
+    "address": "Friedrich-Ebert-Str. 26",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Ion Bodnariuc"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Mulheim",
+    "displayName": "Mülheim",
+    "city": "Mülheim",
+    "country": "DE",
+    "address": "Moritzstr. 16-22",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Aman Kedo"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Munchen",
+    "displayName": "München",
+    "city": "München",
+    "country": "DE",
+    "address": "Arnulfstr. 203",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "09:30",
+      "closeTime": "12:00",
+      "openTime2": "14:00",
+      "closeTime2": "16:00",
+      "totalOpenMinutes": 270,
+      "rawSchedule": "09:30-12:00/14:00-16:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9128148",
+        "name": "Eyup Akyurek",
+        "teamLead": "Ion Ciuceanu",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 270,
+        "totalOpenMinutes": 270,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Eyup Akyurek"
+    ],
+    "backupAgents": [
+      "Khaled Alali",
+      "Anisha Nellikka Panikkan"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Munster",
+    "displayName": "Münster",
+    "city": "Münster",
+    "country": "DE",
+    "address": "Weseler Str. 480",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:00",
+      "closeTime": "12:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 240,
+      "rawSchedule": "08:00-12:00"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Mahboubeh Abdighara"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "UNCOVERED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_NeuIsenburg",
+    "displayName": "Neu-Isenburg",
+    "city": "Neu-Isenburg",
+    "country": "DE",
+    "address": "Flughafenstr. 20",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:00",
+      "closeTime": "16:30",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 510,
+      "rawSchedule": "08:00-16:30"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9126880",
+        "name": "Elaheh Ramzi",
+        "teamLead": "Oliver Schleusen",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": false,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 510,
+        "totalOpenMinutes": 510,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Mohamed Khaled Mahmoud"
+    ],
+    "backupAgents": [
+      "Elaheh Ramzi"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Neuss",
+    "displayName": "Neuss",
+    "city": "Neuss",
+    "country": "DE",
+    "address": "Collingstr. 2",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Yun Hee Oh"
+    ],
+    "backupAgents": [
+      "Burak Kurtulmaz"
+    ],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Osnabruck",
+    "displayName": "Osnabrück",
+    "city": "Osnabrück",
+    "country": "DE",
+    "address": "Goethering 23-29",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Mahboubeh Abdighara"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "PFAFFENHOFEN",
+    "displayName": "Pfaffenhofen",
+    "city": "Pfaffenhofen",
+    "country": "DE",
+    "address": null,
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": null
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9129428",
+        "name": "Binod Dutta",
+        "teamLead": "Tobias Rossberg",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": false,
+        "coverageMatch": "NONE",
+        "coveredMinutes": 0,
+        "totalOpenMinutes": 0,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [],
+    "backupAgents": [],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Potsdam",
+    "displayName": "Potsdam",
+    "city": "Potsdam",
+    "country": "DE",
+    "address": "Am Kanal 2-3",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:00",
+      "closeTime": "12:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 240,
+      "rawSchedule": "08:00-12:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9107615",
+        "name": "Dennis Markus",
+        "teamLead": "Delia Panaitescu",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 240,
+        "totalOpenMinutes": 240,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Dennis Markus"
+    ],
+    "backupAgents": [
+      "Hamyaz Pathan"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Quickborn",
+    "displayName": "Quickborn",
+    "city": "Quickborn",
+    "country": "DE",
+    "address": "Schleswag-HeinGas-Platz 1",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:00",
+      "closeTime": "16:30",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 510,
+      "rawSchedule": "08:00-16:30"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Amir Nassri"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "UNCOVERED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Recklinghausen",
+    "displayName": "Recklinghausen",
+    "city": "Recklinghausen",
+    "country": "DE",
+    "address": "Bochumer Str. 2",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Mahboubeh Abdighara"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "RENDSBURG",
+    "displayName": "Rendsburg",
+    "city": "Rendsburg",
+    "country": "DE",
+    "address": null,
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": null
+    },
+    "assignedAgents": [],
+    "mainAgents": [],
+    "backupAgents": [],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Saarbrucken",
+    "displayName": "Saarbrücken",
+    "city": "Saarbrücken",
+    "country": "DE",
+    "address": "Heinrich-Böcking-Str. 10-14",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "09:00",
+      "closeTime": "16:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 420,
+      "rawSchedule": "09:00-16:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9112563",
+        "name": "Hesham Montasser",
+        "teamLead": "Oliver Schleusen",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 420,
+        "totalOpenMinutes": 420,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Hesham Montasser"
+    ],
+    "backupAgents": [
+      "Suhrab Sadieqy"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Saffig",
+    "displayName": "Saffig",
+    "city": "Saffig",
+    "country": "DE",
+    "address": "Rauschermühle",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:30",
+      "closeTime": "16:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 450,
+      "rawSchedule": "08:30-16:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9126886",
+        "name": "Negin Bazmi",
+        "teamLead": "Tobias Rossberg",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": false,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 450,
+        "totalOpenMinutes": 450,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Burak Kurtulmaz"
+    ],
+    "backupAgents": [
+      "Negin Bazmi"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Salzgitter",
+    "displayName": "Salzgitter",
+    "city": "Salzgitter",
+    "country": "DE",
+    "address": "Joachim-Campe-Straße 14",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 480,
+      "rawSchedule": "09:00-17:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9129441",
+        "name": "Ahmad Dabbas",
+        "teamLead": "Karlo Coric",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 480,
+        "totalOpenMinutes": 480,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Ahmad Dabbas",
+      "Aakash Som"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Siegen",
+    "displayName": "Siegen",
+    "city": "Siegen",
+    "country": "DE",
+    "address": "Friedrichstr. 60",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Negin Bazmi"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Stade",
+    "displayName": "Stade",
+    "city": "Stade",
+    "country": "DE",
+    "address": "Bassenflether Chaussee",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Abdulrahman Aldera",
+      "Joel Broring"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Stadland",
+    "displayName": "Stadland",
+    "city": "Stadland",
+    "country": "DE",
+    "address": "Dedesdorfer Straße 2",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "09:15",
+      "closeTime": "15:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 345,
+      "rawSchedule": "09:15-15:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9125516",
+        "name": "Joel Broring",
+        "teamLead": "Ion Ciuceanu",
+        "shiftStart": "07:30",
+        "shiftEnd": "16:30",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 345,
+        "totalOpenMinutes": 345,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Abdulrahman Aldera",
+      "Joel Broring"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "DE_Trier",
+    "displayName": "Trier",
+    "city": "Trier",
+    "country": "DE",
+    "address": "Eurener Str. 33",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Suhrab Sadieqy"
+    ],
+    "backupAgents": [],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "DE_Wesel",
+    "displayName": "Wesel",
+    "city": "Wesel",
+    "country": "DE",
+    "address": "Reeser Landstr. 41",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Angelika Weber"
+    ],
+    "backupAgents": [
+      "Kavinraj Pathmanathan"
+    ],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  },
+  {
+    "locationCode": "NL_Denbosch",
+    "displayName": "s-Hertogenbosch",
+    "city": "s-Hertogenbosch",
+    "country": "NL",
+    "address": "Willemsplein 4",
+    "todaySchedule": {
+      "isClosed": false,
+      "openTime": "08:00",
+      "closeTime": "17:00",
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 540,
+      "rawSchedule": "08:00-17:00"
+    },
+    "assignedAgents": [
+      {
+        "employeeId": "9047339",
+        "name": "Ayten Karatas",
+        "teamLead": "Jaroslaw Brzeszkiewicz",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": true,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 540,
+        "totalOpenMinutes": 540,
+        "mismatchNote": null
+      },
+      {
+        "employeeId": "9074512",
+        "name": "Ivan Leurs",
+        "teamLead": "Jaroslaw Brzeszkiewicz",
+        "shiftStart": "08:00",
+        "shiftEnd": "17:00",
+        "isMain": false,
+        "coverageMatch": "FULL",
+        "coveredMinutes": 540,
+        "totalOpenMinutes": 540,
+        "mismatchNote": null
+      }
+    ],
+    "mainAgents": [
+      "Ayten Karatas"
+    ],
+    "backupAgents": [
+      "Yolanda Coppers"
+    ],
+    "coverageStatus": "COVERED",
+    "coveragePercent": 100
+  },
+  {
+    "locationCode": "NL_Zwolle",
+    "displayName": "Zwolle",
+    "city": "Zwolle",
+    "country": "NL",
+    "address": "Grote Voort 247",
+    "todaySchedule": {
+      "isClosed": true,
+      "openTime": null,
+      "closeTime": null,
+      "openTime2": null,
+      "closeTime2": null,
+      "totalOpenMinutes": 0,
+      "rawSchedule": "Closed"
+    },
+    "assignedAgents": [],
+    "mainAgents": [
+      "Ivan Leurs"
+    ],
+    "backupAgents": [
+      "Yolanda Coppers"
+    ],
+    "coverageStatus": "CLOSED",
+    "coveragePercent": 0
+  }
+]

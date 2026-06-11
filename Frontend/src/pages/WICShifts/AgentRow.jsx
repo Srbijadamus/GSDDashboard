@@ -1,7 +1,7 @@
 export default function AgentRow({ agent, onDragStart, onDragEnd, onClick }) {
   const s = agent.agentStatus || (agent.al === true ? "AL" : null)
   const badges = {
-    AL:          { bg: "rgba(249,115,22,0.15)",  border: "#f97316", color: "#f97316", label: "AL" },
+    AL:          { bg: "rgba(34,197,94,0.15)",   border: "#22c55e", color: "#22c55e", label: "AL" },
     SL:          { bg: "rgba(239,68,68,0.15)",   border: "#ef4444", color: "#ef4444", label: "SL" },
     OFF:         { bg: "rgba(136,146,164,0.15)", border: "#8892a4", color: "#8892a4", label: "OFF" },
     OFF_WEEKEND: { bg: "rgba(136,146,164,0.15)", border: "#8892a4", color: "#8892a4", label: "OFF" },

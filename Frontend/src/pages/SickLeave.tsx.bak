@@ -1,69 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useState, useRef, useEffect } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { api } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
 
 const BASE = "https://n8jlr9dr-5000.euw.devtunnels.ms"
-
-function resolveName(s: any): string {
-  if (s.fullName && s.fullName.trim()) return s.fullName.trim()
-  const composed = ((s.firstName ?? "") + " " + (s.lastName ?? "")).trim()
-  if (composed) return composed
-  return "ID " + s.employeeId
-}
-
-function CommentCell({ id, initial, onSaved }: { id: number; initial: string | null; onSaved: (val: string) => void }) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(initial ?? "")
-  const [saving, setSaving] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
-
-  const save = async () => {
-    if (saving) return
-    setSaving(true)
-    try {
-      await fetch(BASE + "/api/sickleave/" + id, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: value }),
-      })
-      onSaved(value)
-    } catch { }
-    finally { setSaving(false); setEditing(false) }
-  }
-
-  const cancel = () => { setValue(initial ?? ""); setEditing(false) }
-
-  if (editing) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <input ref={inputRef} value={value} onChange={e => setValue(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel() }}
-          style={{ background: "var(--card2)", border: "1px solid var(--accent)", color: "var(--text)", padding: "3px 7px", borderRadius: 4, fontSize: 11, outline: "none", width: 180 }} />
-        <button onClick={save} disabled={saving}
-          style={{ background: "var(--accent)", border: "none", color: "#fff", borderRadius: 4, padding: "3px 7px", fontSize: 10, cursor: "pointer", opacity: saving ? .6 : 1 }}>
-          {saving ? "…" : "✓"}
-        </button>
-        <button onClick={cancel}
-          style={{ background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text2)", borderRadius: 4, padding: "3px 7px", fontSize: 10, cursor: "pointer" }}>
-          ✕
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div onClick={() => setEditing(true)} title="Klicken zum Bearbeiten"
-      style={{ cursor: "pointer", color: value ? "var(--text2)" : "var(--text3)", fontSize: 11, padding: "2px 6px", borderRadius: 4, minWidth: 80, border: "1px solid transparent", transition: "border-color .15s, background .15s" }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLElement).style.background = "var(--card2)" }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "transparent"; (e.currentTarget as HTMLElement).style.background = "transparent" }}>
-      {value || <span style={{ fontStyle: "italic", fontSize: 10 }}>— bearbeiten</span>}
-    </div>
-  )
-}
 
 function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [employeeId, setEmployeeId] = useState("")
@@ -88,7 +29,8 @@ function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved:
     setSaving(true)
     try {
       await api.sickLeave.create({ employeeId, startDate, endDate, type, notes })
-      onSaved(); onClose()
+      onSaved()
+      onClose()
     } catch { setError("Fehler beim Speichern") }
     finally { setSaving(false) }
   }
@@ -98,7 +40,7 @@ function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved:
       <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, width: 480, overflow: "hidden" }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
           <span style={{ fontWeight: 600, fontSize: 15 }}>Krankmeldung erfassen</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer" }}>✕</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer" }}>X</button>
         </div>
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
@@ -153,7 +95,7 @@ function DrillDownModal({ title, entries, onClose }: { title: string; entries: a
       <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, width: 780, maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
           <span style={{ fontWeight: 600, fontSize: 15 }}>{title}</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer" }}>✕</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer" }}>X</button>
         </div>
         <div style={{ overflowY: "auto", padding: 16 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
@@ -170,13 +112,15 @@ function DrillDownModal({ title, entries, onClose }: { title: string; entries: a
                 const since = new Date(s.firstDay)
                 const todayD = new Date(today)
                 const daysSoFar = Math.max(0, Math.floor((todayD.getTime() - since.getTime()) / 86400000) + 1)
-                const lastDay = new Date(s.lastDay); lastDay.setDate(lastDay.getDate() + 1)
+                const lastDay = new Date(s.lastDay)
+                lastDay.setDate(lastDay.getDate() + 1)
                 const expectedReturn = lastDay.toISOString().split("T")[0]
-                const isCritical = daysSoFar >= 10; const isWarn = daysSoFar >= 5
+                const isCritical = daysSoFar >= 10
+                const isWarn = daysSoFar >= 5
                 return (
                   <tr key={i} style={{ borderBottom: "1px solid rgba(30,45,69,.5)" }}>
                     <td style={{ padding: "8px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>{s.employeeId}</td>
-                    <td style={{ padding: "8px 12px", fontWeight: 500 }}>{resolveName(s)}</td>
+                    <td style={{ padding: "8px 12px", fontWeight: 500 }}>{s.fullName ?? (s.firstName ?? "") + " " + (s.lastName ?? "")}</td>
                     <td style={{ padding: "8px 12px", color: "var(--text2)", fontSize: 11 }}>{s.teamLeadName}</td>
                     <td style={{ padding: "8px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{s.firstDay}</td>
                     <td style={{ padding: "8px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{expectedReturn}</td>
@@ -198,7 +142,11 @@ function DrillDownModal({ title, entries, onClose }: { title: string; entries: a
 
 function DayGrid({ days }: { days: number }) {
   const today = new Date()
-  const dates = Array.from({ length: days }, (_, i) => { const d = new Date(today); d.setDate(today.getDate() + i); return d })
+  const dates = Array.from({ length: days }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() + i)
+    return d
+  })
   const from = dates[0].toISOString().split("T")[0]
   const to = dates[dates.length - 1].toISOString().split("T")[0]
   const { data, isLoading } = useQuery({
@@ -213,14 +161,22 @@ function DayGrid({ days }: { days: number }) {
     const id = String(e.employeeId)
     if (!sickDates[id]) sickDates[id] = new Set()
     agentInfo[id] = e
-    const start = new Date(e.firstDay); const end = new Date(e.lastDay)
+    const start = new Date(e.firstDay)
+    const end = new Date(e.lastDay)
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       sickDates[id].add(d.toISOString().split("T")[0])
     }
   })
   const agentIds = Object.keys(sickDates)
-  const dayCount = dates.map(d => { const ds = d.toISOString().split("T")[0]; return agentIds.filter(id => sickDates[id].has(ds)).length })
-  const dayHeaderColor = (count: number) => count >= 6 ? "var(--danger)" : count >= 3 ? "#facc15" : "#4ade80"
+  const dayCount = dates.map(d => {
+    const ds = d.toISOString().split("T")[0]
+    return agentIds.filter(id => sickDates[id].has(ds)).length
+  })
+  const dayHeaderColor = (count: number) => {
+    if (count >= 6) return "var(--danger)"
+    if (count >= 3) return "#facc15"
+    return "#4ade80"
+  }
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
   return (
     <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
@@ -245,14 +201,16 @@ function DayGrid({ days }: { days: number }) {
             {agentIds.length === 0 && <tr><td colSpan={dates.length + 1} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>No sick leave in this period</td></tr>}
             {agentIds.map(id => {
               const info = agentInfo[id]
+              const name = info.fullName || ((info.firstName ?? "") + " " + (info.lastName ?? "")).trim() || ("ID " + id)
               return (
                 <tr key={id} style={{ borderBottom: "1px solid rgba(30,45,69,.5)" }}>
                   <td style={{ padding: "8px 14px", position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>
-                    <div style={{ fontWeight: 500, fontSize: 12 }}>{resolveName(info)}</div>
+                    <div style={{ fontWeight: 500, fontSize: 12 }}>{name}</div>
                     <div style={{ fontSize: 10, color: "var(--text3)" }}>{info.teamLeadName}</div>
                   </td>
                   {dates.map(d => {
-                    const ds = d.toISOString().split("T")[0]; const sick = sickDates[id].has(ds)
+                    const ds = d.toISOString().split("T")[0]
+                    const sick = sickDates[id].has(ds)
                     return (
                       <td key={ds} style={{ padding: "8px 4px", textAlign: "center" }}>
                         {sick && <div style={{ background: "rgba(255,59,92,.2)", border: "1px solid rgba(255,59,92,.4)", borderRadius: 4, padding: "3px 0", color: "var(--danger)", fontSize: 10, fontWeight: 600 }}>sick</div>}
@@ -272,148 +230,6 @@ function DayGrid({ days }: { days: number }) {
   )
 }
 
-// ─── Grouped table ───────────────────────────────────────────────────────────
-function GroupedSickTable({ data, commentCache, setCommentCache }: {
-  data: any[]; commentCache: Record<number, string>; setCommentCache: (fn: (prev: Record<number, string>) => Record<number, string>) => void
-}) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-
-  const toggle = (id: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }
-
-  // Group by employeeId, preserve order of first appearance
-  const groups: Record<string, any[]> = {}
-  const order: string[] = []
-  data.forEach((s: any) => {
-    const id = String(s.employeeId)
-    if (!groups[id]) { groups[id] = []; order.push(id) }
-    groups[id].push(s)
-  })
-
-  const durationColor = (days: number | null) => {
-    if (!days) return "var(--text3)"
-    if (days > 30) return "var(--danger)"
-    if (days >= 14) return "var(--warn)"
-    if (days >= 7) return "#facc15"
-    return "var(--text2)"
-  }
-
-  const durationBg = (days: number | null) => {
-    if (!days) return "transparent"
-    if (days > 30) return "rgba(255,59,92,.08)"
-    if (days >= 14) return "rgba(255,124,59,.08)"
-    if (days >= 7) return "rgba(250,204,21,.08)"
-    return "transparent"
-  }
-
-  const totalDays = (periods: any[]) => periods.reduce((sum, p) => sum + (p.durationDays ?? 0), 0)
-
-  return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "var(--card2)" }}>
-              {["ID", "Name", "Team Lead", "Perioden", "First Day", "Last Day", "Duration", "Type", "Comments"].map(h => (
-                <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {order.map(empId => {
-              const periods = groups[empId]
-              const first = periods[0]
-              const isExp = expanded.has(empId)
-              const total = totalDays(periods)
-              const multiPeriod = periods.length > 1
-              // Sort periods by date
-              const sorted = [...periods].sort((a, b) => a.firstDay.localeCompare(b.firstDay))
-              const earliest = sorted[0].firstDay
-              const latest = sorted[sorted.length - 1].lastDay
-
-              return (
-                <>
-                  {/* Agent summary row */}
-                  <tr key={empId}
-                    onClick={() => multiPeriod && toggle(empId)}
-                    style={{
-                      borderBottom: isExp ? "none" : "1px solid rgba(30,45,69,.5)",
-                      background: durationBg(total),
-                      cursor: multiPeriod ? "pointer" : "default",
-                    }}
-                    onMouseEnter={ev => (ev.currentTarget.style.filter = "brightness(1.12)")}
-                    onMouseLeave={ev => (ev.currentTarget.style.filter = "brightness(1)")}>
-                    <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>{first.employeeId}</td>
-                    <td style={{ padding: "10px 12px", fontWeight: 600, whiteSpace: "nowrap" }}>
-                      {multiPeriod && (
-                        <span style={{ marginRight: 6, fontSize: 10, color: "var(--text3)", display: "inline-block", transform: isExp ? "rotate(90deg)" : "rotate(0deg)", transition: "transform .15s" }}>▶</span>
-                      )}
-                      {resolveName(first)}
-                    </td>
-                    <td style={{ padding: "10px 12px", color: "var(--text2)", fontSize: 11, whiteSpace: "nowrap" }}>{first.teamLeadName}</td>
-                    <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                      {multiPeriod ? (
-                        <span style={{ background: "rgba(99,102,241,.2)", color: "#818cf8", padding: "2px 8px", borderRadius: 12, fontSize: 10, fontFamily: "IBM Plex Mono" }}>
-                          {periods.length}×
-                        </span>
-                      ) : <span style={{ color: "var(--text3)", fontSize: 10 }}>1×</span>}
-                    </td>
-                    <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{earliest}</td>
-                    <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{latest}</td>
-                    <td style={{ padding: "10px 12px" }}>
-                      <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, fontWeight: 600, color: durationColor(total) }}>{total}d</span>
-                      {multiPeriod && <span style={{ fontSize: 10, color: "var(--text3)", marginLeft: 4 }}>total</span>}
-                    </td>
-                    <td style={{ padding: "10px 12px" }}>
-                      <span style={{ background: first.leaveType === "Self" ? "rgba(255,124,59,.15)" : "rgba(250,204,21,.15)", color: first.leaveType === "Self" ? "var(--warn)" : "#facc15", padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono" }}>{first.leaveType}</span>
-                    </td>
-                    <td style={{ padding: "6px 8px", minWidth: 160 }}>
-                      {!multiPeriod && (
-                        <CommentCell id={first.id} initial={commentCache[first.id] !== undefined ? commentCache[first.id] : first.comments}
-                          onSaved={val => setCommentCache(prev => ({ ...prev, [first.id]: val }))} />
-                      )}
-                    </td>
-                  </tr>
-
-                  {/* Expanded sub-rows per period */}
-                  {multiPeriod && isExp && sorted.map((p: any, i: number) => (
-                    <tr key={p.id} style={{ borderBottom: i === sorted.length - 1 ? "1px solid rgba(30,45,69,.5)" : "1px solid rgba(30,45,69,.2)", background: "rgba(99,102,241,.04)" }}>
-                      <td style={{ padding: "7px 12px 7px 24px", fontFamily: "IBM Plex Mono", fontSize: 10, color: "var(--text3)" }}>
-                        <span style={{ color: "rgba(99,102,241,.5)", marginRight: 6 }}>└</span>#{i + 1}
-                      </td>
-                      <td style={{ padding: "7px 12px", fontSize: 11, color: "var(--text2)" }}></td>
-                      <td style={{ padding: "7px 12px" }}></td>
-                      <td style={{ padding: "7px 12px" }}></td>
-                      <td style={{ padding: "7px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{p.firstDay}</td>
-                      <td style={{ padding: "7px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{p.lastDay}</td>
-                      <td style={{ padding: "7px 12px" }}>
-                        <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: durationColor(p.durationDays) }}>{p.durationDays ?? "?"}d</span>
-                      </td>
-                      <td style={{ padding: "7px 12px" }}></td>
-                      <td style={{ padding: "5px 8px", minWidth: 160 }}>
-                        <CommentCell id={p.id} initial={commentCache[p.id] !== undefined ? commentCache[p.id] : p.comments}
-                          onSaved={val => setCommentCache(prev => ({ ...prev, [p.id]: val }))} />
-                      </td>
-                    </tr>
-                  ))}
-                </>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-      <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
-        {order.length} agents / {data.length} records — klik na agenta sa više perioda za detalje
-      </div>
-    </div>
-  )
-}
-
 export default function SickLeave() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -423,8 +239,6 @@ export default function SickLeave() {
   const [modal, setModal] = useState<null | { title: string; entries: any[] }>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [view, setView] = useState<"today" | "7d" | "14d">("today")
-  const [commentCache, setCommentCache] = useState<Record<number, string>>({})
-
   const params = (activeOnly ? "activeOnly=true" : "from=2026-01-01&to=2026-12-31") + (teamLead ? "&teamLead=" + teamLead : "") + (type ? "&type=" + type : "")
   const { data, isLoading } = useQuery({ queryKey: ["sl", params], queryFn: () => api.sickLeave.get(params) })
   const { data: stats } = useQuery({ queryKey: ["sl-stats"], queryFn: api.sickLeave.stats })
@@ -432,19 +246,30 @@ export default function SickLeave() {
     queryKey: ["sl-active-today"],
     queryFn: () => fetch(BASE + "/api/sickleave?activeOnly=true").then(r => r.json())
   })
-
+  const durationColor = (days: number | null) => {
+    if (!days) return "var(--text3)"
+    if (days > 30) return "var(--danger)"
+    if (days >= 14) return "var(--warn)"
+    if (days >= 7) return "#facc15"
+    return "var(--text2)"
+  }
+  const durationBg = (days: number | null) => {
+    if (!days) return "transparent"
+    if (days > 30) return "rgba(255,59,92,.08)"
+    if (days >= 14) return "rgba(255,124,59,.08)"
+    if (days >= 7) return "rgba(250,204,21,.08)"
+    return "transparent"
+  }
   const cards = [
     { label: "Currently Sick", value: stats?.totalActive, color: "var(--danger)", onClick: () => setModal({ title: "Currently Sick Agents", entries: activeToday ?? [] }) },
     { label: "Self", value: stats?.selfCount, color: "var(--warn)", onClick: () => setModal({ title: "Self Active", entries: (activeToday ?? []).filter((e: any) => e.leaveType === "Self") }) },
     { label: "Child", value: stats?.childCount, color: "#facc15", onClick: () => setModal({ title: "Child Active", entries: (activeToday ?? []).filter((e: any) => e.leaveType === "Child") }) },
     { label: "Avg Duration", value: stats?.averageDuration ? stats.averageDuration + "d" : "0d", color: "var(--text2)", onClick: null },
   ]
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {modal && <DrillDownModal title={modal.title} entries={modal.entries} onClose={() => setModal(null)} />}
       {showAdd && <AddSickLeaveModal onClose={() => setShowAdd(false)} onSaved={() => queryClient.invalidateQueries()} />}
-
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1 style={{ fontSize: 22, fontWeight: 600, color: "var(--text)" }}>{t("nav.sickLeave")}</h1>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -452,7 +277,6 @@ export default function SickLeave() {
           <DownloadButtons onToday={api.sickLeave.downloadToday} on7Days={api.sickLeave.download7} on30Days={api.sickLeave.download30} />
         </div>
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {cards.map(s => (
           <div key={s.label} onClick={s.onClick ?? undefined}
@@ -465,7 +289,6 @@ export default function SickLeave() {
           </div>
         ))}
       </div>
-
       {stats?.byTeamLead?.length > 0 && (
         <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px" }}>
           <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", marginBottom: 10 }}>By Team Lead (active)</div>
@@ -479,7 +302,6 @@ export default function SickLeave() {
           </div>
         </div>
       )}
-
       <div style={{ display: "flex", gap: 4, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 4, alignSelf: "flex-start" }}>
         {[{ key: "today", label: "Heute" }, { key: "7d", label: "Naechste 7 Tage" }, { key: "14d", label: "Naechste 14 Tage" }].map(tab => (
           <button key={tab.key} onClick={() => setView(tab.key as any)}
@@ -488,7 +310,6 @@ export default function SickLeave() {
           </button>
         ))}
       </div>
-
       {view === "today" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", gap: 10 }}>
@@ -505,11 +326,41 @@ export default function SickLeave() {
               Active only
             </label>
           </div>
-
-          {isLoading
-            ? <div style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>Loading...</div>
-            : <GroupedSickTable data={data ?? []} commentCache={commentCache} setCommentCache={setCommentCache} />
-          }
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: "var(--card2)" }}>
+                    {["ID", "Name", "Team Lead", "First Day", "Last Day", "Duration", "Type", "Comments"].map(h => (
+                      <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", borderBottom: "1px solid var(--border)" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading && <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>Loading...</td></tr>}
+                  {data?.map((s: any) => (
+                    <tr key={s.id} style={{ borderBottom: "1px solid rgba(30,45,69,.5)", background: durationBg(s.durationDays) }}
+                      onMouseEnter={ev => (ev.currentTarget.style.filter = "brightness(1.15)")}
+                      onMouseLeave={ev => (ev.currentTarget.style.filter = "brightness(1)")}>
+                      <td style={{ padding: "9px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>{s.employeeId}</td>
+                      <td style={{ padding: "9px 12px", fontWeight: 500 }}>{s.fullName ?? (s.firstName ?? "") + " " + (s.lastName ?? "")}</td>
+                      <td style={{ padding: "9px 12px", color: "var(--text2)", fontSize: 11 }}>{s.teamLeadName}</td>
+                      <td style={{ padding: "9px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{s.firstDay}</td>
+                      <td style={{ padding: "9px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{s.lastDay}</td>
+                      <td style={{ padding: "9px 12px" }}>
+                        <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, fontWeight: 600, color: durationColor(s.durationDays) }}>{s.durationDays ?? "?"}d</span>
+                      </td>
+                      <td style={{ padding: "9px 12px" }}>
+                        <span style={{ background: s.leaveType === "Self" ? "rgba(255,124,59,.15)" : "rgba(250,204,21,.15)", color: s.leaveType === "Self" ? "var(--warn)" : "#facc15", padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono" }}>{s.leaveType}</span>
+                      </td>
+                      <td style={{ padding: "9px 12px", color: "var(--text3)", fontSize: 11 }}>{s.comments}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>{data?.length ?? 0} records</div>
+          </div>
         </div>
       )}
       {view === "7d" && <DayGrid days={7} />}

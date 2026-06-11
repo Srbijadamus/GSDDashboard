@@ -1,7 +1,7 @@
-﻿import { useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { useState } from "react"
-import { api } from "../api/client"
+import { api, apiFetch } from "../api/client"
 
 function StatCard({ label, value, color }: { label: string; value: any; color?: string }) {
   return (
@@ -69,7 +69,7 @@ export default function Overview() {
 
   const { data: summary } = useQuery({ queryKey:["summary", today], queryFn:() => api.dashboard.summary(today) })
   const { data: tls }     = useQuery({ queryKey:["tls", today],     queryFn:() => api.dashboard.teamleadSummary(today) })
-  const { data: wicCards }= useQuery({ queryKey:["wic-cards", today], queryFn:() => api.wic.cards(today) })
+  const { data: wicCards }= useQuery({ queryKey:["wic-cards-v2", today], queryFn:() => apiFetch<any[]>(`/api/wic/cards?date=${today}`) })
 
   const occupied  = wicCards?.filter((c: any) => c.coverageStatus === "COVERED") ?? []
   const partial   = wicCards?.filter((c: any) => c.coverageStatus === "PARTIAL") ?? []
@@ -141,3 +141,5 @@ export default function Overview() {
     </div>
   )
 }
+
+

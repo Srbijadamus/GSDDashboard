@@ -53,8 +53,23 @@ export default function LocationCard({ location, onAgentClick, onDrop, dragAgent
       {/* AGENTS */}
       <div style={{ padding: "4px 0 6px" }}>
         {location.agents.length === 0 ? (
-          <div style={{ padding: "10px 12px", fontSize: 11, color: "#8892a4", textAlign: "center", fontStyle: "italic" }}>
-            No agents assigned
+          <div style={{ padding: "6px 12px 4px" }}>
+            {(location.mainAgents ?? []).length === 0 && (location.backupAgents ?? []).length === 0 ? (
+              <div style={{ padding: "6px 0", fontSize: 11, color: "#8892a4", textAlign: "center", fontStyle: "italic" }}>No agents assigned</div>
+            ) : null}
+            {(location.mainAgents ?? []).map(name => (
+              <div key={name} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                <span style={{ fontSize:9, background:"rgba(59,130,246,.15)", color:"#60a5fa", border:"1px solid rgba(59,130,246,.3)", borderRadius:3, padding:"1px 5px", fontWeight:600 }}>PRIMARY</span>
+                <span style={{ fontSize:11, color:"#e2e8f0", fontWeight:500 }}>{name}</span>
+                <span style={{ fontSize:9, color:"#ef4444", marginLeft:"auto", fontStyle:"italic" }}>not on shift</span>
+              </div>
+            ))}
+            {(location.backupAgents ?? []).map(name => (
+              <div key={name} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                <span style={{ fontSize:9, background:"rgba(168,85,247,.15)", color:"#a78bfa", border:"1px solid rgba(168,85,247,.3)", borderRadius:3, padding:"1px 5px", fontWeight:600 }}>BACKUP</span>
+                <span style={{ fontSize:11, color:"#8892a4" }}>{name}</span>
+              </div>
+            ))}
           </div>
         ) : (
           location.agents.map(agent => (
@@ -71,3 +86,4 @@ export default function LocationCard({ location, onAgentClick, onDrop, dragAgent
     </div>
   )
 }
+
