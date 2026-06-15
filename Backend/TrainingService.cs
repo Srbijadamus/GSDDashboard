@@ -1,11 +1,13 @@
-using GSDDashboard.API.Data;
+﻿using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using Microsoft.EntityFrameworkCore;
 namespace GSDDashboard.API.Modules.Training;
 
 public record TrainingTopicDto(int Id, string Name, int DurationHours, int MinGroupSize, int MaxGroupSize, bool IsMandatory, string? Notes);
 public record TrainingSessionDto(int Id, int TopicId, string TopicName, string ScheduledDate, string StartTime, string EndTime, List<string> AgentIds, string? SuggestedBy, string? ConfirmedBy, string Status, string? Notes);
-public record SuggestRequest(int TopicId, string DateFrom, string DateTo, List<string> AgentIds);
+public record SuggestRequest(int TopicId, string DateFrom, string DateTo, List<string>? SelectedAgentIds = null, int MaxResults = 12);
+public record AttendeeDto(string EmployeeId, string FullName, string ShiftStart, string ShiftEnd);
+public record SlotResult(string Date, string DayName, string StartTime, string EndTime, int SelectedAvailable, int TotalSelected, int CoveragePct, int AvailableCount, int TotalOnDuty, int ImpactPct, double Score, List<AttendeeDto> SelectedAttendees, List<string> MissingSelected);
 public record TrainingSuggestion(string Date, string StartTime, string EndTime, List<AgentAvailability> AvailableAgents, List<string> Conflicts, int SurplusAgents);
 public record AgentAvailability(string EmployeeId, string FullName, string Engagement, string ShiftStart, string ShiftEnd, bool IsStudent);
 public record ConfirmRequest(int TopicId, string Date, string StartTime, string EndTime, List<string> AgentIds, string? Notes);
@@ -39,60 +41,130 @@ public class TrainingService
         return sessions.Select(s => new TrainingSessionDto(s.Id, s.TopicId, topics.ContainsKey(s.TopicId) ? topics[s.TopicId] : "Unknown", s.ScheduledDate.ToString("yyyy-MM-dd"), s.StartTime, s.EndTime, string.IsNullOrEmpty(s.AgentIds) ? new() : s.AgentIds.Split(',').ToList(), s.SuggestedBy, s.ConfirmedBy, s.Status, s.Notes)).ToList();
     }
 
-    public async Task<List<TrainingSuggestion>> SuggestSlotsAsync(SuggestRequest req)
+    public async Task<object> SuggestSlotsAsync(SuggestRequest req)
     {
         var topic = await _db.TrainingTopics.FindAsync(req.TopicId);
-        if (topic == null) return new();
+        if (topic == null) return new { warning = "Topic not found.", slots = new List<object>() };
         if (!DateOnly.TryParse(req.DateFrom, out var fromDate)) fromDate = DateOnly.FromDateTime(DateTime.Today);
         if (!DateOnly.TryParse(req.DateTo,   out var toDate))   toDate   = fromDate.AddDays(14);
+        if (toDate < fromDate) (fromDate, toDate) = (toDate, fromDate);
+
+        int durationMins = topic.DurationHours * 60;
+        if (durationMins <= 0) durationMins = 60;
+        int minGroup = topic.MinGroupSize > 0 ? topic.MinGroupSize : 1;
+
+        var workingTypes = new[] { "WORKING", "WIC", "WIC_DUTY", "TRAINING" };
+        var offTypes     = new[] { "AL", "SL", "OFF", "OFF_WEEKEND", "PH", "LPH", "CD", "UL", "OL" };
+
+        var allEmployees = await _db.Employees.Where(e => e.IsActive).ToListAsync();
+        var empById = allEmployees.ToDictionary(e => e.EmployeeId);
+        var allIds = allEmployees.Select(e => e.EmployeeId).ToList();
 
         var shifts = await _db.ShiftEntries
-            .Where(s => req.AgentIds.Contains(s.EmployeeId) && s.ShiftDate >= fromDate && s.ShiftDate <= toDate && (s.ShiftType == "WORKING" || s.ShiftType == "WIC_DUTY"))
-            .Join(_db.Employees, s => s.EmployeeId, e => e.EmployeeId, (s, e) => new { Shift = s, Employee = e })
+            .Where(s => allIds.Contains(s.EmployeeId)
+                     && s.ShiftDate >= fromDate && s.ShiftDate <= toDate
+                     && workingTypes.Contains(s.ShiftType))
             .ToListAsync();
 
-        var offShifts = await _db.ShiftEntries
-            .Where(s => req.AgentIds.Contains(s.EmployeeId) && s.ShiftDate >= fromDate && s.ShiftDate <= toDate && (s.ShiftType == "AL" || s.ShiftType == "SL" || s.ShiftType == "OFF" || s.ShiftType == "OFF_WEEKEND" || s.ShiftType == "PH"))
+        if (shifts.Count == 0)
+            return new { warning = $"No working-shift data found for {fromDate:yyyy-MM-dd} to {toDate:yyyy-MM-dd}. Upload the shift plan for this period first.", slots = new List<object>() };
+
+        var offSet = (await _db.ShiftEntries
+            .Where(s => allIds.Contains(s.EmployeeId)
+                     && s.ShiftDate >= fromDate && s.ShiftDate <= toDate
+                     && offTypes.Contains(s.ShiftType))
             .Select(s => new { s.EmployeeId, s.ShiftDate })
-            .ToListAsync();
+            .ToListAsync())
+            .Select(x => (x.EmployeeId, x.ShiftDate)).ToHashSet();
 
-        var suggestions = new List<TrainingSuggestion>();
+        var byDate = shifts.GroupBy(s => s.ShiftDate).ToDictionary(g => g.Key, g => g.ToList());
+
+        // Full shift map (all types) for diagnosing WHY a selected agent can't attend.
+        var allShiftMap = (await _db.ShiftEntries
+            .Where(s => allIds.Contains(s.EmployeeId) && s.ShiftDate >= fromDate && s.ShiftDate <= toDate)
+            .ToListAsync())
+            .GroupBy(s => (s.EmployeeId, s.ShiftDate))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var selected = (req.SelectedAgentIds ?? new List<string>())
+            .Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet();
+        int totalSelected = selected.Count;
+
+        var slots = new List<SlotResult>();
+        var windowStart = new TimeSpan(7, 0, 0);
+        var windowEndLimit = new TimeSpan(18, 0, 0);
+        var step = TimeSpan.FromMinutes(30);
 
         for (var d = fromDate; d <= toDate; d = d.AddDays(1))
         {
             if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday) continue;
-            var dayShifts = shifts.Where(x => x.Shift.ShiftDate == d).ToList();
-            if (dayShifts.Count < topic.MinGroupSize) continue;
+            if (!byDate.TryGetValue(d, out var dayShifts)) continue;
+            int totalOnDuty = dayShifts.Count;
+            if (totalOnDuty < minGroup) continue;
 
-            for (int startH = 7; startH <= 18 - topic.DurationHours; startH++)
+            for (var ts = windowStart; ts + TimeSpan.FromMinutes(durationMins) <= windowEndLimit; ts += step)
             {
-                var trainingStart = new TimeSpan(startH, 0, 0);
-                var trainingEnd   = new TimeSpan(startH + topic.DurationHours, 0, 0);
+                var trainStart = ts;
+                var trainEnd = ts + TimeSpan.FromMinutes(durationMins);
                 var available = new List<AgentAvailability>();
-                var conflicts = new List<string>();
 
-                foreach (var x in dayShifts)
+                foreach (var s in dayShifts)
                 {
-                    var s = x.Shift; var e = x.Employee;
-                    if (s.ShiftStart == null || s.ShiftEnd == null) continue;
+                    if (!empById.TryGetValue(s.EmployeeId, out var e)) continue;
+                    if (s.ShiftType == "RESIGNED") continue;
                     if (!TimeSpan.TryParse(s.ShiftStart, out var sStart) || !TimeSpan.TryParse(s.ShiftEnd, out var sEnd)) continue;
-                    if (sEnd < sStart) sEnd = sEnd.Add(TimeSpan.FromHours(24));
-                    bool coversTraining = sStart <= trainingStart && sEnd >= trainingEnd;
-                    if (!coversTraining) { conflicts.Add($"{e.FullName}: shift {s.ShiftStart}-{s.ShiftEnd} doesn't cover training window"); continue; }
-                    bool onLeave = offShifts.Any(o => o.EmployeeId == e.EmployeeId && o.ShiftDate == d);
-                    if (onLeave) { conflicts.Add($"{e.FullName}: on leave"); continue; }
-                    bool isStudent = e.Engagement == "Student";
-                    if (isStudent) conflicts.Add($"{e.FullName}: student — verify weekly hours");
-                    available.Add(new AgentAvailability(e.EmployeeId, e.FullName ?? e.EmployeeId, e.Engagement ?? "", s.ShiftStart, s.ShiftEnd, isStudent));
+                    if (sEnd <= sStart) continue; // skip night/cross-midnight
+                    if (!(sStart <= trainStart && sEnd >= trainEnd)) continue;
+                    if (offSet.Contains((e.EmployeeId, d))) continue;
+                    bool isStudent = string.Equals(e.Engagement, "Student", StringComparison.OrdinalIgnoreCase);
+                    available.Add(new AgentAvailability(e.EmployeeId, e.FullName ?? e.EmployeeId, e.Engagement ?? "", s.ShiftStart!, s.ShiftEnd!, isStudent));
                 }
 
-                if (available.Count < topic.MinGroupSize) continue;
-                suggestions.Add(new TrainingSuggestion(d.ToString("yyyy-MM-dd"), $"{startH:D2}:00", $"{startH + topic.DurationHours:D2}:00", available, conflicts, available.Count - topic.MinGroupSize));
-                if (suggestions.Count >= 3) break;
+                int selectedAvailable = totalSelected == 0 ? available.Count : available.Count(a => selected.Contains(a.EmployeeId));
+                if (totalSelected > 0 && selectedAvailable == 0) continue;
+                int effectiveCount = totalSelected > 0 ? selectedAvailable : available.Count;
+                if (effectiveCount < minGroup) continue;
+
+                double coverage = totalSelected == 0 ? 1.0 : (double)selectedAvailable / totalSelected;
+                // Impact = how much of the day's floor is pulled by taking the TRAINING attendees out.
+                // We only pull the selected attendees (or, if none selected, everyone available).
+                int pulled = totalSelected > 0 ? selectedAvailable : available.Count;
+                double impactPct = totalOnDuty > 0 ? (double)pulled / totalOnDuty : 0.0;
+                // Score: coverage dominates; low impact strongly rewarded; small tie-breaker for raw attendees.
+                double score = (coverage * 100.0) - (impactPct * 40.0) + (selectedAvailable * 0.5);
+
+                var attendees = available.Where(a => totalSelected == 0 || selected.Contains(a.EmployeeId))
+                    .Select(a => new AttendeeDto(a.EmployeeId, a.FullName, a.ShiftStart, a.ShiftEnd)).ToList();
+                var missing = selected.Where(id => !available.Any(a => a.EmployeeId == id))
+                    .Select(id => {
+                        string nm = empById.TryGetValue(id, out var e) ? (e.FullName ?? id) : id;
+                        string reason = "no shift";
+                        if (allShiftMap.TryGetValue((id, d), out var se))
+                        {
+                            var st = se.ShiftType ?? "";
+                            if (st == "AL" || st == "SL" || st == "OFF" || st == "OFF_WEEKEND" || st == "PH" || st == "RESIGNED")
+                                reason = st == "OFF_WEEKEND" ? "OFF" : st;
+                            else if (!TimeSpan.TryParse(se.ShiftStart, out var ss) || !TimeSpan.TryParse(se.ShiftEnd, out var ee))
+                                reason = "no times";
+                            else if (ee <= ss)
+                                reason = "NIGHT";
+                            else
+                                reason = $"{se.ShiftStart}-{se.ShiftEnd}";
+                        }
+                        return $"{nm} ({reason})";
+                    }).ToList();
+
+                slots.Add(new SlotResult(
+                    d.ToString("yyyy-MM-dd"), d.DayOfWeek.ToString(),
+                    $"{trainStart:hh\\:mm}", $"{trainEnd:hh\\:mm}",
+                    selectedAvailable, totalSelected, (int)Math.Round(coverage * 100),
+                    available.Count, totalOnDuty, (int)Math.Round(impactPct * 100),
+                    Math.Round(score, 2), attendees, missing));
             }
-            if (suggestions.Count >= 3) break;
         }
-        return suggestions;
+
+        var ordered = slots.OrderByDescending(s => s.Score).Take(req.MaxResults > 0 ? req.MaxResults : 12).ToList();
+        return new { warning = (string?)null, slots = ordered };
     }
 
     public async Task<TrainingSessionDto> ConfirmAsync(ConfirmRequest req)
