@@ -19,7 +19,7 @@ export default function Attendance() {
     if (type === "ASSIGNED") return { bg: "rgba(34,208,122,.15)", color: "var(--green)" }
     if (type === "WO")       return { bg: "rgba(255,124,59,.15)", color: "var(--warn)" }
     if (type === "CLOSED")   return { bg: "rgba(74,95,122,.15)",  color: "var(--text3)" }
-    if (type === "PH")       return { bg: "rgba(250,204,21,.15)", color: "#facc15" }
+    if (type === "PH")       return { bg: "rgba(250,204,21,.15)", color: "var(--yellow)" }
     return { bg: "rgba(255,255,255,.05)", color: "var(--text2)" }
   }
 
@@ -55,14 +55,20 @@ export default function Attendance() {
             </tr>
           </thead>
           <tbody>
-            {isLoading && <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>Loading...</td></tr>}
+            {isLoading && Array.from({length: 5}).map((_, i) => (
+              <tr key={`sk-${i}`} style={{ borderBottom: "1px solid var(--border)" }}>
+                {Array.from({length: 6}).map((_, j) => (
+                  <td key={j} style={{ padding: "10px 12px" }}><div className="skeleton" style={{ height: 11 }} /></td>
+                ))}
+              </tr>
+            ))}
             {data?.length === 0 && !isLoading && (
               <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>No attendance data for this date</td></tr>
             )}
             {data?.map((a: any) => {
               const sc = statusColor(a.attendanceType)
               return (
-                <tr key={a.id} style={{ borderBottom: "1px solid rgba(30,45,69,.5)" }}
+                <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}
                   onMouseEnter={ev => (ev.currentTarget.style.background = "var(--card2)")}
                   onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}>
                   <td style={{ padding: "9px 12px", fontWeight: 500 }}>{a.locationName}</td>

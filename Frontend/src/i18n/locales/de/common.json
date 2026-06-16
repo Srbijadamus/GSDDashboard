@@ -8,7 +8,13 @@
     "sickLeave": "Krankmeldung",
     "vacations": "Urlaub",
     "alBalance": "Urlaubssaldo",
-    "employees": "Mitarbeiter"
+    "employees": "Mitarbeiter",
+    "days": "T",
+    "cmdPlaceholder": "WIC-Standorte suchen...",
+    "cmdNoResults": "Keine Standorte gefunden",
+    "cmdNav": "navigieren",
+    "cmdOpen": "öffnen",
+    "cmdClose": "schließen"
   },
   "status": {
     "working": "Arbeitet",
@@ -54,6 +60,145 @@
     "annualLeave": "Jahresurlaub",
     "sickLeave": "Krankmeldung",
     "totalActive": "Gesamt Aktiv",
-    "wicUnoccupied": "WIC Unbesetzt"
+    "wicUnoccupied": "WIC Unbesetzt",
+    "teamLeads": "Teamleiter-Übersicht",
+    "detailGrid": "WIC Detailansicht",
+    "kpi": {
+      "openToday": "Heute offen",
+      "atRiskToday": "Heute gefährdet",
+      "closureRisk": "Schließrisiko",
+      "absentToday": "Heute abwesend",
+      "coveragePct": "Belegung %"
+    },
+    "heatmap": {
+      "title": "Belegungsübersicht",
+      "location": "Standort"
+    },
+    "map": {
+      "title": "WIC Standortkarte",
+      "noCoordinates": "Koordinaten noch nicht geocodiert — Karte nicht verfügbar. Lat,Lon in WicLocations.Coordinates eintragen."
+    },
+    "recommendations": {
+      "title": "Lücken & Empfehlungen",
+      "best": "Beste Vertretung"
+    },
+    "absences": {
+      "title": "Heute abwesend",
+      "noTeamLead": "Teamleiter-Gruppierung an diesem Endpunkt nicht verfügbar — flache Listenansicht."
+    },
+    "radar": {
+      "title": "Risikoradar (nächste 7 Tage)"
+    }
+  },
+  "attendance": {
+    "title": "WIC Belegung",
+    "subtitle": "Belegungsstatus und Vertretungsmanagement",
+    "selectLocation": "Standort aus der Seitenleiste auswählen",
+    "noLocations": "Keine Standorte gefunden",
+    "today": "Heute",
+    "horizon": "7-Tage-Ausblick",
+    "status": {
+      "covered": "Besetzt",
+      "partial": "Teilbesetzt",
+      "uncovered": "Unbesetzt",
+      "closed": "Geschlossen"
+    },
+    "agents": {
+      "title": "Agenten",
+      "noAgents": "Keine Agenten eingeplant",
+      "main": "Haupt",
+      "backup": "Backup",
+      "full": "Vollbesetzt",
+      "partial": "Teilbesetzt",
+      "absent": "Abwesend"
+    },
+    "substitute": {
+      "find": "Vertretung suchen",
+      "title": "Vertretung suchen",
+      "loading": "Kandidaten werden geladen...",
+      "noCandidates": "Keine Kandidaten verfügbar",
+      "distance": "{{km}} km",
+      "lastUsed": "{{n}}x letzte 30 Tage",
+      "accept": "Bestätigen",
+      "confirmed": "Bestätigt — {{name}} eingeplant für {{wic}}"
+    },
+    "risk": {
+      "atRiskDays": "{{n}} Risikotage",
+      "effectiveCoverage": "{{n}} anwesend",
+      "minRequired": "mind. {{n}}"
+    },
+    "filter": {
+      "allCountries": "Alle Länder",
+      "search": "Standorte suchen..."
+    },
+    "alPlanning": {
+      "button": "URL-Planung",
+      "title": "URL-Planung prüfen",
+      "selectEmployee": "Mitarbeiter auswählen...",
+      "employee": "Mitarbeiter",
+      "dateRanges": "Zeiträume",
+      "from": "Von",
+      "to": "Bis",
+      "addRange": "Zeitraum hinzufügen",
+      "check": "Belegung prüfen",
+      "loading": "Wird analysiert...",
+      "noImpact": "Kein WIC-Einfluss",
+      "atRisk": "{{n}} Risikotag(e)",
+      "covered": "Abgedeckt",
+      "partial": "Teilweise",
+      "uncovered": "Unbesetzt",
+      "closed": "Geschlossen",
+      "bestSub": "Beste Vertretung",
+      "conflicts": "Konflikte",
+      "noConflicts": "Keine",
+      "note": "Hinweis"
+    },
+    "assignAgent": {
+      "button": "Agent zuweisen",
+      "title": "Agent Standort zuweisen",
+      "employee": "Mitarbeiter",
+      "selectEmployee": "Mitarbeiter auswählen...",
+      "location": "Standort",
+      "selectLocation": "Standort auswählen...",
+      "date": "Datum",
+      "startTime": "Beginn",
+      "endTime": "Ende",
+      "save": "Zuweisen",
+      "saving": "Wird zugewiesen...",
+      "cancel": "Abbrechen",
+      "success": "Agent {{loc}} zugewiesen"
+    },
+    "manualCheckin": {
+      "button": "Manuelle Anmeldung",
+      "title": "Manuelle Anmeldung / Abmeldung",
+      "agent": "Agent",
+      "selectAgent": "Agent auswählen...",
+      "action": "Aktion",
+      "checkin": "Anmelden",
+      "logout": "Abmelden",
+      "performedBy": "Durchgeführt von",
+      "save": "Bestätigen",
+      "saving": "Wird verarbeitet...",
+      "cancel": "Abbrechen",
+      "success": "{{name}} — {{action}} erfasst"
+    }
+  },
+  "wicShifts": {
+    "newShift": {
+      "button": "Neue Schicht",
+      "title": "Neue Schicht erstellen",
+      "employee": "Mitarbeiter",
+      "selectEmployee": "Mitarbeiter auswählen...",
+      "date": "Datum",
+      "shiftType": "Schichttyp",
+      "startTime": "Beginn",
+      "endTime": "Ende",
+      "location": "WIC Standort",
+      "selectLocation": "Kein / Kein WIC",
+      "save": "Schicht erstellen",
+      "saving": "Wird erstellt...",
+      "cancel": "Abbrechen",
+      "success": "Schicht für {{name}} erstellt"
+    }
   }
 }

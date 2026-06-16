@@ -71,7 +71,7 @@ export default function Vacations() {
           </div>
           {upcoming.map((v: any) => (
             <div key={v.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-              padding:"5px 0", borderBottom:"1px solid rgba(30,45,69,.4)", fontSize:12 }}>
+              padding:"5px 0", borderBottom:"1px solid var(--border)", fontSize:12 }}>
               <span style={{ fontFamily:"IBM Plex Mono", fontSize:11, color:"var(--text3)" }}>{v.employeeId}</span>
               <span style={{ color:"var(--text2)" }}>{v.firstName} {v.lastName}</span>
               <span style={{ fontFamily:"IBM Plex Mono", fontSize:11, color:"var(--accent)" }}>{v.firstDay} → {v.lastDay}</span>
@@ -104,9 +104,15 @@ export default function Vacations() {
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={9} style={{ padding:24, textAlign:"center", color:"var(--text3)" }}>Loading...</td></tr>}
+              {isLoading && Array.from({length: 5}).map((_, i) => (
+                <tr key={`sk-${i}`} style={{ borderBottom: "1px solid var(--border)" }}>
+                  {Array.from({length: 9}).map((_, j) => (
+                    <td key={j} style={{ padding: "10px 12px" }}><div className="skeleton" style={{ height: 11 }} /></td>
+                  ))}
+                </tr>
+              ))}
               {data?.map((v: any) => (
-                <tr key={v.id} style={{ borderBottom:"1px solid rgba(30,45,69,.5)" }}
+                <tr key={v.id} style={{ borderBottom:"1px solid var(--border)" }}
                   onMouseEnter={ev => (ev.currentTarget.style.background = "var(--card2)")}
                   onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}>
                   <td style={{ padding:"9px 12px", fontFamily:"IBM Plex Mono", fontSize:11, color:"var(--text3)" }}>{v.employeeId}</td>
@@ -118,7 +124,7 @@ export default function Vacations() {
                   <td style={{ padding:"9px 12px" }}>
                     <span style={{
                       background: v.isOverhead ? "rgba(167,139,250,.15)" : "rgba(34,208,122,.15)",
-                      color: v.isOverhead ? "#a78bfa" : "var(--green)",
+                      color: v.isOverhead ? "var(--purple)" : "var(--green)",
                       padding:"2px 7px", borderRadius:4, fontSize:10, fontFamily:"IBM Plex Mono"
                     }}>{v.isOverhead ? "Overhead" : "Agent"}</span>
                   </td>

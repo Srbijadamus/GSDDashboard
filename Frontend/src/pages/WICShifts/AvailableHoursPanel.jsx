@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const BASE = 'https://n8jlr9dr-5000.euw.devtunnels.ms';
+const BASE = '';
 
 export default function AvailableHoursPanel() {
   const [tab, setTab] = useState('summary');

@@ -77,7 +77,9 @@ public class WicScheduleService
             var locHours = allHours.Where(h => h.LocationCode == loc.LocationCode).OrderBy(h => h.DayOfWeek)
                 .Select(h => new WicDayHoursDto(h.DayOfWeek, DayName(h.DayOfWeek), h.IsClosed,
                     h.OpenTime, h.CloseTime, h.OpenTime2, h.CloseTime2, h.RawSchedule)).ToList();
-            int agentCount = assignments.Count(a => a.LocationCode == loc.LocationCode);
+            int agentCount = assignments.Count(a =>
+                a.LocationCode == loc.LocationCode ||
+                a.LocationCode == loc.LocationCodeLegacy);
             return new WicOpeningHoursDto(loc.LocationCode, loc.DisplayName, loc.City, agentCount, locHours);
         }).ToList();
     }

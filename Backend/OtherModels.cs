@@ -30,6 +30,10 @@ public class WicLocation
     [MaxLength(100)] public string? City { get; set; }
     [MaxLength(5)]   public string? Country { get; set; }
     [MaxLength(200)] public string? OpeningSchedule { get; set; }
+    [MaxLength(50)]  public string? Coordinates { get; set; }     // "lat,lon" e.g. "48.3705,10.8978"
+    public int?      MinAgentsRequired { get; set; }              // null = use default (1)
+    [MaxLength(50)]  public string? Bundesland { get; set; }      // for regional holiday matching
+    [MaxLength(50)]  public string? LocationCodeLegacy { get; set; } // old-style code used in WicAgentAssignments (e.g. DE_Dortmund)
     public bool IsActive { get; set; } = true;
 }
 
@@ -99,6 +103,17 @@ public class DailyAttendance
     [MaxLength(100)] public string? RawValue { get; set; }
     [MaxLength(20)]  public string? AttendanceType { get; set; }
     [MaxLength(20)]  public string? AssignedEmployeeId { get; set; }
+}
+
+[Table("SubstitutionHistory")]
+public class SubstitutionHistory
+{
+    [Key] public int Id { get; set; }
+    [Required, MaxLength(20)]  public string EmployeeId { get; set; } = "";
+    [Required, MaxLength(100)] public string LocationCode { get; set; } = "";
+    public DateOnly Date { get; set; }
+    [MaxLength(20)] public string? SourceType { get; set; }  // BACKUP | SSP | WIC_DONOR | CALL_IN
+    public DateTime AssignedAt { get; set; } = DateTime.UtcNow;
 }
 
 

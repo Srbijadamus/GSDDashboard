@@ -1,0 +1,58 @@
+
+>>> Updating 2 missing Bundesland rows
+  10179  Berlin: 1 row(s)
+  93049  Bayern: 1 row(s)
+
+>>> Verification: MissingBundesland must = 0
+  TotalDE=41  WithBundesland=41  MissingBundesland=0
+
+>>> All active locations (final spot-check)
+
+[32;1mLocationCode                                    [0m[32;1m PostalCode[0m[32;1m City           [0m[32;1m Country[0m[32;1m Bundesland[0m
+[32;1m------------                                    [0m [32;1m----------[0m [32;1m----           [0m [32;1m-------[0m [32;1m----------[0m
+DE~86150~Augsburg~Schaezlerstr. 3                86150      Augsburg        DE      Bayern
+DE~96052~Bamberg~Doktor-Robert-Pfleger-Str. 20   96052      Bamberg         DE      Bayern
+DE~84051~Essenbach~Dammstraße                    84051      Essenbach       DE      Bayern
+DE~97506~Grafenrheinfeld~Kraftwerkstraße         97506      Grafenrheinfeld DE      Bayern
+DE~84036~Landshut~Kiem-Pauli Str. 2              84036      Landshut        DE      Bayern
+DE~80634~München~Arnulfstr. 203                  80634      München         DE      Bayern
+DE~85276~Pfaffenhofen~Draht 7                    85276      Pfaffenhofen    DE      Bayern
+DE~93049~Regensburg~Lilienthalstraße 7           93049      Regensburg      DE      Bayern
+DE~10179~Berlin~Brückenstrasse 6                 10179      Berlin          DE      Berlin
+DE~10589~Berlin~Gaußstr. 11                      10589      Berlin          DE      Berlin
+DE~15517~Fürstenwalde~Langewahler Str. 60        15517      Fürstenwalde    DE      Brandenburg
+DE~14467~Potsdam~Am Kanal 2-3                    14467      Potsdam         DE      Brandenburg
+DE~20537~Hamburg~Normannenweg 9                  20537      Hamburg         DE      Hamburg
+DE~63263~Neu-Isenburg~Flughafenstr. 20           63263      Neu-Isenburg    DE      Hessen
+DE~17109~ Demmin~Am Hanseufer 2                  17109      Demmin          DE      Mecklenburg-Vorpommern
+DE~17109~Demmin~Woldeforster Str. 6              17109      Demmin          DE      Mecklenburg-Vorpommern
+DE~31860~Emmerthal~Kraftwerksgelände             31860      Emmerthal       DE      Niedersachsen
+DE~30459~Hannover~Ricklinger Stadtweg 123-127    30459      Hannover        DE      Niedersachsen
+DE~38350~Helmstedt~Schillerstr. 3                38350      Helmstedt       DE      Niedersachsen
+DE~49074~Osnabrück~Goethering 23-29              49074      Osnabrück       DE      Niedersachsen
+DE~38226~Salzgitter~Joachim-Campe-Straße 14      38226      Salzgitter      DE      Niedersachsen
+DE~21683~Stade~Bassenflether Chaussee            21683      Stade           DE      Niedersachsen
+DE~26935~Stadland~Dedesdorfer Straße 2           26935      Stadland        DE      Niedersachsen
+DE~59821~Arnsberg~Hellefelder Str. 8             59821      Arnsberg        DE      Nordrhein-Westfalen
+DE~44139~Dortmund~Florianstraße 15-21            44139      Dortmund        DE      Nordrhein-Westfalen
+DE~45131~Essen~Brüsseler Platz 1                 45131      Essen           DE      Nordrhein-Westfalen
+DE~45143~Essen~ThyssenKrupp Allee 1              45143      Essen           DE      Nordrhein-Westfalen
+DE~45476~Mülheim~Moritzstr. 16-22                45476      Mülheim         DE      Nordrhein-Westfalen
+DE~48163~Münster~Weseler Str. 480                48163      Münster         DE      Nordrhein-Westfalen
+DE~41460~Neuss~Collingstr. 2                     41460      Neuss           DE      Nordrhein-Westfalen
+DE~45661~Recklinghausen~Bochumer Str. 2          45661      Recklinghausen  DE      Nordrhein-Westfalen
+DE~57072~Siegen~Friedrichstr. 60                 57072      Siegen          DE      Nordrhein-Westfalen
+DE~46483~Wesel~Reeser Landstr. 41                46483      Wesel           DE      Nordrhein-Westfalen
+DE~56648~Saffig~Rauschermühle                    56648      Saffig          DE      Rheinland-Pfalz
+DE~54294~Trier~Eurener Str. 33                   54294      Trier           DE      Rheinland-Pfalz
+DE~66121~Saarbrücken~Heinrich-Böcking-Str. 10-14 66121      Saarbrücken     DE      Saarland
+DE~04416~Markkleeberg~Friedrich-Ebert-Str. 26    04416      Markkleeberg    DE      Sachsen
+DE~06112~Halle (Saale)~Magdeburger Str. 51       06112      Halle (Saale)   DE      Sachsen-Anhalt
+DE~25576~Brokdorf~Osterende                      25576      Brokdorf        DE      Schleswig-Holstein
+DE~25451~Quickborn~Schleswag-HeinGas-Platz 1     25451      Quickborn       DE      Schleswig-Holstein
+RENDSBURG                                        NULL       Rendsburg       DE      Schleswig-Holstein
+NL~5211 AK~s-Hertogenbosch~Willemsplein 4        NULL       s-Hertogenbosch NL      NULL
+NL~8041 BL~Zwolle~Grote Voort 247                NULL       Zwolle          NL      NULL
+
+
+>>> Done. If MissingBundesland=0 above, proceed to PS1_1_Build.ps1

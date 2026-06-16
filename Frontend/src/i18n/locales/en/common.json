@@ -8,7 +8,13 @@
     "sickLeave": "Sick Leave",
     "vacations": "Vacations",
     "alBalance": "AL Balance",
-    "employees": "Employees"
+    "employees": "Employees",
+    "days": "d",
+    "cmdPlaceholder": "Search WIC locations...",
+    "cmdNoResults": "No locations found",
+    "cmdNav": "navigate",
+    "cmdOpen": "open",
+    "cmdClose": "close"
   },
   "status": {
     "working": "Working",
@@ -54,6 +60,145 @@
     "annualLeave": "Annual Leave",
     "sickLeave": "Sick Leave",
     "totalActive": "Total Active",
-    "wicUnoccupied": "WIC Unoccupied"
+    "wicUnoccupied": "WIC Unoccupied",
+    "teamLeads": "Team Lead Summary",
+    "detailGrid": "WIC Detail Grid",
+    "kpi": {
+      "openToday": "Open Today",
+      "atRiskToday": "At-Risk Today",
+      "closureRisk": "Closure Risk",
+      "absentToday": "Absent Today",
+      "coveragePct": "Coverage %"
+    },
+    "heatmap": {
+      "title": "Coverage Heatmap",
+      "location": "Location"
+    },
+    "map": {
+      "title": "WIC Locations Map",
+      "noCoordinates": "Coordinates not yet geocoded — map unavailable. Add lat,lon to WicLocations.Coordinates to enable."
+    },
+    "recommendations": {
+      "title": "Gaps & Recommendations",
+      "best": "Best substitute"
+    },
+    "absences": {
+      "title": "Absent Today",
+      "noTeamLead": "Team lead grouping unavailable on this endpoint — showing flat list."
+    },
+    "radar": {
+      "title": "Risk Radar (next 7 days)"
+    }
+  },
+  "attendance": {
+    "title": "WIC Coverage",
+    "subtitle": "Coverage status and substitute management",
+    "selectLocation": "Select a location from the sidebar",
+    "noLocations": "No locations found",
+    "today": "Today",
+    "horizon": "7-day outlook",
+    "status": {
+      "covered": "Covered",
+      "partial": "Partial",
+      "uncovered": "Uncovered",
+      "closed": "Closed"
+    },
+    "agents": {
+      "title": "Agents",
+      "noAgents": "No agents scheduled",
+      "main": "Main",
+      "backup": "Backup",
+      "full": "Full",
+      "partial": "Partial",
+      "absent": "Absent"
+    },
+    "substitute": {
+      "find": "Find Substitute",
+      "title": "Find Substitute",
+      "loading": "Loading candidates...",
+      "noCandidates": "No candidates available",
+      "distance": "{{km}} km",
+      "lastUsed": "{{n}}x last 30 days",
+      "accept": "Accept",
+      "confirmed": "Confirmed — {{name}} assigned to {{wic}}"
+    },
+    "risk": {
+      "atRiskDays": "{{n}} at-risk",
+      "effectiveCoverage": "{{n}} present",
+      "minRequired": "min. {{n}}"
+    },
+    "filter": {
+      "allCountries": "All Countries",
+      "search": "Search locations..."
+    },
+    "alPlanning": {
+      "button": "AL Planning",
+      "title": "AL Planning Check",
+      "selectEmployee": "Select employee...",
+      "employee": "Employee",
+      "dateRanges": "Date Ranges",
+      "from": "From",
+      "to": "To",
+      "addRange": "Add range",
+      "check": "Check Coverage",
+      "loading": "Analyzing...",
+      "noImpact": "No WIC coverage impact",
+      "atRisk": "{{n}} at-risk day(s)",
+      "covered": "Covered",
+      "partial": "Partial",
+      "uncovered": "Uncovered",
+      "closed": "Closed",
+      "bestSub": "Best substitute",
+      "conflicts": "Conflicts",
+      "noConflicts": "None",
+      "note": "Note"
+    },
+    "assignAgent": {
+      "button": "Assign Agent",
+      "title": "Assign Agent to Location",
+      "employee": "Employee",
+      "selectEmployee": "Select employee...",
+      "location": "Location",
+      "selectLocation": "Select location...",
+      "date": "Date",
+      "startTime": "Start",
+      "endTime": "End",
+      "save": "Assign",
+      "saving": "Assigning...",
+      "cancel": "Cancel",
+      "success": "Agent assigned to {{loc}}"
+    },
+    "manualCheckin": {
+      "button": "Manual Check-in",
+      "title": "Manual Check-in / Logout",
+      "agent": "Agent",
+      "selectAgent": "Select agent...",
+      "action": "Action",
+      "checkin": "Check-in",
+      "logout": "Logout",
+      "performedBy": "Performed by",
+      "save": "Confirm",
+      "saving": "Processing...",
+      "cancel": "Cancel",
+      "success": "{{name}} — {{action}} recorded"
+    }
+  },
+  "wicShifts": {
+    "newShift": {
+      "button": "New Shift",
+      "title": "Create New Shift",
+      "employee": "Employee",
+      "selectEmployee": "Select employee...",
+      "date": "Date",
+      "shiftType": "Shift Type",
+      "startTime": "Start Time",
+      "endTime": "End Time",
+      "location": "WIC Location",
+      "selectLocation": "None / Not WIC",
+      "save": "Create Shift",
+      "saving": "Creating...",
+      "cancel": "Cancel",
+      "success": "Shift created for {{name}}"
+    }
   }
 }

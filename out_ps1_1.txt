@@ -1,0 +1,67 @@
+=== Step 1: Kill running GSDDashboard.API ===
+Process not running.
+
+=== Step 2: dotnet build ===
+  Wiederherzustellende Projekte werden ermittelt...
+  Alle Projekte sind f├╝r die Wiederherstellung auf dem neuesten Stand.
+C:\GSDDashboard\Backend\Program.cs(4,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Modules.Overview" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\Program.cs(7,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Modules.Shifts" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\Program.cs(16,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Services" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\OverviewService.cs(149,30): warning CS0219: Die Variable "filtered" ist zugewiesen, ihr Wert wird aber nie verwendet. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+  GSDDashboard.API -> C:\GSDDashboard\Backend\bin\Debug\net8.0\GSDDashboard.API.dll
+
+Der Buildvorgang wurde erfolgreich ausgef├╝hrt.
+
+C:\GSDDashboard\Backend\Program.cs(4,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Modules.Overview" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\Program.cs(7,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Modules.Shifts" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\Program.cs(16,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Services" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\OverviewService.cs(149,30): warning CS0219: Die Variable "filtered" ist zugewiesen, ihr Wert wird aber nie verwendet. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+    4 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:09.05
+
+=== Step 3: DLL timestamp ===
+LastWriteTime: 06/15/2026 13:35:18
+
+=== Step 4: Launch server ===
+
+=== Step 5: Test /api/wic/locations (first 2 items) ===
+Total locations returned: 43
+--- First 2 items (openingSchedule + fullAddress) ---
+[
+  {
+    "id": 43,
+    "locationCode": "DE~59821~Arnsberg~Hellefelder Str. 8",
+    "displayName": "Arnsberg",
+    "city": "Arnsberg",
+    "country": "DE",
+    "isActive": true,
+    "openingSchedule": "Mo Closed | Tu 10:00-14:00 | We Closed | Th Closed | Fr Closed | Sa Closed | Su Closed",
+    "fullAddress": "Hellefelder Str. 8"
+  },
+  {
+    "id": 44,
+    "locationCode": "DE~86150~Augsburg~Schaezlerstr. 3",
+    "displayName": "Augsburg",
+    "city": "Augsburg",
+    "country": "DE",
+    "isActive": true,
+    "openingSchedule": "Mo 07:30-12:00, 12:30-16:00 | Tu 07:30-12:00, 12:30-16:00 | We 07:30-12:00, 12:30-16:00 | Th 07:30-12:00, 12:30-16:00 | Fr 07:30-14:00 | Sa Closed | Su Closed",
+    "fullAddress": "Schaezlerstr. 3"
+  }
+]
+
+=== Step 6: Test Augsburg split block ===
+{
+  "id": 44,
+  "locationCode": "DE~86150~Augsburg~Schaezlerstr. 3",
+  "displayName": "Augsburg",
+  "city": "Augsburg",
+  "country": "DE",
+  "isActive": true,
+  "openingSchedule": "Mo 07:30-12:00, 12:30-16:00 | Tu 07:30-12:00, 12:30-16:00 | We 07:30-12:00, 12:30-16:00 | Th 07:30-12:00, 12:30-16:00 | Fr 07:30-14:00 | Sa Closed | Su Closed",
+  "fullAddress": "Schaezlerstr. 3"
+}
+
+=== Build and verify complete ===

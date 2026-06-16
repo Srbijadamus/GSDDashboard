@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 
-const BASE = "https://n8jlr9dr-5000.euw.devtunnels.ms"
+const BASE = ""
 
 const TL_COLORS: Record<string,string> = {
   "Delia Panaitescu":"#3b7eff","Ion Ciuceanu":"#00d2a0",

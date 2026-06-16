@@ -1,3 +1,5 @@
+using GSDDashboard.API.Services;
+
 namespace GSDDashboard.API.Modules.WicShifts;
 
 public enum CoverageStatus { COVERED, PARTIAL, UNCOVERED, CLOSED }
@@ -80,11 +82,11 @@ public static class CoverageCalculator
         List<(string EmployeeId, string Name, string? ShiftStart, string? ShiftEnd, bool IsMain)> agents)
     {
         if (isClosed)
-            return new CoverageResult(CoverageStatus.CLOSED, 0, 0, 0, []);
+            return new CoverageResult(CoverageEvaluator.ClassifyByMinutes(true, 0, 0), 0, 0, 0, []);
 
         var totalOpen = CalcOpenMinutes(open1, close1, open2, close2);
         if (totalOpen == 0)
-            return new CoverageResult(CoverageStatus.CLOSED, 0, 0, 0, []);
+            return new CoverageResult(CoverageEvaluator.ClassifyByMinutes(true, 0, 0), 0, 0, 0, []);
 
         var agentResults = agents.Select(a =>
         {
@@ -111,9 +113,7 @@ public static class CoverageCalculator
         var pooled = Math.Min(totalCovered, totalOpen);
         var pct = totalOpen > 0 ? (pooled * 100 / totalOpen) : 0;
 
-        var status = pooled >= totalOpen ? CoverageStatus.COVERED
-                   : pooled > 0         ? CoverageStatus.PARTIAL
-                   : CoverageStatus.UNCOVERED;
+        var status = CoverageEvaluator.ClassifyByMinutes(false, pooled, totalOpen);
 
         return new CoverageResult(status, totalOpen, pooled, pct, agentResults);
     }

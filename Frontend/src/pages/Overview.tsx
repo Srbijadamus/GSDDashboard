@@ -1,145 +1,756 @@
+import "leaflet/dist/leaflet.css"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { useState } from "react"
+import { useSearchParams } from "react-router-dom"
+import { useTheme } from "next-themes"
+import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet"
+import { AlertTriangle, Users, Calendar } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
 import { api, apiFetch } from "../api/client"
+import { Sheet } from "../components/Sheet"
 
-function StatCard({ label, value, color }: { label: string; value: any; color?: string }) {
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface DayForecast { date: string; status: string; expectedAgents: number; minRequired: number }
+interface LocationForecast {
+  locationCode: string; displayName: string; city: string; country: string
+  coordinates: string | null; forecast: DayForecast[]; atRiskDays: number; todayStatus: string
+}
+interface BriefingGap {
+  locationCode: string; displayName: string; gapDate: string
+  agentCount: number; minRequired: number
+  bestSubstituteName: string | null; bestSubstituteSource: string | null; bestSubstituteDistanceKm: number | null
+}
+interface BriefingAbsence { employeeId: number; fullName: string; leaveType: string; locationCode: string | null }
+interface Briefing {
+  absences: BriefingAbsence[]
+  gaps: BriefingGap[]
+  nextAtRiskDays?: Array<{ locationCode: string; date: string; expectedStatus: string }>
+}
+interface WicLocation { locationCode: string; displayName: string; city: string; country: string; coordinates: string | null }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function parseCoords(s: string | null | undefined): [number, number] | null {
+  if (!s) return null
+  const p = s.split(",").map(x => Number(x.trim()))
+  if (p.length !== 2 || p.some(isNaN)) return null
+  return [p[0], p[1]]
+}
+
+const STATUS_HEX: Record<string, string> = {
+  COVERED: "#22d07a", PARTIAL: "#ff7c3b", UNCOVERED: "#ff3b5c", CLOSED: "#7a8fa8"
+}
+const STATUS_BG: Record<string, string> = {
+  COVERED: "rgba(34,208,122,.12)", PARTIAL: "rgba(255,124,59,.15)",
+  UNCOVERED: "rgba(255,59,92,.18)", CLOSED: "rgba(74,95,122,.08)",
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function KpiCard({ label, value, color, isLoading }: { label: string; value: any; color?: string; isLoading?: boolean }) {
+  const borderTop = color ?? "var(--border)"
   return (
-    <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, padding:"16px 20px" }}>
-      <div style={{ fontSize:10, fontWeight:500, textTransform:"uppercase", letterSpacing:".08em", color:"var(--text3)", marginBottom:6 }}>{label}</div>
-      <div style={{ fontSize:28, fontWeight:600, fontFamily:"IBM Plex Mono", color:color ?? "var(--text)" }}>{value ?? "..."}</div>
+    <div style={{
+      background: "var(--card)", borderRadius: 8, padding: "16px 20px",
+      border: "1px solid var(--border)", borderTop: `3px solid ${borderTop}`
+    }}>
+      <div style={{ fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>
+        {label}
+      </div>
+      {isLoading
+        ? <div className="skeleton" style={{ height: 34, width: 64 }} />
+        : <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "IBM Plex Mono", color: color ?? "var(--text)" }}>{value ?? "—"}</div>
+      }
+    </div>
+  )
+}
+
+function WarningBanner({ msg }: { msg: string }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      background: "rgba(255,124,59,.08)", border: "1px solid rgba(255,124,59,.25)",
+      borderRadius: 6, padding: "8px 14px", fontSize: 12, color: "var(--warn)"
+    }}>
+      <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+      {msg}
+    </div>
+  )
+}
+
+// Tile layer inside MapContainer — uses theme-aware URL
+function ThemedTileLayer() {
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === "dark"
+  return (
+    <TileLayer
+      key={isDark ? "dark" : "light"}
+      url={isDark
+        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
+      attribution={isDark
+        ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}
+    />
+  )
+}
+
+interface WicMapProps {
+  locations: WicLocation[]
+  forecast: LocationForecast[]
+  onPinClick: (locationCode: string) => void
+}
+function WicMapView({ locations, forecast, onPinClick }: WicMapProps) {
+  const { t } = useTranslation()
+  const today = new Date().toISOString().split("T")[0]
+
+  const statusMap  = new Map(forecast.map(lf => [lf.locationCode, lf.todayStatus]))
+  const forecastMap = new Map(forecast.map(lf => [lf.locationCode, lf]))
+  const withCoords = locations.filter(l => parseCoords(l.coordinates))
+
+  if (withCoords.length === 0) {
+    return (
+      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 16 }}>
+        <WarningBanner msg={t("overview.map.noCoordinates")} />
+      </div>
+    )
+  }
+
+  return (
+    // isolation: isolate creates a self-contained stacking context so Leaflet's
+    // internal pane z-indexes (200-700) do not escape into the page stacking context
+    // and visually overlay sibling sections (KPI row, heatmap, etc.)
+    <div style={{ borderRadius: 8, overflow: "hidden", isolation: "isolate" }}>
+      <MapContainer
+        center={[51.1657, 10.4515]}
+        zoom={6}
+        minZoom={5}
+        maxZoom={12}
+        style={{ height: 380 }}
+        scrollWheelZoom={false}
+      >
+        <ThemedTileLayer />
+        {withCoords.map(loc => {
+          const coords = parseCoords(loc.coordinates)!
+          const status   = statusMap.get(loc.locationCode) ?? "CLOSED"
+          const color    = STATUS_HEX[status] ?? "#7a8fa8"
+          const isAtRisk = status === "UNCOVERED" || status === "PARTIAL"
+          const lf       = forecastMap.get(loc.locationCode)
+          const todayDF  = lf?.forecast?.find(df => df.date === today)
+          return (
+            // No eventHandlers.click — setting React state from a Leaflet (non-React)
+            // event handler causes a re-render that closes the Popup before it paints.
+            // The Popup child handles all interaction; the "Find substitute" button
+            // inside it calls onPinClick, which is a plain DOM click (React-managed).
+            <CircleMarker
+              key={loc.locationCode}
+              center={coords}
+              radius={isAtRisk ? 9 : 7}
+              pathOptions={{
+                color, fillColor: color, fillOpacity: 0.85,
+                weight: isAtRisk ? 2.5 : 1.5,
+              }}
+            >
+              <Popup>
+                <div style={{ fontFamily: "IBM Plex Sans", fontSize: 12, minWidth: 170 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 2 }}>{loc.displayName}</div>
+                  <div style={{ color: "#888", fontSize: 11, marginBottom: 8 }}>{loc.city}, {loc.country}</div>
+                  <span style={{
+                    background: STATUS_BG[status], color,
+                    padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600
+                  }}>{status}</span>
+                  {todayDF != null && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: "#666" }}>
+                      <span style={{ fontFamily: "monospace" }}>{todayDF.expectedAgents} / {todayDF.minRequired}</span>
+                      {" agents today"}
+                    </div>
+                  )}
+                  {isAtRisk && (
+                    <button
+                      onClick={() => onPinClick(loc.locationCode)}
+                      style={{
+                        marginTop: 10, width: "100%",
+                        background: "rgba(255,59,92,.1)", border: "1px solid rgba(255,59,92,.3)",
+                        color: "#cc3050", borderRadius: 4, padding: "5px 0",
+                        fontSize: 11, cursor: "pointer",
+                      }}
+                    >
+                      {t("attendance.substitute.find")}
+                    </button>
+                  )}
+                </div>
+              </Popup>
+            </CircleMarker>
+          )
+        })}
+      </MapContainer>
+    </div>
+  )
+}
+
+function SubstituteDrawer({
+  locationCode, date, displayName
+}: { locationCode: string; date: string; displayName: string }) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [acceptedId, setAcceptedId] = useState<string | null>(null)
+  const [acceptedName, setAcceptedName] = useState<string | null>(null)
+  const [accepting, setAccepting] = useState<string | null>(null)
+
+  const { data: subs, isLoading } = useQuery({
+    queryKey: ["subs-drawer", locationCode, date],
+    queryFn: async () => {
+      const r = await apiFetch<{ days: Array<{ date: string; candidates: any[] }> }>(
+        `/api/wic/substitutes?locationCode=${encodeURIComponent(locationCode)}&date=${date}&horizon=1`
+      )
+      return r.days?.[0]?.candidates ?? []
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+
+  const handleAccept = async (s: any) => {
+    setAccepting(s.employeeId)
+    try {
+      await apiFetch("/api/wic/substitutes/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: s.employeeId,
+          locationCode,
+          date,
+          shiftStart: null,
+          shiftEnd: null,
+          sourceType: s.sourceType,
+        }),
+      })
+      setAcceptedId(s.employeeId)
+      setAcceptedName(s.fullName ?? s.name)
+      queryClient.invalidateQueries({ queryKey: ["forecast-overview"] })
+      queryClient.invalidateQueries({ queryKey: ["subs-drawer", locationCode, date] })
+    } finally {
+      setAccepting(null)
+    }
+  }
+
+  const sourceColor = (src: string) => {
+    if (src === "BACKUP")    return { bg: "rgba(167,139,250,.15)", color: "var(--purple)" }
+    if (src === "SSP")       return { bg: "rgba(59,126,255,.15)",  color: "var(--accent)" }
+    if (src === "WIC_DONOR") return { bg: "rgba(0,210,160,.15)",   color: "var(--accent2)" }
+    return { bg: "rgba(255,124,59,.15)", color: "var(--warn)" }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{displayName}</div>
+        <div style={{ fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>{date}</div>
+      </div>
+
+      {acceptedId && (
+        <div style={{
+          background: "rgba(34,208,122,.12)", border: "1px solid rgba(34,208,122,.3)",
+          borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--green)"
+        }}>
+          {t("attendance.substitute.confirmed", { name: acceptedName, wic: displayName })}
+        </div>
+      )}
+
+      {isLoading ? (
+        <>
+          {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 60, borderRadius: 8 }} />)}
+        </>
+      ) : (subs ?? []).length === 0 ? (
+        <div style={{ padding: 20, textAlign: "center", color: "var(--text3)", fontSize: 12 }}>
+          {t("attendance.substitute.noCandidates")}
+        </div>
+      ) : (subs ?? []).map((s: any, i: number) => {
+        const sc = sourceColor(s.sourceType)
+        const isAccepted = acceptedId === s.employeeId
+        return (
+          <div key={i} style={{
+            background: isAccepted ? "rgba(34,208,122,.06)" : "var(--card2)",
+            border: `1px solid ${isAccepted ? "rgba(34,208,122,.3)" : "var(--border)"}`,
+            borderRadius: 8, padding: "12px 14px"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ fontWeight: 600, fontSize: 12, color: "var(--text)" }}>{s.name ?? s.fullName}</div>
+              <span style={{ ...sc, padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono", fontWeight: 600 }}>
+                {s.sourceType}
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: 11, color: "var(--text3)" }}>
+              {s.distanceKm != null && <span>{t("attendance.substitute.distance", { km: s.distanceKm.toFixed(1) })}</span>}
+              {s.reachabilityTier && <span>Tier {s.reachabilityTier}</span>}
+              {s.score != null && <span style={{ fontFamily: "IBM Plex Mono", color: "var(--text2)" }}>Score: {s.score.toFixed(0)}</span>}
+            </div>
+            {!acceptedId && (
+              <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => handleAccept(s)}
+                  disabled={accepting === s.employeeId}
+                  style={{
+                    background: "var(--green)", border: "none", color: "#fff",
+                    borderRadius: 5, padding: "5px 14px", fontSize: 11, fontWeight: 600,
+                    cursor: accepting === s.employeeId ? "not-allowed" : "pointer",
+                    opacity: accepting === s.employeeId ? 0.6 : 1,
+                  }}
+                >
+                  {t("attendance.substitute.accept")}
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Existing stat + WIC card components (kept for detail section) ──────────────
+
+function TLCard({ tl }: { tl: any }) {
+  return (
+    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px" }}>
+      <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 10, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tl.teamLeadName}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 8px", fontSize: 11 }}>
+        <span style={{ color: "var(--text3)" }}>Total</span><span style={{ fontFamily: "IBM Plex Mono", textAlign: "right" }}>{tl.totalAgents}</span>
+        <span style={{ color: "var(--text3)" }}>Working</span><span style={{ fontFamily: "IBM Plex Mono", color: "var(--green)", textAlign: "right" }}>{tl.working}</span>
+        <span style={{ color: "var(--text3)" }}>On AL</span><span style={{ fontFamily: "IBM Plex Mono", color: "var(--accent)", textAlign: "right" }}>{tl.onAL}</span>
+        <span style={{ color: "var(--text3)" }}>On SL</span><span style={{ fontFamily: "IBM Plex Mono", color: "var(--warn)", textAlign: "right" }}>{tl.onSL}</span>
+        <span style={{ color: "var(--text3)" }}>WIC</span><span style={{ fontFamily: "IBM Plex Mono", color: "var(--blue-light)", textAlign: "right" }}>{tl.wicAssigned}</span>
+      </div>
     </div>
   )
 }
 
 function WicCard({ card }: { card: any }) {
-  const covered = card.coverageStatus === "COVERED"
-  const partial = card.coverageStatus === "PARTIAL"
-  const closed  = card.coverageStatus === "CLOSED"
-  const statusColor = covered ? "var(--green)" : partial ? "var(--warn)" : closed ? "var(--text3)" : "var(--danger)"
-  const statusLabel = covered ? "COVERED" : partial ? "PARTIAL" : closed ? "CLOSED" : "UNCOVERED"
+  const st = card.coverageStatus
+  const color = st === "COVERED" ? "var(--green)" : st === "PARTIAL" ? "var(--warn)" : st === "CLOSED" ? "var(--text3)" : "var(--danger)"
   return (
-    <div style={{ background:"var(--card)", border:`1px solid ${covered ? "rgba(34,208,122,.2)" : partial ? "rgba(255,124,59,.2)" : "var(--border)"}`, borderRadius:8, padding:"12px 14px" }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
         <div>
-          <div style={{ fontWeight:600, fontSize:13, color:"var(--text)" }}>{card.displayName}</div>
-          <div style={{ fontSize:11, color:"var(--text3)", marginTop:2 }}>{card.city} - {card.country}</div>
+          <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text)" }}>{card.displayName}</div>
+          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{card.city}</div>
         </div>
-        <span style={{ fontSize:10, fontWeight:600, color:statusColor, background:`${statusColor}18`, padding:"2px 8px", borderRadius:4, fontFamily:"IBM Plex Mono", whiteSpace:"nowrap" }}>{statusLabel}</span>
+        <span style={{ fontSize: 10, fontWeight: 600, color, background: `${color}18`, padding: "2px 8px", borderRadius: 4, fontFamily: "IBM Plex Mono", whiteSpace: "nowrap" }}>{st}</span>
       </div>
-      {card.todaySchedule?.rawSchedule && !closed && (
-        <div style={{ fontSize:11, color:"var(--text3)", marginBottom:6 }}>{card.todaySchedule.rawSchedule}</div>
-      )}
       {card.assignedAgents?.length > 0 && (
-        <div style={{ borderTop:"1px solid var(--border)", paddingTop:8, marginTop:4 }}>
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 6, marginTop: 4 }}>
           {card.assignedAgents.map((a: any) => (
-            <div key={a.employeeId} style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"var(--text2)", marginBottom:3 }}>
+            <div key={a.employeeId} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text2)", marginBottom: 2 }}>
               <span>{a.name}</span>
-              <span style={{ fontFamily:"IBM Plex Mono", color:a.coverageMatch === "FULL" ? "var(--green)" : "var(--warn)" }}>{a.shiftStart} - {a.shiftEnd}</span>
+              <span style={{ fontFamily: "IBM Plex Mono", color: a.coverageMatch === "FULL" ? "var(--green)" : "var(--warn)" }}>
+                {a.shiftStart === "SICK" || a.shiftEnd === "SICK" || a.shiftStart === "SL" || a.shiftEnd === "SL"
+                  ? "SL"
+                  : a.shiftStart === "AL" || a.shiftEnd === "AL"
+                  ? "AL"
+                  : `${a.shiftStart}–${a.shiftEnd}`}
+              </span>
             </div>
           ))}
         </div>
       )}
-      {card.mainAgents?.length > 0 && card.assignedAgents?.length === 0 && !closed && (
-        <div style={{ fontSize:11, color:"var(--text3)", fontStyle:"italic" }}>Main: {card.mainAgents.join(", ")}</div>
+    </div>
+  )
+}
+
+// ── Section header ─────────────────────────────────────────────────────────────
+
+function SectionHeader({ title, count, color }: { title: string; count?: number; color?: string }) {
+  return (
+    <div style={{ fontSize: 11, fontWeight: 600, color: color ?? "var(--text2)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+      {title}
+      {count !== undefined && (
+        <span style={{ fontSize: 10, background: `${color ?? "var(--text2)"}22`, color: color ?? "var(--text2)", padding: "1px 7px", borderRadius: 10, fontFamily: "IBM Plex Mono" }}>{count}</span>
       )}
     </div>
   )
 }
 
-function TLCard({ tl }: { tl: any }) {
-  return (
-    <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, padding:"12px 14px" }}>
-      <div style={{ fontWeight:600, fontSize:12, marginBottom:10, color:"var(--text)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{tl.teamLeadName}</div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px 8px", fontSize:11 }}>
-        <span style={{ color:"var(--text3)" }}>Total</span><span style={{ fontFamily:"IBM Plex Mono", textAlign:"right" }}>{tl.totalAgents}</span>
-        <span style={{ color:"var(--text3)" }}>Working</span><span style={{ fontFamily:"IBM Plex Mono", color:"var(--green)", textAlign:"right" }}>{tl.working}</span>
-        <span style={{ color:"var(--text3)" }}>On AL</span><span style={{ fontFamily:"IBM Plex Mono", color:"var(--accent)", textAlign:"right" }}>{tl.onAL}</span>
-        <span style={{ color:"var(--text3)" }}>On SL</span><span style={{ fontFamily:"IBM Plex Mono", color:"var(--warn)", textAlign:"right" }}>{tl.onSL}</span>
-        <span style={{ color:"var(--text3)" }}>WIC</span><span style={{ fontFamily:"IBM Plex Mono", color:"#7eb8ff", textAlign:"right" }}>{tl.wicAssigned}</span>
-      </div>
-    </div>
-  )
-}
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function Overview() {
   const { t } = useTranslation()
+  const [searchParams] = useSearchParams()
+  const horizon = Math.max(1, Math.min(30, Number(searchParams.get("horizon")) || 14))
   const today = new Date().toISOString().split("T")[0]
-  const [showClosed, setShowClosed] = useState(false)
 
-  const { data: summary } = useQuery({ queryKey:["summary", today], queryFn:() => api.dashboard.summary(today) })
-  const { data: tls }     = useQuery({ queryKey:["tls", today],     queryFn:() => api.dashboard.teamleadSummary(today) })
-  const { data: wicCards }= useQuery({ queryKey:["wic-cards-v2", today], queryFn:() => apiFetch<any[]>(`/api/wic/cards?date=${today}`) })
+  const [sheetOpen, setSheetOpen]       = useState(false)
+  const [sheetCell, setSheetCell]       = useState<{ locationCode: string; date: string; displayName: string } | null>(null)
+  const [showClosed, setShowClosed]     = useState(false)
+  const [showDetailGrid, setShowDetailGrid] = useState(false)
 
-  const occupied  = wicCards?.filter((c: any) => c.coverageStatus === "COVERED") ?? []
-  const partial   = wicCards?.filter((c: any) => c.coverageStatus === "PARTIAL") ?? []
-  const uncovered = wicCards?.filter((c: any) => c.coverageStatus === "UNCOVERED") ?? []
-  const closed    = wicCards?.filter((c: any) => c.coverageStatus === "CLOSED") ?? []
+  // ── Queries ──────────────────────────────────────────────────────────────────
+  const { data: forecast, isLoading: forecastLoading } = useQuery({
+    queryKey: ["forecast-overview", horizon],
+    queryFn: async () => {
+      const r = await apiFetch<{ locations: LocationForecast[] }>(`/api/wic/forecast?horizon=${horizon}`)
+      return r.locations ?? []
+    },
+    staleTime: 5 * 60 * 1000, refetchInterval: 10 * 60 * 1000,
+  })
+
+  const { data: briefing, isLoading: briefingLoading } = useQuery({
+    queryKey: ["briefing"],
+    queryFn: () => apiFetch<Briefing>("/api/wic/briefing"),
+    staleTime: 3 * 60 * 1000,
+  })
+
+  const { data: locations } = useQuery({
+    queryKey: ["wic-locations"],
+    queryFn: () => apiFetch<WicLocation[]>("/api/wic/locations"),
+    staleTime: 15 * 60 * 1000,
+  })
+
+  const { data: tls } = useQuery({
+    queryKey: ["tls", today],
+    queryFn: () => api.dashboard.teamleadSummary(today),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: wicCards, isLoading: cardsLoading } = useQuery({
+    queryKey: ["wic-cards-v2", today],
+    queryFn: () => apiFetch<any[]>(`/api/wic/cards?date=${today}`),
+    staleTime: 3 * 60 * 1000,
+    enabled: showDetailGrid,
+  })
+
+  // ── KPI derivations ───────────────────────────────────────────────────────────
+  const totalOpen   = forecast?.filter(lf => lf.todayStatus !== "CLOSED").length ?? 0
+  const atRiskToday = forecast?.filter(lf => lf.todayStatus === "UNCOVERED" || lf.todayStatus === "PARTIAL").length ?? 0
+  const coveredToday = forecast?.filter(lf => lf.todayStatus === "COVERED").length ?? 0
+  const coveragePct = totalOpen > 0 ? Math.round((coveredToday / totalOpen) * 100) : 0
+  const absentToday  = briefing?.absences?.length ?? 0
+  const closureRisk  = briefing?.nextAtRiskDays?.length ?? briefing?.gaps?.filter(g => g.gapDate !== today).length ?? 0
+
+  // ── Heatmap dates ─────────────────────────────────────────────────────────────
+  const heatDates = Array.from({ length: horizon }, (_, i) => {
+    const d = new Date(today); d.setDate(d.getDate() + i); return d.toISOString().split("T")[0]
+  })
+
+  const dayLabel = (d: string) => {
+    const dt = new Date(d)
+    const dow = ["Su","Mo","Tu","We","Th","Fr","Sa"][dt.getDay()]
+    return { dow, day: dt.getDate().toString().padStart(2, "0") }
+  }
+  const isWeekend = (d: string) => { const dt = new Date(d); return dt.getDay() === 0 || dt.getDay() === 6 }
+
+  // ── Risk radar (next 7 days, UNCOVERED only) ──────────────────────────────────
+  const sevenOut = new Date(today); sevenOut.setDate(sevenOut.getDate() + 7)
+  const sevenStr = sevenOut.toISOString().split("T")[0]
+  const riskRadar = (forecast ?? []).flatMap(lf =>
+    (lf.forecast ?? [])
+      .filter(df => df.date > today && df.date <= sevenStr && (df.status === "UNCOVERED" || df.status === "PARTIAL"))
+      .map(df => ({ locationCode: lf.locationCode, displayName: lf.displayName, date: df.date, status: df.status }))
+  ).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 20)
+
+  // ── WIC detail grid ───────────────────────────────────────────────────────────
+  const uncovered  = wicCards?.filter((c: any) => c.coverageStatus === "UNCOVERED") ?? []
+  const partial    = wicCards?.filter((c: any) => c.coverageStatus === "PARTIAL") ?? []
+  const covered    = wicCards?.filter((c: any) => c.coverageStatus === "COVERED") ?? []
+  const closed     = wicCards?.filter((c: any) => c.coverageStatus === "CLOSED") ?? []
+
+  const openCell = (lf: LocationForecast, date: string) => {
+    setSheetCell({ locationCode: lf.locationCode, date, displayName: lf.displayName })
+    setSheetOpen(true)
+  }
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-        <h1 style={{ fontSize:22, fontWeight:600, color:"var(--text)" }}>{t("nav.overview")}</h1>
-        <span style={{ fontSize:11, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{today}</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* ── Header ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h1 style={{ fontSize: 22, fontWeight: 600, color: "var(--text)" }}>{t("nav.overview")}</h1>
+        <span style={{ fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>{today}</span>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:12 }}>
-        <StatCard label="Voice Working"  value={summary?.workingVoice} color="var(--accent)" />
-        <StatCard label="Chat + SSP"     value={(summary?.workingChat ?? 0) + (summary?.workingSSP ?? 0)} color="var(--accent2)" />
-        <StatCard label="On AL"          value={summary?.onAL}         color="var(--accent)" />
-        <StatCard label="On SL"          value={summary?.onSL}         color="var(--warn)" />
-        <StatCard label="Training"       value={summary?.onTraining}   color="#a78bfa" />
-        <StatCard label="WIC Duty"       value={summary?.onWicDuty}    color="#7eb8ff" />
-        <StatCard label="Total Active"   value={summary?.totalActive}  color="var(--green)" />
-        <StatCard label="WIC Unoccupied" value={summary?.wicUnoccupiedCount} color="var(--danger)" />
+      {/* ── A. KPI Row ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+        <KpiCard label={t("overview.kpi.openToday")}    value={totalOpen}    color="var(--accent)"  isLoading={forecastLoading} />
+        <KpiCard label={t("overview.kpi.atRiskToday")}  value={atRiskToday}  color="var(--warn)"    isLoading={forecastLoading} />
+        <KpiCard label={t("overview.kpi.closureRisk")}  value={closureRisk}  color="var(--danger)"  isLoading={briefingLoading} />
+        <KpiCard label={t("overview.kpi.absentToday")}  value={absentToday}  color="var(--yellow)"  isLoading={briefingLoading} />
+        <KpiCard label={t("overview.kpi.coveragePct")}  value={forecastLoading ? null : `${coveragePct}%`} color="var(--green)" isLoading={forecastLoading} />
       </div>
 
-      <div>
-        <h2 style={{ fontSize:13, fontWeight:600, color:"var(--text2)", marginBottom:10, textTransform:"uppercase", letterSpacing:".07em" }}>Team Lead Summary</h2>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(6, 1fr)", gap:10 }}>
-          {tls?.map((tl: any) => <TLCard key={tl.teamLeadName} tl={tl} />)}
-        </div>
-      </div>
-
-      {uncovered.length > 0 && (
-        <div>
-          <h2 style={{ fontSize:13, fontWeight:600, color:"var(--danger)", marginBottom:10, textTransform:"uppercase", letterSpacing:".07em" }}>Uncovered ({uncovered.length})</h2>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:10 }}>
-            {uncovered.map((c: any) => <WicCard key={c.locationCode} card={c} />)}
+      {/* ── B. Coverage Heatmap ── */}
+      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between" }}>
+          <SectionHeader title={t("overview.heatmap.title")} />
+          <div style={{ fontSize: 10, color: "var(--text3)", display: "flex", gap: 10, alignItems: "center" }}>
+            {["COVERED","PARTIAL","UNCOVERED","CLOSED"].map(s => (
+              <span key={s} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: STATUS_HEX[s], display: "inline-block" }} />
+                {s.toLowerCase()}
+              </span>
+            ))}
           </div>
         </div>
-      )}
-
-      {partial.length > 0 && (
-        <div>
-          <h2 style={{ fontSize:13, fontWeight:600, color:"var(--warn)", marginBottom:10, textTransform:"uppercase", letterSpacing:".07em" }}>Partial Coverage ({partial.length})</h2>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:10 }}>
-            {partial.map((c: any) => <WicCard key={c.locationCode} card={c} />)}
+        {forecastLoading ? (
+          <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 8 }}>
+            {[1,2,3,4,5].map(i => <div key={i} className="skeleton" style={{ height: 28 }} />)}
           </div>
-        </div>
-      )}
-
-      {occupied.length > 0 && (
-        <div>
-          <h2 style={{ fontSize:13, fontWeight:600, color:"var(--green)", marginBottom:10, textTransform:"uppercase", letterSpacing:".07em" }}>Covered ({occupied.length})</h2>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:10 }}>
-            {occupied.map((c: any) => <WicCard key={c.locationCode} card={c} />)}
-          </div>
-        </div>
-      )}
-
-      <div>
-        <button onClick={() => setShowClosed(!showClosed)} style={{ background:"var(--card)", border:"1px solid var(--border)", color:"var(--text3)", padding:"6px 14px", borderRadius:6, fontSize:11, cursor:"pointer", fontFamily:"IBM Plex Mono" }}>
-          {showClosed ? "Hide" : "Show"} Closed Today ({closed.length})
-        </button>
-        {showClosed && (
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:10, marginTop:10 }}>
-            {closed.map((c: any) => <WicCard key={c.locationCode} card={c} />)}
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 11, minWidth: "100%" }}>
+              <thead>
+                <tr style={{ background: "var(--card2)" }}>
+                  <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, color: "var(--text3)", borderBottom: "1px solid var(--border)", minWidth: 180, position: "sticky", left: 0, background: "var(--card2)", zIndex: 2 }}>
+                    {t("overview.heatmap.location")}
+                  </th>
+                  {heatDates.map(d => {
+                    const { dow, day } = dayLabel(d)
+                    const we = isWeekend(d)
+                    const isToday = d === today
+                    return (
+                      <th key={d} style={{
+                        padding: "6px 2px", textAlign: "center", minWidth: 38, maxWidth: 38,
+                        borderBottom: "1px solid var(--border)",
+                        background: isToday ? "rgba(59,126,255,.08)" : we ? "rgba(30,45,69,.12)" : "transparent",
+                        color: isToday ? "var(--accent)" : "var(--text3)",
+                      }}>
+                        <div style={{ fontSize: 9, fontFamily: "IBM Plex Mono" }}>{dow}</div>
+                        <div style={{ fontSize: 10, fontWeight: isToday ? 700 : 400 }}>{day}</div>
+                      </th>
+                    )
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {(forecast ?? []).map(lf => (
+                  <tr key={lf.locationCode} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td style={{
+                      padding: "6px 12px", position: "sticky", left: 0,
+                      background: "var(--card)", zIndex: 1, fontWeight: 500, fontSize: 11, color: "var(--text2)"
+                    }}>
+                      {lf.displayName}
+                    </td>
+                    {heatDates.map(d => {
+                      const cell = lf.forecast?.find(df => df.date === d)
+                      const status = cell?.status ?? "CLOSED"
+                      const we = isWeekend(d)
+                      return (
+                        <td
+                          key={d}
+                          onClick={() => (status === "UNCOVERED" || status === "PARTIAL") && openCell(lf, d)}
+                          title={`${lf.displayName} — ${d} — ${status}`}
+                          style={{
+                            padding: "2px",
+                            background: we && status === "CLOSED" ? "rgba(30,45,69,.06)" : STATUS_BG[status] ?? "transparent",
+                            cursor: (status === "UNCOVERED" || status === "PARTIAL") ? "pointer" : "default",
+                          }}
+                        >
+                          <div style={{ width: 34, height: 22, margin: "0 auto", borderRadius: 3, background: STATUS_BG[status], display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {d === today && <span style={{ width: 6, height: 6, borderRadius: "50%", background: STATUS_HEX[status] ?? "transparent", display: "inline-block" }} />}
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
+
+      {/* ── C. WIC Map ── */}
+      <div>
+        <SectionHeader title={t("overview.map.title")} />
+        {(locations?.length ?? 0) > 0 ? (
+          <WicMapView
+            locations={locations ?? []}
+            forecast={forecast ?? []}
+            onPinClick={(code) => {
+              const lf = forecast?.find(f => f.locationCode === code)
+              if (lf) { setSheetCell({ locationCode: code, date: today, displayName: lf.displayName }); setSheetOpen(true) }
+            }}
+          />
+        ) : (
+          <div className="skeleton" style={{ height: 200, borderRadius: 8 }} />
+        )}
+      </div>
+
+      {/* ── D. Recommendations ── */}
+      {(briefing?.gaps?.length ?? 0) > 0 && (
+        <div>
+          <SectionHeader title={t("overview.recommendations.title")} count={briefing!.gaps.length} color="var(--danger)" />
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+            {briefing!.gaps.map((gap, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 14px", borderBottom: "1px solid var(--border)",
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 12, color: "var(--text)" }}>{gap.displayName}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2, fontFamily: "IBM Plex Mono" }}>
+                    {gap.agentCount}/{gap.minRequired} · {gap.gapDate}
+                  </div>
+                </div>
+                {gap.bestSubstituteName && (
+                  <div style={{ flex: 1, fontSize: 11, color: "var(--text2)", textAlign: "center" }}>
+                    <span style={{ color: "var(--text3)" }}>{t("overview.recommendations.best")}: </span>
+                    <span style={{ color: "var(--green)", fontWeight: 600 }}>{gap.bestSubstituteName}</span>
+                    {gap.bestSubstituteDistanceKm != null && (
+                      <span style={{ color: "var(--text3)", marginLeft: 4 }}>({gap.bestSubstituteDistanceKm.toFixed(0)} km)</span>
+                    )}
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    setSheetCell({ locationCode: gap.locationCode, date: today, displayName: gap.displayName })
+                    setSheetOpen(true)
+                  }}
+                  style={{
+                    background: "rgba(255,59,92,.1)", border: "1px solid rgba(255,59,92,.25)",
+                    color: "var(--danger)", padding: "5px 12px", borderRadius: 6,
+                    fontSize: 11, cursor: "pointer", whiteSpace: "nowrap",
+                  }}
+                >
+                  {t("attendance.substitute.find")}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── E. Absence Feed ── */}
+      {(briefing?.absences?.length ?? 0) > 0 && (
+        <div>
+          <SectionHeader title={t("overview.absences.title")} count={briefing!.absences.length} color="var(--yellow)" />
+          <WarningBanner msg={t("overview.absences.noTeamLead")} />
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden", marginTop: 8 }}>
+            {briefing!.absences.map((ab, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "center", gap: 12, padding: "9px 14px",
+                borderBottom: "1px solid var(--border)", fontSize: 12
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+                  <Users size={12} style={{ color: "var(--text3)", flexShrink: 0 }} />
+                  <span style={{ fontWeight: 500, color: "var(--text)" }}>{ab.fullName}</span>
+                  <span style={{ fontSize: 10, fontFamily: "IBM Plex Mono", color: "var(--text3)" }}>{ab.employeeId}</span>
+                </div>
+                <span style={{
+                  background: ab.leaveType === "SickLeave" ? "rgba(255,124,59,.15)" : "rgba(59,126,255,.15)",
+                  color: ab.leaveType === "SickLeave" ? "var(--warn)" : "var(--accent)",
+                  padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono", fontWeight: 600
+                }}>{ab.leaveType}</span>
+                {ab.locationCode && (
+                  <span style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>{ab.locationCode}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── F. Risk Radar ── */}
+      {riskRadar.length > 0 && (
+        <div>
+          <SectionHeader title={t("overview.radar.title")} count={riskRadar.length} color="var(--danger)" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            {riskRadar.map((r, i) => (
+              <div
+                key={i}
+                onClick={() => { setSheetCell({ locationCode: r.locationCode, date: r.date, displayName: r.displayName }); setSheetOpen(true) }}
+                style={{
+                  background: r.status === "UNCOVERED" ? "rgba(255,59,92,.06)" : "rgba(255,124,59,.06)",
+                  border: `1px solid ${r.status === "UNCOVERED" ? "rgba(255,59,92,.25)" : "rgba(255,124,59,.25)"}`,
+                  borderRadius: 8, padding: "10px 12px", cursor: "pointer"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <Calendar size={11} style={{ color: r.status === "UNCOVERED" ? "var(--danger)" : "var(--warn)" }} />
+                  <span style={{ fontSize: 10, fontFamily: "IBM Plex Mono", color: r.status === "UNCOVERED" ? "var(--danger)" : "var(--warn)" }}>{r.date}</span>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{r.displayName}</div>
+                <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 2, fontFamily: "IBM Plex Mono" }}>{r.status}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Team Lead Summary ── */}
+      {(tls?.length ?? 0) > 0 && (
+        <div>
+          <SectionHeader title={t("overview.teamLeads")} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10 }}>
+            {tls?.map((tl: any) => <TLCard key={tl.teamLeadName} tl={tl} />)}
+          </div>
+        </div>
+      )}
+
+      {/* ── WIC Detail Grid (expandable) ── */}
+      <div>
+        <button
+          onClick={() => setShowDetailGrid(!showDetailGrid)}
+          style={{
+            background: "var(--card)", border: "1px solid var(--border)", color: "var(--text3)",
+            padding: "7px 14px", borderRadius: 6, fontSize: 11, cursor: "pointer", fontFamily: "IBM Plex Mono"
+          }}
+        >
+          {showDetailGrid ? "▲" : "▼"} {t("overview.detailGrid")}
+        </button>
+        {showDetailGrid && (
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 16 }}>
+            {cardsLoading && <div style={{ padding: 16, color: "var(--text3)", fontSize: 12 }}>Loading...</div>}
+            {uncovered.length > 0 && (
+              <div>
+                <SectionHeader title={`Uncovered (${uncovered.length})`} color="var(--danger)" />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
+                  {uncovered.map((c: any) => <WicCard key={c.locationCode} card={c} />)}
+                </div>
+              </div>
+            )}
+            {partial.length > 0 && (
+              <div>
+                <SectionHeader title={`Partial (${partial.length})`} color="var(--warn)" />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
+                  {partial.map((c: any) => <WicCard key={c.locationCode} card={c} />)}
+                </div>
+              </div>
+            )}
+            {covered.length > 0 && (
+              <div>
+                <SectionHeader title={`Covered (${covered.length})`} color="var(--green)" />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
+                  {covered.map((c: any) => <WicCard key={c.locationCode} card={c} />)}
+                </div>
+              </div>
+            )}
+            <div>
+              <button onClick={() => setShowClosed(!showClosed)} style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text3)", padding: "5px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer", fontFamily: "IBM Plex Mono" }}>
+                {showClosed ? "Hide" : "Show"} Closed ({closed.length})
+              </button>
+              {showClosed && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10, marginTop: 10 }}>
+                  {closed.map((c: any) => <WicCard key={c.locationCode} card={c} />)}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Substitute Sheet Drawer ── */}
+      <Sheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)} title={`${sheetCell?.displayName ?? ""} – ${sheetCell?.date ?? ""}`}>
+        <div style={{ padding: 20 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", marginBottom: 16 }}>
+            {t("attendance.substitute.title")}
+          </div>
+          {sheetCell && (
+            <SubstituteDrawer
+              locationCode={sheetCell.locationCode}
+              date={sheetCell.date}
+              displayName={sheetCell.displayName}
+            />
+          )}
+        </div>
+      </Sheet>
     </div>
   )
 }
-
-

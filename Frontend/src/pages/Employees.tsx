@@ -14,7 +14,7 @@ const BUNDESLAENDER = ["Bayern","NRW","Hamburg","Berlin","Baden-Württemberg","S
 
 const badge = (type: string) => {
   const styles: Record<string,any> = {
-    "Full Time": { background:"rgba(59,126,255,.15)", color:"#7eb8ff" },
+    "Full Time": { background:"rgba(59,126,255,.15)", color:"var(--blue-light)" },
     "Part-Time": { background:"rgba(255,124,59,.15)", color:"var(--warn)" },
     "Student":   { background:"rgba(0,210,160,.15)",  color:"var(--accent2)" },
   }
@@ -26,8 +26,8 @@ const badge = (type: string) => {
 
 const roleBadge = (role: string) => {
   const colors: Record<string,string> = {
-    "Voice":"var(--accent2)", "SSP":"var(--accent)", "Chat":"#a78bfa",
-    "Dispatcher":"var(--warn)", "WIC":"#7eb8ff", "SME":"var(--accent2)",
+    "Voice":"var(--accent2)", "SSP":"var(--accent)", "Chat":"var(--purple)",
+    "Dispatcher":"var(--warn)", "WIC":"var(--blue-light)", "SME":"var(--accent2)",
   }
   return <span style={{ color: colors[role] ?? "var(--text2)", fontSize:11, fontFamily:"IBM Plex Mono" }}>{role}</span>
 }
@@ -334,7 +334,7 @@ export default function Employees() {
               {isLoading && <tr><td colSpan={8} style={{ padding:24, textAlign:"center", color:"var(--text3)" }}>Loading...</td></tr>}
               {filtered.map((e: any) => (
                 <tr key={e.employeeId}
-                  style={{ borderBottom:"1px solid rgba(30,45,69,.5)" }}
+                  style={{ borderBottom:"1px solid var(--border)" }}
                   onMouseEnter={ev => (ev.currentTarget.style.background = "var(--card2)")}
                   onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}>
                   <td style={{ padding:"9px 12px", fontFamily:"IBM Plex Mono", fontSize:11, color:"var(--text3)" }}>{e.employeeId}</td>
@@ -343,7 +343,7 @@ export default function Employees() {
                   <td style={{ padding:"9px 12px" }}>{roleBadge(e.primaryRole)}</td>
                   <td style={{ padding:"9px 12px", color:"var(--text2)", fontSize:11 }}>{e.teamLeadName}</td>
                   <td style={{ padding:"9px 12px", fontSize:10, fontFamily:"IBM Plex Mono", color:"var(--text3)" }}>{e.sourceSheet}</td>
-                  <td style={{ padding:"9px 12px" }}>{(e as any).bundesland && <span style={{ background:"rgba(250,204,21,0.1)", border:"1px solid rgba(250,204,21,0.3)", color:"#facc15", borderRadius:4, fontSize:9, padding:"2px 6px", fontWeight:600 }}>{(e as any).bundesland}</span>}</td>
+                  <td style={{ padding:"9px 12px" }}>{(e as any).bundesland && <span style={{ background:"rgba(250,204,21,0.1)", border:"1px solid rgba(250,204,21,0.3)", color:"var(--yellow)", borderRadius:4, fontSize:9, padding:"2px 6px", fontWeight:600 }}>{(e as any).bundesland}</span>}</td>
                   <td style={{ padding:"9px 12px" }}>
                     <div style={{ display:"flex", gap:6 }}>
                       <button onClick={() => setEditEmp(e)} style={{

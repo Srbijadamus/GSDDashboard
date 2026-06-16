@@ -1,0 +1,151 @@
+
+========================================
+  Step 1: Extract PostalCode from LocationCode
+========================================
+
+>>> Extract PLZ from DE~PLZ~City~Addr pattern
+OK (40 row(s) affected)
+Expected: ~41 rows (all DE new-style LocationCodes)
+
+>>> PostalCode coverage after extraction
+
+[32;1mTotal[0m[32;1m WithPostalCode[0m[32;1m DEMissingPostalCode[0m[32;1m NLMissingPostalCode[0m
+[32;1m-----[0m [32;1m--------------[0m [32;1m-------------------[0m [32;1m-------------------[0m
+   43             40                   1                   2
+
+
+>>> TOP 10 rows (spot-check extraction)
+
+[32;1mLocationCode                                 [0m[32;1m PostalCode[0m[32;1m City         [0m[32;1m Country[0m
+[32;1m------------                                 [0m [32;1m----------[0m [32;1m----         [0m [32;1m-------[0m
+DE~04416~Markkleeberg~Friedrich-Ebert-Str. 26 04416      Markkleeberg  DE
+DE~06112~Halle (Saale)~Magdeburger Str. 51    06112      Halle (Saale) DE
+DE~10179~Berlin~Brückenstrasse 6              10179      Berlin        DE
+DE~10589~Berlin~Gaußstr. 11                   10589      Berlin        DE
+DE~14467~Potsdam~Am Kanal 2-3                 14467      Potsdam       DE
+DE~15517~Fürstenwalde~Langewahler Str. 60     15517      Fürstenwalde  DE
+DE~17109~ Demmin~Am Hanseufer 2               17109      Demmin        DE
+DE~17109~Demmin~Woldeforster Str. 6           17109      Demmin        DE
+DE~20537~Hamburg~Normannenweg 9               20537      Hamburg       DE
+DE~21683~Stade~Bassenflether Chaussee         21683      Stade         DE
+
+
+========================================
+  Step 3: Populate Bundesland by PostalCode
+========================================
+  86150  Bayern (1 row(s))
+  96052  Bayern (1 row(s))
+  84051  Bayern (1 row(s))
+  97506  Bayern (1 row(s))
+  84036  Bayern (1 row(s))
+  80634  Bayern (1 row(s))
+  10589  Berlin (1 row(s))
+  15517  Brandenburg (1 row(s))
+  14467  Brandenburg (1 row(s))
+  20537  Hamburg (1 row(s))
+  63263  Hessen (1 row(s))
+  17109  Mecklenburg-Vorpommern (2 row(s))
+  31860  Niedersachsen (1 row(s))
+  30459  Niedersachsen (1 row(s))
+  38350  Niedersachsen (1 row(s))
+  49074  Niedersachsen (1 row(s))
+  38226  Niedersachsen (1 row(s))
+  21683  Niedersachsen (1 row(s))
+  26935  Niedersachsen (1 row(s))
+  59821  Nordrhein-Westfalen (1 row(s))
+  44139  Nordrhein-Westfalen (1 row(s))
+  45131  Nordrhein-Westfalen (1 row(s))
+  45143  Nordrhein-Westfalen (1 row(s))
+  45476  Nordrhein-Westfalen (1 row(s))
+  48163  Nordrhein-Westfalen (1 row(s))
+  41460  Nordrhein-Westfalen (1 row(s))
+  45661  Nordrhein-Westfalen (1 row(s))
+  57072  Nordrhein-Westfalen (1 row(s))
+  46483  Nordrhein-Westfalen (1 row(s))
+  56648  Rheinland-Pfalz (1 row(s))
+  54294  Rheinland-Pfalz (1 row(s))
+  66121  Saarland (1 row(s))
+  04416  Sachsen (1 row(s))
+  06112  Sachsen-Anhalt (1 row(s))
+  25576  Schleswig-Holstein (1 row(s))
+  25451  Schleswig-Holstein (1 row(s))
+PLZ-based Bundesland rows updated: 37
+
+>>> LocationCode fallback: RENDSBURG  Schleswig-Holstein
+OK (0 row(s) affected)
+0
+
+>>> LocationCode fallback: PFAFFENHOFEN  Bayern
+OK (0 row(s) affected)
+0
+
+========================================
+  Step 4: Final verification
+========================================
+
+>>> Bundesland coverage for DE locations (MUST be MissingBundesland = 0)
+
+[32;1mTotalDE[0m[32;1m WithBundesland[0m[32;1m MissingBundesland[0m
+[32;1m-------[0m [32;1m--------------[0m [32;1m-----------------[0m
+     41             39                 2
+
+
+>>> NL locations: Bundesland should be NULL (no Bundesland concept)
+
+[32;1mNL_NoBundesland_expected[0m[32;1m NL_HasBundesland_unexpected[0m
+[32;1m------------------------[0m [32;1m---------------------------[0m
+                       2                           0
+
+
+>>> All active WicLocations - final spot-check
+
+[32;1mLocationCode                                    [0m[32;1m PostalCode[0m[32;1m City           [0m[32;1m Country[0m[32;1m Bundesland[0m
+[32;1m------------                                    [0m [32;1m----------[0m [32;1m----           [0m [32;1m-------[0m [32;1m----------[0m
+DE~10179~Berlin~Brückenstrasse 6                 10179      Berlin          DE      NULL
+DE~93049~Regensburg~Lilienthalstraße 7           93049      Regensburg      DE      NULL
+DE~86150~Augsburg~Schaezlerstr. 3                86150      Augsburg        DE      Bayern
+DE~96052~Bamberg~Doktor-Robert-Pfleger-Str. 20   96052      Bamberg         DE      Bayern
+DE~84051~Essenbach~Dammstraße                    84051      Essenbach       DE      Bayern
+DE~97506~Grafenrheinfeld~Kraftwerkstraße         97506      Grafenrheinfeld DE      Bayern
+DE~84036~Landshut~Kiem-Pauli Str. 2              84036      Landshut        DE      Bayern
+DE~80634~München~Arnulfstr. 203                  80634      München         DE      Bayern
+DE~85276~Pfaffenhofen~Draht 7                    85276      Pfaffenhofen    DE      Bayern
+DE~10589~Berlin~Gaußstr. 11                      10589      Berlin          DE      Berlin
+DE~15517~Fürstenwalde~Langewahler Str. 60        15517      Fürstenwalde    DE      Brandenburg
+DE~14467~Potsdam~Am Kanal 2-3                    14467      Potsdam         DE      Brandenburg
+DE~20537~Hamburg~Normannenweg 9                  20537      Hamburg         DE      Hamburg
+DE~63263~Neu-Isenburg~Flughafenstr. 20           63263      Neu-Isenburg    DE      Hessen
+DE~17109~ Demmin~Am Hanseufer 2                  17109      Demmin          DE      Mecklenburg-Vorpommern
+DE~17109~Demmin~Woldeforster Str. 6              17109      Demmin          DE      Mecklenburg-Vorpommern
+DE~31860~Emmerthal~Kraftwerksgelände             31860      Emmerthal       DE      Niedersachsen
+DE~30459~Hannover~Ricklinger Stadtweg 123-127    30459      Hannover        DE      Niedersachsen
+DE~38350~Helmstedt~Schillerstr. 3                38350      Helmstedt       DE      Niedersachsen
+DE~49074~Osnabrück~Goethering 23-29              49074      Osnabrück       DE      Niedersachsen
+DE~38226~Salzgitter~Joachim-Campe-Straße 14      38226      Salzgitter      DE      Niedersachsen
+DE~21683~Stade~Bassenflether Chaussee            21683      Stade           DE      Niedersachsen
+DE~26935~Stadland~Dedesdorfer Straße 2           26935      Stadland        DE      Niedersachsen
+DE~59821~Arnsberg~Hellefelder Str. 8             59821      Arnsberg        DE      Nordrhein-Westfalen
+DE~44139~Dortmund~Florianstraße 15-21            44139      Dortmund        DE      Nordrhein-Westfalen
+DE~45131~Essen~Brüsseler Platz 1                 45131      Essen           DE      Nordrhein-Westfalen
+DE~45143~Essen~ThyssenKrupp Allee 1              45143      Essen           DE      Nordrhein-Westfalen
+DE~45476~Mülheim~Moritzstr. 16-22                45476      Mülheim         DE      Nordrhein-Westfalen
+DE~48163~Münster~Weseler Str. 480                48163      Münster         DE      Nordrhein-Westfalen
+DE~41460~Neuss~Collingstr. 2                     41460      Neuss           DE      Nordrhein-Westfalen
+DE~45661~Recklinghausen~Bochumer Str. 2          45661      Recklinghausen  DE      Nordrhein-Westfalen
+DE~57072~Siegen~Friedrichstr. 60                 57072      Siegen          DE      Nordrhein-Westfalen
+DE~46483~Wesel~Reeser Landstr. 41                46483      Wesel           DE      Nordrhein-Westfalen
+DE~56648~Saffig~Rauschermühle                    56648      Saffig          DE      Rheinland-Pfalz
+DE~54294~Trier~Eurener Str. 33                   54294      Trier           DE      Rheinland-Pfalz
+DE~66121~Saarbrücken~Heinrich-Böcking-Str. 10-14 66121      Saarbrücken     DE      Saarland
+DE~04416~Markkleeberg~Friedrich-Ebert-Str. 26    04416      Markkleeberg    DE      Sachsen
+DE~06112~Halle (Saale)~Magdeburger Str. 51       06112      Halle (Saale)   DE      Sachsen-Anhalt
+DE~25576~Brokdorf~Osterende                      25576      Brokdorf        DE      Schleswig-Holstein
+DE~25451~Quickborn~Schleswag-HeinGas-Platz 1     25451      Quickborn       DE      Schleswig-Holstein
+RENDSBURG                                        NULL       Rendsburg       DE      Schleswig-Holstein
+NL~5211 AK~s-Hertogenbosch~Willemsplein 4        NULL       s-Hertogenbosch NL      NULL
+NL~8041 BL~Zwolle~Grote Voort 247                NULL       Zwolle          NL      NULL
+
+
+========================================
+  PS1_6 complete. If MissingBundesland = 0 above, proceed to PS1_1_Build.ps1
+========================================

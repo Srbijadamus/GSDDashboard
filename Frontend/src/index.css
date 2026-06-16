@@ -4,22 +4,63 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Light theme (default) ─────────────────────────────────────────────────── */
 :root {
-  --bg: #0b0f1a;
-  --sidebar: #0e1320;
-  --card: #131928;
-  --card2: #1a2235;
-  --border: #1e2d45;
-  --accent: #3b7eff;
-  --accent2: #00d2a0;
-  --warn: #ff7c3b;
-  --danger: #ff3b5c;
-  --text: #e2e8f0;
-  --text2: #7a8fa8;
-  --text3: #4a5f7a;
-  --green: #22d07a;
+  --bg:      hsl(220, 20%, 97%);
+  --sidebar: hsl(220, 20%, 100%);
+  --card:    hsl(0, 0%, 100%);
+  --card2:   hsl(220, 18%, 94%);
+  --border:  hsl(220, 18%, 88%);
+
+  --accent:  hsl(215, 100%, 50%);
+  --accent2: hsl(166, 100%, 33%);
+  --warn:    hsl(22, 100%, 50%);
+  --danger:  hsl(350, 100%, 50%);
+  --green:   hsl(147, 70%, 40%);
+
+  --text:    hsl(220, 20%, 10%);
+  --text2:   hsl(220, 15%, 40%);
+  --text3:   hsl(220, 10%, 58%);
+
+  --purple:     hsl(262, 70%, 45%);
+  --yellow:     hsl(43, 90%, 40%);
+  --blue-light: hsl(207, 80%, 50%);
+
+  --status-covered:   hsl(147, 70%, 40%);
+  --status-partial:   hsl(22, 100%, 50%);
+  --status-uncovered: hsl(350, 100%, 50%);
+  --status-closed:    hsl(220, 15%, 40%);
 }
 
+/* ── Dark theme ────────────────────────────────────────────────────────────── */
+.dark {
+  --bg:      hsl(225, 39%, 8%);
+  --sidebar: hsl(222, 38%, 9%);
+  --card:    hsl(222, 38%, 11%);
+  --card2:   hsl(222, 40%, 15%);
+  --border:  hsl(218, 38%, 19%);
+
+  --accent:  hsl(215, 100%, 61%);
+  --accent2: hsl(166, 100%, 41%);
+  --warn:    hsl(22, 100%, 61%);
+  --danger:  hsl(350, 100%, 61%);
+  --green:   hsl(147, 70%, 47%);
+
+  --text:    hsl(214, 32%, 91%);
+  --text2:   hsl(210, 18%, 57%);
+  --text3:   hsl(212, 25%, 38%);
+
+  --purple:     hsl(262, 75%, 73%);
+  --yellow:     hsl(43, 96%, 56%);
+  --blue-light: hsl(207, 100%, 74%);
+
+  --status-covered:   hsl(147, 70%, 47%);
+  --status-partial:   hsl(22, 100%, 61%);
+  --status-uncovered: hsl(350, 100%, 61%);
+  --status-closed:    hsl(210, 18%, 57%);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 
 body {
@@ -28,7 +69,26 @@ body {
   font-family: 'IBM Plex Sans', sans-serif;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: var(--bg); }
+::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ── Skeleton loading ─────────────────────────────────────────────────────── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.skeleton {
+  background: var(--card2);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+/* ── Pulse dot animation ─────────────────────────────────────────────────── */
+@keyframes pulse-green {
+  0%   { box-shadow: 0 0 0 0 rgba(34, 208, 122, 0.6); }
+  70%  { box-shadow: 0 0 0 8px rgba(34, 208, 122, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 208, 122, 0); }
+}

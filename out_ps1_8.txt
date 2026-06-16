@@ -1,0 +1,51 @@
+--- Stopping existing server process ---
+Process stopped.
+
+--- dotnet build ---
+C:\GSDDashboard\Backend\Program.cs(4,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Modules.Overview" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\Program.cs(7,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Modules.Shifts" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\Program.cs(16,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Services" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\OverviewService.cs(147,30): warning CS0219: Die Variable "filtered" ist zugewiesen, ihr Wert wird aber nie verwendet. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+  GSDDashboard.API -> C:\GSDDashboard\Backend\bin\Release\net8.0\GSDDashboard.API.dll
+
+Der Buildvorgang wurde erfolgreich ausgef├╝hrt.
+
+C:\GSDDashboard\Backend\Program.cs(4,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Modules.Overview" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\Program.cs(7,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Modules.Shifts" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\Program.cs(16,7): warning CS0105: Die using-Direktive f├╝r "GSDDashboard.API.Services" ist bereits vorher in diesem Namespace aufgetreten. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+C:\GSDDashboard\Backend\OverviewService.cs(147,30): warning CS0219: Die Variable "filtered" ist zugewiesen, ihr Wert wird aber nie verwendet. [C:\GSDDashboard\Backend\GSDDashboard.API.csproj]
+    4 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:10.55
+BUILD SUCCESS
+
+--- Check: no orphan if-else classification chains remain ---
+OK - no inline COVERED/PARTIAL/UNCOVERED chains found in the 3 modified files.
+
+--- Starting server ---
+Server PID: 27628
+
+--- GET /api/wic/reachability/sanity ---
+{
+  "from": "DE~10179~Berlin~Brückenstrasse 6",
+  "to": "DE~80634~München~Arnulfstr. 203",
+  "fromCoords": "52.513127,13.417954",
+  "toCoords": "48.149042,11.521887",
+  "distanceKm": 503.5,
+  "expected": "~504 km",
+  "passed": true,
+  "note": "straight-line haversine only - no routing API"
+}
+Reachability sanity: PASSED (503.5 km Berlin->Munich)
+
+--- DB: find a sick MAIN agent ---
+Found sick MAIN agent: Sebastian Höck (9074573) at DE_Dortmund, sick from 01/01/2026 00:00:00
+
+--- GET http://localhost:5000/api/wic/substitutes?locationCode=DE_Dortmund&date=2026-06-15&horizon=1&absentIds=9074573 ---
+ERROR calling http://localhost:5000/api/wic/substitutes?locationCode=DE_Dortmund&date=2026-06-15&horizon=1&absentIds=9074573 : 
+{
+  "error": "Location \u0027DE_Dortmund\u0027 not found or inactive."
+}
+
+--- PS1_8 complete ---

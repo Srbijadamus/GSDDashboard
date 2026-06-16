@@ -1,0 +1,1 @@
+$cs="Server=localhost\SQLEXPRESS;Database=GSDDashboard;Integrated Security=true;TrustServerCertificate=yes;"; $conn=New-Object System.Data.SqlClient.SqlConnection($cs); $conn.Open(); $cmd=$conn.CreateCommand(); $cmd.CommandText="SELECT DISTINCT LocationCode FROM WicOpeningHours ORDER BY LocationCode"; $r=$cmd.ExecuteReader(); while($r.Read()){Write-Host $r[0]}; $conn.Close()

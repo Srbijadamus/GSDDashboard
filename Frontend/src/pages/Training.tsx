@@ -169,7 +169,7 @@ export default function Training() {
                     <span style={{ color: sel ? "var(--accent)" : "var(--text3)", fontSize:12 }}>{sel ? "✓" : "○"}</span>
                     <span style={{ fontWeight:500, color:"var(--text)" }}>{e.fullName}</span>
                     <span style={{ fontSize:10, color:"var(--text3)" }}>{e.teamLeadName}</span>
-                    {e.engagement === "Student" && <span style={{ fontSize:9, background:"rgba(250,204,21,.15)", color:"#facc15", border:"1px solid rgba(250,204,21,.3)", padding:"1px 5px", borderRadius:3, fontWeight:600 }}>STU</span>}
+                    {e.engagement === "Student" && <span style={{ fontSize:9, background:"rgba(250,204,21,.15)", color:"var(--yellow)", border:"1px solid rgba(250,204,21,.3)", padding:"1px 5px", borderRadius:3, fontWeight:600 }}>STU</span>}
                   </div>
                 )
               })}
@@ -182,7 +182,7 @@ export default function Training() {
           </div>
 
           {warning && (
-            <div style={{ background:"rgba(250,204,21,.1)", border:"1px solid #facc15", borderRadius:6, padding:"10px 14px", fontSize:12, color:"#facc15", marginBottom:8 }}>⚠ {warning}</div>
+            <div style={{ background:"rgba(250,204,21,.1)", border:"1px solid #facc15", borderRadius:6, padding:"10px 14px", fontSize:12, color:"var(--yellow)", marginBottom:8 }}>⚠ {warning}</div>
           )}
           {suggestions.length > 0 && (
             <div>
@@ -199,17 +199,17 @@ export default function Training() {
                 const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()]
                 const label = `${dow} ${dt.getDate().toString().padStart(2,"0")}.${(dt.getMonth()+1).toString().padStart(2,"0")}.${dt.getFullYear()}`
                 return (
-                  <div key={i} style={{ background:"#181e2e", border:"1px solid rgba(255,255,255,.07)", borderRadius:8, padding:16, marginBottom:12 }}>
+                  <div key={i} style={{ background:"var(--card)", border:"1px solid rgba(255,255,255,.07)", borderRadius:8, padding:16, marginBottom:12 }}>
                     <div style={{ fontSize:14, fontWeight:700, color:"var(--text)", marginBottom:8 }}>📅 {label} &nbsp; {s.startTime} – {s.endTime}</div>
                     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color: s.coveragePct >= 80 ? "#22c55e" : s.coveragePct >= 50 ? "#facc15" : "var(--danger)" }}>{s.selectedAvailable} / {s.totalSelected} selected agents can attend</div>
+                      <div style={{ fontSize:13, fontWeight:600, color: s.coveragePct >= 80 ? "#22c55e" : s.coveragePct >= 50 ? "var(--yellow)" : "var(--danger)" }}>{s.selectedAvailable} / {s.totalSelected} selected agents can attend</div>
                       <div style={{ fontSize:11, color:"var(--text3)" }}>(coverage {s.coveragePct}%)</div>
                       <div style={{ marginLeft:"auto", fontSize:10, color:"var(--text3)" }}>score {s.score}</div>
                     </div>
                     <div style={{ marginBottom:8 }}>
                       <div style={{ fontSize:10, color:"var(--text3)", marginBottom:3 }}>Production impact: {s.availableCount} of {s.totalOnDuty} on duty ({s.impactPct}%)</div>
                       <div style={{ height:6, background:"var(--border)", borderRadius:3, overflow:"hidden" }}>
-                        <div style={{ width:`${s.impactPct}%`, height:"100%", background: s.impactPct < 25 ? "#22c55e" : s.impactPct < 40 ? "#facc15" : "var(--danger)", borderRadius:3 }} />
+                        <div style={{ width:`${s.impactPct}%`, height:"100%", background: s.impactPct < 25 ? "#22c55e" : s.impactPct < 40 ? "var(--yellow)" : "var(--danger)", borderRadius:3 }} />
                       </div>
                     </div>
                     {s.selectedAttendees && s.selectedAttendees.length > 0 && (
@@ -256,7 +256,7 @@ export default function Training() {
                 const monthName = first.toLocaleString("en-US", { month: "long", year: "numeric" })
                 const wd = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
                 return (
-                  <div style={{ background:"#181e2e", border:"1px solid rgba(255,255,255,.07)", borderRadius:8, padding:16 }}>
+                  <div style={{ background:"var(--card)", border:"1px solid rgba(255,255,255,.07)", borderRadius:8, padding:16 }}>
                     <div style={{ fontSize:13, fontWeight:700, color:"var(--text)", marginBottom:12, textAlign:"center" }}>{monthName}</div>
                     <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:6 }}>
                       {wd.map(d => <div key={d} style={{ fontSize:10, fontWeight:600, color:"var(--text3)", textAlign:"center", textTransform:"uppercase", paddingBottom:4 }}>{d}</div>)}
@@ -269,7 +269,7 @@ export default function Training() {
                           <div key={dateStr} style={{ minHeight:80, background: best ? "var(--card2)" : "transparent", border:`1px solid ${best ? "rgba(59,126,255,.2)" : "var(--border)"}`, borderRadius:6, padding:6, display:"flex", flexDirection:"column", gap:3 }}>
                             <div style={{ fontSize:10, color:"var(--text3)", fontWeight:600 }}>{d}</div>
                             {slots.slice(0,3).map((s:any, si:number) => (
-                              <div key={si} onClick={() => setConfirmingSlot(s)} title={`${s.selectedAvailable}/${s.totalSelected} can attend, impact ${s.impactPct}%`} style={{ cursor:"pointer", fontSize:9, padding:"2px 4px", borderRadius:3, background: s.coveragePct >= 80 ? "rgba(34,197,94,.15)" : s.coveragePct >= 50 ? "rgba(250,204,21,.15)" : "rgba(255,59,92,.12)", color: s.coveragePct >= 80 ? "#22c55e" : s.coveragePct >= 50 ? "#facc15" : "var(--danger)", border:`1px solid ${s.coveragePct >= 80 ? "rgba(34,197,94,.3)" : s.coveragePct >= 50 ? "rgba(250,204,21,.3)" : "rgba(255,59,92,.3)"}` }}>
+                              <div key={si} onClick={() => setConfirmingSlot(s)} title={`${s.selectedAvailable}/${s.totalSelected} can attend, impact ${s.impactPct}%`} style={{ cursor:"pointer", fontSize:9, padding:"2px 4px", borderRadius:3, background: s.coveragePct >= 80 ? "rgba(34,197,94,.15)" : s.coveragePct >= 50 ? "rgba(250,204,21,.15)" : "rgba(255,59,92,.12)", color: s.coveragePct >= 80 ? "#22c55e" : s.coveragePct >= 50 ? "var(--yellow)" : "var(--danger)", border:`1px solid ${s.coveragePct >= 80 ? "rgba(34,197,94,.3)" : s.coveragePct >= 50 ? "rgba(250,204,21,.3)" : "rgba(255,59,92,.3)"}` }}>
                                 {s.startTime} ({s.selectedAvailable}/{s.totalSelected})
                               </div>
                             ))}
@@ -332,7 +332,7 @@ export default function Training() {
                                 <span style={{ fontSize:11, color:"var(--text3)", minWidth:160 }}>TL: {emp?.teamLeadName ?? "—"}</span>
                                 <span style={{ fontSize:11, fontFamily:"IBM Plex Mono", color:"#60a5fa" }}>Shift that day: {shiftLabel}</span>
                                 {task && <span style={{ fontSize:9, fontWeight:600, padding:"1px 6px", borderRadius:3, background: task === "BACKLOG" ? "rgba(136,146,164,.15)" : task === "TRAINING" ? "rgba(168,85,247,.15)" : "rgba(59,126,255,.15)", color: task === "BACKLOG" ? "#8892a4" : task === "TRAINING" ? "#a855f7" : "#60a5fa", border:`1px solid ${task === "BACKLOG" ? "rgba(136,146,164,.3)" : task === "TRAINING" ? "rgba(168,85,247,.3)" : "rgba(59,126,255,.3)"}` }}>{task === "BACKLOG" ? "BACKLOG/VOICE" : task}</span>}
-                                {emp?.engagement === "Student" && <span style={{ fontSize:9, background:"rgba(250,204,21,.15)", color:"#facc15", border:"1px solid rgba(250,204,21,.3)", padding:"1px 5px", borderRadius:3, fontWeight:600 }}>STU</span>}
+                                {emp?.engagement === "Student" && <span style={{ fontSize:9, background:"rgba(250,204,21,.15)", color:"var(--yellow)", border:"1px solid rgba(250,204,21,.3)", padding:"1px 5px", borderRadius:3, fontWeight:600 }}>STU</span>}
                               </div>
                             )
                           })}

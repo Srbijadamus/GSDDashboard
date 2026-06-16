@@ -88,9 +88,13 @@ export default function ALBalance() {
               </tr>
             </thead>
             <tbody>
-              {isLoading && (
-                <tr><td colSpan={7} style={{ padding:24, textAlign:"center", color:"var(--text3)" }}>Loading...</td></tr>
-              )}
+              {isLoading && Array.from({length: 5}).map((_, i) => (
+                <tr key={`sk-${i}`} style={{ borderBottom: "1px solid var(--border)" }}>
+                  {Array.from({length: 7}).map((_, j) => (
+                    <td key={j} style={{ padding: "10px 12px" }}><div className="skeleton" style={{ height: 11 }} /></td>
+                  ))}
+                </tr>
+              ))}
               {filtered.length === 0 && !isLoading && (
                 <tr><td colSpan={7} style={{ padding:24, textAlign:"center", color:"var(--text3)" }}>
                   No AL balance data yet
@@ -106,7 +110,7 @@ export default function ALBalance() {
 
                 return (
                   <tr key={a.id}
-                    style={{ borderBottom:"1px solid rgba(30,45,69,.5)",
+                    style={{ borderBottom:"1px solid var(--border)",
                       background: isCritical ? "rgba(255,59,92,.04)" : "transparent" }}
                     onMouseEnter={ev => (ev.currentTarget.style.background = "var(--card2)")}
                     onMouseLeave={ev => (ev.currentTarget.style.background = isCritical ? "rgba(255,59,92,.04)" : "transparent")}>

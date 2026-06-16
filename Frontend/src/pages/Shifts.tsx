@@ -14,16 +14,16 @@ const TASKS = ["WIC", "Voice", "Backlog"]
 const shiftColor = (type: string) => {
   const map: Record<string,{bg:string;color:string}> = {
     WORKING:     {bg:"rgba(34,208,122,.15)", color:"var(--green)"},
-    WIC_DUTY:    {bg:"rgba(126,184,255,.15)",color:"#7eb8ff"},
+    WIC_DUTY:    {bg:"rgba(126,184,255,.15)",color:"var(--blue-light)"},
     AL:          {bg:"rgba(59,126,255,.15)", color:"var(--accent)"},
-    HALF_AL:     {bg:"rgba(59,126,255,.08)", color:"#93b4ff"},
+    HALF_AL:     {bg:"rgba(59,126,255,.08)", color:"var(--blue-light)"},
     SL:          {bg:"rgba(255,124,59,.15)", color:"var(--warn)"},
     UL:          {bg:"rgba(255,59,92,.15)",  color:"var(--danger)"},
-    TRAINING:    {bg:"rgba(167,139,250,.15)",color:"#a78bfa"},
+    TRAINING:    {bg:"rgba(167,139,250,.15)",color:"var(--purple)"},
     OFF:         {bg:"rgba(74,95,122,.12)",  color:"var(--text3)"},
     OFF_WEEKEND: {bg:"rgba(30,45,69,.4)",    color:"var(--text3)"},
-    PH:          {bg:"rgba(250,204,21,.15)", color:"#facc15"},
-    LPH:         {bg:"rgba(250,204,21,.08)", color:"#fde047"},
+    PH:          {bg:"rgba(250,204,21,.15)", color:"var(--yellow)"},
+    LPH:         {bg:"rgba(250,204,21,.08)", color:"var(--yellow)"},
     CD:          {bg:"rgba(255,255,255,.05)",color:"var(--text2)"},
     CO:          {bg:"rgba(255,255,255,.05)",color:"var(--text2)"},
     RESIGNED:    {bg:"rgba(74,95,122,.2)",   color:"var(--text3)"},
@@ -33,7 +33,7 @@ const shiftColor = (type: string) => {
 }
 
 const taskStyle = (task: string | null) => {
-  if (task === "WIC")     return {bg:"rgba(126,184,255,.15)", color:"#7eb8ff", border:"rgba(126,184,255,.3)"}
+  if (task === "WIC")     return {bg:"rgba(126,184,255,.15)", color:"var(--blue-light)", border:"rgba(126,184,255,.3)"}
   if (task === "Voice")   return {bg:"rgba(34,208,122,.15)",  color:"var(--green)", border:"rgba(34,208,122,.3)"}
   if (task === "Backlog") return {bg:"rgba(255,124,59,.15)",  color:"var(--warn)", border:"rgba(255,124,59,.3)"}
   return {bg:"rgba(255,59,92,.15)", color:"var(--danger)", border:"rgba(255,59,92,.3)"}
@@ -49,7 +49,7 @@ function OverrideConfirmModal({ type, onConfirm, onCancel }: {
       display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ background:"var(--card)", border:"1px solid rgba(250,204,21,.3)",
         borderRadius:10, padding:24, width:380 }}>
-        <h2 style={{ fontSize:15, fontWeight:600, color:"#facc15", marginBottom:12 }}>⚠ Override Required</h2>
+        <h2 style={{ fontSize:15, fontWeight:600, color:"var(--yellow)", marginBottom:12 }}>⚠ Override Required</h2>
         <p style={{ fontSize:13, color:"var(--text2)", marginBottom:16 }}>
           <strong style={{ color:"var(--text)" }}>{type}</strong> is automatically set by the system.
           Are you sure you want to override?
@@ -59,7 +59,7 @@ function OverrideConfirmModal({ type, onConfirm, onCancel }: {
             color:"var(--text2)", padding:"7px 14px", borderRadius:6, fontSize:12, cursor:"pointer" }}>
             Cancel
           </button>
-          <button onClick={onConfirm} style={{ background:"#facc15", border:"none",
+          <button onClick={onConfirm} style={{ background:"var(--yellow)", border:"none",
             color:"#000", padding:"7px 14px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>
             Override
           </button>
@@ -76,13 +76,13 @@ function LegalViolationModal({ violations, onClose, onConfirmAnyway }: {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:3000, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ background:"var(--card)", border:`1px solid ${hardBlocks.length > 0 ? "rgba(255,59,92,.4)" : "rgba(250,204,21,.4)"}`, borderRadius:10, padding:24, width:480, maxHeight:"80vh", overflowY:"auto" }}>
-        <h2 style={{ fontSize:15, fontWeight:600, color: hardBlocks.length > 0 ? "var(--danger)" : "#facc15", marginBottom:16 }}>
+        <h2 style={{ fontSize:15, fontWeight:600, color: hardBlocks.length > 0 ? "var(--danger)" : "var(--yellow)", marginBottom:16 }}>
           {hardBlocks.length > 0 ? "⛔ Shift Validation Failed" : "⚠ Shift Warning"}
         </h2>
         {violations.map((v: any, i: number) => (
           <div key={i} style={{ background: v.isHardBlock ? "rgba(255,59,92,.08)" : "rgba(250,204,21,.08)", border:`1px solid ${v.isHardBlock ? "rgba(255,59,92,.2)" : "rgba(250,204,21,.2)"}`, borderRadius:6, padding:"10px 14px", marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-              <span style={{ fontSize:11, fontWeight:700, color: v.isHardBlock ? "var(--danger)" : "#facc15", fontFamily:"IBM Plex Mono" }}>{v.rule}</span>
+              <span style={{ fontSize:11, fontWeight:700, color: v.isHardBlock ? "var(--danger)" : "var(--yellow)", fontFamily:"IBM Plex Mono" }}>{v.rule}</span>
               <span style={{ fontSize:10, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{v.law}</span>
             </div>
             <div style={{ fontSize:12, color:"var(--text2)" }}>{v.description}</div>
@@ -91,7 +91,7 @@ function LegalViolationModal({ violations, onClose, onConfirmAnyway }: {
         <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:16 }}>
           <button onClick={onClose} style={{ background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text2)", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer" }}>Cancel</button>
           {hardBlocks.length === 0 && onConfirmAnyway && (
-            <button onClick={onConfirmAnyway} style={{ background:"#facc15", border:"none", color:"#000", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>Save Anyway</button>
+            <button onClick={onConfirmAnyway} style={{ background:"var(--yellow)", border:"none", color:"#000", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>Save Anyway</button>
           )}
         </div>
       </div>
@@ -566,7 +566,7 @@ export default function Shifts() {
                       padding:"8px 4px", textAlign:"center", fontSize:10, fontWeight:500,
                       color: tod ? "var(--accent)" : we ? "var(--text3)" : "var(--text2)",
                       borderBottom:"1px solid var(--border)",
-                      borderLeft:"1px solid rgba(30,45,69,.5)",
+                      borderLeft:"1px solid var(--border)",
                       minWidth:90, whiteSpace:"nowrap",
                       background: tod ? "rgba(59,126,255,.06)" : we ? "rgba(30,45,69,.2)" : "transparent"
                     }}>
@@ -592,7 +592,7 @@ export default function Shifts() {
                     onDragOver={e => { e.preventDefault(); setDragOver(idx) }}
                     onDrop={() => handleDrop(idx)}
                     style={{
-                      borderBottom:"1px solid rgba(30,45,69,.5)",
+                      borderBottom:"1px solid var(--border)",
                       background: dragOver === idx ? "rgba(59,126,255,.08)" : "transparent",
                       transition:"background .1s"
                     }}>
@@ -603,7 +603,7 @@ export default function Shifts() {
                         <button onClick={() => moveRow(idx, 1)} style={{ background:"none", border:"none", color:"var(--text3)", cursor:"pointer", fontSize:9, padding:"1px 3px" }}>▼</button>
                       </div>
                     </td>
-                    <td style={{ padding:"6px 10px", position:"sticky", left:0, background:"var(--card)", zIndex:1, borderRight:"1px solid rgba(30,45,69,.4)" }}>
+                    <td style={{ padding:"6px 10px", position:"sticky", left:0, background:"var(--card)", zIndex:1, borderRight:"1px solid var(--border)" }}>
                       <div style={{ fontWeight:500, fontSize:12 }}>{emp.name}</div>
                       <div style={{ fontFamily:"IBM Plex Mono", fontSize:9, color:"var(--text3)" }}>{emp.id}</div>
                     </td>
@@ -620,13 +620,13 @@ export default function Shifts() {
                       const we = isWeekend(d)
                       const tod = isToday(d)
                       if (!s) return (
-                        <td key={d} style={{ padding:"3px 4px", borderLeft:"1px solid rgba(30,45,69,.3)",
+                        <td key={d} style={{ padding:"3px 4px", borderLeft:"1px solid var(--border)",
                           background: we ? "rgba(30,45,69,.2)" : tod ? "rgba(59,126,255,.03)" : "transparent" }}>
                           <div style={{ textAlign:"center", fontSize:9, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{we ? "WE" : "—"}</div>
                         </td>
                       )
                       return (
-                        <td key={d} style={{ borderLeft:"1px solid rgba(30,45,69,.3)" }}>
+                        <td key={d} style={{ borderLeft:"1px solid var(--border)" }}>
                           <ShiftCell shift={s} onUpdate={updateShift} />
                         </td>
                       )

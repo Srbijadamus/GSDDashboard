@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 
-const BASE = "https://n8jlr9dr-5000.euw.devtunnels.ms"
+const BASE = ""
 
 const STATUS_COLORS: Record<string,any> = {
   PLANNED:   { bg:"rgba(136,146,164,0.15)", border:"#8892a4", color:"#8892a4" },
@@ -169,7 +169,7 @@ export default function Pipeline() {
   }
   const timelineLocations = [...new Set(events.filter(e => e.locationName).map(e => e.locationName))]
 
-  const tdStyle: any = { padding:"9px 12px", borderBottom:"1px solid rgba(30,45,69,.5)", fontSize:12, color:"var(--text)" }
+  const tdStyle: any = { padding:"9px 12px", borderBottom:"1px solid var(--border)", fontSize:12, color:"var(--text)" }
   const thStyle: any = { padding:"10px 12px", fontSize:10, fontWeight:500, textTransform:"uppercase", letterSpacing:".07em", color:"var(--text3)", borderBottom:"1px solid var(--border)", background:"var(--card2)" }
 
   return (
@@ -215,8 +215,8 @@ export default function Pipeline() {
                       <td style={tdStyle}><Badge text={e.handlingType ?? "ADDITIONAL"} style={hc} /></td>
                       <td style={{ ...tdStyle, fontSize:11, color:"var(--text2)" }}>
                         <div>{e.agentsRequired} req.</div>
-                        {e.primaryAgent && <div style={{ fontSize:10, color:"#60a5fa" }}>P: {e.primaryAgent}</div>}
-                        {e.backupAgent  && <div style={{ fontSize:10, color:"#c084fc" }}>B: {e.backupAgent}</div>}
+                        {e.primaryAgent && <div style={{ fontSize:10, color:"var(--blue-light)" }}>P: {e.primaryAgent}</div>}
+                        {e.backupAgent  && <div style={{ fontSize:10, color:"var(--purple)" }}>B: {e.backupAgent}</div>}
                       </td>
                       <td style={tdStyle}><Badge text={e.status} style={sc} /></td>
                       <td style={tdStyle}>
@@ -247,7 +247,7 @@ export default function Pipeline() {
                     const dt = new Date(d)
                     const isToday = d === fromDate
                     const isWE = dt.getDay() === 0 || dt.getDay() === 6
-                    return <th key={d} style={{ ...thStyle, width:36, minWidth:36, maxWidth:36, padding:"4px 2px", textAlign:"center", background: isToday ? "rgba(59,126,255,.15)" : isWE ? "rgba(30,45,69,.4)" : "var(--card2)", fontSize:9 }}>
+                    return <th key={d} style={{ ...thStyle, width:36, minWidth:36, maxWidth:36, padding:"4px 2px", textAlign:"center", background: isToday ? "rgba(59,126,255,.15)" : isWE ? "var(--card)" : "var(--card2)", fontSize:9 }}>
                       <div>{["Su","Mo","Tu","We","Th","Fr","Sa"][dt.getDay()]}</div>
                       <div style={{ fontFamily:"IBM Plex Mono" }}>{dt.getDate().toString().padStart(2,"0")}</div>
                     </th>
@@ -263,7 +263,7 @@ export default function Pipeline() {
                     <td style={{ ...tdStyle, position:"sticky", left:0, background:"var(--card)", fontWeight:500, minWidth:140 }}>{locName}</td>
                     {dates.map(d => {
                       const ev = events.find(e => e.locationName === locName && e.pipelineDate <= d && (e.pipelineDateEnd ?? e.pipelineDate) >= d)
-                      if (!ev) return <td key={d} style={{ ...tdStyle, padding:0, width:36, borderLeft:"1px solid rgba(30,45,69,.3)" }} />
+                      if (!ev) return <td key={d} style={{ ...tdStyle, padding:0, width:36, borderLeft:"1px solid var(--border)" }} />
                       const isFirst = ev.pipelineDate === d
                       const color = ev.status === "CONFIRMED" ? "rgba(34,197,94,0.3)" : ev.status === "CANCELLED" ? "rgba(136,146,164,0.2)" : "rgba(96,165,250,0.3)"
                       return (
@@ -288,8 +288,8 @@ export default function Pipeline() {
                     {selectedEvent.startTime && <span>🕐 {selectedEvent.startTime}–{selectedEvent.endTime}</span>}
                     <span>👥 {selectedEvent.agentsRequired} required</span>
                   </div>
-                  {selectedEvent.primaryAgent && <div style={{ fontSize:11, color:"#60a5fa", marginTop:4 }}>Primary: {selectedEvent.primaryAgent}</div>}
-                  {selectedEvent.backupAgent  && <div style={{ fontSize:11, color:"#c084fc" }}>Backup: {selectedEvent.backupAgent}</div>}
+                  {selectedEvent.primaryAgent && <div style={{ fontSize:11, color:"var(--blue-light)", marginTop:4 }}>Primary: {selectedEvent.primaryAgent}</div>}
+                  {selectedEvent.backupAgent  && <div style={{ fontSize:11, color:"var(--purple)" }}>Backup: {selectedEvent.backupAgent}</div>}
                   {selectedEvent.description  && <div style={{ fontSize:11, color:"var(--text3)", marginTop:4 }}>{selectedEvent.description}</div>}
                 </div>
                 <div style={{ display:"flex", gap:6 }}>

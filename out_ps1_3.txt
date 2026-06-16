@@ -1,0 +1,73 @@
+=== Step 1: Ensure Python + pip available ===
+Python 3.9.7
+
+=== Step 2: Install geopy and pyodbc ===
+
+=== Step 3: Run geocoder ===
+Found 43 active WIC locations.
+[SKIP] DE~04416~Markkleeberg~Friedrich-Ebert-Str. 26 ù already has coordinates: 51.283926,12.369339
+[DE~06112~Halle (Saale)~Magdeburger Str. 51] geocoding: 'Magdeburger Str. 51, 06112 Halle (Saale), DE' (address) ... OK 51.481805,11.983183  [address]  raw: enviaM, 51, Magdeburger Stra▀e, Charlottenviertel, N÷rdliche
+[DE~10179~Berlin~Brⁿckenstrasse 6] geocoding: 'Brⁿckenstrasse 6, 10179 Berlin, DE' (address) ... OK 52.513127,13.417954  [address]  raw: Jannowitz-Center, 5-6a, Brⁿckenstra▀e, Luisenstadt, Mitte, B
+[DE~10589~Berlin~Gau▀str. 11] geocoding: 'Gau▀str. 11, 10589 Berlin, DE' (address) ... OK 52.529688,13.309738  [address]  raw: BTB Blockheizkraftwerks, TrΣger- und Betreibergesellschaft m
+[DE~14467~Potsdam~Am Kanal 2-3] geocoding: 'Am Kanal 2-3, 14467 Potsdam, DE' (address) ... OK 52.398173,13.064017  [address]  raw: Am Kanal, Viertel der Seidenweber, Historische Innenstadt, P
+[DE~15517~Fⁿrstenwalde~Langewahler Str. 60] geocoding: 'Langewahler Str. 60, 15517 Fⁿrstenwalde, DE' (address) ... OK 52.350832,14.075472  [address]  raw: Regionalzentrum Fⁿrstenwalde, 60, Langewahler Stra▀e, Kabelw
+[DE~17109~ Demmin~Am Hanseufer 2] geocoding: 'Am Hanseufer 2, 17109 Demmin, DE' (address) ...   >> retry city-only: 'Demmin, DE' ... ~ 53.907002,13.032784  [city-only]  raw: Demmin, Mecklenburgische Seenplatte, Mecklenburg-Vorpommern,
+[DE~17109~Demmin~Woldeforster Str. 6] geocoding: 'Woldeforster Str. 6, 17109 Demmin, DE' (address) ... OK 53.921736,13.029374  [address]  raw: 6, Woldeforster Stra▀e, Adolfshof, Demmin, Mecklenburgische 
+[DE~20537~Hamburg~Normannenweg 9] geocoding: 'Normannenweg 9, 20537 Hamburg, DE' (address) ... OK 53.551515,10.031288  [address]  raw: 9, Normannenweg, Borgfelde, Hamburg-Mitte, Hamburg, 20537, D
+[DE~21683~Stade~Bassenflether Chaussee] geocoding: 'Bassenflether Chaussee, 21683 Stade, DE' (address) ... OK 53.605239,9.518883  [address]  raw: Bassenflether Chaussee, Speersort, Hollern-Twielenfleth, Sam
+[DE~25451~Quickborn~Schleswag-HeinGas-Platz 1] geocoding: 'Schleswag-HeinGas-Platz 1, 25451 Quickborn, DE' (address) ... OK 53.745308,9.941559  [address]  raw: HanseWerk AG, 1, Schleswag-HeinGas-Platz, Gewerbegebiet Quic
+[DE~25576~Brokdorf~Osterende] geocoding: 'Osterende, 25576 Brokdorf, DE' (address) ... OK 53.855772,9.345770  [address]  raw: Osterende, Brokdorf, Amt Wilstermarsch, Kreis Steinburg, Sch
+[DE~26935~Stadland~Dedesdorfer Stra▀e 2] geocoding: 'Dedesdorfer Stra▀e 2, 26935 Stadland, DE' (address) ... OK 53.428601,8.474705  [address]  raw: Umspannwerk Unterweser, 2, Dedesdorfer Stra▀e, Kleinensiel, 
+[DE~30459~Hannover~Ricklinger Stadtweg 123-127] geocoding: 'Ricklinger Stadtweg 123-127, 30459 Hannover, DE' (address) ... OK 52.343677,9.724991  [address]  raw: Ricklinger Stadtweg, Ricklingen, Hannover, Region Hannover, 
+[DE~31860~Emmerthal~KraftwerksgelΣnde] geocoding: 'KraftwerksgelΣnde, 31860 Emmerthal, DE' (address) ...   >> retry city-only: 'Emmerthal, DE' ... ~ 52.048421,9.384378  [city-only]  raw: Emmerthal, Landkreis Hameln-Pyrmont, Niedersachsen, 31860, D
+[DE~38226~Salzgitter~Joachim-Campe-Stra▀e 14] geocoding: 'Joachim-Campe-Stra▀e 14, 38226 Salzgitter, DE' (address) ... OK 52.155633,10.324078  [address]  raw: 14, Joachim-Campe-Stra▀e, Fredenberg, Lebenstedt, Ortschaft 
+[DE~38350~Helmstedt~Schillerstr. 3] geocoding: 'Schillerstr. 3, 38350 Helmstedt, DE' (address) ... OK 52.228056,11.017148  [address]  raw: AVACON, 3, Schillerstra▀e, Warneckenberg, Helmstedt, Landkre
+[DE~41460~Neuss~Collingstr. 2] geocoding: 'Collingstr. 2, 41460 Neuss, DE' (address) ... OK 51.204811,6.688522  [address]  raw: WestNetz, 2, Collingstra▀e, Marienviertel, Innenstadt, Neuss
+[DE~44139~Dortmund~Florianstra▀e 15û21] geocoding: 'Florianstra▀e 15û21, 44139 Dortmund, DE' (address) ... OK 51.497860,7.471639  [address]  raw: Westnetz, 15-21, Florianstra▀e, Ruhrallee, K÷rne, Innenstadt
+[DE~45131~Essen~Brⁿsseler Platz 1] geocoding: 'Brⁿsseler Platz 1, 45131 Essen, DE' (address) ... OK 51.424622,6.993897  [address]  raw: E.ON SE, 1, Brⁿsseler Platz, Rⁿttenscheid, Stadtbezirk II, E
+[DE~45143~Essen~ThyssenKrupp Allee 1] geocoding: 'ThyssenKrupp Allee 1, 45143 Essen, DE' (address) ... OK 51.460889,6.990905  [address]  raw: k4, 1, ThyssenKrupp Allee, Ruhr Tech Kampus Essen, Krupp-Gⁿr
+[DE~45476~Mⁿlheim~Moritzstr. 16-22] geocoding: 'Moritzstr. 16-22, 45476 Mⁿlheim, DE' (address) ... OK 51.444408,6.862762  [address]  raw: Moritzstra▀e, Styrum, Rechtsruhr-Nord, Mⁿlheim an der Ruhr, 
+[DE~45661~Recklinghausen~Bochumer Str. 2] geocoding: 'Bochumer Str. 2, 45661 Recklinghausen, DE' (address) ... OK 51.582990,7.211997  [address]  raw: 2, Bochumer Stra▀e, Sⁿd, Recklinghausen Sⁿd, Recklinghausen,
+[DE~46483~Wesel~Reeser Landstr. 41] geocoding: 'Reeser Landstr. 41, 46483 Wesel, DE' (address) ... OK 51.666677,6.608433  [address]  raw: 41, Reeser Landstra▀e, Wesel, Kreis Wesel, Nordrhein-Westfal
+[DE~48163~Mⁿnster~Weseler Str. 480] geocoding: 'Weseler Str. 480, 48163 Mⁿnster, DE' (address) ... OK 51.931147,7.591333  [address]  raw: 480, Weseler Stra▀e, Mecklenbeck, Mⁿnster-West, Mⁿnster, Nor
+[DE~49074~Osnabrⁿck~Goethering 23-29] geocoding: 'Goethering 23-29, 49074 Osnabrⁿck, DE' (address) ... OK 52.274227,8.056087  [address]  raw: e.on / Westenergie, 23-29, Goethering, Neustadt, Innenstadt,
+[DE~54294~Trier~Eurener Str. 33] geocoding: 'Eurener Str. 33, 54294 Trier, DE' (address) ... OK 49.748527,6.619379  [address]  raw: 33, Eurener Stra▀e, Busental, West, West-Pallien, Trier, Tri
+[DE~56648~Saffig~Rauschermⁿhle] geocoding: 'Rauschermⁿhle, 56648 Saffig, DE' (address) ... OK 50.384929,7.405229  [address]  raw: Rauschermⁿhle, Saffig, Pellenz, Landkreis Mayen-Koblenz, Rhe
+[DE~57072~Siegen~Friedrichstr. 60] geocoding: 'Friedrichstr. 60, 57072 Siegen, DE' (address) ... OK 50.877409,8.025698  [address]  raw: 60, Friedrichstra▀e, Siegen, Kreis Siegen-Wittgenstein, Nord
+[DE~59821~Arnsberg~Hellefelder Str. 8] geocoding: 'Hellefelder Str. 8, 59821 Arnsberg, DE' (address) ... OK 51.395173,8.068426  [address]  raw: 8, Hellefelder Stra▀e, Arnsberg, Hochsauerlandkreis, Nordrhe
+[DE~63263~Neu-Isenburg~Flughafenstr. 20] geocoding: 'Flughafenstr. 20, 63263 Neu-Isenburg, DE' (address) ... OK 50.032884,8.618937  [address]  raw: 20, Flughafenstra▀e, Zeppelinheim, Neu-Isenburg, Landkreis O
+[DE~66121~Saarbrⁿcken~Heinrich-B÷cking-Str. 10-14] geocoding: 'Heinrich-B÷cking-Str. 10-14, 66121 Saarbrⁿcken, DE' (address) ... OK 49.227239,7.011796  [address]  raw: 10-14, Heinrich-B÷cking-Stra▀e, Kaninchenberg, St. Johann, B
+[DE~80634~Mⁿnchen~Arnulfstr. 203] geocoding: 'Arnulfstr. 203, 80634 Mⁿnchen, DE' (address) ... OK 48.149042,11.521887  [address]  raw: Bayernwerk AG, 203, Arnulfstra▀e, Siedlung Neuhausen, Nymphe
+[DE~84036~Landshut~Kiem-Pauli Str. 2] geocoding: 'Kiem-Pauli Str. 2, 84036 Landshut, DE' (address) ... OK 48.551642,12.187156  [address]  raw: 2, Kiem-Pauli-Stra▀e, Schweinbach, Sch÷nbrunn, Landshut, Bay
+[DE~84051~Essenbach~Dammstra▀e] geocoding: 'Dammstra▀e, 84051 Essenbach, DE' (address) ... OK 48.609271,12.291725  [address]  raw: Dammstra▀e, Unterahrain, Essenbach, Landkreis Landshut, Baye
+[DE~85276~Pfaffenhofen~Draht 7] geocoding: 'Draht 7, 85276 Pfaffenhofen, DE' (address) ... OK 48.526420,11.506602  [address]  raw: 7, Draht, Beamtenviertel, Weihern, Pfaffenhofen an der Ilm, 
+[DE~86150~Augsburg~Schaezlerstr. 3] geocoding: 'Schaezlerstr. 3, 86150 Augsburg, DE' (address) ... OK 48.366119,10.892746  [address]  raw: 3, Schaezlerstra▀e, Bahnhofsviertel, Bahnhofs- und Bismarckv
+[DE~93049~Regensburg~Lilienthalstra▀e 7] geocoding: 'Lilienthalstra▀e 7, 93049 Regensburg, DE' (address) ... OK 49.018948,12.056588  [address]  raw: Bayernwerk AG, 7, Lilienthalstra▀e, Rennplatz, Prⁿfening, Ni
+[DE~96052~Bamberg~Doktor-Robert-Pfleger-Str. 20] geocoding: 'Doktor-Robert-Pfleger-Str. 20, 96052 Bamberg, DE' (address) ...   >> retry city-only: 'Bamberg, DE' ... ~ 49.891604,10.886848  [city-only]  raw: Bamberg, Bayern, Deutschland
+[DE~97506~Grafenrheinfeld~Kraftwerkstra▀e] geocoding: 'Kraftwerkstra▀e, 97506 Grafenrheinfeld, DE' (address) ...   >> retry city-only: 'Grafenrheinfeld, DE' ... ~ 49.990667,10.209892  [city-only]  raw: Grafenrheinfeld, Landkreis Schweinfurt, Bayern, 97506, Deuts
+[NL~5211 AK~s-Hertogenbosch~Willemsplein 4] geocoding: 'Willemsplein 4, 5211 AK s-Hertogenbosch, NL' (address) ... OK 51.683797,5.292026  [address]  raw: Essent, 4, Willemsplein, Het Zand, Binnenstad, Herzogenbusch
+[NL~8041 BL~Zwolle~Grote Voort 247] geocoding: 'Grote Voort 247, 8041 BL Zwolle, NL' (address) ... OK 52.508576,6.066246  [address]  raw: Oostas Makelaars, 247, Grote Voort, Voorsterpoort, Katerveer
+[RENDSBURG] geocoding: 'Rendsburg, DE' (city-only) ... ~ 54.300292,9.665008  [city-only]  raw: Rendsburg, Kreis Rendsburg-Eckernf÷rde, Schleswig-Holstein, 
+
+=== Results ===
+Total:      43
+Success:    43  (of which city-only precision: 5)
+Failed:     0
+Success%:   100%
+
+Sanity check Berlin->Munich: 504 km (expected ~504 km)
+Sanity check PASSED
+
+=== Step 4: Verify coordinates in DB ===
+Total active: 43  WithCoords: 43  Missing: 0
+
+[32;1mCode                                         [0m[32;1m City         [0m[32;1m Coords[0m
+[32;1m----                                         [0m [32;1m----         [0m [32;1m------[0m
+DE~04416~Markkleeberg~Friedrich-Ebert-Str. 26 Markkleeberg  51.283926,12.369339
+DE~06112~Halle (Saale)~Magdeburger Str. 51    Halle (Saale) 51.481805,11.983183
+DE~10179~Berlin~Brückenstrasse 6              Berlin        52.513127,13.417954
+DE~10589~Berlin~Gaußstr. 11                   Berlin        52.529688,13.309738
+DE~14467~Potsdam~Am Kanal 2-3                 Potsdam       52.398173,13.064017
+
+
+=== Done ===

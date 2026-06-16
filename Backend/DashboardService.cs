@@ -85,12 +85,14 @@ public class DashboardService
             .ToListAsync();
 
         var openDisplayNames = await _db.WicLocations
-            .Where(l => l.IsActive && openLocationCodes.Contains(l.LocationCode))
+            .Where(l => l.IsActive && (openLocationCodes.Contains(l.LocationCode) ||
+                        (l.LocationCodeLegacy != null && openLocationCodes.Contains(l.LocationCodeLegacy))))
             .Select(l => l.DisplayName)
             .ToListAsync();
 
         var openCities = await _db.WicLocations
-            .Where(l => l.IsActive && openLocationCodes.Contains(l.LocationCode))
+            .Where(l => l.IsActive && (openLocationCodes.Contains(l.LocationCode) ||
+                        (l.LocationCodeLegacy != null && openLocationCodes.Contains(l.LocationCodeLegacy))))
             .Select(l => l.City)
             .ToListAsync();
 

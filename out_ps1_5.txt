@@ -1,0 +1,85 @@
+
+>>> Add Coordinates column (no-op if exists)
+OK (-1 rows affected)
+
+>>> Add MinAgentsRequired column (no-op if exists)
+OK (-1 rows affected)
+
+>>> Add Bundesland column (no-op if exists)
+OK (-1 rows affected)
+
+>>> Updating Bundesland by PostalCode (40 entries)
+Total rows updated: 0
+
+>>> LocationCode fallback: RENDSBURG  Schleswig-Holstein
+OK (0 rows affected)
+
+>>> LocationCode fallback: PFAFFENHOFEN  Bayern
+OK (1 rows affected)
+
+>>> INFORMATION_SCHEMA: confirm 3 new columns exist
+
+[32;1mCOLUMN_NAME      [0m[32;1m DATA_TYPE[0m[32;1m IS_NULLABLE[0m
+[32;1m-----------      [0m [32;1m---------[0m [32;1m-----------[0m
+Bundesland        nvarchar  YES
+Coordinates       nvarchar  YES
+MinAgentsRequired int       YES
+
+
+>>> Bundesland coverage for DE locations (expected: 0 missing)
+
+[32;1mTotalDE[0m[32;1m WithBundesland[0m[32;1m MissingBundesland[0m
+[32;1m-------[0m [32;1m--------------[0m [32;1m-----------------[0m
+     41              2                39
+
+
+>>> All active WicLocations with Bundesland (spot-check)
+
+[32;1mLocationCode                                    [0m[32;1m PostalCode[0m[32;1m City           [0m[32;1m Country[0m[32;1m Bundesland[0m
+[32;1m------------                                    [0m [32;1m----------[0m [32;1m----           [0m [32;1m-------[0m [32;1m----------[0m
+DE~59821~Arnsberg~Hellefelder Str. 8             NULL       Arnsberg        DE      NULL
+DE~86150~Augsburg~Schaezlerstr. 3                NULL       Augsburg        DE      NULL
+DE~96052~Bamberg~Doktor-Robert-Pfleger-Str. 20   NULL       Bamberg         DE      NULL
+DE~10179~Berlin~Brückenstrasse 6                 NULL       Berlin          DE      NULL
+DE~10589~Berlin~Gaußstr. 11                      NULL       Berlin          DE      NULL
+DE~25576~Brokdorf~Osterende                      NULL       Brokdorf        DE      NULL
+DE~17109~ Demmin~Am Hanseufer 2                  NULL       Demmin          DE      NULL
+DE~17109~Demmin~Woldeforster Str. 6              NULL       Demmin          DE      NULL
+DE~44139~Dortmund~Florianstraße 15-21            NULL       Dortmund        DE      NULL
+DE~31860~Emmerthal~Kraftwerksgelände             NULL       Emmerthal       DE      NULL
+DE~45131~Essen~Brüsseler Platz 1                 NULL       Essen           DE      NULL
+DE~45143~Essen~ThyssenKrupp Allee 1              NULL       Essen           DE      NULL
+DE~84051~Essenbach~Dammstraße                    NULL       Essenbach       DE      NULL
+DE~15517~Fürstenwalde~Langewahler Str. 60        NULL       Fürstenwalde    DE      NULL
+DE~97506~Grafenrheinfeld~Kraftwerkstraße         NULL       Grafenrheinfeld DE      NULL
+DE~06112~Halle (Saale)~Magdeburger Str. 51       NULL       Halle (Saale)   DE      NULL
+DE~20537~Hamburg~Normannenweg 9                  NULL       Hamburg         DE      NULL
+DE~30459~Hannover~Ricklinger Stadtweg 123-127    NULL       Hannover        DE      NULL
+DE~38350~Helmstedt~Schillerstr. 3                NULL       Helmstedt       DE      NULL
+DE~84036~Landshut~Kiem-Pauli Str. 2              NULL       Landshut        DE      NULL
+DE~04416~Markkleeberg~Friedrich-Ebert-Str. 26    NULL       Markkleeberg    DE      NULL
+DE~45476~Mülheim~Moritzstr. 16-22                NULL       Mülheim         DE      NULL
+DE~80634~München~Arnulfstr. 203                  NULL       München         DE      NULL
+DE~48163~Münster~Weseler Str. 480                NULL       Münster         DE      NULL
+DE~63263~Neu-Isenburg~Flughafenstr. 20           NULL       Neu-Isenburg    DE      NULL
+DE~41460~Neuss~Collingstr. 2                     NULL       Neuss           DE      NULL
+DE~49074~Osnabrück~Goethering 23-29              NULL       Osnabrück       DE      NULL
+DE~14467~Potsdam~Am Kanal 2-3                    NULL       Potsdam         DE      NULL
+DE~25451~Quickborn~Schleswag-HeinGas-Platz 1     NULL       Quickborn       DE      NULL
+DE~45661~Recklinghausen~Bochumer Str. 2          NULL       Recklinghausen  DE      NULL
+DE~93049~Regensburg~Lilienthalstraße 7           NULL       Regensburg      DE      NULL
+DE~66121~Saarbrücken~Heinrich-Böcking-Str. 10-14 NULL       Saarbrücken     DE      NULL
+DE~56648~Saffig~Rauschermühle                    NULL       Saffig          DE      NULL
+DE~38226~Salzgitter~Joachim-Campe-Straße 14      NULL       Salzgitter      DE      NULL
+DE~57072~Siegen~Friedrichstr. 60                 NULL       Siegen          DE      NULL
+DE~21683~Stade~Bassenflether Chaussee            NULL       Stade           DE      NULL
+DE~26935~Stadland~Dedesdorfer Straße 2           NULL       Stadland        DE      NULL
+DE~54294~Trier~Eurener Str. 33                   NULL       Trier           DE      NULL
+DE~46483~Wesel~Reeser Landstr. 41                NULL       Wesel           DE      NULL
+DE~85276~Pfaffenhofen~Draht 7                    NULL       Pfaffenhofen    DE      Bayern
+RENDSBURG                                        NULL       Rendsburg       DE      Schleswig-Holstein
+NL~5211 AK~s-Hertogenbosch~Willemsplein 4        NULL       s-Hertogenbosch NL      NULL
+NL~8041 BL~Zwolle~Grote Voort 247                NULL       Zwolle          NL      NULL
+
+
+=== PS1_5 complete. Next: run PS1_3_Geocoder.ps1 to backfill Coordinates. ===

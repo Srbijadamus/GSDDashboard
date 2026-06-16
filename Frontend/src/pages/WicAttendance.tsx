@@ -1,256 +1,947 @@
 import { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Search, AlertTriangle, UserCheck, Users, Clock, Calendar } from "lucide-react"
+import { CoverageBadge } from "../components/CoverageBadge"
+import { Sheet } from "../components/Sheet"
+import { ALPlanningModal } from "./ALPlanningModal"
+import { AssignAgentModal } from "./AssignAgentModal"
+import { ManualCheckinModal } from "./ManualCheckinModal"
 
-const KIOSK = "https://lj9dgfgw-8000.euw.devtunnels.ms"
-const today = new Date().toISOString().split("T")[0]
-const minus7 = new Date(Date.now() - 7*24*60*60*1000).toISOString().split("T")[0]
+// ── API types ──────────────────────────────────────────────────────────────────
 
-function formatTime(dt: string | null): string {
-  if (!dt) return "—"
-  const parts = dt.split(" ")
-  if (parts.length < 2) return "—"
-  return parts[1].slice(0,5)
+interface ForecastDay {
+  date: string
+  isOpen: boolean
+  status: "COVERED" | "PARTIAL" | "UNCOVERED" | "CLOSED"
+  effectiveCoverage: number
+  minRequired: number
+  coverageBuffer: number
+  isAtRisk: boolean
 }
-function formatDuration(minutes: number | null): string {
-  if (minutes === null || minutes === undefined) return "—"
-  if (minutes < 0) return "0m"
-  const h = Math.floor(minutes / 60), m = minutes % 60
-  return h > 0 ? `${h}h ${m}m` : `${m}m`
+
+interface ForecastLocation {
+  locationCode: string
+  displayName: string
+  city: string
+  country: string
+  atRiskDays: number
+  forecast: ForecastDay[]
 }
-function LocationBadge({ location }: { location: string }) {
-  if (!location) return null
+
+interface ForecastResponse {
+  generatedAt: string
+  horizon: number
+  locationCount: number
+  totalAtRiskDays: number
+  locations: ForecastLocation[]
+}
+
+interface AgentCard {
+  employeeId: string
+  name: string
+  teamLead: string | null
+  shiftStart: string | null
+  shiftEnd: string | null
+  isMain: boolean
+  coverageMatch: "FULL" | "PARTIAL" | "NONE"
+  coveredMinutes: number
+  totalOpenMinutes: number
+  mismatchNote: string | null
+}
+
+interface LocationCard {
+  locationCode: string
+  displayName: string
+  city: string
+  country: string
+  address: string | null
+  todaySchedule: {
+    isClosed: boolean
+    openTime: string | null
+    closeTime: string | null
+    totalOpenMinutes: number
+  }
+  assignedAgents: AgentCard[]
+  coverageStatus: string
+  coveragePercent: number
+}
+
+interface SubstituteCandidate {
+  employeeId: string
+  fullName: string
+  sourceType: "BACKUP" | "SSP" | "WIC_DONOR" | "CALL_IN"
+  tier: string
+  homeLocationName: string
+  distanceKm: number
+  loadScore: number
+  score: number
+}
+
+interface SubstitutesDay {
+  date: string
+  currentStatus: string
+  present: number
+  gap: number
+  candidates: SubstituteCandidate[]
+}
+
+interface SubstitutesResponse {
+  locationCode: string
+  displayName: string
+  days: SubstitutesDay[]
+}
+
+interface KioskRecord {
+  employee_id: string
+  full_name: string
+  attendance_status: "ACTIVE" | "NOT_CHECKED_IN" | "DONE"
+  checkin_time: string | null
+  checkout_time: string | null
+  minutes_on_shift: number
+  location: string | null
+}
+
+// ── Constants ──────────────────────────────────────────────────────────────────
+
+const STATUS_RANK: Record<string, number> = {
+  UNCOVERED: 0,
+  PARTIAL:   1,
+  COVERED:   2,
+  CLOSED:    3,
+}
+
+const SOURCE_COLORS: Record<string, { bg: string; color: string }> = {
+  BACKUP:    { bg: "rgba(124,58,237,0.15)",  color: "#a78bfa" },
+  SSP:       { bg: "rgba(59,126,255,0.15)",  color: "#60a5fa" },
+  WIC_DONOR: { bg: "rgba(0,210,160,0.15)",   color: "#34d399" },
+  CALL_IN:   { bg: "rgba(255,124,59,0.15)",  color: "#fb923c" },
+}
+
+const AGENT_MATCH_COLORS: Record<string, { bg: string; color: string }> = {
+  FULL:    { bg: "rgba(34,208,122,0.12)",  color: "#22d07a" },
+  PARTIAL: { bg: "rgba(255,124,59,0.12)",  color: "#ff7c3b" },
+  NONE:    { bg: "rgba(255,59,92,0.12)",   color: "#ff3b5c" },
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function kioskActiveAt(records: KioskRecord[], displayName: string): KioskRecord[] {
+  if (!displayName) return []
+  const q = displayName.toLowerCase()
+  return records.filter(r =>
+    r.attendance_status === "ACTIVE" &&
+    (r.location ?? "").toLowerCase().includes(q)
+  )
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
+function Skeleton({ width, height = 14 }: { width?: string | number; height?: number }) {
   return (
-    <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-      {location.split("|").map(s => s.trim()).filter(Boolean).map((p,i) => (
-        <span key={i} style={{ background:"rgba(96,165,250,0.12)", border:"1px solid rgba(96,165,250,0.3)", color:"#60a5fa", borderRadius:4, fontSize:10, padding:"2px 8px" }}>{p}</span>
-      ))}
+    <div
+      className="skeleton"
+      style={{ width: width ?? "100%", height, borderRadius: 4 }}
+    />
+  )
+}
+
+function StatCard({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{
+      background: "var(--card)", border: "1px solid var(--border)",
+      borderRadius: 8, padding: "12px 16px",
+    }}>
+      <div style={{
+        fontSize: 10, textTransform: "uppercase" as const, letterSpacing: ".07em",
+        color: "var(--text3)", marginBottom: 8,
+      }}>
+        {label}
+      </div>
+      {children}
     </div>
   )
 }
-const inputStyle: any = { background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text)", padding:"7px 10px", borderRadius:6, fontSize:12, fontFamily:"IBM Plex Sans", outline:"none" }
-const thStyle: any = { padding:"10px 12px", fontSize:10, fontWeight:500, textTransform:"uppercase", letterSpacing:".07em", color:"var(--text3)", borderBottom:"1px solid var(--border)", background:"var(--card2)", textAlign:"left" as const }
-const tdStyle: any = { padding:"9px 12px", borderBottom:"1px solid rgba(30,45,69,.5)", fontSize:12, color:"var(--text)" }
+
+function SectionCard({
+  title, icon, children, style,
+}: {
+  title: string; icon: React.ReactNode;
+  children: React.ReactNode; style?: React.CSSProperties
+}) {
+  return (
+    <div style={{
+      background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
+      ...style,
+    }}>
+      <div style={{
+        padding: "10px 16px", borderBottom: "1px solid var(--border)",
+        display: "flex", alignItems: "center", gap: 6,
+      }}>
+        <span style={{ color: "var(--text3)" }}>{icon}</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{title}</span>
+      </div>
+      <div style={{ padding: 16 }}>{children}</div>
+    </div>
+  )
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
 
 export default function WicAttendance() {
-  const [tab, setTab] = useState<"live"|"report">("live")
-  const [date, setDate] = useState(today)
-  const [attendance, setAttendance] = useState<any[]>([])
-  const [history, setHistory] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [reportFrom, setReportFrom] = useState(minus7)
-  const [reportTo, setReportTo] = useState(today)
-  const [locationFilter, setLocationFilter] = useState("")
-  const [teamLeadFilter, setTeamLeadFilter] = useState("")
-  const [lastUpdated, setLastUpdated] = useState<Date|null>(null)
-  const [clockStr, setClockStr] = useState("")
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const today = new Date().toISOString().split("T")[0]
 
-  const fetchLive = async () => {
-    try {
-      const r = await fetch(`${KIOSK}/api/attendance?date=${date}`)
-      const d = await r.json()
-      const filtered = d.filter((a: any) => a.location !== null && a.location !== "")
-      const sorted = [...filtered].sort((a: any, b: any) => {
-        const aA = a.attendance_status === "ACTIVE" ? 0 : a.attendance_status === "DONE" ? 1 : 2
-        const bA = b.attendance_status === "ACTIVE" ? 0 : b.attendance_status === "DONE" ? 1 : 2
-        if (aA !== bA) return aA - bA
-        return (a.full_name || "").localeCompare(b.full_name || "")
-      })
-      setAttendance(sorted)
-      setLastUpdated(new Date())
-    } catch {}
-  }
+  const [selectedDate, setSelectedDate] = useState(today)
+  const [selectedLocationCode, setSelectedLocationCode] = useState<string | null>(null)
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [sheetDate, setSheetDate] = useState(today)
+  const [acceptedSubId, setAcceptedSubId] = useState<string | null>(null)
+  const [acceptedSubName, setAcceptedSubName] = useState<string | null>(null)
+  const [acceptingId, setAcceptingId] = useState<string | null>(null)
+  const [acceptError, setAcceptError] = useState<string | null>(null)
+  const [alPlanningOpen, setAlPlanningOpen] = useState(false)
+  const [assignAgentOpen, setAssignAgentOpen] = useState(false)
+  const [manualCheckinOpen, setManualCheckinOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const [countryFilter, setCountryFilter] = useState("")
 
-  const fetchHistory = async () => {
-    setLoading(true)
-    try {
-      const r = await fetch(`${KIOSK}/api/history?from=${reportFrom}&to=${reportTo}`)
-      const d = await r.json()
-      setHistory(d.filter((a: any) => a.location !== null && a.location !== ""))
-    } catch {}
-    setLoading(false)
-  }
+  const { data: forecast, isLoading: forecastLoading } = useQuery({
+    queryKey: ["wic-forecast", 7],
+    queryFn: (): Promise<ForecastResponse> =>
+      fetch("/api/wic/forecast?horizon=7").then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      }),
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
+  })
+
+  const { data: cards, isLoading: cardsLoading } = useQuery({
+    queryKey: ["wic-cards", selectedDate],
+    queryFn: (): Promise<LocationCard[]> =>
+      fetch(`/api/wic/cards?date=${selectedDate}`).then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      }),
+    staleTime: 2 * 60 * 1000,
+  })
+
+  const { data: subs, isLoading: subsLoading } = useQuery({
+    queryKey: ["wic-subs", selectedLocationCode, sheetDate],
+    queryFn: (): Promise<SubstitutesResponse> =>
+      fetch(
+        `/api/wic/substitutes?locationCode=${encodeURIComponent(selectedLocationCode!)}&date=${sheetDate}&horizon=1`
+      ).then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      }),
+    enabled: isSheetOpen && !!selectedLocationCode,
+    staleTime: 60 * 1000,
+  })
+
+  const { data: kioskData = [] } = useQuery<KioskRecord[]>({
+    queryKey: ["kiosk-attendance"],
+    queryFn: (): Promise<KioskRecord[]> =>
+      fetch("https://ssr7tm2l-8000.euw.devtunnels.ms/api/attendance").then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      }),
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  })
+
+  const locations = forecast?.locations ?? []
+  const countries = [...new Set(locations.map(l => l.country).filter(Boolean))].sort()
+
+  const filteredLocations = [...locations]
+    .filter(loc => {
+      if (countryFilter && loc.country !== countryFilter) return false
+      if (search) {
+        const q = search.toLowerCase()
+        if (!loc.displayName.toLowerCase().includes(q) && !loc.city.toLowerCase().includes(q)) return false
+      }
+      return true
+    })
+    .sort((a, b) => {
+      const dA = (a.forecast ?? []).find(d => d.date === selectedDate)
+      const dB = (b.forecast ?? []).find(d => d.date === selectedDate)
+      const rA = STATUS_RANK[dA?.status ?? "CLOSED"] ?? 4
+      const rB = STATUS_RANK[dB?.status ?? "CLOSED"] ?? 4
+      if (rA !== rB) return rA - rB
+      return a.displayName.localeCompare(b.displayName)
+    })
 
   useEffect(() => {
-    if (tab === "live") {
-      fetchLive()
-      const iv = setInterval(fetchLive, 30000)
-      return () => clearInterval(iv)
-    }
-  }, [tab, date])
+    if (selectedLocationCode || filteredLocations.length === 0) return
+    const atRisk = filteredLocations.find(l => l.atRiskDays > 0)
+    setSelectedLocationCode((atRisk ?? filteredLocations[0]).locationCode)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredLocations.length])
 
-  useEffect(() => {
-    const iv = setInterval(() => { if (lastUpdated) setClockStr(lastUpdated.toLocaleTimeString()) }, 1000)
-    return () => clearInterval(iv)
-  }, [lastUpdated])
+  const selectedForecast = locations.find(l => l.locationCode === selectedLocationCode)
+  const selectedCard     = cards?.find(c => c.locationCode === selectedLocationCode)
+  const selectedDay      = (selectedForecast?.forecast ?? []).find(d => d.date === selectedDate)
+  const subsDay          = subs?.days[0]
 
-  const locations = [...new Set(attendance.map((a: any) => a.location).filter(Boolean))]
-  const teamLeads = [...new Set(attendance.map((a: any) => a.team_leader).filter(Boolean))]
-  const filtered  = attendance.filter((a: any) => {
-    if (locationFilter && a.location !== locationFilter) return false
-    if (teamLeadFilter && a.team_leader !== teamLeadFilter) return false
+  const kioskMap  = new Map(kioskData.map(r => [r.employee_id, r]))
+  const liveCount = kioskData.filter(r => r.attendance_status === "ACTIVE").length
+  const locationDisplayName = selectedForecast?.displayName ?? selectedCard?.displayName ?? ""
+  const presentAgents = kioskActiveAt(kioskData, locationDisplayName)
+
+  // Check-in status panel (global, all WIC locations, today)
+  const allTodayAgents = cards?.flatMap(c => c.assignedAgents) ?? []
+  const seenEmpIds = new Set<string>()
+  const workingAgents = allTodayAgents.filter(a => {
+    if (seenEmpIds.has(a.employeeId)) return false
+    if (!a.shiftStart || a.shiftStart === "SICK" || a.shiftStart === "SL" || a.shiftStart === "AL") return false
+    seenEmpIds.add(a.employeeId)
     return true
   })
+  const checkedInIds = new Set(
+    kioskData
+      .filter(r => r.attendance_status === "ACTIVE" || r.attendance_status === "DONE")
+      .map(r => r.employee_id)
+  )
+  const expectedCount  = workingAgents.length
+  const checkedInCount = checkedInIds.size
+  const notYetInList   = workingAgents.filter(a => !checkedInIds.has(a.employeeId))
+  const notYetInCount  = notYetInList.length
 
-  const activeCount = attendance.filter((a: any) => a.attendance_status === "ACTIVE").length
-  const doneCount = attendance.filter((a: any) => a.attendance_status === "DONE").length
-  const notInCount = attendance.filter((a: any) => a.attendance_status === "NOT_CHECKED_IN").length
-
-  const exportCSV = () => {
-    const header = '"Name","Mitarbeiter-Nr.","Team Lead","WIC Zentrum","Datum","Einloggen","Ausloggen","Dauer (Min)","Status"'
-    const rows = history.map((a: any) => {
-      const status = a.checkin_time !== null && a.checkout_time === null ? "ANWESEND" : a.checkout_time !== null ? "ABGEMELDET" : "NICHT ERSCHIENEN"
-      return `"${a.full_name}","${a.employee_id}","${a.team_leader}","${a.location}","${a.work_date}","${a.checkin_time ?? ""}","${a.checkout_time ?? ""}","${a.minutes_on_shift ?? ""}","${status}"`
-    })
-    const csv = [header, ...rows].join("\n")
-    const blob = new Blob([csv], { type:"text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const el = document.createElement("a")
-    el.href = url; el.download = `WIC_Anwesenheit_${reportFrom}_${reportTo}.csv`; el.click()
+  const inputStyle: React.CSSProperties = {
+    width: "100%", background: "var(--card2)", border: "1px solid var(--border)",
+    color: "var(--text)", padding: "6px 10px", borderRadius: 6,
+    fontSize: 11, fontFamily: "IBM Plex Sans", outline: "none",
   }
 
-  const historyByDate: Record<string,any[]> = {}
-  history.forEach((a: any) => { if (!historyByDate[a.work_date]) historyByDate[a.work_date] = []; historyByDate[a.work_date].push(a) })
+  const openSub = (date: string) => {
+    setSheetDate(date)
+    setAcceptedSubId(null)
+    setAcceptedSubName(null)
+    setAcceptError(null)
+    setIsSheetOpen(true)
+  }
 
-  const dotStyle = (ag: any) => ({
-    width:10, height:10, borderRadius:"50%", display:"inline-block", flexShrink:0,
-    background: ag.attendance_status === "ACTIVE" ? "#22c55e" : ag.attendance_status === "DONE" ? "#60a5fa" : "#ef4444",
-    animation: ag.attendance_status === "ACTIVE" ? "pulse-green 2s infinite" : "none"
-  })
-  const statusColor = (ag: any) => ag.attendance_status === "ACTIVE" ? "#22c55e" : ag.attendance_status === "DONE" ? "#60a5fa" : "#ef4444"
-  const statusText  = (ag: any) => ag.attendance_status === "ACTIVE" ? "ACTIVE" : ag.attendance_status === "DONE" ? "DONE" : "NOT IN"
+  const handleAcceptSub = async (c: SubstituteCandidate) => {
+    if (!selectedLocationCode) return
+    setAcceptingId(c.employeeId)
+    try {
+      const res = await fetch("/api/wic/substitutes/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: c.employeeId,
+          locationCode: selectedLocationCode,
+          date: sheetDate,
+          shiftStart: null,
+          shiftEnd: null,
+          sourceType: c.sourceType,
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.text().catch(() => "")
+        throw new Error(`HTTP ${res.status}${body ? ": " + body : ""}`)
+      }
+      setAcceptedSubId(c.employeeId)
+      setAcceptedSubName(c.fullName)
+      setAcceptError(null)
+      queryClient.invalidateQueries({ queryKey: ["wic-subs", selectedLocationCode, sheetDate] })
+      queryClient.refetchQueries({ queryKey: ["wic-forecast", 7], exact: true })
+      queryClient.refetchQueries({ queryKey: ["wic-cards", selectedDate], exact: true })
+    } catch (err) {
+      console.error("Accept error:", err)
+      setAcceptError(String(err))
+    } finally {
+      setAcceptingId(null)
+    }
+  }
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-      <style>{`@keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); } 70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }`}</style>
+    <div style={{ display: "flex", margin: -20, height: "calc(100vh - 45px)", overflow: "hidden" }}>
 
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-        <h1 style={{ fontSize:22, fontWeight:600, color:"var(--text)" }}>WIC Attendance</h1>
-        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-          {tab === "live" && <>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-            <button onClick={fetchLive} style={{ background:"var(--accent)", border:"none", color:"#fff", padding:"7px 14px", borderRadius:6, fontSize:12, cursor:"pointer" }}>Refresh</button>
-            {lastUpdated && <span style={{ fontSize:11, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>Last updated: {clockStr}</span>}
-          </>}
+      {/* ── LEFT SIDEBAR ──────────────────────────────────────────────────────── */}
+      <aside style={{
+        width: 260, flexShrink: 0,
+        borderRight: "1px solid var(--border)",
+        background: "var(--sidebar)",
+        display: "flex", flexDirection: "column",
+        overflow: "hidden",
+      }}>
+        <div style={{ padding: "14px 12px 10px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 10 }}>
+            {t("attendance.title")}
+          </div>
+          <div style={{ position: "relative", marginBottom: 8 }}>
+            <Search size={12} style={{
+              position: "absolute", left: 8, top: "50%",
+              transform: "translateY(-50%)", color: "var(--text3)",
+            }} />
+            <input
+              placeholder={t("attendance.filter.search")}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ ...inputStyle, paddingLeft: 26 }}
+            />
+          </div>
+          <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} style={inputStyle}>
+            <option value="">{t("attendance.filter.allCountries")}</option>
+            {countries.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
-      </div>
 
-      <div style={{ display:"flex", gap:4 }}>
-        {(["live","report"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{ background:tab===t?"var(--accent)":"var(--card)", border:`1px solid ${tab===t?"var(--accent)":"var(--border)"}`, color:tab===t?"#fff":"var(--text2)", borderRadius:6, padding:"6px 16px", fontSize:12, cursor:"pointer", fontWeight:tab===t?600:400, textTransform:"capitalize" }}>
-            {t === "live" ? "Live View" : "Report"}
-          </button>
-        ))}
-      </div>
+        <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={e => setSelectedDate(e.target.value)}
+            style={inputStyle}
+          />
+        </div>
 
-      {tab === "live" && (<>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
-          {[
-            { label:"Active Now",       value:activeCount, color:"#22c55e" },
-            { label:"WIC Agents Today", value:attendance.length, color:"var(--text)" },
-            { label:"Checked Out",      value:doneCount,   color:"#60a5fa" },
-            { label:"Not Checked In",   value:notInCount,  color:"#ef4444" },
-          ].map(c => (
-            <div key={c.label} style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, padding:"14px 18px" }}>
-              <div style={{ fontSize:10, textTransform:"uppercase", letterSpacing:".08em", color:"var(--text3)", marginBottom:6 }}>{c.label}</div>
-              <div style={{ fontSize:26, fontWeight:600, fontFamily:"IBM Plex Mono", color:c.color }}>{c.value}</div>
+        {/* ── CHECK-IN STATUS PANEL ────────────────────────────────────── */}
+        {cards && (
+          <div style={{ borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+            <div style={{ padding: "7px 12px 5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".07em" }}>
+                Check-in Status
+              </span>
+              <span style={{ fontSize: 9, color: "var(--text3)" }}>Anmeldungsstatus</span>
             </div>
-          ))}
-        </div>
-
-        <div style={{ display:"flex", gap:8 }}>
-          <select value={locationFilter} onChange={e => setLocationFilter(e.target.value)} style={inputStyle}>
-            <option value="">All Locations</option>
-            {locations.map((l: any) => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <select value={teamLeadFilter} onChange={e => setTeamLeadFilter(e.target.value)} style={inputStyle}>
-            <option value="">All Team Leads</option>
-            {teamLeads.map((tl: any) => <option key={tl} value={tl}>{tl}</option>)}
-          </select>
-        </div>
-
-        <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, overflow:"hidden" }}>
-          <div style={{ overflowX:"auto" }}>
-            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-              <thead><tr>{["Agent","WIC Center","Check In","Check Out","Duration","Status"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
-              <tbody>
-                {filtered.length === 0 && <tr><td colSpan={6} style={{ ...tdStyle, textAlign:"center", color:"var(--text3)", padding:40 }}>No WIC agents found for this date.</td></tr>}
-                {filtered.map((ag: any, i: number) => (
-                  <tr key={i} onMouseEnter={e => e.currentTarget.style.background="var(--card2)"} onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                    <td style={tdStyle}>
-                      <div style={{ fontWeight:500 }}>{ag.full_name}</div>
-                      <div style={{ fontSize:9, fontFamily:"IBM Plex Mono", color:"var(--text3)" }}>{ag.employee_id}</div>
-                      {ag.location && <span style={{ display:"inline-block", marginTop:2, background:"rgba(96,165,250,0.12)", border:"1px solid rgba(96,165,250,0.3)", color:"#60a5fa", borderRadius:4, fontSize:9, padding:"1px 5px", fontWeight:600 }}>{ag.location}</span>}
-                    </td>
-                    <td style={tdStyle}><LocationBadge location={ag.location} /></td>
-                    <td style={{ ...tdStyle, color: ag.checkin_time ? "#22c55e" : "var(--text3)", fontFamily:"IBM Plex Mono", fontSize:11 }}>{formatTime(ag.checkin_time)}</td>
-                    <td style={{ ...tdStyle, color: ag.checkout_time ? "var(--text2)" : "var(--text3)", fontFamily:"IBM Plex Mono", fontSize:11 }}>{formatTime(ag.checkout_time)}</td>
-                    <td style={{ ...tdStyle, color:"var(--text2)", fontFamily:"IBM Plex Mono", fontSize:11 }}>{formatDuration(ag.minutes_on_shift)}</td>
-                    <td style={{ padding:"9px 12px" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <span style={dotStyle(ag)} />
-                        <span style={{ fontSize:10, fontWeight:600, textTransform:"uppercase" as const, color:statusColor(ag) }}>{statusText(ag)}</span>
-                      </div>
-                    </td>
-                  </tr>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderTop: "1px solid var(--border)" }}>
+              <div style={{ padding: "7px 6px", textAlign: "center" }}>
+                <div style={{ fontSize: 17, fontWeight: 700, fontFamily: "IBM Plex Mono", color: "var(--text)" }}>{expectedCount}</div>
+                <div style={{ fontSize: 8, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Expected</div>
+              </div>
+              <div style={{ padding: "7px 6px", textAlign: "center", borderLeft: "1px solid var(--border)", borderRight: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 17, fontWeight: 700, fontFamily: "IBM Plex Mono", color: "#22d07a" }}>{checkedInCount}</div>
+                <div style={{ fontSize: 8, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Checked In</div>
+              </div>
+              <div style={{ padding: "7px 6px", textAlign: "center" }}>
+                <div style={{ fontSize: 17, fontWeight: 700, fontFamily: "IBM Plex Mono", color: notYetInCount > 0 ? "var(--warn)" : "var(--text3)" }}>{notYetInCount}</div>
+                <div style={{ fontSize: 8, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Not Yet In</div>
+              </div>
+            </div>
+            {notYetInList.length > 0 && (
+              <div style={{ maxHeight: 130, overflowY: "auto", borderTop: "1px solid var(--border)" }}>
+                {notYetInList.map(agent => (
+                  <div key={agent.employeeId} style={{
+                    padding: "5px 12px",
+                    borderBottom: "1px solid rgba(30,45,69,0.3)",
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 500, color: "var(--text)" }}>{agent.name}</div>
+                      {agent.teamLead && (
+                        <div style={{ fontSize: 8, color: "var(--text3)" }}>{agent.teamLead}</div>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 9, color: "var(--text3)", fontFamily: "IBM Plex Mono", flexShrink: 0 }}>
+                      {agent.shiftStart}–{agent.shiftEnd}
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
-          <div style={{ padding:"8px 12px", borderTop:"1px solid var(--border)", fontSize:11, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{filtered.length} agents</div>
-        </div>
-      </>)}
+        )}
 
-      {tab === "report" && (<>
-        <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <span style={{ fontSize:11, color:"var(--text3)" }}>Von</span>
-            <input type="date" value={reportFrom} onChange={e => setReportFrom(e.target.value)} style={inputStyle} />
-          </div>
-          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <span style={{ fontSize:11, color:"var(--text3)" }}>Bis</span>
-            <input type="date" value={reportTo} onChange={e => setReportTo(e.target.value)} style={inputStyle} />
-          </div>
-          <button onClick={fetchHistory} style={{ background:"var(--accent)", border:"none", color:"#fff", padding:"7px 14px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>{loading ? "Laden..." : "Load Report"}</button>
-          <button onClick={exportCSV} style={{ background:"rgba(34,197,94,0.15)", border:"1px solid #22c55e", color:"#22c55e", padding:"7px 14px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>⬇ Export Excel</button>
-          <span style={{ fontSize:10, color:"var(--text3)" }}>CSV-Datei kann direkt in Excel geöffnet werden</span>
-        </div>
-
-        <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, overflow:"hidden" }}>
-          <div style={{ overflowX:"auto" }}>
-            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-              <thead><tr>{["Datum","Agent","Mitarbeiter-Nr.","WIC Zentrum","Einloggen","Ausloggen","Dauer","Status"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
-              <tbody>
-                {Object.keys(historyByDate).length === 0 && <tr><td colSpan={8} style={{ ...tdStyle, textAlign:"center", color:"var(--text3)", padding:40 }}>Keine Daten für diesen Zeitraum.</td></tr>}
-                {Object.entries(historyByDate).sort(([a],[b]) => b.localeCompare(a)).map(([dateStr, rows]) => (<>
-                  <tr key={`sep-${dateStr}`}>
-                    <td colSpan={8} style={{ background:"rgba(30,45,69,.4)", fontSize:10, fontWeight:600, color:"var(--text2)", padding:"4px 12px" }}>
-                      {new Date(dateStr).toLocaleDateString("de-DE", { weekday:"long", year:"numeric", month:"2-digit", day:"2-digit" })}
-                    </td>
-                  </tr>
-                  {(rows as any[]).map((a: any, i: number) => (
-                    <tr key={`${dateStr}-${i}`} onMouseEnter={e => e.currentTarget.style.background="var(--card2)"} onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                      <td style={{ ...tdStyle, fontFamily:"IBM Plex Mono", fontSize:11 }}>{new Date(a.work_date).toLocaleDateString("de-DE")}</td>
-                      <td style={tdStyle}><div style={{ fontWeight:500 }}>{a.full_name}</div></td>
-                      <td style={{ ...tdStyle, fontFamily:"IBM Plex Mono", fontSize:11, color:"var(--text3)" }}>{a.employee_id}</td>
-                      <td style={tdStyle}><LocationBadge location={a.location || ""} /></td>
-                      <td style={{ ...tdStyle, color: a.checkin_time ? "#22c55e" : "var(--text3)", fontFamily:"IBM Plex Mono", fontSize:11 }}>{formatTime(a.checkin_time)}</td>
-                      <td style={{ ...tdStyle, color: a.checkout_time ? "var(--text2)" : "var(--text3)", fontFamily:"IBM Plex Mono", fontSize:11 }}>{formatTime(a.checkout_time)}</td>
-                      <td style={{ ...tdStyle, fontFamily:"IBM Plex Mono", fontSize:11, color:"var(--text2)" }}>{formatDuration(a.minutes_on_shift)}</td>
-                      <td style={{ padding:"9px 12px" }}>
-                        <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:10, fontWeight:600, color: a.checkin_time !== null ? (a.checkout_time !== null ? "#60a5fa" : "#22c55e") : "#ef4444" }}>
-                          <span style={{ width:7, height:7, borderRadius:"50%", display:"inline-block", background: a.checkin_time !== null ? (a.checkout_time !== null ? "#60a5fa" : "#22c55e") : "#ef4444" }} />
-                          {a.checkin_time !== null ? (a.checkout_time !== null ? "DONE" : "ACTIVE") : "NOT IN"}
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {forecastLoading
+            ? Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} style={{ padding: "10px 12px", borderBottom: "1px solid rgba(30,45,69,0.4)" }}>
+                  <Skeleton height={13} width="75%" />
+                  <div style={{ marginTop: 5 }}><Skeleton height={9} width="45%" /></div>
+                </div>
+              ))
+            : filteredLocations.length === 0
+            ? <div style={{ padding: 20, textAlign: "center", fontSize: 12, color: "var(--text3)" }}>
+                {t("attendance.noLocations")}
+              </div>
+            : filteredLocations.map(loc => {
+                const dayData        = (loc.forecast ?? []).find(d => d.date === selectedDate)
+                const status         = dayData?.status ?? "CLOSED"
+                const isSelected     = loc.locationCode === selectedLocationCode
+                const locActiveCount = kioskActiveAt(kioskData, loc.displayName).length
+                return (
+                  <div
+                    key={loc.locationCode}
+                    onClick={() => setSelectedLocationCode(loc.locationCode)}
+                    style={{
+                      padding: "9px 12px", cursor: "pointer",
+                      background: isSelected ? "rgba(59,126,255,0.1)" : "transparent",
+                      borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent",
+                      borderBottom: "1px solid rgba(30,45,69,0.3)",
+                      transition: "background 0.1s",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                      <span style={{
+                        fontSize: 12, fontWeight: isSelected ? 600 : 400,
+                        color: isSelected ? "var(--accent)" : "var(--text)",
+                        overflow: "hidden", textOverflow: "ellipsis",
+                        whiteSpace: "nowrap", flex: 1,
+                      }}>
+                        {loc.displayName}
+                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        {locActiveCount > 0 && (
+                          <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            <span style={{
+                              width: 6, height: 6, borderRadius: "50%",
+                              background: "#22d07a", display: "inline-block",
+                            }} />
+                            <span style={{ fontSize: 9, color: "#22d07a", fontFamily: "IBM Plex Mono" }}>
+                              {locActiveCount}
+                            </span>
+                          </span>
+                        )}
+                        <CoverageBadge status={status} compact />
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
+                      <span style={{ fontSize: 10, color: "var(--text3)" }}>{loc.city}</span>
+                      {loc.atRiskDays > 0 && (
+                        <span style={{
+                          fontSize: 9, color: "var(--danger)",
+                          fontFamily: "IBM Plex Mono",
+                          display: "flex", alignItems: "center", gap: 2,
+                        }}>
+                          <AlertTriangle size={8} />
+                          {loc.atRiskDays}d
                         </span>
-                      </td>
-                    </tr>
-                  ))}
-                </>))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ padding:"8px 12px", borderTop:"1px solid var(--border)", fontSize:11, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{history.length} records</div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
+          }
         </div>
-      </>)}
+
+        {forecast && (
+          <div style={{
+            padding: "7px 12px", borderTop: "1px solid var(--border)",
+            fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono", flexShrink: 0,
+          }}>
+            {forecast.locationCount} loc · {forecast.totalAtRiskDays} at-risk
+          </div>
+        )}
+      </aside>
+
+      {/* ── RIGHT CONTENT ─────────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, overflowY: "auto", padding: 20, minWidth: 0 }}>
+        {!selectedLocationCode ? (
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            height: 200, color: "var(--text3)", fontSize: 13,
+          }}>
+            {t("attendance.selectLocation")}
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div style={{
+              display: "flex", justifyContent: "space-between",
+              alignItems: "flex-start", marginBottom: 16, gap: 12,
+            }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: "var(--text)" }}>
+                  {selectedForecast?.displayName ?? selectedCard?.displayName ?? "—"}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
+                  {selectedForecast?.city} · {selectedForecast?.country}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                {liveCount > 0 && (
+                  <span style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    background: "rgba(34,208,122,0.15)", color: "#22d07a",
+                    border: "1px solid rgba(34,208,122,0.35)",
+                    padding: "4px 10px", borderRadius: 20,
+                    fontSize: 11, fontWeight: 600,
+                  }}>
+                    <span style={{
+                      width: 7, height: 7, borderRadius: "50%",
+                      background: "#22d07a", display: "inline-block",
+                      animation: "pulse-green 1.5s ease-in-out infinite",
+                    }} />
+                    Live {liveCount}
+                  </span>
+                )}
+                <button
+                  onClick={() => setAlPlanningOpen(true)}
+                  style={{
+                    background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
+                    padding: "8px 14px", borderRadius: 6, fontSize: 12,
+                    cursor: "pointer", display: "flex", alignItems: "center",
+                    gap: 6, fontWeight: 500,
+                  }}
+                >
+                  <Calendar size={13} />
+                  {t("attendance.alPlanning.button")}
+                </button>
+                <button
+                  onClick={() => setAssignAgentOpen(true)}
+                  style={{
+                    background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
+                    padding: "8px 14px", borderRadius: 6, fontSize: 12,
+                    cursor: "pointer", display: "flex", alignItems: "center",
+                    gap: 6, fontWeight: 500,
+                  }}
+                >
+                  <Users size={13} />
+                  {t("attendance.assignAgent.button")}
+                </button>
+                <button
+                  onClick={() => setManualCheckinOpen(true)}
+                  style={{
+                    background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
+                    padding: "8px 14px", borderRadius: 6, fontSize: 12,
+                    cursor: "pointer", display: "flex", alignItems: "center",
+                    gap: 6, fontWeight: 500,
+                  }}
+                >
+                  <Clock size={13} />
+                  {t("attendance.manualCheckin.button")}
+                </button>
+                <button
+                  onClick={() => openSub(selectedDate)}
+                  style={{
+                    background: "var(--accent)", border: "none", color: "#fff",
+                    padding: "8px 14px", borderRadius: 6, fontSize: 12,
+                    cursor: "pointer", display: "flex", alignItems: "center",
+                    gap: 6, fontWeight: 600,
+                  }}
+                >
+                  <UserCheck size={13} />
+                  {t("attendance.substitute.find")}
+                </button>
+              </div>
+            </div>
+
+            {/* Currently Present */}
+            {presentAgents.length > 0 && (
+              <div style={{
+                background: "rgba(34,208,122,0.07)",
+                border: "1px solid rgba(34,208,122,0.25)",
+                borderRadius: 8, padding: "12px 16px", marginBottom: 14,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                  <span style={{
+                    width: 8, height: 8, borderRadius: "50%",
+                    background: "#22d07a", display: "inline-block",
+                    animation: "pulse-green 1.5s ease-in-out infinite",
+                  }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#22d07a" }}>
+                    Currently Present · {presentAgents.length}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {presentAgents.map(r => (
+                    <div key={r.employee_id} style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      background: "rgba(34,208,122,0.1)", border: "1px solid rgba(34,208,122,0.2)",
+                      borderRadius: 6, padding: "5px 10px",
+                    }}>
+                      <span style={{
+                        width: 6, height: 6, borderRadius: "50%",
+                        background: "#22d07a", display: "inline-block",
+                        animation: "pulse-green 1.5s ease-in-out infinite",
+                      }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{r.full_name}</span>
+                      {r.checkin_time && (
+                        <span style={{ fontSize: 10, color: "#22d07a", fontFamily: "IBM Plex Mono" }}>
+                          {r.checkin_time.slice(11, 16)}
+                        </span>
+                      )}
+                      {r.minutes_on_shift > 0 && (
+                        <span style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                          {r.minutes_on_shift}m
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Stats row */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 14 }}>
+              {(cardsLoading || forecastLoading)
+                ? Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} style={{
+                      background: "var(--card)", border: "1px solid var(--border)",
+                      borderRadius: 8, padding: "12px 16px",
+                    }}>
+                      <Skeleton height={10} width="55%" />
+                      <div style={{ marginTop: 8 }}><Skeleton height={22} width="40%" /></div>
+                    </div>
+                  ))
+                : <>
+                    <StatCard label={t("status.occupied")}>
+                      <CoverageBadge status={selectedCard?.coverageStatus ?? selectedDay?.status ?? "CLOSED"} />
+                    </StatCard>
+                    <StatCard label={t("attendance.agents.title")}>
+                      <div style={{
+                        fontSize: 26, fontWeight: 600, fontFamily: "IBM Plex Mono",
+                        color: selectedDay?.isAtRisk ? "var(--danger)" : "var(--green)",
+                      }}>
+                        {selectedDay?.effectiveCoverage ?? "—"}
+                      </div>
+                    </StatCard>
+                    <StatCard label={t("attendance.risk.minRequired", { n: selectedDay?.minRequired ?? "?" })}>
+                      <div style={{ fontSize: 26, fontWeight: 600, fontFamily: "IBM Plex Mono", color: "var(--text2)" }}>
+                        {selectedDay?.minRequired ?? "—"}
+                      </div>
+                    </StatCard>
+                    <StatCard label={selectedCard?.todaySchedule.isClosed ? t("status.closed") : t("attendance.today")}>
+                      <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "IBM Plex Mono", color: "var(--text2)", marginTop: 4 }}>
+                        {selectedCard?.todaySchedule.isClosed
+                          ? t("status.closed")
+                          : selectedCard?.todaySchedule.openTime && selectedCard?.todaySchedule.closeTime
+                          ? `${selectedCard.todaySchedule.openTime}–${selectedCard.todaySchedule.closeTime}`
+                          : "—"}
+                      </div>
+                    </StatCard>
+                  </>
+              }
+            </div>
+
+            {/* Agent chips */}
+            <SectionCard title={t("attendance.agents.title")} icon={<Users size={13} />}>
+              {cardsLoading ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} width={130} height={64} />)}
+                </div>
+              ) : !selectedCard || selectedCard.assignedAgents.length === 0 ? (
+                <div style={{ color: "var(--text3)", fontSize: 12 }}>
+                  {t("attendance.agents.noAgents")}
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {selectedCard.assignedAgents.map(agent => {
+                    const mc = AGENT_MATCH_COLORS[agent.coverageMatch] ?? AGENT_MATCH_COLORS.NONE
+                    const kiosk = kioskMap.get(agent.employeeId)
+                    return (
+                      <div key={agent.employeeId} style={{
+                        background: mc.bg, border: `1px solid ${mc.color}44`,
+                        borderRadius: 8, padding: "9px 12px", minWidth: 130,
+                        display: "flex", flexDirection: "column", gap: 4,
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          {kiosk?.attendance_status === "ACTIVE" && (
+                            <span style={{
+                              width: 7, height: 7, borderRadius: "50%",
+                              background: "#22d07a", display: "inline-block", flexShrink: 0,
+                              animation: "pulse-green 1.5s ease-in-out infinite",
+                            }} />
+                          )}
+                          {kiosk?.attendance_status === "DONE" && (
+                            <span style={{
+                              width: 7, height: 7, borderRadius: "50%",
+                              background: "var(--text3)", display: "inline-block", flexShrink: 0,
+                            }} />
+                          )}
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{agent.name}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                          <span style={{
+                            fontSize: 9, fontWeight: 600, textTransform: "uppercase" as const,
+                            background: agent.isMain ? "rgba(59,126,255,0.2)" : "rgba(122,143,168,0.2)",
+                            color: agent.isMain ? "var(--accent)" : "var(--text3)",
+                            padding: "1px 5px", borderRadius: 3,
+                          }}>
+                            {agent.isMain ? t("attendance.agents.main") : t("attendance.agents.backup")}
+                          </span>
+                          <span style={{ fontSize: 9, color: mc.color, textTransform: "uppercase" as const }}>
+                            {agent.coverageMatch === "FULL"
+                              ? t("attendance.agents.full")
+                              : agent.coverageMatch === "PARTIAL"
+                              ? t("attendance.agents.partial")
+                              : t("attendance.agents.absent")}
+                          </span>
+                        </div>
+                        {(agent.shiftStart || agent.shiftEnd) && (
+                          <div style={{ fontSize: 9, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                            {agent.shiftStart === "SICK" || agent.shiftEnd === "SICK"
+                              ? "SL"
+                              : agent.shiftStart === "AL" || agent.shiftEnd === "AL"
+                              ? "AL"
+                              : `${agent.shiftStart ?? ""}–${agent.shiftEnd ?? ""}`}
+                          </div>
+                        )}
+                        {kiosk?.attendance_status === "ACTIVE" && (
+                          <div style={{ fontSize: 9, color: "#22d07a", fontFamily: "IBM Plex Mono" }}>
+                            {kiosk.checkin_time ? kiosk.checkin_time.slice(11, 16) : "checked in"}
+                          </div>
+                        )}
+                        {kiosk?.attendance_status === "DONE" && (
+                          <div style={{ fontSize: 9, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                            {kiosk.checkout_time ? kiosk.checkout_time.slice(11, 16) : "done"}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </SectionCard>
+
+            {/* 7-day forecast mini-calendar */}
+            <SectionCard title={t("attendance.horizon")} icon={<Clock size={13} />} style={{ marginTop: 14 }}>
+              {forecastLoading ? (
+                <div style={{ display: "flex", gap: 8 }}>
+                  {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} width={78} height={72} />)}
+                </div>
+              ) : !(selectedForecast?.forecast?.length) ? (
+                <div style={{ color: "var(--text3)", fontSize: 12 }}>—</div>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {(selectedForecast.forecast ?? []).map(day => (
+                    <div
+                      key={day.date}
+                      onClick={() => { setSelectedDate(day.date); if (day.isAtRisk) openSub(day.date) }}
+                      style={{
+                        background: day.date === selectedDate ? "rgba(59,126,255,0.12)" : "var(--card2)",
+                        border: `1px solid ${day.date === selectedDate ? "var(--accent)" : "var(--border)"}`,
+                        borderRadius: 8, padding: "10px 12px",
+                        minWidth: 76, cursor: "pointer",
+                        transition: "all 0.1s",
+                        display: "flex", flexDirection: "column", gap: 5, alignItems: "center",
+                      }}
+                    >
+                      <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                        {new Date(day.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short" })}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text2)", fontFamily: "IBM Plex Mono" }}>
+                        {day.date.slice(5)}
+                      </div>
+                      <CoverageBadge status={day.status} compact />
+                      {day.isAtRisk && <AlertTriangle size={10} color="var(--danger)" />}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </>
+        )}
+      </div>
+
+      {/* ── SUBSTITUTE SHEET ──────────────────────────────────────────────────── */}
+      <Sheet
+        isOpen={isSheetOpen}
+        onClose={() => setIsSheetOpen(false)}
+        title={`${t("attendance.substitute.title")} · ${subs?.displayName ?? selectedForecast?.displayName ?? "…"}`}
+      >
+        {subsLoading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <Skeleton height={11} width="40%" />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ marginTop: 8 }}>
+                <Skeleton height={18} />
+                <div style={{ marginTop: 4 }}><Skeleton height={11} width="60%" /></div>
+              </div>
+            ))}
+          </div>
+        ) : !subsDay ? (
+          <div style={{ color: "var(--text3)", fontSize: 13, marginTop: 10 }}>
+            {t("attendance.substitute.loading")}
+          </div>
+        ) : subsDay.candidates.length === 0 ? (
+          <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", marginTop: 20 }}>
+            {t("attendance.substitute.noCandidates")}
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 14, fontFamily: "IBM Plex Mono" }}>
+              {sheetDate} · {t("attendance.risk.effectiveCoverage", { n: subsDay.present })} · gap {subsDay.gap}
+            </div>
+            {acceptError && (
+              <div style={{
+                background: "rgba(255,59,92,.12)", border: "1px solid rgba(255,59,92,.3)",
+                borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--danger)", marginBottom: 8
+              }}>
+                {acceptError}
+              </div>
+            )}
+            {acceptedSubId && (
+              <div style={{
+                background: "rgba(34,208,122,.12)", border: "1px solid rgba(34,208,122,.3)",
+                borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--green)", marginBottom: 8
+              }}>
+                {t("attendance.substitute.confirmed", {
+                  name: acceptedSubName,
+                  wic: subs?.displayName ?? selectedForecast?.displayName ?? ""
+                })}
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {subsDay.candidates.map((c, i) => {
+                const sc = SOURCE_COLORS[c.sourceType] ?? SOURCE_COLORS.CALL_IN
+                return (
+                  <div key={c.employeeId} style={{
+                    background: acceptedSubId === c.employeeId ? "rgba(34,208,122,.06)" : "var(--card)",
+                    border: `1px solid ${acceptedSubId === c.employeeId ? "rgba(34,208,122,.3)" : "var(--border)"}`,
+                    borderRadius: 8, padding: "12px 14px",
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono", minWidth: 18 }}>
+                          {i + 1}.
+                        </span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{c.fullName}</span>
+                      </div>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, textTransform: "uppercase" as const,
+                        background: sc.bg, color: sc.color, padding: "2px 7px", borderRadius: 4,
+                      }}>
+                        {c.sourceType}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: 6, display: "flex", gap: 12, fontSize: 11, color: "var(--text3)", flexWrap: "wrap" }}>
+                      <span>{c.homeLocationName}</span>
+                      <span style={{ fontFamily: "IBM Plex Mono" }}>
+                        {t("attendance.substitute.distance", { km: (c.distanceKm ?? 0).toFixed(0) })}
+                      </span>
+                      {c.loadScore > 0 && (
+                        <span style={{ color: "var(--warn)", fontFamily: "IBM Plex Mono" }}>
+                          {t("attendance.substitute.lastUsed", { n: c.loadScore })}
+                        </span>
+                      )}
+                    </div>
+                    {!acceptedSubId && (
+                      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+                        <button
+                          onClick={() => handleAcceptSub(c)}
+                          disabled={acceptingId === c.employeeId}
+                          style={{
+                            background: "var(--green)", border: "none", color: "#fff",
+                            borderRadius: 5, padding: "5px 14px", fontSize: 11, fontWeight: 600,
+                            cursor: acceptingId === c.employeeId ? "not-allowed" : "pointer",
+                            opacity: acceptingId === c.employeeId ? 0.6 : 1,
+                          }}
+                        >
+                          {t("attendance.substitute.accept")}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </Sheet>
+
+      <ALPlanningModal isOpen={alPlanningOpen} onClose={() => setAlPlanningOpen(false)} />
+      <AssignAgentModal
+        isOpen={assignAgentOpen}
+        onClose={() => setAssignAgentOpen(false)}
+        defaultLocationCode={selectedLocationCode}
+        defaultDate={selectedDate}
+      />
+      <ManualCheckinModal isOpen={manualCheckinOpen} onClose={() => setManualCheckinOpen(false)} />
     </div>
   )
 }
-

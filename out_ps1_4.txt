@@ -1,0 +1,238 @@
+
+========================================
+  2.1 COUNT WicLocations (docs claim 40)
+========================================
+SQL: SELECT COUNT(*) AS WicLocationCount FROM WicLocations
+
+[32;1mWicLocationCount[0m
+[32;1m----------------[0m
+              43
+
+
+========================================
+  2.2 COUNT WicLocations active only
+========================================
+SQL: SELECT COUNT(*) AS WicLocationsActive FROM WicLocations WHERE IsActive=1
+
+[32;1mWicLocationsActive[0m
+[32;1m------------------[0m
+                43
+
+
+========================================
+  2.3 COUNT Employees total (docs claim ~122)
+========================================
+SQL: SELECT COUNT(*) AS EmployeeCount FROM Employees
+
+[32;1mEmployeeCount[0m
+[32;1m-------------[0m
+          130
+
+
+========================================
+  2.4 COUNT Employees active
+========================================
+SQL: SELECT COUNT(*) AS EmployeeActiveCount FROM Employees WHERE IsActive=1
+
+[32;1mEmployeeActiveCount[0m
+[32;1m-------------------[0m
+                130
+
+
+========================================
+  2.5 WicLocations schema (check for Coordinates/MinAgentsRequired/Bundesland)
+========================================
+SQL: SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'WicLocations'
+ORDER BY ORDINAL_POSITION
+
+[32;1mCOLUMN_NAME    [0m[32;1m DATA_TYPE[0m[32;1m CHARACTER_MAXIMUM_LENGTH[0m[32;1m IS_NULLABLE[0m
+[32;1m-----------    [0m [32;1m---------[0m [32;1m------------------------[0m [32;1m-----------[0m
+Id              int       NULL                     NO
+LocationCode    nvarchar  50                       NO
+DisplayName     nvarchar  200                      NO
+FullAddress     nvarchar  500                      YES
+PostalCode      nvarchar  20                       YES
+City            nvarchar  100                      YES
+Country         nvarchar  5                        YES
+OpeningSchedule nvarchar  200                      YES
+IsActive        bit       NULL                     NO
+Bundesland      nvarchar  50                       YES
+
+
+========================================
+  2.6 Employees schema (check for Bundesland, PLZ, email, phone)
+========================================
+SQL: SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'Employees'
+ORDER BY ORDINAL_POSITION
+
+[32;1mCOLUMN_NAME  [0m[32;1m DATA_TYPE[0m[32;1m CHARACTER_MAXIMUM_LENGTH[0m[32;1m IS_NULLABLE[0m
+[32;1m-----------  [0m [32;1m---------[0m [32;1m------------------------[0m [32;1m-----------[0m
+Id            int       NULL                     NO
+EmployeeId    nvarchar  20                       NO
+FirstName     nvarchar  100                      YES
+LastName      nvarchar  100                      YES
+FullName      nvarchar  200                      YES
+Engagement    nvarchar  50                       YES
+PrimaryRole   nvarchar  50                       YES
+SecondaryRole nvarchar  50                       YES
+TeamLeadName  nvarchar  200                      YES
+Category      nvarchar  50                       YES
+IsActive      bit       NULL                     NO
+IsTrainee     bit       NULL                     NO
+PlannedRole   nvarchar  50                       YES
+CreatedAt     datetime2 NULL                     NO
+Birthday      date      NULL                     YES
+SourceSheet   nvarchar  20                       YES
+Bundesland    nvarchar  50                       YES
+
+
+========================================
+  2.7 SickLeaves schema (confirm FirstDay/LastDay, LeaveType column name)
+========================================
+SQL: SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = 'SickLeaves'
+ORDER BY ORDINAL_POSITION
+
+[32;1mCOLUMN_NAME [0m[32;1m DATA_TYPE[0m[32;1m CHARACTER_MAXIMUM_LENGTH[0m[32;1m IS_NULLABLE[0m
+[32;1m----------- [0m [32;1m---------[0m [32;1m------------------------[0m [32;1m-----------[0m
+Id           int       NULL                     NO
+EmployeeId   nvarchar  20                       YES
+FirstName    nvarchar  100                      YES
+LastName     nvarchar  100                      YES
+TeamLeadName nvarchar  200                      YES
+FirstDay     date      NULL                     NO
+LastDay      date      NULL                     NO
+DurationDays int       NULL                     YES
+LeaveType    nvarchar  10                       YES
+ChildName    nvarchar  200                      YES
+Comments     nvarchar  500                      YES
+SourceSheet  nvarchar  50                       YES
+CreatedAt    datetime2 NULL                     NO
+
+
+========================================
+  2.8 WicAgentAssignments.AssignmentType distinct values
+========================================
+SQL: SELECT DISTINCT AssignmentType FROM WicAgentAssignments ORDER BY AssignmentType
+
+[32;1mAssignmentType[0m
+[32;1m--------------[0m
+BACKUP
+MAIN
+
+
+========================================
+  2.9 Employees.PrimaryRole distinct values
+========================================
+SQL: SELECT DISTINCT PrimaryRole FROM Employees
+WHERE PrimaryRole IS NOT NULL
+ORDER BY PrimaryRole
+
+[32;1mPrimaryRole[0m
+[32;1m-----------[0m
+Booking Tool
+Bulk PWs
+Chat
+Chat CRO
+Dispatcher
+SME
+SSP
+Trainer
+Voice
+VWIC
+WIC
+
+
+========================================
+  2.10 WicLocations TOP 5 (shows new cols if PS1_2 was run)
+========================================
+SQL: SELECT TOP 5 LocationCode, DisplayName, PostalCode, City, Country,
+    CASE WHEN COL_LENGTH('WicLocations','Bundesland') IS NOT NULL
+         THEN CAST(Bundesland AS NVARCHAR(50)) ELSE '(column missing)' END AS Bundesland,
+    CASE WHEN COL_LENGTH('WicLocations','Coordinates') IS NOT NULL
+         THEN CAST(Coordinates AS NVARCHAR(100)) ELSE '(column missing)' END AS Coordinates,
+    CASE WHEN COL_LENGTH('WicLocations','MinAgentsRequired') IS NOT NULL
+         THEN CAST(MinAgentsRequired AS NVARCHAR(10)) ELSE '(column missing)' END AS MinAgentsRequired
+FROM WicLocations ORDER BY LocationCode
+ERROR: Exception calling "ExecuteReader" with "0" argument(s): "Invalid column name 'Coordinates'.
+Invalid column name 'MinAgentsRequired'."
+
+========================================
+  2.11 Skill/Qual/Lang tables (expect none)
+========================================
+SQL: SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_NAME LIKE '%Skill%'
+   OR TABLE_NAME LIKE '%Qual%'
+   OR TABLE_NAME LIKE '%Lang%'
+ORDER BY TABLE_NAME
+(no rows)
+
+========================================
+  2.12 SickLeaves.LeaveType distinct values
+========================================
+SQL: SELECT DISTINCT LeaveType FROM SickLeaves
+WHERE LeaveType IS NOT NULL
+ORDER BY LeaveType
+
+[32;1mLeaveType[0m
+[32;1m---------[0m
+Self
+
+
+========================================
+  2.13 Extra locations not in schema.sql seed (Rendsburg/Pfaffenhofen/Regensburg)
+========================================
+SQL: SELECT TOP 3 LocationCode, DisplayName, PostalCode, City, Country
+FROM WicLocations
+WHERE LocationCode LIKE '%RENDSBURG%'
+   OR LocationCode LIKE '%PFAFF%'
+   OR LocationCode LIKE '%Regensburg%'
+   OR DisplayName LIKE '%Rendsburg%'
+   OR DisplayName LIKE '%Pfaff%'
+   OR DisplayName LIKE '%Regensburg%'
+
+[32;1mLocationCode                          [0m[32;1m DisplayName [0m[32;1m PostalCode[0m[32;1m City        [0m[32;1m Country[0m
+[32;1m------------                          [0m [32;1m----------- [0m [32;1m----------[0m [32;1m----        [0m [32;1m-------[0m
+RENDSBURG                              Rendsburg    NULL       Rendsburg    DE
+DE~85276~Pfaffenhofen~Draht 7          Pfaffenhofen NULL       Pfaffenhofen DE
+DE~93049~Regensburg~Lilienthalstraße 7 Regensburg   NULL       Regensburg   DE
+
+
+========================================
+  2.14 WicOpeningHours row count
+========================================
+SQL: SELECT COUNT(*) AS WicOpeningHoursRows FROM WicOpeningHours
+
+[32;1mWicOpeningHoursRows[0m
+[32;1m-------------------[0m
+                306
+
+
+========================================
+  3.1 GET /health
+========================================
+ERROR: Es konnte keine Verbindung hergestellt werden, da der Zielcomputer die Verbindung verweigerte.
+
+========================================
+  3.2 GET /api/wic/locations (first 3 items)
+========================================
+ERROR: Es konnte keine Verbindung hergestellt werden, da der Zielcomputer die Verbindung verweigerte.
+
+========================================
+  3.3 Route group registrations in Program.cs
+========================================
+95: app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
+
+========================================
+  3.4 Controller files check (expect none - Minimal API project)
+========================================
+(no *Controller.cs files - confirmed Minimal APIs, no MVC controllers)
+
+========================================
+  COMPLETE - paste this output into handoff_prompt1.md
+========================================

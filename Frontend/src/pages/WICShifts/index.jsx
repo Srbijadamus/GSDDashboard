@@ -1,18 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import UncoveredBanner from "./UncoveredBanner"
 import LocationCard from "./LocationCard"
 import MultiSelectFilter from "./MultiSelectFilter"
 import ReassignModal from "./ReassignModal"
 import AvailableHoursPanel from './AvailableHoursPanel'
+import NewShiftModal from "./NewShiftModal"
 
-const BASE = "https://n8jlr9dr-5000.euw.devtunnels.ms"
+const BASE = ""
 const POLL_INTERVAL = 30000
 
 export default function WICShifts() {
+  const { t } = useTranslation()
   const [locations, setLocations] = useState([])
   const [filtered, setFiltered] = useState([])
   const [selectedLocs, setSelectedLocs] = useState([])
   const [modalAgent, setModalAgent] = useState(null)
+  const [newShiftOpen, setNewShiftOpen] = useState(false)
   const [secondsAgo, setSecondsAgo] = useState(0)
   const [connectionLost, setConnectionLost] = useState(false)
   const [polling, setPolling] = useState(false)
@@ -161,6 +165,16 @@ export default function WICShifts() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {connectionLost && <span style={{ fontSize: 11, color: "#f97316", background: "rgba(249,115,22,.12)", padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(249,115,22,.3)" }}>Connection lost</span>}
           <span style={{ fontSize: 11, color: "#8892a4", fontFamily: "IBM Plex Mono" }}>Updated {secondsAgo}s ago</span>
+          <button
+            onClick={() => setNewShiftOpen(true)}
+            style={{
+              background: "var(--accent)", border: "none", color: "#fff",
+              padding: "7px 14px", borderRadius: 6, fontSize: 12,
+              cursor: "pointer", fontWeight: 600,
+            }}
+          >
+            + {t("wicShifts.newShift.button")}
+          </button>
           <MultiSelectFilter options={locations.map(l => l.name)} selected={selectedLocs} onChange={setSelectedLocs} />
         </div>
       </div>
@@ -175,6 +189,7 @@ export default function WICShifts() {
         <ReassignModal agent={modalAgent.agent} currentLocation={modalAgent.currentLocation}
           locations={locations} onSave={handleReassign} onClose={() => setModalAgent(null)} />
       )}
+      <NewShiftModal isOpen={newShiftOpen} onClose={() => setNewShiftOpen(false)} onSuccess={fetchData} />
       <AvailableHoursPanel />
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }`}</style>
     </div>

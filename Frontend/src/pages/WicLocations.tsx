@@ -60,9 +60,18 @@ export default function WicLocations() {
             </tr>
           </thead>
           <tbody>
-            {isLoading && <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>Loading...</td></tr>}
+            {isLoading && Array.from({length: 5}).map((_, i) => (
+              <tr key={`sk-${i}`} style={{ borderBottom: "1px solid var(--border)" }}>
+                {Array.from({length: 6}).map((_, j) => (
+                  <td key={j} style={{ padding: "10px 12px" }}><div className="skeleton" style={{ height: 11 }} /></td>
+                ))}
+              </tr>
+            ))}
+            {!isLoading && filtered.length === 0 && (
+              <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>No locations found</td></tr>
+            )}
             {filtered.map((l: any) => (
-              <tr key={l.id} style={{ borderBottom: "1px solid rgba(30,45,69,.5)" }}
+              <tr key={l.id} style={{ borderBottom: "1px solid var(--border)" }}
                 onMouseEnter={ev => (ev.currentTarget.style.background = "var(--card2)")}
                 onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}>
                 <td style={{ padding: "9px 12px", fontWeight: 500 }}>{l.displayName}</td>

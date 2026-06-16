@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import { api } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
 
-const BASE = "https://n8jlr9dr-5000.euw.devtunnels.ms"
+const BASE = ""
 
 function resolveName(s: any): string {
   if (s.fullName && s.fullName.trim()) return s.fullName.trim()
@@ -174,7 +174,7 @@ function DrillDownModal({ title, entries, onClose }: { title: string; entries: a
                 const expectedReturn = lastDay.toISOString().split("T")[0]
                 const isCritical = daysSoFar >= 10; const isWarn = daysSoFar >= 5
                 return (
-                  <tr key={i} style={{ borderBottom: "1px solid rgba(30,45,69,.5)" }}>
+                  <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "8px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>{s.employeeId}</td>
                     <td style={{ padding: "8px 12px", fontWeight: 500 }}>{resolveName(s)}</td>
                     <td style={{ padding: "8px 12px", color: "var(--text2)", fontSize: 11 }}>{s.teamLeadName}</td>
@@ -220,7 +220,7 @@ function DayGrid({ days }: { days: number }) {
   })
   const agentIds = Object.keys(sickDates)
   const dayCount = dates.map(d => { const ds = d.toISOString().split("T")[0]; return agentIds.filter(id => sickDates[id].has(ds)).length })
-  const dayHeaderColor = (count: number) => count >= 6 ? "var(--danger)" : count >= 3 ? "#facc15" : "#4ade80"
+  const dayHeaderColor = (count: number) => count >= 6 ? "var(--danger)" : count >= 3 ? "var(--yellow)" : "var(--green)"
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
   return (
     <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
@@ -246,7 +246,7 @@ function DayGrid({ days }: { days: number }) {
             {agentIds.map(id => {
               const info = agentInfo[id]
               return (
-                <tr key={id} style={{ borderBottom: "1px solid rgba(30,45,69,.5)" }}>
+                <tr key={id} style={{ borderBottom: "1px solid var(--border)" }}>
                   <td style={{ padding: "8px 14px", position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>
                     <div style={{ fontWeight: 500, fontSize: 12 }}>{resolveName(info)}</div>
                     <div style={{ fontSize: 10, color: "var(--text3)" }}>{info.teamLeadName}</div>
@@ -299,7 +299,7 @@ function GroupedSickTable({ data, commentCache, setCommentCache }: {
     if (!days) return "var(--text3)"
     if (days > 30) return "var(--danger)"
     if (days >= 14) return "var(--warn)"
-    if (days >= 7) return "#facc15"
+    if (days >= 7) return "var(--yellow)"
     return "var(--text2)"
   }
 
@@ -342,7 +342,7 @@ function GroupedSickTable({ data, commentCache, setCommentCache }: {
                   <tr key={empId}
                     onClick={() => multiPeriod && toggle(empId)}
                     style={{
-                      borderBottom: isExp ? "none" : "1px solid rgba(30,45,69,.5)",
+                      borderBottom: isExp ? "none" : "1px solid var(--border)",
                       background: durationBg(total),
                       cursor: multiPeriod ? "pointer" : "default",
                     }}
@@ -370,7 +370,7 @@ function GroupedSickTable({ data, commentCache, setCommentCache }: {
                       {multiPeriod && <span style={{ fontSize: 10, color: "var(--text3)", marginLeft: 4 }}>total</span>}
                     </td>
                     <td style={{ padding: "10px 12px" }}>
-                      <span style={{ background: first.leaveType === "Self" ? "rgba(255,124,59,.15)" : "rgba(250,204,21,.15)", color: first.leaveType === "Self" ? "var(--warn)" : "#facc15", padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono" }}>{first.leaveType}</span>
+                      <span style={{ background: first.leaveType === "Self" ? "rgba(255,124,59,.15)" : "rgba(250,204,21,.15)", color: first.leaveType === "Self" ? "var(--warn)" : "var(--yellow)", padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono" }}>{first.leaveType}</span>
                     </td>
                     <td style={{ padding: "6px 8px", minWidth: 160 }}>
                       {!multiPeriod && (
@@ -382,7 +382,7 @@ function GroupedSickTable({ data, commentCache, setCommentCache }: {
 
                   {/* Expanded sub-rows per period */}
                   {multiPeriod && isExp && sorted.map((p: any, i: number) => (
-                    <tr key={p.id} style={{ borderBottom: i === sorted.length - 1 ? "1px solid rgba(30,45,69,.5)" : "1px solid rgba(30,45,69,.2)", background: "rgba(99,102,241,.04)" }}>
+                    <tr key={p.id} style={{ borderBottom: "1px solid var(--border)", background: "rgba(99,102,241,.04)" }}>
                       <td style={{ padding: "7px 12px 7px 24px", fontFamily: "IBM Plex Mono", fontSize: 10, color: "var(--text3)" }}>
                         <span style={{ color: "rgba(99,102,241,.5)", marginRight: 6 }}>└</span>#{i + 1}
                       </td>
@@ -436,7 +436,7 @@ export default function SickLeave() {
   const cards = [
     { label: "Currently Sick", value: stats?.totalActive, color: "var(--danger)", onClick: () => setModal({ title: "Currently Sick Agents", entries: activeToday ?? [] }) },
     { label: "Self", value: stats?.selfCount, color: "var(--warn)", onClick: () => setModal({ title: "Self Active", entries: (activeToday ?? []).filter((e: any) => e.leaveType === "Self") }) },
-    { label: "Child", value: stats?.childCount, color: "#facc15", onClick: () => setModal({ title: "Child Active", entries: (activeToday ?? []).filter((e: any) => e.leaveType === "Child") }) },
+    { label: "Child", value: stats?.childCount, color: "var(--yellow)", onClick: () => setModal({ title: "Child Active", entries: (activeToday ?? []).filter((e: any) => e.leaveType === "Child") }) },
     { label: "Avg Duration", value: stats?.averageDuration ? stats.averageDuration + "d" : "0d", color: "var(--text2)", onClick: null },
   ]
 

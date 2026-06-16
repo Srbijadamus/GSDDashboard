@@ -22,6 +22,7 @@ public class GSDContext : DbContext
     public DbSet<TrainingTopic>      TrainingTopics      { get; set; }
     public DbSet<TrainingSession>    TrainingSessions    { get; set; }
     public DbSet<LeaveQuota>         LeaveQuotas         { get; set; }
+    public DbSet<SubstitutionHistory> SubstitutionHistory { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,6 +79,10 @@ public class GSDContext : DbContext
         });
         modelBuilder.Entity<LeaveQuota>(e => {
             e.HasIndex(x => x.QuotaDate).HasDatabaseName("IX_Quota_Date");
+        });
+        modelBuilder.Entity<SubstitutionHistory>(e => {
+            e.HasIndex(x => x.EmployeeId).HasDatabaseName("IX_SubHist_Emp");
+            e.HasIndex(x => x.Date).HasDatabaseName("IX_SubHist_Date");
         });
         base.OnModelCreating(modelBuilder);
     }

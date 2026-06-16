@@ -1,5 +1,6 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Modules.WicShifts;
@@ -48,8 +49,7 @@ public class WicCardsService
 
     public async Task<List<WicCardDto2>> GetCardsAsync(DateOnly date, string? country)
     {
-        // Day of week: Mon=1 ... Sat=6, Sun=0
-        var dow = (int)date.DayOfWeek == 0 ? 0 : (int)date.DayOfWeek;
+        var dow = (int)date.DayOfWeek; // 0=Sun ... 6=Sat
 
         var locations = await _db.WicLocations
             .Where(l => l.IsActive)
@@ -86,48 +86,10 @@ public class WicCardsService
         var cards = locations.Select(loc =>
         {
             var hours = openingHours.FirstOrDefault(h => h.LocationCode == loc.LocationCode);
-            var locationAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "Essen BP1",             "DE_Essen_BP1" },
-                { "Essen TK1",             "DE_Essen_TK1" },
-                { "Halle",                 "DE_Halle" },
-                { "Berlin - Gaussstr",     "DE_Berlin_Gauss" },
-                { "Furstenwalde",          "DE_Furstenwalde" },
-                { "Munchen",               "DE_Munchen" },
-                { "Osnabruck",             "DE_Osnabruck" },
-                { "Saarbrucken",           "DE_Saarbrucken" },
-                { "Demmin - Am Hanseufer", "DE_Demmin_Hanse" },
-                { "Denbosch",              "NL_Denbosch" },
-                { "Augsburg",              "DE_Augsburg" },
-                { "Bamberg",               "DE_Bamberg" },
-                { "Brokdorf",              "DE_Brokdorf" },
-                { "Dortmund",              "DE_Dortmund" },
-                { "Emmerthal",             "DE_Emmerthal" },
-                { "Essenbach",             "DE_Essenbach" },
-                { "Grafenrheinfeld",       "DE_Grafenrheinfeld" },
-                { "Hamburg",               "DE_Hamburg" },
-                { "Hannover",              "DE_Hannover" },
-                { "Helmstedt",             "DE_Helmstedt" },
-                { "Neu-Isenburg",          "DE_NeuIsenburg" },
-                { "Pfaffenhofen",          "PFAFFENHOFEN" },
-                { "Potsdam",               "DE_Potsdam" },
-                { "Quickborn",             "DE_Quickborn" },
-                { "Regensburg",            "DE_Regensburg" },
-                { "Rendsburg",             "RENDSBURG" },
-                { "Salzgitter",            "DE_Salzgitter" },
-                { "Stade",                 "DE_Stade" },
-                { "Stadland",              "DE_Stadland" },
-                { "Zwolle",                "NL_Zwolle" },
-            };
-            var locShifts = wicShifts.Where(x =>
-            {
-                if (x.w.SupportLocation == null) return false;
-                if (x.w.SupportLocation == loc.DisplayName) return true;
-                if (x.w.SupportLocation == loc.City) return true;
-                if (locationAliases.TryGetValue(x.w.SupportLocation, out var mappedCode) && mappedCode == loc.LocationCode)
-                    return true;
-                return false;
-            }).ToList();
+
+            var locShifts = wicShifts
+                .Where(x => WicLocationMatcher.MatchesSupportLocation(x.w.SupportLocation, loc))
+                .ToList();
 
             var todaySchedule = new TodaySchedule(
                 IsClosed: hours == null || hours.IsClosed,
@@ -142,11 +104,11 @@ public class WicCardsService
             );
 
             var mainAgentNames = assignments
-                .Where(a => a.LocationCode == loc.LocationCode && a.AssignmentType == "MAIN")
+                .Where(a => WicLocationMatcher.MatchesAssignmentCode(a.LocationCode, loc) && a.AssignmentType == "MAIN")
                 .Select(a => a.EmployeeName).ToList();
 
             var backupAgentNames = assignments
-                .Where(a => a.LocationCode == loc.LocationCode && a.AssignmentType == "BACKUP")
+                .Where(a => WicLocationMatcher.MatchesAssignmentCode(a.LocationCode, loc) && a.AssignmentType == "BACKUP")
                 .Select(a => a.EmployeeName).ToList();
 
             var agentList = locShifts.Select(x =>
@@ -230,4 +192,3 @@ public static class WicCardsEndpointMapper
         }).WithTags("WIC");
     }
 }
-

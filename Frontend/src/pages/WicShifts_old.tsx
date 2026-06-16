@@ -5,7 +5,7 @@ import { api, apiFetch } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
 import { X } from "lucide-react"
 
-const BASE = "https://n8jlr9dr-5000.euw.devtunnels.ms"
+const BASE = ""
 
 function toMin(t: string | null): number {
   if (!t) return 0

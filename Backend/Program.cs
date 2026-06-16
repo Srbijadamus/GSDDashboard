@@ -13,10 +13,11 @@ using GSDDashboard.API.Modules.Pipeline;
 using GSDDashboard.API.Modules.WicSchedule;
 using GSDDashboard.API.Modules.Training;
 using GSDDashboard.API.Services;
-using GSDDashboard.API.Services;
 using GSDDashboard.API.Modules.Employees;
 using GSDDashboard.API.Modules.ALBalance;
 using GSDDashboard.API.Modules.Attendance;
+using GSDDashboard.API.Modules.Backup;
+using GSDDashboard.API.Modules.SubstituteAccept;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -42,9 +43,16 @@ builder.Services.AddScoped<TrainingService>();
 builder.Services.AddScoped<EmployeeService>();
 builder.Services.AddScoped<ALBalanceService>();
 builder.Services.AddScoped<AttendanceService>();
+builder.Services.AddScoped<BackupService>();
 builder.Services.AddScoped<GSDDashboard.API.Modules.ALCalendar.ALCalendarService>();
 builder.Services.AddScoped<GSDDashboard.API.Modules.Overview.OverviewService>();
-builder.Services.AddScoped<GSDDashboard.API.Modules.Overview.OverviewService>();
+builder.Services.AddSingleton<ReachabilityService>();
+builder.Services.AddScoped<CoverageEvaluator>();
+builder.Services.AddScoped<SubstitutionService>();
+builder.Services.AddScoped<ForecastService>();
+builder.Services.AddScoped<WhatIfService>();
+builder.Services.AddScoped<BriefingService>();
+builder.Services.AddScoped<ALPlanningService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -87,7 +95,14 @@ app.MapEmployeeEndpoints();
 app.MapShiftReorderEndpoints();
 app.MapALCalendarEndpoints();
 app.MapOverviewEndpoints();
-app.MapOverviewEndpoints();
+app.MapBackupEndpoints();
+app.MapReachabilityEndpoints();
+app.MapSubstitutionEndpoints();
+app.MapSubstituteAcceptEndpoints();
+app.MapForecastEndpoints();
+app.MapWhatIfEndpoints();
+app.MapBriefingEndpoints();
+app.MapALPlanningEndpoints();
 
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
