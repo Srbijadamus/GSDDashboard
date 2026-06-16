@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useState, useEffect } from "react"
 import {
   LayoutDashboard, Users, Calendar, Heart, MapPin,
-  ClipboardList, Building2, Scale, Globe, Search
+  ClipboardList, Building2, Scale, Globe, Search, Headphones
 } from "lucide-react"
 import { ThemeToggle } from "./components/ThemeToggle"
 import { CommandPalette } from "./components/CommandPalette"
@@ -23,6 +23,7 @@ import Shifts from "./pages/Shifts"
 import ALBalance from "./pages/ALBalance"
 import Attendance from "./pages/Attendance"
 import ALCalendar from "./pages/ALCalendar"
+import VWICPage from "./pages/VWICPage"
 
 function LangToggle() {
   const { i18n } = useTranslation()
@@ -68,6 +69,7 @@ function AppLayout() {
     { to: "/",                icon: LayoutDashboard, label: t("nav.overview") },
     { to: "/shifts",          icon: ClipboardList,   label: t("nav.shifts") },
     { to: "/wic-shifts",      icon: Building2,       label: t("nav.wicShifts") },
+    { to: "/vwic",            icon: Headphones,      label: "VWIC" },
     { to: "/wic-attendance",  icon: Calendar,        label: "WIC Attendance" },
     { to: "/wic-schedule",    icon: MapPin,          label: "WIC Schedule" },
     { to: "/pipeline",        icon: ClipboardList,   label: "Pipeline" },
@@ -184,6 +186,7 @@ function AppLayout() {
             <Route path="/"                element={<Overview />} />
             <Route path="/shifts"          element={<Shifts />} />
             <Route path="/wic-shifts"      element={<WicShifts />} />
+            <Route path="/vwic"            element={<VWICPage />} />
             <Route path="/wic-attendance"  element={<WicAttendance />} />
             <Route path="/wic-schedule"    element={<WicSchedule />} />
             <Route path="/pipeline"        element={<Pipeline />} />

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, Fragment } from "react"
 import { useTranslation } from "react-i18next"
 import { api } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
@@ -278,15 +278,13 @@ function GroupedSickTable({ data, commentCache, setCommentCache }: {
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const toggle = (id: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
-  }
+  const toggle = (id: string) => setExpanded(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
 
-  // Group by employeeId, preserve order of first appearance
+  // Group by employeeId, preserve first-appearance order
   const groups: Record<string, any[]> = {}
   const order: string[] = []
   data.forEach((s: any) => {
@@ -295,23 +293,7 @@ function GroupedSickTable({ data, commentCache, setCommentCache }: {
     groups[id].push(s)
   })
 
-  const durationColor = (days: number | null) => {
-    if (!days) return "var(--text3)"
-    if (days > 30) return "var(--danger)"
-    if (days >= 14) return "var(--warn)"
-    if (days >= 7) return "var(--yellow)"
-    return "var(--text2)"
-  }
-
-  const durationBg = (days: number | null) => {
-    if (!days) return "transparent"
-    if (days > 30) return "rgba(255,59,92,.08)"
-    if (days >= 14) return "rgba(255,124,59,.08)"
-    if (days >= 7) return "rgba(250,204,21,.08)"
-    return "transparent"
-  }
-
-  const totalDays = (periods: any[]) => periods.reduce((sum, p) => sum + (p.durationDays ?? 0), 0)
+  const dayColor = (d: number) => d > 30 ? "var(--danger)" : d >= 14 ? "var(--warn)" : d >= 7 ? "var(--yellow)" : "var(--text2)"
 
   return (
     <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
@@ -319,96 +301,105 @@ function GroupedSickTable({ data, commentCache, setCommentCache }: {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
             <tr style={{ background: "var(--card2)" }}>
-              {["ID", "Name", "Team Lead", "Perioden", "First Day", "Last Day", "Duration", "Type", "Comments"].map(h => (
+              {["Name", "Team Lead", "Total Days", "Periods", "Last Sick Leave", "Notes"].map(h => (
                 <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
+            {order.length === 0 && (
+              <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>No sick leave records found</td></tr>
+            )}
             {order.map(empId => {
-              const periods = groups[empId]
-              const first = periods[0]
+              const first = groups[empId][0]
               const isExp = expanded.has(empId)
-              const total = totalDays(periods)
-              const multiPeriod = periods.length > 1
-              // Sort periods by date
-              const sorted = [...periods].sort((a, b) => a.firstDay.localeCompare(b.firstDay))
-              const earliest = sorted[0].firstDay
-              const latest = sorted[sorted.length - 1].lastDay
+
+              // Deduplicate periods: same (firstDay, lastDay) with different types
+              // (e.g. "Self" + "SL" entered for same absence) → keep one, prefer non-SL
+              const seen = new Map<string, any>()
+              groups[empId].forEach((p: any) => {
+                const key = p.firstDay + "|" + p.lastDay
+                if (!seen.has(key) || p.leaveType !== "SL") seen.set(key, p)
+              })
+              const periods = Array.from(seen.values()).sort((a, b) => a.firstDay.localeCompare(b.firstDay))
+
+              const totalDays = periods.reduce((sum, p) => sum + (p.durationDays ?? 0), 0)
+              const lastSick = periods[periods.length - 1]?.lastDay ?? ""
+              const multi = periods.length > 1
 
               return (
-                <>
-                  {/* Agent summary row */}
-                  <tr key={empId}
-                    onClick={() => multiPeriod && toggle(empId)}
-                    style={{
-                      borderBottom: isExp ? "none" : "1px solid var(--border)",
-                      background: durationBg(total),
-                      cursor: multiPeriod ? "pointer" : "default",
-                    }}
-                    onMouseEnter={ev => (ev.currentTarget.style.filter = "brightness(1.12)")}
-                    onMouseLeave={ev => (ev.currentTarget.style.filter = "brightness(1)")}>
-                    <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>{first.employeeId}</td>
+                <Fragment key={empId}>
+                  <tr
+                    onClick={() => multi && toggle(empId)}
+                    style={{ borderBottom: isExp ? "none" : "1px solid var(--border)", cursor: multi ? "pointer" : "default" }}
+                    onMouseEnter={ev => (ev.currentTarget.style.background = "rgba(255,255,255,.03)")}
+                    onMouseLeave={ev => (ev.currentTarget.style.background = "")}>
+
+                    {/* Name + expand arrow */}
                     <td style={{ padding: "10px 12px", fontWeight: 600, whiteSpace: "nowrap" }}>
-                      {multiPeriod && (
-                        <span style={{ marginRight: 6, fontSize: 10, color: "var(--text3)", display: "inline-block", transform: isExp ? "rotate(90deg)" : "rotate(0deg)", transition: "transform .15s" }}>▶</span>
-                      )}
+                      <span style={{ marginRight: 6, fontSize: 10, color: "var(--text3)", display: "inline-block", opacity: multi ? 1 : 0, transform: isExp ? "rotate(90deg)" : "rotate(0deg)", transition: "transform .15s" }}>▶</span>
                       {resolveName(first)}
+                      <span style={{ fontSize: 10, color: "var(--text3)", marginLeft: 6, fontFamily: "IBM Plex Mono" }}>{first.employeeId}</span>
                     </td>
-                    <td style={{ padding: "10px 12px", color: "var(--text2)", fontSize: 11, whiteSpace: "nowrap" }}>{first.teamLeadName}</td>
-                    <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                      {multiPeriod ? (
-                        <span style={{ background: "rgba(99,102,241,.2)", color: "#818cf8", padding: "2px 8px", borderRadius: 12, fontSize: 10, fontFamily: "IBM Plex Mono" }}>
-                          {periods.length}×
-                        </span>
-                      ) : <span style={{ color: "var(--text3)", fontSize: 10 }}>1×</span>}
-                    </td>
-                    <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{earliest}</td>
-                    <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{latest}</td>
+
+                    {/* Team Lead */}
+                    <td style={{ padding: "10px 12px", color: "var(--text2)", fontSize: 11, whiteSpace: "nowrap" }}>{first.teamLeadName ?? "—"}</td>
+
+                    {/* Total Days */}
                     <td style={{ padding: "10px 12px" }}>
-                      <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, fontWeight: 600, color: durationColor(total) }}>{total}d</span>
-                      {multiPeriod && <span style={{ fontSize: 10, color: "var(--text3)", marginLeft: 4 }}>total</span>}
+                      <span style={{ fontFamily: "IBM Plex Mono", fontSize: 12, fontWeight: 600, color: dayColor(totalDays) }}>{totalDays}d</span>
                     </td>
+
+                    {/* Periods badge */}
                     <td style={{ padding: "10px 12px" }}>
-                      <span style={{ background: first.leaveType === "Self" ? "rgba(255,124,59,.15)" : "rgba(250,204,21,.15)", color: first.leaveType === "Self" ? "var(--warn)" : "var(--yellow)", padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono" }}>{first.leaveType}</span>
+                      {multi
+                        ? <span style={{ background: "rgba(99,102,241,.2)", color: "#818cf8", padding: "2px 8px", borderRadius: 12, fontSize: 10, fontFamily: "IBM Plex Mono" }}>{periods.length}×</span>
+                        : <span style={{ color: "var(--text3)", fontSize: 10 }}>1×</span>}
                     </td>
+
+                    {/* Last Sick Leave */}
+                    <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{lastSick}</td>
+
+                    {/* Notes — only on summary row for single-period agents */}
                     <td style={{ padding: "6px 8px", minWidth: 160 }}>
-                      {!multiPeriod && (
-                        <CommentCell id={first.id} initial={commentCache[first.id] !== undefined ? commentCache[first.id] : first.comments}
+                      {!multi && (
+                        <CommentCell id={first.id}
+                          initial={commentCache[first.id] !== undefined ? commentCache[first.id] : first.comments}
                           onSaved={val => setCommentCache(prev => ({ ...prev, [first.id]: val }))} />
                       )}
                     </td>
                   </tr>
 
-                  {/* Expanded sub-rows per period */}
-                  {multiPeriod && isExp && sorted.map((p: any, i: number) => (
-                    <tr key={p.id} style={{ borderBottom: "1px solid var(--border)", background: "rgba(99,102,241,.04)" }}>
-                      <td style={{ padding: "7px 12px 7px 24px", fontFamily: "IBM Plex Mono", fontSize: 10, color: "var(--text3)" }}>
-                        <span style={{ color: "rgba(99,102,241,.5)", marginRight: 6 }}>└</span>#{i + 1}
+                  {/* Expanded detail rows — one per deduplicated period */}
+                  {multi && isExp && periods.map((p: any, i: number) => (
+                    <tr key={p.id ?? i} style={{ borderBottom: i === periods.length - 1 ? "1px solid var(--border)" : "none", background: "rgba(99,102,241,.03)" }}>
+                      <td style={{ padding: "7px 12px 7px 32px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text2)" }}>
+                        <span style={{ color: "rgba(99,102,241,.4)", marginRight: 6 }}>└</span>
+                        {p.firstDay} – {p.lastDay}
                       </td>
-                      <td style={{ padding: "7px 12px", fontSize: 11, color: "var(--text2)" }}></td>
-                      <td style={{ padding: "7px 12px" }}></td>
-                      <td style={{ padding: "7px 12px" }}></td>
-                      <td style={{ padding: "7px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{p.firstDay}</td>
-                      <td style={{ padding: "7px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{p.lastDay}</td>
+                      <td />
                       <td style={{ padding: "7px 12px" }}>
-                        <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: durationColor(p.durationDays) }}>{p.durationDays ?? "?"}d</span>
+                        <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: dayColor(p.durationDays ?? 0) }}>{p.durationDays ?? "?"}d</span>
                       </td>
-                      <td style={{ padding: "7px 12px" }}></td>
+                      <td style={{ padding: "7px 12px" }}>
+                        <span style={{ background: p.leaveType === "Self" ? "rgba(255,124,59,.15)" : "rgba(250,204,21,.15)", color: p.leaveType === "Self" ? "var(--warn)" : "var(--yellow)", padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono" }}>{p.leaveType}</span>
+                      </td>
+                      <td />
                       <td style={{ padding: "5px 8px", minWidth: 160 }}>
-                        <CommentCell id={p.id} initial={commentCache[p.id] !== undefined ? commentCache[p.id] : p.comments}
+                        <CommentCell id={p.id}
+                          initial={commentCache[p.id] !== undefined ? commentCache[p.id] : p.comments}
                           onSaved={val => setCommentCache(prev => ({ ...prev, [p.id]: val }))} />
                       </td>
                     </tr>
                   ))}
-                </>
+                </Fragment>
               )
             })}
           </tbody>
         </table>
       </div>
       <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
-        {order.length} agents / {data.length} records — klik na agenta sa više perioda za detalje
+        {order.length} agents / {data.length} records
       </div>
     </div>
   )
@@ -461,7 +452,7 @@ export default function SickLeave() {
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)" }}>
             <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>{s.label}</div>
             <div style={{ fontSize: 28, fontWeight: 600, fontFamily: "IBM Plex Mono", color: s.color }}>{s.value ?? 0}</div>
-            {s.onClick && <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 4 }}>klik za detalje</div>}
+            {s.onClick && <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 4 }}>Click for details</div>}
           </div>
         ))}
       </div>
