@@ -1,68 +1,127 @@
-# GSD Dashboard — General Overview
+# GSD Dashboard — Feature Overview
 
 ## What Is It?
 
-The **GSD Dashboard** is an internal workforce management and visibility platform built for the **GSD DE (Global Service Desk Germany)** and **WIC (Workforce In Contact)** teams at EON. It gives team leads and management a real-time window into scheduling, shift coverage, attendance, sick leave, vacations, and annual leave balances — all in one place.
+The **GSD Dashboard** is an internal workforce management and visibility platform for the **GSD DE (Global Service Desk Germany)** and **WIC (Workforce In Contact)** teams. It gives team leads and management a real-time window into scheduling, shift coverage, attendance, sick leave, vacations, and annual leave balances.
 
-The application is **read-only by design**: it surfaces data from an existing SQL Server database and lets users export reports to Excel. There is no data entry through the app.
-
----
-
-## Who Is It For?
-
-| User | What They Use It For |
-|------|---------------------|
-| **Team Leads** | Monitor their team's daily shifts, leave, and WIC assignments |
-| **Management** | High-level coverage overview across all teams and locations |
-| **HR / Scheduling** | Track sick leave, vacations, annual leave balances, compliance |
-| **WIC Coordinators** | See daily attendance and coverage at the 40 WIC locations |
-
-The workforce covered spans approximately **122 employees** and **40 WIC on-site support locations** — 38 in Germany and 2 in the Netherlands.
+The database is read by a separate upstream system. The dashboard surfaces data and adds its own write operations for WIC shift management, substitutions, and employee administration.
 
 ---
 
-## Core Features
+## Who Uses It?
 
-### Shift Management
-View the full shift plan for any date range, filtered by team lead, role, or employee type. Each shift is color-coded by type (working, WIC duty, annual leave, sick leave, public holiday, training, etc.).
+| User | Purpose |
+|------|---------|
+| Team Leads | Monitor team shifts, leave, and WIC assignments |
+| Management | High-level coverage overview across all locations |
+| HR / Scheduling | Sick leave, vacations, AL balances, compliance |
+| WIC Coordinators | Daily attendance, coverage gaps, substitution |
 
-### WIC Coverage Monitoring
-Track which of the 40 WIC locations are covered each day. Each location is shown as COVERED, PARTIAL, UNCOVERED, or CLOSED based on the number of agents on-site versus the minimum required.
-
-### Daily Attendance
-See actual presence at WIC locations: which agents showed up, which were absent, and which locations were closed or on a public holiday.
-
-### Leave Management
-- **Sick Leave** — Active and historical sick leave records with date ranges and leave types.
-- **Vacations** — Approved, pending, and upcoming vacation requests per employee.
-- **Annual Leave (AL) Balance** — Eligible vs. taken vs. remaining days per employee, including half-day and unpaid leave counts.
-- **AL Calendar** — Visual calendar view of annual leave across the team.
-
-### Training Scheduling
-View training topics and scheduled sessions, including which employees are assigned to each session and coverage/impact rankings.
-
-### WIC Pipeline
-Track projects and workload planned at WIC locations — titles, dates, number of agents needed, and status.
-
-### Excel Exports
-Every major data view has a download button that exports the data to a formatted `.xlsx` file. Downloads are available for today, the last 7 days, or the last 30 days.
-
-### Bilingual UI
-The entire interface supports **English and German**, switchable at any time via the language toggle.
+Approximately **130 employees**, **43 WIC locations** (41 DE, 2 NL).
 
 ---
 
-## What It Is Not
+## Pages and Feature Status
 
-- Not a scheduling or data-entry tool — data comes from an upstream system
-- Not a time-tracking or payroll system
-- Not public-facing — internal use only, running on a corporate network
+### Overview `/`
+**Read only.**
+- KPI cards: open locations today, at-risk count, closure risk, absences, coverage %
+- 14-day coverage heatmap (all 43 WIC locations × next N days)
+- WIC map (react-leaflet + OpenStreetMap, CircleMarkers coloured by coverage status)
+- Recommendations panel with best-substitute name per gap
+- Command palette (Ctrl+K) — search locations, navigate to WIC Attendance
+
+### Shift Plan `/shifts`
+**Read only.** Full shift plan calendar, filterable by team lead, role, date range. Colour-coded by shift type.
+
+### WIC Shifts `/wic-shifts`
+**Write.** Daily WIC-specific view. Reassign agents between locations. New shift modal to add WIC duty entries.
+
+### VWIC `/vwic`
+**Write.** Virtual WIC coverage grid for 07:00–18:00. Timeline view. Add/remove agents from virtual coverage slots.
+
+### WIC Attendance `/wic-attendance`
+**Write.** Per-location coverage with:
+- Substitute finder (4-tier ranked: BACKUP / SSP / WIC_DONOR / CALL_IN)
+- Accept substitute action (writes to SubstitutionHistory, records confirmed assignment)
+- AL planning integration
+- Assign agent to location
+- Manual check-in
+
+### WIC Schedule `/wic-schedule`
+**Read only.** Opening hours per WIC location.
+
+### Pipeline `/pipeline`
+**Write.** Create, edit, and delete pipeline events (planned projects / workload at WIC locations).
+
+### Training `/training`
+**Read only.** Training topics, sessions, and agent assignments.
+
+### WIC Locations `/wic-locations`
+**Read only.** Master list of 43 WIC locations with coordinates, Bundesland, and legacy code mapping.
+
+### Daily Attendance `/attendance`
+**Read only.** Daily presence log per WIC location.
+
+### Sick Leave `/sickleave`
+**Write.** Sick leave records grouped by agent with day-grid view. Add new sick leave entries.
+
+### Vacations `/vacations`
+**Read only.** Approved, pending, and upcoming vacation requests per employee.
+
+### AL Balance `/albalance`
+**Read only.** Eligible / taken / remaining annual leave days per employee.
+
+### AL Calendar `/al-calendar`
+**Read only.** Calendar visualisation of annual leave across the team.
+
+### Employees `/employees`
+**Write.** Create employees, delete employees, edit AL balance.
 
 ---
 
-## Data Flow at a Glance
+## Backend Services
 
-```
-SQL Server 2022  →  ASP.NET Core 8 API  →  React Dashboard  →  Excel Reports
-   (source)           (read-only)          (visualization)       (ClosedXML)
-```
+| Service | Status | Purpose |
+|---------|--------|---------|
+| `CoverageEvaluator` | Implemented | Canonical coverage classifier — COVERED / PARTIAL / UNCOVERED / CLOSED |
+| `SubstitutionService` | Implemented | 4-tier ranked substitutes (BACKUP / SSP / WIC_DONOR / CALL_IN), donor guard, fairness penalty |
+| `ReachabilityService` | Implemented | Haversine distance matrix, 4h cache, singleton |
+| `ForecastService` | Implemented | 14-day coverage forecast per WIC location |
+| `WhatIfService` | Implemented | What-if simulation — impact if one agent is absent |
+| `BriefingService` | Implemented | Daily briefing JSON + Excel export (absences, gaps, next at-risk) |
+| `ALPlanningService` | Implemented | Annual leave planning per WIC location |
+| `VwicService` | Implemented | Virtual WIC coverage management (07-18 timeline) |
+| `WicLocationMatcher` | Implemented | Static helper — matches old-style codes via `LocationCodeLegacy` |
+
+---
+
+## Substitution Tiers
+
+| Tier | Base Score | Condition |
+|------|-----------|-----------|
+| BACKUP | 10,000 | Designated backup in `WicAgentAssignments` |
+| SSP | 5,000 | `PrimaryRole = "SSP"` |
+| WIC_DONOR | 0 + reachability (0-500) | Nearby WIC with surplus agents |
+| CALL_IN | -100 + reachability | All remaining reachable agents |
+
+Donor guard: if `surplus = effectiveCoverage - minRequired <= 0`, the donor location is skipped.
+Fairness penalty: `-LoadScore * 10` based on 30-day substitution history.
+
+---
+
+## Excel Exports
+
+Every major data view has an `.xlsx` download button. BriefingService exports a 3-sheet workbook (Absences, Coverage Gaps, Next AT_RISK Days).
+
+---
+
+## Internationalisation
+
+Full **German (DE)** and **English (EN)** UI, switchable at runtime. No other languages. Translation files in `Frontend/src/i18n/locales/{de,en}/common.json`.
+
+---
+
+## Theme
+
+Dark and light mode, switchable via the topbar ThemeToggle. IBM Plex Sans (body) and IBM Plex Mono (data cells). Powered by `next-themes` with `darkMode: "class"` in Tailwind.

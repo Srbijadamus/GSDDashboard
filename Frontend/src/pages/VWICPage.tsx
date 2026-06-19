@@ -41,6 +41,42 @@ interface VwicCandidate {
   primaryRole:  string | null
 }
 
+// ─── Rotation Plan types ─────────────────────────────────────────────────────
+
+interface VwicRotationScheduleRow {
+  employeeId: string
+  fullName:   string
+  slotStatus: string[]  // "ON" | "HANDOVER" | "OFF"
+}
+
+interface VwicCoverageProofItem {
+  startTime:  string
+  endTime:    string
+  agentCount: number
+  required:   number
+  covered:    boolean
+}
+
+interface VwicFairnessItem {
+  employeeId: string
+  fullName:   string
+  vwicHours:  number
+  slotCount:  number
+}
+
+interface VwicRotationResponse {
+  date:                string
+  slotLabels:          string[]
+  schedule:            VwicRotationScheduleRow[]
+  coverageProof:       VwicCoverageProofItem[]
+  fairness:            VwicFairnessItem[]
+  recommendation:      string
+  fallbackWarning:     string | null
+  availableAgents:     number
+  requiredAgentHours:  number
+  availableAgentHours: number
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function parseDecimalHour(t: string | null): number | null {
@@ -504,6 +540,290 @@ function SummaryCard({ label, value, color, sub }: { label: string; value: strin
   )
 }
 
+// ─── Rotation Planner ─────────────────────────────────────────────────────────
+
+function RotationPlanner({ initialDate }: { initialDate: string }) {
+  const [date,               setDate]               = useState(initialDate)
+  const [startTime,          setStartTime]          = useState("07:00")
+  const [endTime,            setEndTime]            = useState("18:00")
+  const [intervalHours,      setIntervalHours]      = useState(1)
+  const [maxContinuousHours, setMaxContinuousHours] = useState(2)
+  const [handoverMinutes,    setHandoverMinutes]    = useState(15)
+  const [result,             setResult]             = useState<VwicRotationResponse | null>(null)
+  const [loading,            setLoading]            = useState(false)
+  const [error,              setError]              = useState<string | null>(null)
+
+  const calculate = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/vwic/rotation-plan", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ date, startTime, endTime, intervalHours, maxContinuousHours, handoverMinutes }),
+      })
+      if (!res.ok) throw new Error("Server error")
+      setResult(await res.json())
+    } catch {
+      setError("Failed to calculate. Check that the backend is running.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const maxVwicHours = result ? Math.max(...result.fairness.map(f => f.vwicHours), 1) : 1
+  const allCovered   = result?.coverageProof.every(c => c.covered) ?? false
+
+  const statusStyle = (s: string) =>
+    s === "ON"       ? { bg: "rgba(34,197,94,.18)",  fg: "#22c55e", label: "ON" }
+    : s === "HANDOVER" ? { bg: "rgba(250,204,21,.18)", fg: "#facc15", label: "HO" }
+    : { bg: "transparent", fg: "var(--text3)", label: "—" }
+
+  const inp: React.CSSProperties = {
+    background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)",
+    padding: "7px 10px", borderRadius: 6, fontSize: 13, outline: "none", width: "100%",
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* ── Parameters form ── */}
+      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", marginBottom: 14 }}>
+          Rotation Parameters
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 14 }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <span style={{ fontSize: 11, color: "var(--text3)" }}>Date</span>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp} />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <span style={{ fontSize: 11, color: "var(--text3)" }}>Window start</span>
+            <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={inp} />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <span style={{ fontSize: 11, color: "var(--text3)" }}>Window end</span>
+            <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={inp} />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <span style={{ fontSize: 11, color: "var(--text3)" }}>Max continuous VWIC (h)</span>
+            <input type="number" min={1} max={8} value={maxContinuousHours}
+              onChange={e => setMaxContinuousHours(+e.target.value)} style={inp} />
+          </label>
+          <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <span style={{ fontSize: 11, color: "var(--text3)" }}>Handover buffer (min)</span>
+            <input type="number" min={0} max={30} value={handoverMinutes}
+              onChange={e => setHandoverMinutes(+e.target.value)} style={inp} />
+          </label>
+        </div>
+
+        {/* Interval radio */}
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8 }}>Rotation interval</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {([1, 2, 4] as const).map(h => (
+              <label key={h} style={{
+                display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+                background: intervalHours === h ? "rgba(59,126,255,.15)" : "var(--card2)",
+                border: `1px solid ${intervalHours === h ? "var(--accent)" : "var(--border)"}`,
+                borderRadius: 6, padding: "6px 16px", transition: "all .12s",
+              }}>
+                <input type="radio" name="rp-interval" value={h} checked={intervalHours === h}
+                  onChange={() => setIntervalHours(h)}
+                  style={{ accentColor: "var(--accent)", margin: 0 }} />
+                <span style={{
+                  fontSize: 13, fontWeight: intervalHours === h ? 700 : 400,
+                  color: intervalHours === h ? "var(--accent)" : "var(--text2)",
+                }}>
+                  {h}h
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            onClick={calculate} disabled={loading}
+            style={{
+              background: "var(--accent)", color: "#fff", border: "none",
+              padding: "9px 22px", borderRadius: 6, fontSize: 13, fontWeight: 600,
+              cursor: loading ? "wait" : "pointer", opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading ? "Calculating…" : "Calculate Rotation"}
+          </button>
+          {error && <span style={{ fontSize: 12, color: "#ef4444" }}>{error}</span>}
+        </div>
+      </div>
+
+      {result && (
+        <>
+          {/* ── Recommendation ── */}
+          <div style={{
+            background: "var(--card)",
+            border: `1px solid ${result.availableAgents < 3 ? "rgba(239,68,68,.35)" : "rgba(34,197,94,.35)"}`,
+            borderRadius: 8, padding: "14px 20px", display: "flex", alignItems: "flex-start", gap: 14,
+          }}>
+            <div style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>
+              {result.availableAgents < 3 ? "⚠️" : "✓"}
+            </div>
+            <div>
+              <div style={{
+                fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em",
+                color: result.availableAgents < 3 ? "#f97316" : "#22c55e", marginBottom: 5,
+              }}>
+                Recommendation
+              </div>
+              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>{result.recommendation}</div>
+              <div style={{ marginTop: 6, fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                {result.availableAgents} agents available &nbsp;·&nbsp;
+                {result.requiredAgentHours.toFixed(0)}h required &nbsp;·&nbsp;
+                {result.availableAgentHours.toFixed(0)}h available capacity
+              </div>
+            </div>
+          </div>
+
+          {/* ── Schedule table ── */}
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: 600, fontSize: 13 }}>Rotation Schedule</span>
+              <div style={{ display: "flex", gap: 14, fontSize: 11, color: "var(--text3)" }}>
+                <span><span style={{ color: "#22c55e", fontWeight: 700 }}>ON</span> — on VWIC</span>
+                <span><span style={{ color: "#facc15", fontWeight: 700 }}>HO</span> — handover</span>
+                <span><span style={{ color: "var(--text3)" }}>—</span> — off</span>
+              </div>
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <thead>
+                  <tr style={{ background: "var(--card2)" }}>
+                    <th style={{ padding: "8px 14px", textAlign: "left", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text3)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", minWidth: 110 }}>
+                      Slot
+                    </th>
+                    {result.schedule.map(row => (
+                      <th key={row.employeeId} style={{ padding: "8px 10px", textAlign: "center", fontSize: 11, fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", minWidth: 85 }}>
+                        {row.fullName.includes(" ") ? row.fullName.split(" ")[0] : row.fullName}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.slotLabels.map((label, si) => (
+                    <tr key={si} style={{ borderBottom: "1px solid var(--border)" }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.02)")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                      <td style={{ padding: "7px 14px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text2)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                        {label}
+                      </td>
+                      {result.schedule.map(row => {
+                        const ss = statusStyle(row.slotStatus[si] ?? "OFF")
+                        return (
+                          <td key={row.employeeId} style={{ padding: "5px 8px", textAlign: "center", background: ss.bg }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: ss.fg, fontFamily: "IBM Plex Mono" }}>
+                              {ss.label}
+                            </span>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ── Coverage proof + Fairness ── */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+
+            {/* Coverage proof */}
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Coverage Proof</span>
+                <span style={{ fontSize: 11, fontFamily: "IBM Plex Mono", color: allCovered ? "#22c55e" : "#ef4444" }}>
+                  {allCovered ? "All slots ✓" : "Gaps detected ✗"}
+                </span>
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: "var(--card2)" }}>
+                    {["Slot", "Agents", "Min", ""].map((h, i) => (
+                      <th key={i} style={{ padding: "7px 12px", textAlign: i < 3 ? "left" : "center", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text3)", borderBottom: "1px solid var(--border)" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.coverageProof.map((item, i) => (
+                    <tr key={i} style={{ borderBottom: "1px solid var(--border)", background: item.covered ? "transparent" : "rgba(239,68,68,.06)" }}>
+                      <td style={{ padding: "7px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, whiteSpace: "nowrap" }}>{item.startTime}–{item.endTime}</td>
+                      <td style={{ padding: "7px 12px", fontWeight: 700, color: item.covered ? "#22c55e" : "#ef4444" }}>{item.agentCount}</td>
+                      <td style={{ padding: "7px 12px", color: "var(--text3)" }}>{item.required}</td>
+                      <td style={{ padding: "7px 12px", textAlign: "center", fontSize: 14 }}>
+                        {item.covered ? <span style={{ color: "#22c55e" }}>✓</span> : <span style={{ color: "#ef4444" }}>✗</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Fairness */}
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Fairness Overview</span>
+              </div>
+              <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+                {result.fairness.map(item => (
+                  <div key={item.employeeId}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600 }}>{item.fullName}</span>
+                      <span style={{ fontSize: 11, fontFamily: "IBM Plex Mono", color: "var(--text3)" }}>
+                        {item.vwicHours}h &nbsp;·&nbsp; {item.slotCount} slot{item.slotCount !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div style={{ height: 6, background: "var(--card2)", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%",
+                        width: `${(item.vwicHours / maxVwicHours) * 100}%`,
+                        background: "var(--accent)", borderRadius: 3, transition: "width .3s ease",
+                      }} />
+                    </div>
+                  </div>
+                ))}
+                {result.fairness.length === 0 && (
+                  <div style={{ color: "var(--text3)", fontSize: 12 }}>No agent data</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Fallback warning ── */}
+          {result.fallbackWarning && (() => {
+            const isCritical = result.fallbackWarning.startsWith("CRITICAL")
+            const isWarn     = result.fallbackWarning.startsWith("1 absence leaves")
+            return (
+              <div style={{
+                background: isCritical ? "rgba(239,68,68,.08)" : isWarn ? "rgba(251,191,36,.08)" : "rgba(34,197,94,.08)",
+                border: `1px solid ${isCritical ? "rgba(239,68,68,.3)" : isWarn ? "rgba(251,191,36,.3)" : "rgba(34,197,94,.3)"}`,
+                borderRadius: 8, padding: "12px 18px",
+              }}>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em",
+                  color: isCritical ? "#ef4444" : isWarn ? "#f59e0b" : "#22c55e", marginBottom: 5,
+                }}>
+                  Fallback Warning
+                </div>
+                <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>{result.fallbackWarning}</div>
+              </div>
+            )
+          })()}
+        </>
+      )}
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const btnStyle: React.CSSProperties = {
@@ -516,6 +836,7 @@ export default function VWICPage() {
   const [date,         setDate]         = useState(new Date().toISOString().split("T")[0])
   const [assignSlot,   setAssignSlot]   = useState<VwicTimelineSlot | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [tab,          setTab]          = useState<"coverage" | "rotation">("coverage")
   const queryClient = useQueryClient()
 
   const { data, isLoading, isError } = useQuery<VwicDailyResponse>({
@@ -609,41 +930,62 @@ export default function VWICPage() {
         </div>
       </div>
 
-      {isLoading && <div style={{ padding: 48, textAlign: "center", color: "var(--text3)" }}>Loading…</div>}
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 2, background: "var(--card2)", borderRadius: 8, padding: 3, alignSelf: "flex-start" }}>
+        {(["coverage", "rotation"] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)} style={{
+            padding: "6px 18px", borderRadius: 6, border: "none", fontSize: 13, fontWeight: 600,
+            cursor: "pointer", transition: "all .12s",
+            background: tab === t ? "var(--card)" : "transparent",
+            color:      tab === t ? "var(--text)"  : "var(--text3)",
+            boxShadow:  tab === t ? "0 1px 4px rgba(0,0,0,.18)" : "none",
+          }}>
+            {t === "coverage" ? "Coverage" : "Rotation Planner"}
+          </button>
+        ))}
+      </div>
 
-      {isError && (
-        <div style={{ padding: 24, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 8, color: "#ef4444", fontSize: 13 }}>
-          Failed to load VWIC data. Check that the backend is running.
-        </div>
-      )}
-
-      {data && (
+      {tab === "coverage" && (
         <>
-          {/* Summary cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-            <SummaryCard label="Main Agents"   value={`${activeMain}/${mainAgents.length}`}     color="var(--accent)" sub="available today" />
-            <SummaryCard label="Backup Pool"   value={`${activeBackup}/${backupAgents.length}`} color="var(--text2)"  sub="available today" />
-            <SummaryCard label="Coverage"      value={`${data.coveredHours}/${data.totalHours}h`}
-              color={hasCoverage ? "#22c55e" : "#ef4444"} sub="hours with Main agent" />
-            <SummaryCard label="Gaps"          value={data.gaps.length}
-              color={data.gaps.length === 0 ? "#22c55e" : "#ef4444"}
-              sub={data.gaps.length === 0 ? "fully covered" : "hours without Main"} />
-          </div>
+          {isLoading && <div style={{ padding: 48, textAlign: "center", color: "var(--text3)" }}>Loading…</div>}
 
-          {/* Timeline */}
-          <CoverageTimeline
-            timeline={data.timeline}
-            gaps={data.gaps}
-            onSlotClick={slot => setAssignSlot(slot)}
-          />
+          {isError && (
+            <div style={{ padding: 24, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 8, color: "#ef4444", fontSize: 13 }}>
+              Failed to load VWIC data. Check that the backend is running.
+            </div>
+          )}
 
-          {/* Agent tables */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 16 }}>
-            <AgentTable title="Main Agents" agents={mainAgents} />
-            <AgentTable title="Backup Pool" agents={backupAgents} onRemove={a => removeMutation.mutate(a.employeeId)} />
-          </div>
+          {data && (
+            <>
+              {/* Summary cards */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                <SummaryCard label="Main Agents"   value={`${activeMain}/${mainAgents.length}`}     color="var(--accent)" sub="available today" />
+                <SummaryCard label="Backup Pool"   value={`${activeBackup}/${backupAgents.length}`} color="var(--text2)"  sub="available today" />
+                <SummaryCard label="Coverage"      value={`${data.coveredHours}/${data.totalHours}h`}
+                  color={hasCoverage ? "#22c55e" : "#ef4444"} sub="hours with Main agent" />
+                <SummaryCard label="Gaps"          value={data.gaps.length}
+                  color={data.gaps.length === 0 ? "#22c55e" : "#ef4444"}
+                  sub={data.gaps.length === 0 ? "fully covered" : "hours without Main"} />
+              </div>
+
+              {/* Timeline */}
+              <CoverageTimeline
+                timeline={data.timeline}
+                gaps={data.gaps}
+                onSlotClick={slot => setAssignSlot(slot)}
+              />
+
+              {/* Agent tables */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 16 }}>
+                <AgentTable title="Main Agents" agents={mainAgents} />
+                <AgentTable title="Backup Pool" agents={backupAgents} onRemove={a => removeMutation.mutate(a.employeeId)} />
+              </div>
+            </>
+          )}
         </>
       )}
+
+      {tab === "rotation" && <RotationPlanner initialDate={date} />}
     </div>
   )
 }

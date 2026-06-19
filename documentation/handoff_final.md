@@ -1,266 +1,254 @@
-# GSD Dashboard — Final Handoff
+# GSD Dashboard — Handoff (Current State)
 
-**Project:** WIC Asset Tracker / GSD Operations Dashboard  
-**Stack:** ASP.NET Core 10 (Backend) + React 19 + Vite 8 + TypeScript 6 + Tailwind 3.4 (Frontend)  
-**Date:** 2026-06-15  
-**Build status:** VERIFIED PASSING — PS1_19_FinalBuildVerify.ps1 all checks green 2026-06-15
-
----
-
-## 1. Backend API Endpoints
-
-All endpoints are read-only GET unless noted.
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `GET /health` | GET | Liveness probe |
-| `GET /api/wic/locations` | GET | All WIC locations (id, code, city, country, coordinates) |
-| `GET /api/wic/forecast?horizon=N` | GET | N-day coverage forecast per location (default 14) |
-| `GET /api/wic/briefing` | GET | Today's absences + gaps + next-at-risk |
-| `GET /api/wic/substitutes?locationCode=X&date=Y&horizon=N` | GET | Substitute candidates ranked by proximity |
-| `GET /api/attendance?from=&to=&country=` | GET | Daily attendance records |
-| `GET /api/vacations?year=&sheet=` | GET | Vacation records |
-| `DELETE /api/vacations/{id}` | DELETE | Delete vacation entry |
-| `GET /api/employees` | GET | Employee list |
-| `PATCH /api/employees/{id}/albalance` | PATCH | Update AL used |
-| `GET /api/albalance` | GET | AL balance per employee |
-| `GET /api/sickleave?from=&to=&activeOnly=` | GET | Sick leave records |
-| `PATCH /api/sickleave/{id}` | PATCH | Update sick leave notes |
-| `GET /api/sickleave/stats` | GET | Aggregate sick leave stats |
-| `GET /api/shifts?from=&to=&locationCode=` | GET | Shift plan |
-| `GET /api/pipeline?from=&to=` | GET | Pipeline events |
-| `POST /api/pipeline` | POST | Create pipeline event |
-| `PATCH /api/pipeline/{id}` | PATCH | Update pipeline event |
-| `DELETE /api/pipeline/{id}` | DELETE | Delete pipeline event |
-| `GET /api/training` | GET | Training records |
-| `GET /api/teamleads/summary` | GET | Team lead summary with WIC status |
+**Date:** 2026-06-17  
+**Build status:** VERIFIED PASSING — PS1_19_FinalBuildVerify.ps1 all checks green 2026-06-15  
+**Stack:** ASP.NET Core 8 · React 19 + Vite 8 · TypeScript 6 · Tailwind 3.4.19 · SQL Server Express
 
 ---
 
-## 2. Frontend Pages
+## 1. Rules for the Next Agent
 
-| Route | Component | Description |
-|---|---|---|
-| `/` | `Overview.tsx` | Command center: KPI row, coverage heatmap, WIC map, recommendations, absence feed, risk radar |
-| `/wic-attendance` | `WicAttendance.tsx` | Per-location coverage with substitute finder |
-| `/attendance` | `Attendance.tsx` | Daily attendance log |
-| `/vacations` | `Vacations.tsx` | Annual leave management with delete |
-| `/albalance` | `ALBalance.tsx` | AL balance per employee with inline edit |
-| `/sickleave` | `SickLeave.tsx` | Sick leave grouped by agent with day-grid views |
-| `/shifts` | `Shifts.tsx` | Shift plan calendar |
-| `/employees` | `Employees.tsx` | Employee directory |
-| `/wic-locations` | `WicLocations.tsx` | WIC location list |
-| `/pipeline` | `Pipeline.tsx` | Pipeline event list + timeline view |
-| `/training` | `Training.tsx` | Training schedule |
+Read these before doing anything else.
+
+| Rule | Detail |
+|------|--------|
+| No git | Never run git add/commit/push/status unless the user explicitly asks |
+| No bash | MSYS2 is broken on this machine (exit code 0xC0000142). All shell ops go via PS1 scripts that the **user runs manually** |
+| No Unicode in PS1 | No here-strings, no Unicode characters in PowerShell scripts |
+| No Invoke-Sqlcmd | Use `System.Data.SqlClient` pattern in PS1 scripts |
+| Language | English and German only. No Serbian, no other languages |
+| SickLeaves columns | `FirstDay` / `LastDay` (NOT StartDate/EndDate) |
+| WicOpeningHours codes | Uses new-style LocationCodes (`DE~...`) |
+| WicAgentAssignments codes | Old-style (`DE_Dortmund`). Resolved via `WicLocations.LocationCodeLegacy`. Never rewrite existing assignments |
+| SSP/Voice base location | Dusseldorf HQ: `lat=51.2154, lon=6.7837` |
+| CoverageEvaluator | All COVERED/PARTIAL/UNCOVERED/CLOSED classification must go through this service. No inline chains anywhere else |
 
 ---
 
-## 3. Overview Command Center — Component Map
+## 2. Infrastructure
+
+### Tunnel URLs (expire every 4 days, auto-restart via Task Scheduler)
+
+| Service | URL |
+|---------|-----|
+| GSD Dashboard | https://8nh5k5g1-5000.euw.devtunnels.ms |
+| Kiosk | https://ssr7tm2l-8000.euw.devtunnels.ms |
+| Kiosk Dashboard | https://ssr7tm2l-8000.euw.devtunnels.ms/dashboard |
+
+### Task Scheduler (auto-starts on reboot)
+
+- `GSDDashboard-Backend` — ASP.NET Core backend, port 5000
+- `GSDDashboard-Tunnel` — devtunnel for dashboard
+- `ShiftKioskServer` — Python FastAPI kiosk, port 8000
+- `ShiftKioskTunnel` — devtunnel for kiosk
+- `DevTunnel-AutoStart` — devtunnel CLI auth + start
+
+### Deploy Script
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\GSDDashboard\PS1_19_FinalBuildVerify.ps1
+```
+
+Builds frontend, copies to `Backend/wwwroot/`, builds backend, starts server, runs smoke tests.
+
+---
+
+## 3. Database State
+
+**Server:** `localhost\SQLEXPRESS`  
+**Database:** `GSDDashboard`  
+**Auth:** Windows Authentication
+
+| Table / Column | Value |
+|----------------|-------|
+| `WicLocations` | 43 rows (41 DE + 2 NL), all `IsActive=1` |
+| `WicLocations.Coordinates` | 43/43 geocoded (5 city-only precision, acceptable) |
+| `WicLocations.MinAgentsRequired` | All = 1 (default) |
+| `WicLocations.Bundesland` | 41 DE populated, 2 NL = NULL (correct) |
+| `WicLocations.LocationCodeLegacy` | 42/43 populated (RENDSBURG = NULL, direct match, no legacy needed) |
+| `WicLocations.PostalCode` | Extracted from LocationCode for all 41 DE rows; NL rows NULL |
+| `Employees` | 130 rows |
+| `WicAgentAssignments.AssignmentType` | MAIN or BACKUP |
+| `SickLeaves.LeaveType` | Only value: "Self" — not used for absence logic |
+| `SubstitutionHistory` | Table exists; grows at runtime when substitutes are accepted |
+| `DayOfWeek` convention | 0=Sun … 6=Sat (.NET convention throughout) |
+
+---
+
+## 4. Backend API Endpoints
+
+### WIC Core
+
+| Method | URL | Service |
+|--------|-----|---------|
+| GET | `/health` | Liveness probe |
+| GET | `/api/wic/locations` | All WIC locations |
+| GET | `/api/wic/cards?date=` | Coverage status cards |
+| GET | `/api/wic/shifts?from=&to=&locationCode=` | WIC shifts |
+| GET | `/api/wic/open?date=&horizon=` | Open/coverage status N days |
+| GET | `/api/wic/forecast?horizon=14&locationCode=` | 14-day forecast (clamped 1-30) |
+| GET | `/api/wic/substitutes?locationCode=&date=&horizon=&absentIds=` | Ranked substitutes |
+| **POST** | `/api/wic/substitutes/accept` | Accept substitute (writes SubstitutionHistory) |
+| GET | `/api/wic/whatif?absentEmployeeId=&date=&horizon=` | What-if simulation |
+| GET | `/api/wic/briefing` | Today's absences + gaps + next at-risk |
+| GET | `/api/wic/briefing/export` | Excel export (Absences / Gaps / AT_RISK sheets) |
+| GET | `/api/wic/reachability?from=&to=` | Haversine matrix |
+| GET | `/api/wic/reachability/sanity` | Berlin→Munich ~504 km check |
+| GET | `/api/wic/schedule` | WIC opening hours |
+
+### Employees + Leave
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/api/employees` | Employee list |
+| POST | `/api/employees` | Create employee |
+| DELETE | `/api/employees/{id}` | Delete employee |
+| PATCH | `/api/employees/{id}/albalance` | Update AL balance |
+| GET | `/api/sickleave` | Sick leave records |
+| POST | `/api/sickleave` | Add sick leave |
+| GET | `/api/sickleave/stats` | Aggregate stats |
+| GET | `/api/vacations` | Vacation records |
+| DELETE | `/api/vacations/{id}` | Delete vacation |
+| GET | `/api/albalance` | AL balance |
+| PATCH | `/api/albalance/{id}` | Update AL balance |
+
+### Shifts + Pipeline + Other
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/api/shifts` | Shift plan |
+| GET | `/api/pipeline` | Pipeline events |
+| POST | `/api/pipeline` | Create event |
+| PATCH | `/api/pipeline/{id}` | Update event |
+| DELETE | `/api/pipeline/{id}` | Delete event |
+| GET | `/api/attendance` | Daily attendance |
+| GET | `/api/training` | Training records |
+| GET | `/api/public-holidays` | Public holiday calendar |
+
+---
+
+## 5. Frontend Pages
+
+| Route | Component | Write ops |
+|-------|-----------|-----------|
+| `/` | Overview.tsx | None |
+| `/shifts` | Shifts.tsx | None |
+| `/wic-shifts` | WicShifts.tsx | Reassign agents, new shift modal |
+| `/vwic` | Vwic.tsx | Add/remove agents, 07-18 timeline |
+| `/wic-attendance` | WicAttendance.tsx | Accept substitute, assign agent, manual check-in, AL planning |
+| `/wic-schedule` | WicSchedule.tsx | None |
+| `/pipeline` | Pipeline.tsx | Create/edit/delete events |
+| `/training` | Training.tsx | None |
+| `/wic-locations` | WicLocations.tsx | None |
+| `/attendance` | Attendance.tsx | None |
+| `/sickleave` | SickLeave.tsx | Add sick leave |
+| `/vacations` | Vacations.tsx | None |
+| `/albalance` | ALBalance.tsx | None |
+| `/al-calendar` | ALCalendar.tsx | None |
+| `/employees` | Employees.tsx | Create/delete employees, edit AL balance |
+
+---
+
+## 6. Substitution Engine
+
+### Tiers (higher score = preferred)
+
+| Tier | Score | Condition |
+|------|-------|-----------|
+| BACKUP | 10,000 | Designated backup in `WicAgentAssignments` |
+| SSP | 5,000 | `PrimaryRole = "SSP"` |
+| WIC_DONOR | 0 + reachability (0–500) | Nearby WIC with surplus (`surplus = effectiveCoverage - minRequired > 0`) |
+| CALL_IN | –100 + reachability | All other reachable agents |
+
+Fairness penalty: `-LoadScore * 10` (30-day rolling SubstitutionHistory).  
+HALF_AL agents: 0.5 coverage credit, NOT excluded.
+
+### Known nulls (always null in SubstituteCandidate)
+
+- `contactEmail` — no email field on Employees table
+- `travelMinutes` — haversine only, no routing API
+- `hasDirectTrain` — no transit data
+- `fairnessScore` raw value — computed internally as LoadScore
+
+---
+
+## 7. Key Design Decisions
+
+### LocationCodeLegacy
+
+`WicAgentAssignments.LocationCode` stores old codes (`DE_Dortmund`).  
+`WicLocations.LocationCode` stores new tilde codes (`DE~44139~Dortmund~Str.`).  
+`WicLocations.LocationCodeLegacy` bridges them.  
+**Never write new assignments with old-style codes.**  
+All 5 services that filter by location are updated to check both.
+
+### WicLocationMatcher (static)
+
+30-entry alias dictionary. Two static methods:
+- `MatchesSupportLocation(sl, loc)` — checks DisplayName, City, aliases vs. both LocationCode and LocationCodeLegacy
+- `MatchesAssignmentCode(code, loc)` — checks LocationCode OR LocationCodeLegacy
+
+**Never duplicate the alias map** — all callers use this static class.
+
+### ReachabilityService (singleton)
+
+Haversine matrix. 4h TTL cache. Double-checked locking with `SemaphoreSlim`. Uses `IServiceScopeFactory` to resolve scoped `GSDContext` inside a Singleton.
+
+### HALF_AL
+
+`presentDouble += 0.5`, then `effectiveCoverage = (int)Math.Floor(presentDouble)`. Consistent across all 6 coverage-computing services.
+
+---
+
+## 8. Overview Command Center
 
 ```
 Overview.tsx
-├── KpiCard ×5  (Open Today, At-Risk, Closure Risk, Absent, Coverage %)
-│     data: /api/wic/forecast  +  /api/wic/briefing
+├── KpiCard x5  (Open Today, At-Risk, Closure Risk, Absent, Coverage %)
+│     data: /api/wic/forecast + /api/wic/briefing
 ├── Coverage Heatmap
-│     rows = WIC locations, cols = next 14 days (URL ?horizon=N)
-│     cell color = CoverageStatus CSS var
-│     click → SubstituteDrawer (Sheet component)
+│     rows=WIC locations, cols=next 14 days
+│     click → SubstituteDrawer (Sheet)
 ├── WicMapView  (react-leaflet + OpenStreetMap)
-│     rendered only when ≥1 location has non-null coordinates
-│     WarningBanner shown if no coordinates
-│     CircleMarker colored by today's status
+│     CircleMarkers coloured by today's status
+│     STATUS_HEX hardcoded (Leaflet can't use CSS vars) — intentional
 │     ThemedTileLayer: light=OSM / dark=CartoDB dark_all
 ├── Recommendations Panel
-│     today's gaps from briefing
-│     inline best-substitute name
+│     today's gaps from briefing + best substitute name
 │     click → SubstituteDrawer
-├── Absence Feed
-│     today's absences from briefing (flat list)
-│     WarningBanner: team lead grouping unavailable
-└── Risk Radar
-      next 7 days from forecast filtered to AT_RISK / UNCOVERED
-      sorted by date
+└── CommandPalette (Ctrl+K)
+      searches /api/wic/locations, navigates to /wic-attendance?location=
 ```
 
 ---
 
-## 4. Global Topbar (App.tsx / AppLayout)
+## 9. Build Status (last confirmed)
 
-- **Left:** app name
-- **Center:** today's date + horizon selector (7d / 14d) — visible only on `/` route, writes `?horizon=N` to URL
-- **Right:** Ctrl+K CommandPalette trigger + ThemeToggle + DE/EN language toggle
+**2026-06-15 — PS1_19_FinalBuildVerify.ps1 — all green**
 
-**CommandPalette (`CommandPalette.tsx`):**
-- Triggered by Ctrl+K (or Cmd+K)
-- Fetches `/api/wic/locations`, filters by name/code
-- Keyboard-navigable (↑↓ Enter Esc)
-- Navigates to `/wic-attendance?location=[code]`
-- Built from scratch — no shadcn dependency
-
----
-
-## 5. Theme System
-
-| Variable | Light | Dark |
-|---|---|---|
-| `--bg` | white | dark navy |
-| `--card` | light card | dark card |
-| `--card2` | slightly darker | slightly lighter |
-| `--border` | soft grey | soft dark grey |
-| `--text`, `--text2`, `--text3` | dark → grey gradient | light → grey gradient |
-| `--accent` | blue | blue |
-| `--green` | green | green (lighter) |
-| `--warn` | orange | orange (lighter) |
-| `--danger` | red | red (lighter) |
-| `--purple` | purple | purple (lighter) |
-| `--yellow` | amber | amber (lighter) |
-| `--blue-light` | sky blue | sky blue (lighter) |
-| `--status-covered` | green | green |
-| `--status-partial` | orange | orange |
-| `--status-uncovered` | red | red |
-| `--status-closed` | slate | slate |
-
-Theme managed by `next-themes` (`useTheme()`). `darkMode: "class"` in `tailwind.config.js`. Toggle via topbar ThemeToggle component.
-
-**Note on Leaflet:** CSS variables cannot be used inside Leaflet canvas/SVG rendering. The `STATUS_HEX` dictionary in `Overview.tsx` provides hardcoded hex values specifically for map pin colors — this is intentional and necessary.
+- Frontend: 0 TypeScript errors, 1852 modules, 2.37s
+- Backend: 0 errors, 0 warnings
+- `/health` → HTTP 200
+- `/api/wic/locations` → HTTP 200, 43 locations
+- `/api/wic/forecast?horizon=7` → HTTP 200
+- `/api/wic/briefing` → HTTP 200
+- `/api/wic/substitutes?locationCode=DE~86150~Augsburg~Schaezlerstr.%203&date=2026-06-15` → HTTP 200
 
 ---
 
-## 6. i18n
+## 10. What Was NOT Implemented
 
-- Languages: **German (DE)** and **English (EN)** only.
-- Files: `src/i18n/locales/de/common.json`, `src/i18n/locales/en/common.json`
-- Library: `react-i18next`
-- Language toggle in topbar writes to localStorage via i18next.
-- All user-visible strings in Overview, CommandPalette, and polished pages are in both locale files.
+### Map connector lines
 
----
+SVG lines from AT_RISK pins to nearest backup agents were spec'd but not built. `SubstituteDto` does not include `homeCoordinates`. AT_RISK pins use larger radius + thicker border instead.  
+**Fix:** Add `homeLocationCode` + `homeCoordinates` to `SubstituteDto`, draw `<Polyline>` in `Overview.tsx`.
 
-## 7. TanStack Query Setup
+### Team lead grouping in absence feed
 
-- `QueryClientProvider` wraps the app in `main.tsx`.
-- `staleTime` defaults per query:
-  - locations: 10 min
-  - forecast/briefing: 5 min
-  - employee/static data: 10+ min
-- Loading states: all table pages use animated `.skeleton` rows (CSS class defined in `index.css`).
-- Empty states: all tables have a "no data" row when the array is empty.
+`GET /api/wic/briefing` absence objects have no `teamLeadId`. A flat list is shown with a WarningBanner.  
+**Fix:** Add `teamLeadName` to `BriefingAbsenceDto`.
 
----
+### WIC map when all coordinates are null
 
-## 8. Known Nulls and Warning Banners
-
-| Location | Null case | Handling |
-|---|---|---|
-| Theme `class=` in static HTML | `next-themes` sets `class="dark"` or `class="light"` on `<html>` at JS hydration time, not in the server-rendered shell | Expected — the static HTML will never contain `class=dark/light`; this is not a bug |
-| Overview map | `WicLocation.coordinates` null | `WarningBanner` shown; map not rendered |
-| Absence feed | TeamLead field absent on briefing DTO | `WarningBanner` "flat list only" |
-| WIC map tiles | Theme change | `ThemedTileLayer` remounts via `key={isDark?"dark":"light"}` |
-| Substitute score | May be null | Rendered as `—` |
-
----
-
-## 9. What Was NOT Implemented (and Why)
-
-### 9.1 Map connector lines (AT_RISK pins → nearest backup sources)
-
-The original spec called for SVG connector lines from AT_RISK location pins to the nearest 2 available backup agents.
-
-**Why not implemented:** The `/api/wic/substitutes` response returns `{employeeId, name, distance, score, ...}` but does NOT include `homeLocationCode` or `homeCoordinates` for the backup person. Without coordinates, connectors cannot be drawn. AT_RISK pins are highlighted with a larger radius and thicker border instead.
-
-**How to fix:** Extend the `SubstituteDto` in the backend to include the employee's home WIC location code and its coordinates. Then in `Overview.tsx`, draw `<Polyline>` from the at-risk pin to each backup home pin.
-
-### 9.2 Team Lead grouping in absence feed
-
-The `GET /api/wic/briefing` absence objects contain `{employeeId, fullName, leaveType, locationCode}` — no `teamLeadId` or `teamLeadName`. The employees table has TeamLead data but would require a separate query and a join that isn't part of the briefing contract.
-
-**Why not implemented:** Would require either (a) changing the briefing endpoint to include teamLead, or (b) making a second `GET /api/employees` call and joining client-side. The spec kept briefing as a single fast call.
-
-**How to fix:** Add `teamLeadName` to the `BriefingAbsenceDto` in the backend.
-
-### 9.3 WIC map when all coordinates are null
-
-The map section is entirely hidden when no WIC location has coordinates. A warning banner is shown instead. This is intentional — rendering an empty Leaflet map with no pins is useless.
-
-**How to fix:** Geocode WIC locations by adding `lat,lon` values to the `WicLocations.Coordinates` column.
-
----
-
-## 10. Build and Deployment
-
-### Script
-
-```powershell
-# C:\GSDDashboard\PS1_19_FinalBuildVerify.ps1
-```
-
-Run in PowerShell:
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\PS1_19_FinalBuildVerify.ps1
-```
-
-### Manual steps (same as script)
-
-```powershell
-# 1. Build frontend
-cd C:\GSDDashboard\Frontend
-npm run build
-
-# 2. Deploy to wwwroot
-Remove-Item -Recurse -Force C:\GSDDashboard\Backend\wwwroot
-Copy-Item -Recurse C:\GSDDashboard\Frontend\dist C:\GSDDashboard\Backend\wwwroot
-
-# 3. Build + run backend
-cd C:\GSDDashboard\Backend
-dotnet build --configuration Release
-dotnet run --configuration Release --no-build
-```
-
-### Tunnel URL
-
-```
-https://n8jlr9dr-5000.euw.devtunnels.ms/
-```
-
-### Verification checklist — PS1_19 confirmed 2026-06-15
-
-- [x] `GET /health` → HTTP 200
-- [x] `GET /api/wic/locations` → HTTP 200
-- [x] `GET /api/wic/forecast?horizon=7` → HTTP 200
-- [x] `GET /api/wic/briefing` → HTTP 200
-- [x] `GET /api/wic/substitutes?locationCode=DE~86150~Augsburg~Schaezlerstr.%203&date=2026-06-15` → HTTP 200
-- [x] `GET /` → HTTP 200, content-type text/html
-- [x] `GET /wic-attendance` → HTTP 200, content-type text/html
-- [x] Frontend build: 0 TypeScript errors
-- [x] Backend build: 0 errors, 0 warnings
-- [x] Theme check: SPA shell valid (next-themes applies class at JS hydration — expected)
-- [x] i18n check: no bad patterns in locale files
-
----
-
-## 11. Files Changed — Prompt 5 Summary
-
-| File | Change type |
-|---|---|
-| `src/pages/Overview.tsx` | Full rewrite — Overview command center |
-| `src/App.tsx` | Full rewrite — AppLayout, topbar, CommandPalette integration |
-| `src/components/CommandPalette.tsx` | New file |
-| `src/index.css` | New CSS variables (--purple, --yellow, --blue-light, --status-*) |
-| `tailwind.config.js` | Full rewrite — all colors via CSS vars |
-| `src/i18n/locales/en/common.json` | New keys: overview.*, nav.cmd* |
-| `src/i18n/locales/de/common.json` | Same keys in German |
-| `src/pages/Vacations.tsx` | Color tokens, skeleton loader |
-| `src/pages/Attendance.tsx` | Color tokens, skeleton loader |
-| `src/pages/Shifts.tsx` | Color tokens (all hardcoded hex → vars) |
-| `src/pages/Employees.tsx` | Color tokens |
-| `src/pages/SickLeave.tsx` | Color tokens |
-| `src/pages/Training.tsx` | Critical: `#181e2e` card bg → `var(--card)` |
-| `src/pages/WicLocations.tsx` | Color tokens, skeleton loader, empty state |
-| `src/pages/ALBalance.tsx` | Color tokens, skeleton loader |
-| `src/pages/Pipeline.tsx` | Color tokens (agent colors, border, weekend bg) |
-| `PS1_19_FinalBuildVerify.ps1` | New — build + verify script |
-
----
-
-*End of handoff.*
+Map hidden, WarningBanner shown. Intentional — empty Leaflet map is useless.  
+**Fix:** Geocode any locations with null coordinates.

@@ -1,8 +1,32 @@
 # GSD Dashboard
 
-Internal workforce management dashboard for the **GSD DE (Global Service Desk Germany)** and **WIC (Workforce In Contact)** teams. Provides real-time visibility into shift schedules, WIC location coverage, attendance, sick leave, vacations, and annual leave balances — with Excel export for every view.
+Internal workforce management dashboard for the **GSD DE (Global Service Desk Germany)** and **WIC (Workforce In Contact)** teams. Provides real-time visibility into shift schedules, WIC location coverage, attendance, sick leave, vacations, annual leave balances — with Excel export and an AI-assisted substitution engine.
 
-**Stack:** ASP.NET Core 8 · React 19 · TypeScript · SQL Server 2022 · TanStack Query · Tailwind CSS
+**Stack:** ASP.NET Core 8 · React 19 · TypeScript · SQL Server Express · TanStack Query · Tailwind CSS · IBM Plex fonts
+
+---
+
+## Live Tunnel URLs
+
+Tunnels expire every 4 days and auto-restart via Task Scheduler.
+
+| Service | URL |
+|---------|-----|
+| GSD Dashboard | https://8nh5k5g1-5000.euw.devtunnels.ms |
+| Kiosk | https://ssr7tm2l-8000.euw.devtunnels.ms |
+| Kiosk Dashboard | https://ssr7tm2l-8000.euw.devtunnels.ms/dashboard |
+
+---
+
+## Task Scheduler (auto-starts on reboot)
+
+| Task Name | Purpose |
+|-----------|---------|
+| `GSDDashboard-Backend` | Starts the ASP.NET Core backend on port 5000 |
+| `GSDDashboard-Tunnel` | Opens the devtunnel for the dashboard |
+| `ShiftKioskServer` | Starts the Python FastAPI kiosk server on port 8000 |
+| `ShiftKioskTunnel` | Opens the devtunnel for the kiosk |
+| `DevTunnel-AutoStart` | Ensures devtunnel CLI is authenticated and running |
 
 ---
 
@@ -10,54 +34,53 @@ Internal workforce management dashboard for the **GSD DE (Global Service Desk Ge
 
 | Requirement | Version | Notes |
 |-------------|---------|-------|
-| .NET SDK | 8.0+ | [Download](https://dotnet.microsoft.com/download) |
-| Node.js | 20+ | [Download](https://nodejs.org) |
+| .NET SDK | 8.0+ | Backend runtime |
+| Node.js | 20+ | Frontend build |
 | SQL Server Express | 2022 | Must run at `localhost\SQLEXPRESS` |
 | Windows Authentication | — | Required for SQL Server connection |
+| Python | 3.11+ | Kiosk server only |
 
 ---
 
-## Installation
+## Deploy (Build + Verify)
 
-### 1. Database
-
-Open **SQL Server Management Studio** (or Azure Data Studio), connect to `localhost\SQLEXPRESS`, and run:
-
-```sql
--- execute the full contents of:
-Backend/schema.sql
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\GSDDashboard\PS1_19_FinalBuildVerify.ps1
 ```
 
-This creates the `GSDDashboard` database, all 13 tables, indexes, and seeds the 40 WIC locations. Run it only once on a clean instance.
+This script builds the React frontend, copies the output to `Backend/wwwroot/`, builds the backend, starts the server, and runs smoke tests on all key endpoints.
 
-Verify:
-```sql
-USE GSDDashboard;
-SELECT COUNT(*) FROM WicLocations;  -- expect 40
+---
+
+## Manual Start
+
+### Backend
+
+```powershell
+cd C:\GSDDashboard\Backend
+dotnet run --configuration Release
 ```
 
-### 2. Backend
+API available at http://localhost:5000. Swagger at http://localhost:5000/swagger.
 
-```bash
-cd Backend
-dotnet restore
-dotnet run
-```
+### Frontend (dev mode only)
 
-The API starts at **http://localhost:5000**.
-
-- Swagger UI: http://localhost:5000/swagger
-- Health check: http://localhost:5000/health
-
-### 3. Frontend
-
-```bash
-cd Frontend
+```powershell
+cd C:\GSDDashboard\Frontend
 npm install
 npm run dev
 ```
 
-The dashboard opens at **http://localhost:5173**.
+Dev server at http://localhost:5173. In production the frontend is served from `Backend/wwwroot/` on port 5000.
+
+### Kiosk Server
+
+```powershell
+cd C:\ShiftKiosk\server
+python server.py
+```
+
+FastAPI kiosk server at http://localhost:8000.
 
 ---
 
@@ -76,85 +99,44 @@ The dashboard opens at **http://localhost:5173**.
 }
 ```
 
-Adjust the connection string if your SQL Server instance name or database name differs.
-
 ### Frontend (`Frontend/.env`)
 
 ```env
-VITE_API_BASE_URL=http://localhost:5000
+VITE_API_BASE_URL=https://8nh5k5g1-5000.euw.devtunnels.ms
 ```
 
-This file is optional for local development — the client defaults to `http://localhost:5000` if not set. Set it when deploying to a remote server.
-
----
-
-## Available Scripts
-
-### Frontend
-
-```bash
-npm run dev       # Start Vite dev server with HMR
-npm run build     # TypeScript check + production build
-npm run preview   # Preview the production build locally
-npm run lint      # ESLint check
-```
-
----
-
-## Production Build
-
-Build the frontend and copy the output into the backend's static files folder:
-
-```bash
-cd Frontend
-npm run build
-# Then copy dist/ contents to Backend/wwwroot/
-```
-
-Run the backend — it serves both the API and the SPA from a single port:
-
-```bash
-cd Backend
-dotnet run --environment Production
-```
+Set this to the current tunnel URL when accessing via tunnel. Omit for local development (defaults to `http://localhost:5000`).
 
 ---
 
 ## Project Structure
 
 ```
-GSDDashboard/
+C:\GSDDashboard\
 ├── Backend/
-│   ├── Program.cs              # Entry point + all API route registrations
+│   ├── Program.cs              # Entry point + all API route registrations (Minimal API)
 │   ├── GSDContext.cs           # EF Core DbContext
 │   ├── appsettings.json        # Connection string and CORS config
-│   ├── schema.sql              # Database initialisation script
-│   ├── *Service.cs             # 17 domain service files
+│   ├── schema.sql              # One-time DB init script
+│   ├── Services/               # Domain service files
 │   └── Models/                 # EF entities and DTOs
 │
-└── Frontend/
-    └── src/
-        ├── main.tsx            # React entry, providers, i18n
-        ├── App.tsx             # Router and shell layout
-        ├── api/client.ts       # All API calls in one place
-        ├── pages/              # 18 page components (one per route)
-        ├── components/         # Shared UI components
-        └── i18n/               # EN/DE translation files
+├── Frontend/
+│   └── src/
+│       ├── main.tsx            # React entry, providers, i18n
+│       ├── App.tsx             # Router and shell layout
+│       ├── api/client.ts       # All API calls in one place
+│       ├── pages/              # Page components (one per route)
+│       ├── components/         # Shared UI components
+│       └── i18n/               # EN/DE translation files
+│
+├── documentation/              # This folder
+└── PS1_19_FinalBuildVerify.ps1 # Primary build + deploy script
+
+C:\ShiftKiosk\
+└── server\
+    └── server.py               # Python FastAPI kiosk server
 ```
-
----
-
-## Features at a Glance
-
-- **Shift overview** — Full shift plan with colour-coded shift types, filterable by team lead, role, and date range
-- **WIC coverage** — Live status (COVERED / PARTIAL / UNCOVERED / CLOSED) for all 40 WIC locations
-- **WIC attendance** — Daily on-site attendance per location
-- **Sick leave & vacations** — Records, stats, and calendar views
-- **Annual leave balance** — Eligible / taken / remaining per employee
-- **Training schedule** — Sessions, topics, agent assignments, coverage ranking
-- **WIC pipeline** — Planned projects and workload at each location
-- **Excel exports** — Every view has Today / 7-day / 30-day `.xlsx` download buttons
-- **Bilingual** — Full English and German UI, switchable at runtime
 
 ---
 
@@ -162,7 +144,8 @@ GSDDashboard/
 
 | Symptom | Check |
 |---------|-------|
-| API returns 500 | Verify SQL Server is running and Windows Authentication is enabled |
-| Frontend shows no data | Confirm backend is running on port 5000; check browser console for CORS errors |
-| Excel download fails | Backend must be reachable; check network tab for the download endpoint response |
-| Wrong language showing | Clear `localStorage` (key: `i18nextLng`) and reload |
+| API returns 500 | SQL Server running, Windows Auth enabled |
+| Frontend shows no data | Backend on port 5000; check browser console for CORS errors |
+| Excel download fails | Backend reachable; check network tab |
+| Wrong language showing | Clear `localStorage` key `i18nextLng` and reload |
+| Tunnel not accessible | Re-run `GSDDashboard-Tunnel` task in Task Scheduler |

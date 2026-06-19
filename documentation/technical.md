@@ -5,10 +5,10 @@
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | Backend runtime | ASP.NET Core (Minimal APIs) | 8.0 |
-| ORM | Entity Framework Core | 8.0.0 |
-| Database | SQL Server Express | 2022 |
-| Excel generation | ClosedXML | 0.102.2 |
-| API docs | Swagger / Swashbuckle | 6.5.0 |
+| ORM | Entity Framework Core | 8.0 |
+| Database | SQL Server Express | 2022, `localhost\SQLEXPRESS` |
+| Excel generation | ClosedXML (MIT) | 0.102.x |
+| API docs | Swagger / Swashbuckle | dev only |
 | Frontend framework | React | 19.x |
 | Build tool | Vite | 8.x |
 | Language | TypeScript | ~6.0 |
@@ -16,315 +16,319 @@
 | Server state | TanStack Query | 5.x |
 | Tables | TanStack Table | 8.x |
 | Charts | Recharts | 3.x |
-| UI / CSS | Tailwind CSS + shadcn/ui | 3.4 |
+| Map | react-leaflet + leaflet | 5.0 / 1.9.4 |
+| UI / CSS | Tailwind CSS | 3.4.19 |
 | Icons | Lucide React | latest |
+| Fonts | IBM Plex Sans + IBM Plex Mono | — |
 | Internationalisation | i18next + react-i18next | 26.x |
 | Theme | next-themes | 0.4.x |
+| Kiosk | Python FastAPI | 3.11+ |
 
-> EPPlus is explicitly **not** used (commercial licence required). ClosedXML (MIT) handles all `.xlsx` generation.
+EPPlus is explicitly **not** used (commercial licence). ClosedXML handles all `.xlsx` generation.
 
 ---
 
 ## Repository Layout
 
 ```
-GSDDashboard/
-├── Backend/                        # ASP.NET Core 8 project
+C:\GSDDashboard\
+├── Backend/
 │   ├── GSDDashboard.API.csproj
-│   ├── Program.cs                  # Application entry point, all route registrations
-│   ├── GSDContext.cs               # EF Core DbContext (13 DbSets)
-│   ├── appsettings.json            # Connection string, CORS origins
-│   ├── appsettings.Development.json
-│   ├── schema.sql                  # One-time DB init script (tables + seed data)
-│   ├── *Service.cs  (×17)          # Business logic, one file per domain
-│   └── Models/                     # EF entity classes and DTOs
+│   ├── Program.cs                   # Entry point, all route registrations
+│   ├── GSDContext.cs                # EF Core DbContext
+│   ├── appsettings.json             # Connection string + CORS
+│   ├── schema.sql                   # One-time DB init (tables + seed)
+│   ├── Services/                    # Domain services
+│   │   ├── CoverageEvaluator.cs
+│   │   ├── SubstitutionService.cs
+│   │   ├── ReachabilityService.cs
+│   │   ├── ForecastService.cs
+│   │   ├── WhatIfService.cs
+│   │   ├── BriefingService.cs
+│   │   ├── ALPlanningService.cs
+│   │   ├── VwicService.cs
+│   │   ├── WicLocationMatcher.cs    # Static alias/legacy code helper
+│   │   └── ... (other services)
+│   └── Models/                      # EF entities and DTOs
 │
-└── Frontend/                       # React + TypeScript + Vite
-    ├── package.json
-    ├── vite.config.ts
-    ├── tsconfig.json
-    ├── .env                        # VITE_API_BASE_URL override
-    └── src/
-        ├── main.tsx                # Providers, i18n init, QueryClient
-        ├── App.tsx                 # Router, sidebar, layout
-        ├── index.css               # CSS variables (dark theme palette)
-        ├── api/client.ts           # All API calls centralised here
-        ├── i18n/                   # i18next config + EN/DE translation JSONs
-        ├── pages/  (×18)           # One file per route
-        └── components/             # Shared UI components
+├── Frontend/
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tailwind.config.js
+│   └── src/
+│       ├── main.tsx                 # Providers, i18n init, QueryClient
+│       ├── App.tsx                  # Router, sidebar, layout, topbar
+│       ├── index.css                # CSS custom properties (light + dark)
+│       ├── api/client.ts            # All API calls in one place
+│       ├── i18n/                    # i18next config + EN/DE JSONs
+│       ├── pages/                   # One component per route
+│       └── components/              # Shared UI (Sheet, CoverageBadge, etc.)
+│
+├── documentation/
+└── PS1_19_FinalBuildVerify.ps1      # Primary build + deploy script
+
+C:\ShiftKiosk\
+└── server\
+    └── server.py                    # Python FastAPI kiosk, port 8000
 ```
 
 ---
 
-## Backend
+## Backend Architecture
 
-### Program.cs — Entry Point
+### Program.cs
 
-`Program.cs` is the single file that:
-1. Registers services (EF Core, CORS, Swagger, all 17 service classes)
-2. Configures the middleware pipeline
-3. Defines every API route using Minimal API syntax (`app.MapGet`, `app.MapPost`, etc.)
-4. Serves the React SPA from `/wwwroot` (production)
+Single file. Registers all services via DI, configures middleware, defines all Minimal API routes, serves the React SPA from `/wwwroot` in production.
 
-### GSDContext.cs — Database Context
+### GSDContext.cs
 
-EF Core `DbContext` with a `DbSet<T>` for each of the 13 database tables. Uses Windows Authentication (`Trusted_Connection=true`) to connect to `localhost\SQLEXPRESS`.
+EF Core `DbContext` with Windows Authentication (`Trusted_Connection=true`). `EnableRetryOnFailure(3)` for transient errors.
 
-Configured with:
-- `EnableRetryOnFailure(3)` for transient SQL errors
-- `TrustServerCertificate=true` for local dev
+### Services
 
-### Services (17 files)
+| Service | DI Lifetime | Responsibility |
+|---------|-------------|---------------|
+| `DashboardService` | Scoped | Top-level KPI metrics |
+| `ShiftService` | Scoped | Shift plan queries |
+| `WicShiftService` | Scoped | WIC-specific shifts, on-site vs. office |
+| `WicCardsService` | Scoped | Per-location coverage status cards |
+| `CoverageEvaluator` | Scoped | Canonical COVERED/PARTIAL/UNCOVERED/CLOSED classifier |
+| `SubstitutionService` | Scoped | 4-tier ranked substitute engine |
+| `ReachabilityService` | **Singleton** | Haversine matrix, 4h TTL cache, `IServiceScopeFactory` |
+| `ForecastService` | Scoped | 14-day coverage forecast |
+| `WhatIfService` | Scoped | What-if absence simulation |
+| `BriefingService` | Scoped | Daily briefing JSON + Excel export |
+| `ALPlanningService` | Scoped | AL planning per WIC location |
+| `VwicService` | Scoped | Virtual WIC coverage 07-18 |
+| `SickLeaveService` | Scoped | Sick leave records and stats |
+| `VacationService` | Scoped | Vacation records |
+| `ALBalanceService` | Scoped | AL balance calculations |
+| `EmployeeService` | Scoped | Employee master data |
+| `AttendanceService` | Scoped | Daily WIC attendance |
+| `PublicHolidayService` | Scoped | National + regional holiday calendar |
+| `TrainingService` | Scoped | Training topics and sessions |
+| `PipelineService` | Scoped | Pipeline event CRUD |
+| `WicScheduleService` | Scoped | WIC opening hours |
+| `OverviewService` | Scoped | Cross-module overview aggregation |
+| `WicLocationMatcher` | Static | Alias dict + legacy code matching |
+| `PlzBundesland` | Static | PLZ → Bundesland fallback lookup |
 
-Each service is injected into `Program.cs` and handles one domain area:
-
-| Service | Responsibility |
-|---------|---------------|
-| `DashboardService` | Top-level metrics: working counts by role, leave counts, WIC coverage summary |
-| `ShiftService` | Shift plan queries with date/team-lead/role/engagement filters |
-| `WicShiftService` | WIC-specific shift data; classifies on-site vs. GSD-office days |
-| `WicCardsService` | Per-location coverage status (COVERED / PARTIAL / UNCOVERED / CLOSED) |
-| `SickLeaveService` | Active and historical sick leave records |
-| `VacationService` | Vacation requests, approvals, upcoming |
-| `ALBalanceService` | Annual leave balance calculations |
-| `ALCalendarService` | Calendar-view aggregation of AL across employees |
-| `EmployeeService` | Employee master data, filtering, timeline history |
-| `AttendanceService` | Daily WIC attendance tracking |
-| `PublicHolidayService` | National and regional public holiday calendar |
-| `TrainingService` | Training topics and sessions, coverage/impact ranking |
-| `PipelineService` | WIC pipeline project tracking |
-| `WicScheduleService` | WIC location opening hours |
-| `OverviewService` | Aggregated cross-module overview data |
-| `ShiftValidationService` | Labour-law compliance rules for shift edits |
-| `ShiftSyncService` | Data synchronisation utilities |
-
-### Database Schema (13 tables)
-
-| Table | Key Columns |
-|-------|-------------|
-| `Employees` | Id, Name, Role, TeamLead, EngagementType |
-| `ShiftEntries` | EmployeeId, Date, ShiftType, ShiftCode, StartTime, EndTime |
-| `WicShiftEntries` | EmployeeId, Date, LocationCode, WorkingShift, OnSite flag |
-| `WicLocations` | Code (PK), Name, Country, Coordinates, MinAgentsRequired |
-| `WicAgentAssignments` | LocationCode, EmployeeId, Role (main/backup), DateRange |
-| `WicOpeningHours` | LocationCode, DayOfWeek, OpenTime, CloseTime, IsClosed |
-| `WicPipeline` | LocationCode, Title, StartDate, EndDate, AgentsNeeded, Status |
-| `DailyAttendance` | LocationCode, Date, Status (assigned/WO/closed/PH) |
-| `SickLeaves` | EmployeeId, StartDate, EndDate, Type, TeamLead |
-| `Vacations` | EmployeeId, StartDate, EndDate, ApprovalStatus |
-| `ALBalance` | EmployeeId, Year, EligibleDays, TakenDays, RemainingDays |
-| `PublicHolidays` | Date, Name, Bundesland (regional scope) |
-| `TrainingTopics` / `TrainingSessions` | Topic metadata and scheduled session assignments |
-
-All date-range columns are indexed. Composite indexes exist on (EmployeeId, Date, SheetType) for shift lookups.
-
-### Shift Type Reference
-
-| Code | Meaning | UI Colour |
-|------|---------|-----------|
-| `WORKING` | Regular working shift | Green |
-| `WIC_DUTY` | On-site WIC duty | Teal |
-| `AL` | Annual leave | Blue |
-| `HALF_AL` | Half-day annual leave | Light blue |
-| `SL` | Sick leave | Orange |
-| `UL` | Unpaid leave | Red |
-| `OFF` | Off day | Grey |
-| `OFF_WEEKEND` | Weekend | Dark grey |
-| `PH` | Public holiday | Yellow |
-| `LPH` | Local (regional) public holiday | Light yellow |
-| `CD` | Compensation day | White outline |
-| `OL` | Other leave | White outline |
-| `CO` | Compensatory off | White outline |
-| `TRAINING` | Training day | Purple |
-| `RESIGNED` | Employee left | Dark grey |
-| `EMPTY` | Not yet filled | — |
-
-### Parsing Notes
-
-A few non-obvious rules baked into the services:
-
-- WIC shifts are identified with `.Contains("WIC")` not `.Equals()` because the raw data has variable spacing (e.g. `"WIC   08:00 - 17:00"`).
-- Half-day AL has two formats: `"HAL *"` (prefix) and `"* HAL "` (suffix) — both map to `HALF_AL`.
-- Team lead names in the DB may carry a trailing `\n`; services always call `.Trim()` before comparison.
-- Shift start/end times are stored as `varchar` (e.g. `"08:00"`), not SQL `TIME`, for flexibility with non-standard entries.
-
-### API Routes
-
-All routes are defined in `Program.cs` under these groups:
-
-```
-GET  /api/dashboard/summary
-GET  /api/dashboard/teamlead-summary
-GET  /api/dashboard/wic-cards
-
-GET  /api/shifts
-GET  /api/shifts/working-today
-GET  /api/shifts/download
-GET  /api/shifts/download/7days
-GET  /api/shifts/download/30days
-
-GET  /api/wic/locations
-GET  /api/wic/shifts
-GET  /api/wic/coverage
-GET  /api/wic/cards
-GET  /api/wic/download  (+ 7days / 30days variants)
-
-GET  /api/sickleave
-GET  /api/sickleave/active
-GET  /api/sickleave/stats
-GET  /api/sickleave/download  (+ variants)
-
-GET  /api/vacations
-GET  /api/vacations/current
-GET  /api/vacations/upcoming
-GET  /api/vacations/download  (+ variants)
-
-GET  /api/albalance
-GET  /api/albalance/{employeeId}
-
-GET  /api/employees
-GET  /api/employees/{id}
-GET  /api/employees/{id}/timeline
-
-GET  /api/attendance
-GET  /api/attendance/download  (+ variants)
-
-GET  /api/training/topics
-GET  /api/training/sessions
-GET  /api/pipeline
-GET  /api/public-holidays
-
-GET  /health
-GET  /swagger  (dev only)
-```
-
-In production the backend also serves the frontend SPA via `UseDefaultFiles()` + `UseStaticFiles()` + `MapFallbackToFile("index.html")`.
+**Rule:** No service may contain its own `COVERED/PARTIAL/UNCOVERED/CLOSED` if-else chain. All coverage classification goes through `CoverageEvaluator`.
 
 ---
 
-## Frontend
+## Database Schema
 
-### Providers & Bootstrap (main.tsx)
+**Server:** `localhost\SQLEXPRESS`  
+**Database:** `GSDDashboard`  
+**Auth:** Windows Authentication
+
+### Tables
+
+| Table | Key Columns | Notes |
+|-------|-------------|-------|
+| `Employees` | Id, FullName, PrimaryRole, TeamLead, EngagementType, Bundesland | 130 rows. `PrimaryRole="SSP"` = backlog agents |
+| `ShiftEntries` | EmployeeId, ShiftDate, ShiftType, ShiftCode, StartTime, EndTime | Authoritative for absence types |
+| `WicShiftEntries` | EmployeeId, ShiftDate, LocationCode, WorkingShift, OnSite | WIC duty records |
+| `WicLocations` | Id, LocationCode, DisplayName, City, Country, Coordinates, Bundesland, MinAgentsRequired, LocationCodeLegacy, PostalCode | 43 rows (41 DE + 2 NL) |
+| `WicAgentAssignments` | LocationCode (old-style), EmployeeName, AssignmentType | MAIN or BACKUP. Join: `e.FullName = waa.EmployeeName` |
+| `WicOpeningHours` | LocationCode, DayOfWeek, OpenTime, CloseTime, IsClosed | DayOfWeek: .NET convention 0=Sun…6=Sat |
+| `WicPipeline` | LocationCode, Title, StartDate, EndDate, AgentsNeeded, Status | Pipeline events |
+| `DailyAttendance` | LocationCode, Date, Status | assigned / WO / closed / PH |
+| `SickLeaves` | EmployeeId, FirstDay, LastDay, LeaveType | **FirstDay/LastDay** (NOT StartDate/EndDate) |
+| `Vacations` | EmployeeId, StartDate, EndDate, ApprovalStatus | — |
+| `ALBalance` | EmployeeId, Year, EligibleDays, TakenDays, RemainingDays | — |
+| `PublicHolidays` | Date, Name, Bundesland | Regional scope |
+| `TrainingTopics` / `TrainingSessions` | Topic metadata and session assignments | — |
+| `SubstitutionHistory` | EmployeeId, LocationCode, Date, SourceType, AssignedAt | Populated at runtime; used for fairness penalty |
+
+### Critical Schema Notes
+
+- `SickLeaves` uses `FirstDay` / `LastDay` — do NOT use `StartDate` / `EndDate`
+- `WicOpeningHours.DayOfWeek` = .NET convention (0=Sun, 1=Mon … 6=Sat)
+- `WicAgentAssignments.LocationCode` uses old-style codes (`DE_Dortmund`); `WicLocations.LocationCodeLegacy` maps to them
+- `WicLocations.LocationCode` uses new tilde-style codes (`DE~44139~Dortmund~Str.`)
+- `WicAgentAssignments` join is by **FullName** string, not EmployeeId
+- `SickLeaves.LeaveType` has only value `"Self"` — not used for absence detection
+- Absence detection uses `ShiftEntries.ShiftType` values: `SL, AL, UL, PH, LPH, RESIGNED, TRAINING`
+- `HALF_AL` = 0.5 contribution (not excluded, fractional coverage)
+
+### SSP / Voice Agent Base Location
+
+SSP and Voice agents without a WIC assignment use **Dusseldorf HQ** as their base for distance calculations: `lat=51.2154, lon=6.7837`.
+
+---
+
+## API Endpoints
+
+All routes registered in `Program.cs` (Minimal API syntax).
+
+### WIC Core
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/api/wic/locations` | All 43 WIC locations |
+| GET | `/api/wic/cards?date=` | Per-location coverage status cards |
+| GET | `/api/wic/shifts?from=&to=&locationCode=` | WIC shift entries |
+| GET | `/api/wic/open?date=&horizon=` | Open/coverage status, N days |
+| GET | `/api/wic/forecast?horizon=14&locationCode=` | Coverage forecast (horizon clamped 1-30) |
+| GET | `/api/wic/substitutes?locationCode=&date=&horizon=&absentIds=` | Ranked substitute candidates |
+| POST | `/api/wic/substitutes/accept` | Accept a substitute (writes to SubstitutionHistory) |
+| GET | `/api/wic/whatif?absentEmployeeId=&date=&horizon=` | What-if simulation |
+| GET | `/api/wic/briefing` | Today's absences + gaps + next at-risk |
+| GET | `/api/wic/briefing/export` | Excel export (3 sheets) |
+| GET | `/api/wic/reachability?from=&to=` | Haversine distance matrix |
+| GET | `/api/wic/reachability/sanity` | Berlin→Munich ~504 km sanity check |
+
+### Shifts
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/api/shifts` | Full shift plan |
+| GET | `/api/shifts/working-today` | Agents working today |
+| GET | `/api/shifts/download` | Excel today |
+| GET | `/api/shifts/download/7days` | Excel 7-day |
+| GET | `/api/shifts/download/30days` | Excel 30-day |
+
+### Employees
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/api/employees` | Employee list |
+| GET | `/api/employees/{id}` | Single employee |
+| POST | `/api/employees` | Create employee |
+| DELETE | `/api/employees/{id}` | Delete employee |
+| PATCH | `/api/employees/{id}/albalance` | Update AL balance |
+
+### Leave
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/api/sickleave` | Sick leave records |
+| POST | `/api/sickleave` | Add sick leave |
+| GET | `/api/sickleave/stats` | Aggregate stats |
+| GET | `/api/vacations` | Vacation records |
+| DELETE | `/api/vacations/{id}` | Delete vacation |
+| GET | `/api/albalance` | AL balance per employee |
+| PATCH | `/api/albalance/{id}` | Update AL balance |
+
+### Pipeline
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/api/pipeline` | Pipeline events |
+| POST | `/api/pipeline` | Create event |
+| PATCH | `/api/pipeline/{id}` | Update event |
+| DELETE | `/api/pipeline/{id}` | Delete event |
+
+### Other
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `/api/attendance` | Daily attendance records |
+| GET | `/api/training` | Training records |
+| GET | `/api/wic/schedule` | WIC opening hours |
+| GET | `/api/public-holidays` | Public holiday calendar |
+| GET | `/health` | Liveness probe |
+| GET | `/swagger` | Swagger UI (dev only) |
+
+In production, `MapFallbackToFile("index.html")` serves the React SPA for all unmatched routes.
+
+---
+
+## Frontend Architecture
+
+### Bootstrap (main.tsx)
 
 ```
-<ThemeProvider>          ← next-themes (dark mode)
-  <QueryClientProvider>  ← TanStack Query (staleTime: 30s, retry: 1)
+<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+  <QueryClientProvider client={queryClient}>
     <App />
   </QueryClientProvider>
 </ThemeProvider>
 ```
 
-i18next is initialised before React mounts. Language detection order: `localStorage` → browser `navigator`.
+i18next initialised before React mounts. Language detection: `localStorage` → browser `navigator`.
 
-### Routing & Layout (App.tsx)
-
-React Router v7 `BrowserRouter` with 14 routes. The shell layout is:
+### Layout (App.tsx)
 
 ```
-┌─────────────────────────────────────────┐
-│  Sidebar (200 px fixed)  │  Top nav bar │
-│  – Navigation links      │──────────────│
-│                          │  <Outlet />  │
-│                          │  (page)      │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│  Top bar: app name | date/horizon | Ctrl+K   │
+│           ThemeToggle | DE/EN toggle          │
+├──────────────┬───────────────────────────────┤
+│  Sidebar     │                               │
+│  (nav links) │     <page component>          │
+│              │                               │
+└──────────────┴───────────────────────────────┘
 ```
 
-### Pages
+### Theme System
 
-| Route | Page | Description |
-|-------|------|-------------|
-| `/` | Overview | Stat cards, team-lead summary, WIC coverage cards |
-| `/shifts` | Shifts | Shift plan table with filtering and downloads |
-| `/wic-shifts` | WIC Shifts | WIC-specific shift view |
-| `/wic-attendance` | WIC Attendance | Daily WIC location attendance |
-| `/wic-schedule` | WIC Schedule | Opening hours per location |
-| `/wic-locations` | WIC Locations | 40-location master list |
-| `/pipeline` | Pipeline | WIC project/workload tracking |
-| `/training` | Training | Training sessions and topics |
-| `/employees` | Employees | Employee directory with filtering |
-| `/sickleave` | Sick Leave | Records and stats |
-| `/vacations` | Vacations | Requests, approvals, calendar |
-| `/al-balance` | AL Balance | Per-employee annual leave balance |
-| `/al-calendar` | AL Calendar | Calendar visualisation of annual leave |
-| `/attendance` | Attendance | Daily presence tracking |
+CSS custom properties in `index.css`. `:root` = light, `.dark` = dark (navy palette).
+
+| Variable | Light | Dark |
+|----------|-------|------|
+| `--bg` | white | dark navy `#0b0f1a` |
+| `--card` | light card | `#131928` |
+| `--accent` | blue | blue |
+| `--green` | green | green |
+| `--warn` | orange | orange |
+| `--danger` | red | red |
+| `--status-covered` | green | green |
+| `--status-partial` | orange | orange |
+| `--status-uncovered` | red | red |
+| `--status-closed` | slate | slate |
+
+Leaflet cannot use CSS variables in canvas/SVG — `STATUS_HEX` in `Overview.tsx` holds hardcoded hex values for map pins. This is intentional.
 
 ### API Client (src/api/client.ts)
 
-Single source of truth for all HTTP calls. Exports:
+Single source of truth for all HTTP calls. Base URL from `VITE_API_BASE_URL` (fallback: `http://localhost:5000`). Exports `apiFetch<T>`, `downloadExcel`, and a typed `api` object.
 
-- `apiFetch<T>(path, options?)` — Generic JSON fetch wrapper; base URL from `VITE_API_BASE_URL` env var (fallback: `http://localhost:5000`).
-- `downloadExcel(path)` — Fetches a blob and triggers browser download.
-- `api` — Object with typed methods for every endpoint group (`api.dashboard.*`, `api.shifts.*`, `api.wic.*`, etc.).
-
-TanStack Query hooks in each page call these methods as query functions, giving automatic caching, background refetch, and loading/error states.
-
-### Styling
-
-Tailwind CSS 3.4 with a custom dark-mode palette defined as CSS custom properties in `index.css`:
-
-| Variable | Value | Used For |
-|----------|-------|----------|
-| `--bg` | `#0b0f1a` | Page background |
-| `--sidebar` | `#0e1320` | Sidebar background |
-| `--card` | `#131928` | Card / panel background |
-| `--accent` | `#3b7eff` | Primary blue (links, highlights) |
-| `--accent2` | `#00d2a0` | Teal (WIC duty, secondary highlights) |
-| `--warn` | `#ff7c3b` | Orange (warnings, sick leave) |
-| `--danger` | `#ff3b5c` | Red (errors, uncovered locations) |
-| `--green` | `#22d07a` | Working / covered |
-| `--text` / `--text2` / `--text3` | Light grey hierarchy | Body text |
-
-Fonts: **IBM Plex Sans** (body) and **IBM Plex Mono** (data cells, times).
-
-### Internationalisation
-
-Located in `src/i18n/`. Translation files at `src/i18n/locales/{en,de}/common.json`. Keys are namespaced: `nav.*`, `status.*`, `download.*`, `table.*`, `overview.*`. The language toggle button in the top nav writes the selection to `localStorage`.
+TanStack Query stale times: locations 10 min, forecast/briefing 5 min, static data 10 min.
 
 ---
 
-## Data Flow
+## Kiosk Server
 
-```
-SQL Server 2022 (localhost\SQLEXPRESS, Windows Auth)
-         │
-         │  EF Core 8 queries
-         ▼
-ASP.NET Core 8 Minimal API  (http://localhost:5000)
-         │
-         │  JSON over HTTP
-         ▼
-React Frontend (http://localhost:5173 in dev)
-   TanStack Query → page components → tables / charts
-         │
-         │  user clicks download
-         ▼
-ClosedXML → .xlsx blob → browser saves file
-```
+| Property | Value |
+|----------|-------|
+| Language | Python + FastAPI |
+| Port | 8000 |
+| Entry point | `C:\ShiftKiosk\server\server.py` |
+| Tunnel | https://ssr7tm2l-8000.euw.devtunnels.ms |
+| Dashboard | https://ssr7tm2l-8000.euw.devtunnels.ms/dashboard |
 
-In **production** the React build is placed in `Backend/wwwroot/` and the ASP.NET app serves both the API and the SPA from the same port.
+Physical check-in/check-out data for WIC agents. Separate from the ASP.NET Core backend.
 
 ---
 
-## Configuration
+## Shift Type Reference
 
-### Backend — appsettings.json
+| Code | Meaning |
+|------|---------|
+| `WORKING` | Regular working shift |
+| `WIC_DUTY` | On-site WIC duty |
+| `AL` | Annual leave |
+| `HALF_AL` | Half-day annual leave (0.5 coverage credit) |
+| `SL` | Sick leave |
+| `UL` | Unpaid leave |
+| `OFF` | Off day |
+| `OFF_WEEKEND` | Weekend |
+| `PH` | Public holiday |
+| `LPH` | Local (regional) public holiday |
+| `TRAINING` | Training day |
+| `RESIGNED` | Employee left |
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost\\SQLEXPRESS;Database=GSDDashboard;Trusted_Connection=true;TrustServerCertificate=true;"
-  },
-  "AllowedHosts": "*",
-  "Cors": {
-    "AllowedOrigins": ["http://localhost:5173", "http://localhost:3000"]
-  }
-}
-```
+Absence types (excluded from coverage): `SL, AL, UL, PH, LPH, RESIGNED, TRAINING`. `HALF_AL` = 0.5 contribution (not excluded).
 
-### Frontend — .env
+---
 
-```
-VITE_API_BASE_URL=https://<tunnel-host>-5000.euw.devtunnels.ms
-```
+## Parsing Notes
 
-For local development, omit this file or leave it empty — the client falls back to `http://localhost:5000`.
+- WIC shifts matched with `.Contains("WIC")` — raw data has variable spacing.
+- HALF_AL has two formats: `"HAL *"` (prefix) and `"* HAL "` (suffix) — both map to `HALF_AL`.
+- Team lead names may carry a trailing `\n`; services always `.Trim()` before comparison.
+- Shift times stored as `varchar` (e.g. `"08:00"`), not SQL `TIME`.
+- `WicAgentAssignments` join is string-based: `e.FullName = waa.EmployeeName`.
