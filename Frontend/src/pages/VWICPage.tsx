@@ -21,8 +21,9 @@ interface VwicTimelineSlot {
   label:        string
   mainAgents:   string[]
   backupAgents: string[]
-  hasMainAgent: boolean
+  hasMainAgent: boolean   // true when mainAgents.length >= minRequired
   hasAnyAgent:  boolean
+  minRequired:  number
 }
 
 interface VwicDailyResponse {
@@ -35,10 +36,14 @@ interface VwicDailyResponse {
 }
 
 interface VwicCandidate {
-  employeeId:   string
-  fullName:     string | null
-  teamLeadName: string | null
-  primaryRole:  string | null
+  employeeId:     string
+  fullName:       string | null
+  teamLeadName:   string | null
+  primaryRole:    string | null
+  shiftType:      string | null
+  shiftStart:     string | null
+  shiftEnd:       string | null
+  isWorkingToday: boolean
 }
 
 // ─── Rotation Plan types ─────────────────────────────────────────────────────
@@ -77,6 +82,35 @@ interface VwicRotationResponse {
   availableAgentHours: number
 }
 
+interface VwicWeekDayPlan {
+  date:                string
+  dayName:             string
+  dayShort:            string
+  slotLabels:          string[]
+  schedule:            VwicRotationScheduleRow[]
+  coverageProof:       VwicCoverageProofItem[]
+  dailyFairness:       VwicFairnessItem[]
+  recommendation:      string
+  fallbackWarning:     string | null
+  availableAgents:     number
+  requiredAgentHours:  number
+  availableAgentHours: number
+}
+
+interface VwicWeekFairnessItem {
+  employeeId:     string
+  fullName:       string
+  totalVwicHours: number
+  totalSlotCount: number
+  daysWorked:     number
+}
+
+interface VwicWeekResponse {
+  weekStartDate:  string
+  days:           VwicWeekDayPlan[]
+  weeklyFairness: VwicWeekFairnessItem[]
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function parseDecimalHour(t: string | null): number | null {
@@ -85,61 +119,55 @@ function parseDecimalHour(t: string | null): number | null {
   return h + (m || 0) / 60
 }
 
-function coversHour(agent: VwicAgent, hour: number): boolean {
-  const start = parseDecimalHour(agent.shiftStart)
-  const end   = parseDecimalHour(agent.shiftEnd)
-  if (start === null || end === null) return false
-  return start < hour + 1 && end > hour
-}
-
 // ─── Assign modal ─────────────────────────────────────────────────────────────
 
 function AssignSlotModal({
-  slot, date, agents, onClose, onAssigned,
+  slot, date, onClose, onAssigned,
 }: {
   slot:       VwicTimelineSlot
   date:       string
-  agents:     VwicAgent[]
   onClose:    () => void
   onAssigned: () => void
 }) {
-  const [saving, setSaving] = useState<string | null>(null) // employeeId being saved
+  const [saving, setSaving] = useState<string | null>(null)
   const [error,  setError]  = useState<string | null>(null)
 
-  // For red slots show backup agents; for orange (backup-only) show Main agents
-  const needMain = !slot.hasMainAgent
+  const { data: candidates, isLoading } = useQuery<VwicCandidate[]>({
+    queryKey: ["vwic-candidates", date],
+    queryFn:  () => fetch(`/api/vwic/candidates?date=${date}`).then(r => r.json()),
+  })
 
-  // Available = correct role, not absent, not already in slot
   const alreadyInSlot = new Set([...slot.mainAgents, ...slot.backupAgents])
-  const available = agents.filter(a => {
-    if (a.isAbsent) return false
-    if (a.role !== (needMain ? "Backup" : "Main") &&
-        !(needMain && a.role === "Main")) return false // for red, show both roles
-    const name = a.fullName ?? a.employeeId
-    if (alreadyInSlot.has(name)) return false
-    return true
-  })
 
-  // Sort: those whose shift already covers the hour first
-  const sorted = [...available].sort((a, b) => {
-    const aC = coversHour(a, slot.hour) ? 0 : 1
-    const bC = coversHour(b, slot.hour) ? 0 : 1
-    return aC - bC || (a.fullName ?? "").localeCompare(b.fullName ?? "")
-  })
+  const candidateCoversHour = (c: VwicCandidate, hour: number): boolean => {
+    const start = parseDecimalHour(c.shiftStart)
+    const end   = parseDecimalHour(c.shiftEnd)
+    if (start === null || end === null) return false
+    if (end >= start) return start < hour + 1 && end > hour
+    return start < hour + 1 || end > hour
+  }
 
-  const assign = async (agent: VwicAgent) => {
-    setSaving(agent.employeeId)
+  const sorted = (candidates ?? [])
+    .filter(c => !alreadyInSlot.has(c.fullName ?? c.employeeId))
+    .sort((a, b) => {
+      const aC = candidateCoversHour(a, slot.hour) ? 0 : 1
+      const bC = candidateCoversHour(b, slot.hour) ? 0 : 1
+      return aC - bC || (a.fullName ?? "").localeCompare(b.fullName ?? "")
+    })
+
+  const assign = async (c: VwicCandidate) => {
+    setSaving(c.employeeId)
     setError(null)
     try {
       const res = await fetch("/api/vwic/assign", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          employeeId: agent.employeeId,
+          employeeId: c.employeeId,
           date,
           hour:       slot.hour,
-          shiftStart: agent.shiftStart ?? "07:00",
-          shiftEnd:   agent.shiftEnd   ?? "18:00",
+          shiftStart: c.shiftStart ?? "07:00",
+          shiftEnd:   c.shiftEnd   ?? "17:00",
         }),
       })
       if (!res.ok) throw new Error("Server error")
@@ -170,7 +198,7 @@ function AssignSlotModal({
             <div style={{ fontSize: 12, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>{slotLabel}</div>
             {isOrange && (
               <div style={{ marginTop: 6, fontSize: 11, color: "#f97316", background: "rgba(249,115,22,.1)", border: "1px solid rgba(249,115,22,.3)", borderRadius: 4, padding: "3px 8px", display: "inline-block" }}>
-                Backup only — no Main agent covering
+                Understaffed — below minimum
               </div>
             )}
             {!slot.hasAnyAgent && (
@@ -184,45 +212,46 @@ function AssignSlotModal({
 
         {/* Agent list */}
         <div style={{ overflowY: "auto", flex: 1 }}>
-          {sorted.length === 0 && (
+          {isLoading && (
+            <div style={{ padding: 24, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>Loading agents…</div>
+          )}
+          {!isLoading && sorted.length === 0 && (
             <div style={{ padding: 24, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>
               No available agents for this slot
             </div>
           )}
-
-          {sorted.map(agent => {
-            const covers  = coversHour(agent, slot.hour)
-            const isSaving = saving === agent.employeeId
+          {sorted.map(c => {
+            const covers   = candidateCoversHour(c, slot.hour)
+            const isSaving = saving === c.employeeId
             return (
               <div
-                key={agent.employeeId}
+                key={c.employeeId}
                 style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 20px", borderBottom: "1px solid var(--border)" }}
               >
-                {/* Agent info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>{agent.fullName ?? agent.employeeId}</span>
-                    <span style={{
-                      fontSize: 9, padding: "1px 6px", borderRadius: 10, fontFamily: "IBM Plex Mono",
-                      background: agent.role === "Main" ? "rgba(59,126,255,.15)" : "rgba(99,102,241,.15)",
-                      color:      agent.role === "Main" ? "var(--accent)"        : "#818cf8",
-                    }}>{agent.role}</span>
+                    <span style={{ fontWeight: 600, fontSize: 13 }}>{c.fullName ?? c.employeeId}</span>
+                    {c.isWorkingToday && (
+                      <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 10, background: "rgba(34,197,94,.15)", color: "#22c55e", fontFamily: "IBM Plex Mono" }}>
+                        WORKING
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 2, fontFamily: "IBM Plex Mono" }}>
-                    {agent.employeeId}
-                    {agent.shiftStart && agent.shiftEnd
+                    {c.employeeId}
+                    {c.shiftStart && c.shiftEnd
                       ? <span style={{ marginLeft: 8, color: covers ? "#22c55e" : "var(--text3)" }}>
-                          {agent.shiftStart}–{agent.shiftEnd}
-                          {covers ? " ✓" : " ⚠ outside shift"}
+                          {c.shiftStart}–{c.shiftEnd}
+                          {covers ? " ✓ in shift" : " outside shift"}
                         </span>
-                      : <span style={{ marginLeft: 8, color: "var(--text3)" }}>no shift scheduled</span>
+                      : c.isWorkingToday
+                        ? <span style={{ marginLeft: 8, color: "var(--text3)" }}>working · no times set</span>
+                        : <span style={{ marginLeft: 8, color: "var(--text3)" }}>no shift today</span>
                     }
                   </div>
                 </div>
-
-                {/* Assign button */}
                 <button
-                  onClick={() => assign(agent)}
+                  onClick={() => assign(c)}
                   disabled={isSaving}
                   style={{
                     background: covers ? "var(--accent)" : "var(--card2)",
@@ -346,97 +375,104 @@ function CoverageTimeline({
   return (
     <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 16 }}>
       <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", marginBottom: 12 }}>
-        Coverage Timeline · 07:00 – 18:00
+        Coverage Timeline · 24/7 · 00:00 – 24:00
         <span style={{ marginLeft: 10, fontWeight: 400, color: "var(--text3)", textTransform: "none", letterSpacing: 0 }}>
-          — click a red or orange slot to assign an agent
+          — min 1 agent (00-07 &amp; 17-24) · min 3 agents (07-17) · click under-staffed slot to assign
         </span>
       </div>
 
-      <div style={{ display: "flex", gap: 3 }}>
-        {timeline.map((slot, i) => {
-          const isGap     = !slot.hasMainAgent
-          const isOrange  = slot.hasAnyAgent && !slot.hasMainAgent
-          const borderCol = slot.hasMainAgent ? "#22c55e" : isOrange ? "#f97316" : "#ef4444"
-          const bgCol     = borderCol + "22"
-          const isHov     = hovered === slot.hour
-          const isLast    = i >= timeline.length - 3
-          const clickable = isGap // red or orange
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ display: "flex", gap: 3, minWidth: 600 }}>
+          {timeline.map((slot, i) => {
+            const count     = slot.mainAgents.length
+            const isPartial = !slot.hasMainAgent && count > 0
+            const borderCol = slot.hasMainAgent ? "#22c55e" : isPartial ? "#f97316" : "#ef4444"
+            const bgCol     = borderCol + "22"
+            const isHov     = hovered === slot.hour
+            const isLast    = i >= timeline.length - 4
+            const clickable = !slot.hasMainAgent
 
-          return (
-            <div
-              key={slot.hour}
-              onMouseEnter={() => setHovered(slot.hour)}
-              onMouseLeave={() => setHovered(null)}
-              onClick={() => clickable && onSlotClick(slot)}
-              style={{ flex: 1, position: "relative" }}
-            >
-              {/* Hour cell */}
-              <div style={{
-                background:    bgCol,
-                border:        `1px solid ${borderCol}`,
-                borderRadius:  4,
-                padding:       "8px 3px",
-                textAlign:     "center",
-                cursor:        clickable ? "pointer" : "default",
-                opacity:       isHov ? 0.75 : 1,
-                transition:    "opacity .12s, transform .1s",
-                transform:     isHov && clickable ? "translateY(-2px)" : "none",
-                boxShadow:     isHov && clickable ? `0 4px 12px ${borderCol}44` : "none",
-              }}>
-                <div style={{ fontSize: 9, color: "var(--text3)", marginBottom: 3 }}>{slot.label}</div>
-                <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "IBM Plex Mono", color: borderCol, lineHeight: 1 }}>
-                  {slot.mainAgents.length + slot.backupAgents.length}
+            return (
+              <div
+                key={slot.hour}
+                onMouseEnter={() => setHovered(slot.hour)}
+                onMouseLeave={() => setHovered(null)}
+                onClick={() => clickable && onSlotClick(slot)}
+                style={{ flex: 1, position: "relative", minWidth: 36 }}
+              >
+                {/* Hour cell */}
+                <div style={{
+                  background:   bgCol,
+                  border:       `1px solid ${borderCol}`,
+                  borderRadius: 4,
+                  padding:      "7px 2px",
+                  textAlign:    "center",
+                  cursor:       clickable ? "pointer" : "default",
+                  opacity:      isHov ? 0.75 : 1,
+                  transition:   "opacity .12s, transform .1s",
+                  transform:    isHov && clickable ? "translateY(-2px)" : "none",
+                  boxShadow:    isHov && clickable ? `0 4px 12px ${borderCol}44` : "none",
+                }}>
+                  <div style={{ fontSize: 8, color: "var(--text3)", marginBottom: 2 }}>{slot.label}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "IBM Plex Mono", color: borderCol, lineHeight: 1 }}>
+                    {count}
+                  </div>
+                  <div style={{ fontSize: 8, color: "var(--text3)", marginTop: 2 }}>
+                    /{slot.minRequired}
+                    {slot.backupAgents.length > 0 ? ` +${slot.backupAgents.length}` : ""}
+                  </div>
+                  {clickable && (
+                    <div style={{ fontSize: 7, color: borderCol, marginTop: 2, opacity: 0.8 }}>+assign</div>
+                  )}
                 </div>
-                <div style={{ fontSize: 9, color: "var(--text3)", marginTop: 2 }}>
-                  {slot.mainAgents.length   > 0 ? `${slot.mainAgents.length}M`   : ""}
-                  {slot.backupAgents.length > 0 ? ` ${slot.backupAgents.length}B` : ""}
-                  {!slot.hasAnyAgent ? "—" : ""}
-                </div>
-                {/* Clickable indicator */}
-                {clickable && (
-                  <div style={{ fontSize: 8, color: borderCol, marginTop: 3, opacity: 0.8 }}>+ assign</div>
+
+                {/* Hover tooltip */}
+                {isHov && (
+                  <div style={{
+                    position: "absolute",
+                    top: "calc(100% + 6px)",
+                    [isLast ? "right" : "left"]: 0,
+                    zIndex: 100,
+                    background: "var(--card2)", border: "1px solid var(--border)",
+                    borderRadius: 6, padding: "10px 14px", minWidth: 170,
+                    fontSize: 11, color: "var(--text)", whiteSpace: "nowrap",
+                    boxShadow: "0 4px 16px rgba(0,0,0,.35)",
+                    pointerEvents: "none",
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text2)", marginBottom: 6 }}>
+                      {slot.label} – {String(slot.hour + 1).padStart(2, "0")}:00
+                    </div>
+                    <div style={{ fontSize: 10, color: borderCol, marginBottom: 8 }}>
+                      {count}/{slot.minRequired} required
+                      {slot.hasMainAgent ? " ✓" : isPartial ? " — understaffed" : " — no coverage"}
+                    </div>
+                    {slot.mainAgents.length > 0 && (
+                      <>
+                        <div style={{ fontSize: 10, color: "#22c55e", fontWeight: 600, marginBottom: 4 }}>VWIC Assigned</div>
+                        {slot.mainAgents.map(n => <div key={n} style={{ marginBottom: 3, paddingLeft: 8 }}>· {n}</div>)}
+                      </>
+                    )}
+                    {slot.backupAgents.length > 0 && (
+                      <>
+                        <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, marginTop: 8, marginBottom: 4 }}>Voice pool on shift</div>
+                        {slot.backupAgents.map(n => <div key={n} style={{ marginBottom: 3, paddingLeft: 8 }}>· {n}</div>)}
+                      </>
+                    )}
+                    {!slot.hasAnyAgent && (
+                      <div style={{ color: "var(--text3)", fontSize: 10 }}>No agents on shift this hour</div>
+                    )}
+                  </div>
                 )}
               </div>
-
-              {/* Hover tooltip (non-empty slots) */}
-              {isHov && slot.hasAnyAgent && (
-                <div style={{
-                  position: "absolute",
-                  top: "calc(100% + 6px)",
-                  [isLast ? "right" : "left"]: 0,
-                  zIndex: 100,
-                  background: "var(--card2)", border: "1px solid var(--border)",
-                  borderRadius: 6, padding: "10px 14px", minWidth: 160,
-                  fontSize: 11, color: "var(--text)", whiteSpace: "nowrap",
-                  boxShadow: "0 4px 16px rgba(0,0,0,.35)",
-                  pointerEvents: "none",
-                }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text2)", marginBottom: 8 }}>
-                    {slot.label} – {String(slot.hour + 1).padStart(2, "0")}:00
-                  </div>
-                  {slot.mainAgents.length > 0 && (
-                    <>
-                      <div style={{ fontSize: 10, color: "#22c55e", fontWeight: 600, marginBottom: 4 }}>Main</div>
-                      {slot.mainAgents.map(n => <div key={n} style={{ marginBottom: 3, paddingLeft: 8 }}>· {n}</div>)}
-                    </>
-                  )}
-                  {slot.backupAgents.length > 0 && (
-                    <>
-                      <div style={{ fontSize: 10, color: "#f97316", fontWeight: 600, marginTop: 8, marginBottom: 4 }}>Backup</div>
-                      {slot.backupAgents.map(n => <div key={n} style={{ marginBottom: 3, paddingLeft: 8 }}>· {n}</div>)}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
       {gaps.length > 0 && (
         <div style={{ marginTop: 12, padding: "8px 14px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 6, fontSize: 12, color: "#ef4444" }}>
-          No Main agent coverage at:{" "}
-          {gaps.map(h => `${String(h).padStart(2, "0")}:00–${String(h + 1).padStart(2, "0")}:00`).join(", ")}
+          Below minimum staffing:{" "}
+          {gaps.map(h => `${String(h).padStart(2, "0")}:00`).join(", ")}
         </div>
       )}
     </div>
@@ -552,10 +588,15 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
   const [result,             setResult]             = useState<VwicRotationResponse | null>(null)
   const [loading,            setLoading]            = useState(false)
   const [error,              setError]              = useState<string | null>(null)
+  const [weekResult,         setWeekResult]         = useState<VwicWeekResponse | null>(null)
+  const [weekLoading,        setWeekLoading]        = useState(false)
+  const [weekError,          setWeekError]          = useState<string | null>(null)
+  const [activeDay,          setActiveDay]          = useState(0)
 
   const calculate = async () => {
     setLoading(true)
     setError(null)
+    setWeekResult(null)
     try {
       const res = await fetch("/api/vwic/rotation-plan", {
         method:  "POST",
@@ -569,6 +610,55 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const getMonday = (d: string) => {
+    const dt = new Date(d), day = dt.getDay()
+    dt.setDate(dt.getDate() + (day === 0 ? -6 : 1 - day))
+    return dt.toISOString().split("T")[0]
+  }
+
+  const planWeek = async () => {
+    setWeekLoading(true)
+    setWeekError(null)
+    setResult(null)
+    setActiveDay(0)
+    try {
+      const res = await fetch("/api/vwic/rotation-plan-week", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          weekStartDate: getMonday(date),
+          startTime, endTime, intervalHours, maxContinuousHours, handoverMinutes,
+        }),
+      })
+      if (!res.ok) throw new Error("Server error")
+      setWeekResult(await res.json())
+    } catch {
+      setWeekError("Failed to calculate week plan.")
+    } finally {
+      setWeekLoading(false)
+    }
+  }
+
+  const exportWeek = async () => {
+    if (!weekResult) return
+    const res = await fetch("/api/vwic/rotation-plan-week/export", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        weekStartDate: weekResult.weekStartDate,
+        startTime, endTime, intervalHours, maxContinuousHours, handoverMinutes,
+      }),
+    })
+    if (!res.ok) return
+    const blob = await res.blob()
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement("a")
+    a.href     = url
+    a.download = `VWIC_Week_${weekResult.weekStartDate}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const maxVwicHours = result ? Math.max(...result.fairness.map(f => f.vwicHours), 1) : 1
@@ -645,7 +735,7 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
 
         <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 12 }}>
           <button
-            onClick={calculate} disabled={loading}
+            onClick={calculate} disabled={loading || weekLoading}
             style={{
               background: "var(--accent)", color: "#fff", border: "none",
               padding: "9px 22px", borderRadius: 6, fontSize: 13, fontWeight: 600,
@@ -654,7 +744,18 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
           >
             {loading ? "Calculating…" : "Calculate Rotation"}
           </button>
-          {error && <span style={{ fontSize: 12, color: "#ef4444" }}>{error}</span>}
+          <button
+            onClick={planWeek} disabled={loading || weekLoading}
+            style={{
+              background: "var(--card2)", color: "var(--text)", border: "1px solid var(--border)",
+              padding: "9px 22px", borderRadius: 6, fontSize: 13, fontWeight: 600,
+              cursor: weekLoading ? "wait" : "pointer", opacity: weekLoading ? 0.7 : 1,
+            }}
+          >
+            {weekLoading ? "Planning…" : "Plan Week"}
+          </button>
+          {error     && <span style={{ fontSize: 12, color: "#ef4444" }}>{error}</span>}
+          {weekError && <span style={{ fontSize: 12, color: "#ef4444" }}>{weekError}</span>}
         </div>
       </div>
 
@@ -678,7 +779,7 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
               </div>
               <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>{result.recommendation}</div>
               <div style={{ marginTop: 6, fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
-                {result.availableAgents} agents available &nbsp;·&nbsp;
+                {result.availableAgents} Voice agents available for rotation &nbsp;·&nbsp;
                 {result.requiredAgentHours.toFixed(0)}h required &nbsp;·&nbsp;
                 {result.availableAgentHours.toFixed(0)}h available capacity
               </div>
@@ -820,6 +921,229 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
           })()}
         </>
       )}
+
+      {/* ── Week plan result ── */}
+      {weekResult && (() => {
+        const day        = weekResult.days[activeDay]
+        const allCovDay  = day?.coverageProof.every(c => c.covered) ?? false
+        const maxDayH    = day ? Math.max(...day.dailyFairness.map(f => f.vwicHours), 1) : 1
+        return (
+          <>
+            {/* Day tabs + Export */}
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              {weekResult.days.map((d, i) => (
+                <button key={i} onClick={() => setActiveDay(i)} style={{
+                  padding: "7px 20px", borderRadius: 6, border: "1px solid var(--border)",
+                  fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .12s",
+                  background: activeDay === i ? "var(--accent)" : "var(--card2)",
+                  color:      activeDay === i ? "#fff"          : "var(--text2)",
+                }}>
+                  {d.dayShort}
+                  {d.availableAgents < 3 && (
+                    <span style={{ marginLeft: 5, fontSize: 10, color: activeDay === i ? "#fde68a" : "#f97316" }}>⚠</span>
+                  )}
+                </button>
+              ))}
+              <div style={{ flex: 1 }} />
+              <button onClick={exportWeek} style={{
+                background: "#16a34a", color: "#fff", border: "none",
+                padding: "7px 18px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
+              }}>
+                Export Excel
+              </button>
+            </div>
+
+            {/* Active day detail */}
+            {day && (
+              <>
+                {/* Recommendation */}
+                <div style={{
+                  background: "var(--card)",
+                  border: `1px solid ${day.availableAgents < 3 ? "rgba(239,68,68,.35)" : "rgba(34,197,94,.35)"}`,
+                  borderRadius: 8, padding: "14px 20px", display: "flex", alignItems: "flex-start", gap: 14,
+                }}>
+                  <div style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>
+                    {day.availableAgents < 3 ? "⚠️" : "✓"}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em",
+                      color: day.availableAgents < 3 ? "#f97316" : "#22c55e", marginBottom: 5 }}>
+                      {day.dayName} — Recommendation
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>{day.recommendation}</div>
+                    <div style={{ marginTop: 6, fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                      {day.availableAgents} Voice agents available for rotation &nbsp;·&nbsp;
+                      {day.requiredAgentHours.toFixed(0)}h required &nbsp;·&nbsp;
+                      {day.availableAgentHours.toFixed(0)}h available capacity
+                    </div>
+                  </div>
+                </div>
+
+                {/* Schedule table */}
+                <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+                  <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontWeight: 600, fontSize: 13 }}>{day.dayName} — Rotation Schedule</span>
+                    <div style={{ display: "flex", gap: 14, fontSize: 11, color: "var(--text3)" }}>
+                      <span><span style={{ color: "#22c55e", fontWeight: 700 }}>ON</span> — on VWIC</span>
+                      <span><span style={{ color: "#facc15", fontWeight: 700 }}>HO</span> — handover</span>
+                      <span><span style={{ color: "var(--text3)" }}>—</span> — off</span>
+                    </div>
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                      <thead>
+                        <tr style={{ background: "var(--card2)" }}>
+                          <th style={{ padding: "8px 14px", textAlign: "left", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text3)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", minWidth: 110 }}>Slot</th>
+                          {day.schedule.map(row => (
+                            <th key={row.employeeId} style={{ padding: "8px 10px", textAlign: "center", fontSize: 11, fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", minWidth: 85 }}>
+                              {row.fullName.includes(" ") ? row.fullName.split(" ")[0] : row.fullName}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {day.slotLabels.map((label, si) => (
+                          <tr key={si} style={{ borderBottom: "1px solid var(--border)" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.02)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                            <td style={{ padding: "7px 14px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text2)", fontWeight: 600, whiteSpace: "nowrap" }}>{label}</td>
+                            {day.schedule.map(row => {
+                              const ss = statusStyle(row.slotStatus[si] ?? "OFF")
+                              return (
+                                <td key={row.employeeId} style={{ padding: "5px 8px", textAlign: "center", background: ss.bg }}>
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: ss.fg, fontFamily: "IBM Plex Mono" }}>{ss.label}</span>
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Coverage + day fairness */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+                    <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>Coverage Proof</span>
+                      <span style={{ fontSize: 11, fontFamily: "IBM Plex Mono", color: allCovDay ? "#22c55e" : "#ef4444" }}>
+                        {allCovDay ? "All slots ✓" : "Gaps detected ✗"}
+                      </span>
+                    </div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: "var(--card2)" }}>
+                          {["Slot", "Agents", "Min", ""].map((h, i) => (
+                            <th key={i} style={{ padding: "7px 12px", textAlign: i < 3 ? "left" : "center", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text3)", borderBottom: "1px solid var(--border)" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {day.coverageProof.map((item, i) => (
+                          <tr key={i} style={{ borderBottom: "1px solid var(--border)", background: item.covered ? "transparent" : "rgba(239,68,68,.06)" }}>
+                            <td style={{ padding: "7px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, whiteSpace: "nowrap" }}>{item.startTime}–{item.endTime}</td>
+                            <td style={{ padding: "7px 12px", fontWeight: 700, color: item.covered ? "#22c55e" : "#ef4444" }}>{item.agentCount}</td>
+                            <td style={{ padding: "7px 12px", color: "var(--text3)" }}>{item.required}</td>
+                            <td style={{ padding: "7px 12px", textAlign: "center", fontSize: 14 }}>
+                              {item.covered ? <span style={{ color: "#22c55e" }}>✓</span> : <span style={{ color: "#ef4444" }}>✗</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+                    <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{day.dayName} — Fairness</span>
+                    </div>
+                    <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+                      {day.dailyFairness.map(item => (
+                        <div key={item.employeeId}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600 }}>{item.fullName}</span>
+                            <span style={{ fontSize: 11, fontFamily: "IBM Plex Mono", color: "var(--text3)" }}>
+                              {item.vwicHours}h &nbsp;·&nbsp; {item.slotCount} slot{item.slotCount !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+                          <div style={{ height: 6, background: "var(--card2)", borderRadius: 3, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${(item.vwicHours / maxDayH) * 100}%`, background: "var(--accent)", borderRadius: 3, transition: "width .3s ease" }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {day.fallbackWarning && (() => {
+                  const isCritical = day.fallbackWarning!.startsWith("CRITICAL")
+                  const isWarn     = day.fallbackWarning!.startsWith("1 absence leaves")
+                  return (
+                    <div style={{
+                      background: isCritical ? "rgba(239,68,68,.08)" : isWarn ? "rgba(251,191,36,.08)" : "rgba(34,197,94,.08)",
+                      border: `1px solid ${isCritical ? "rgba(239,68,68,.3)" : isWarn ? "rgba(251,191,36,.3)" : "rgba(34,197,94,.3)"}`,
+                      borderRadius: 8, padding: "12px 18px",
+                    }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em",
+                        color: isCritical ? "#ef4444" : isWarn ? "#f59e0b" : "#22c55e", marginBottom: 5 }}>
+                        Fallback Warning
+                      </div>
+                      <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>{day.fallbackWarning}</div>
+                    </div>
+                  )
+                })()}
+              </>
+            )}
+
+            {/* Weekly fairness summary */}
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Weekly Fairness Summary</span>
+                <span style={{ fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>sorted by total VWIC hours ↑</span>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "var(--card2)" }}>
+                      {["Agent", ...weekResult.days.map(d => d.dayShort), "Total h", "Slots", "Days"].map((h, i) => (
+                        <th key={i} style={{ padding: "7px 12px", textAlign: i === 0 ? "left" : "center", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text3)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weekResult.weeklyFairness.map(item => (
+                      <tr key={item.employeeId} style={{ borderBottom: "1px solid var(--border)" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.02)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                        <td style={{ padding: "7px 12px", fontWeight: 600 }}>{item.fullName}</td>
+                        {weekResult.days.map((d, di) => {
+                          const df = d.dailyFairness.find(f => f.employeeId === item.employeeId)
+                          return (
+                            <td key={di} style={{ padding: "7px 12px", textAlign: "center", fontFamily: "IBM Plex Mono", fontSize: 11,
+                              color: df && df.vwicHours > 0 ? "#22c55e" : "var(--text3)" }}>
+                              {df && df.vwicHours > 0 ? `${df.vwicHours}h` : "—"}
+                            </td>
+                          )
+                        })}
+                        <td style={{ padding: "7px 12px", textAlign: "center", fontFamily: "IBM Plex Mono", fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>
+                          {item.totalVwicHours}h
+                        </td>
+                        <td style={{ padding: "7px 12px", textAlign: "center", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>
+                          {item.totalSlotCount}
+                        </td>
+                        <td style={{ padding: "7px 12px", textAlign: "center", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>
+                          {item.daysWorked}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )
+      })()}
     </div>
   )
 }
@@ -847,22 +1171,6 @@ export default function VWICPage() {
     }),
   })
 
-  const removeMutation = useMutation({
-    mutationFn: (employeeId: string) =>
-      fetch("/api/vwic/agents/remove", {
-        method:  "PUT",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ employeeId }),
-      }).then(async r => {
-        const d = await r.json()
-        if (!r.ok) throw new Error(d.error ?? "Server error")
-        return d
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vwic-daily", date] })
-      queryClient.invalidateQueries({ queryKey: ["vwic-candidates"] })
-    },
-  })
 
   const shift = (days: number) => {
     const d = new Date(date); d.setDate(d.getDate() + days)
@@ -884,17 +1192,16 @@ export default function VWICPage() {
   const backupAgents = data?.agents.filter(a => a.role === "Backup") ?? []
   const activeMain   = mainAgents.filter(a => !a.isAbsent).length
   const activeBackup = backupAgents.filter(a => !a.isAbsent).length
-  const hasCoverage  = (data?.coveredHours ?? 0) === (data?.totalHours ?? 11)
+  const hasCoverage  = (data?.coveredHours ?? 0) === (data?.totalHours ?? 24)
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
       {/* Modals */}
-      {assignSlot && data && (
+      {assignSlot && (
         <AssignSlotModal
           slot={assignSlot}
           date={date}
-          agents={data.agents}
           onClose={() => setAssignSlot(null)}
           onAssigned={handleAssigned}
         />
@@ -908,7 +1215,7 @@ export default function VWICPage() {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", margin: 0 }}>VWIC</h1>
           <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 3 }}>
-            Virtual Walk-In Center · 07:00 – 18:00 · at least 1 Main agent required at all times
+            Virtual Walk-In Center · 24/7 · min 1 agent (00-07 &amp; 17-24) · min 3 agents (07-17)
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -959,13 +1266,13 @@ export default function VWICPage() {
             <>
               {/* Summary cards */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-                <SummaryCard label="Main Agents"   value={`${activeMain}/${mainAgents.length}`}     color="var(--accent)" sub="available today" />
-                <SummaryCard label="Backup Pool"   value={`${activeBackup}/${backupAgents.length}`} color="var(--text2)"  sub="available today" />
-                <SummaryCard label="Coverage"      value={`${data.coveredHours}/${data.totalHours}h`}
-                  color={hasCoverage ? "#22c55e" : "#ef4444"} sub="hours with Main agent" />
-                <SummaryCard label="Gaps"          value={data.gaps.length}
+                <SummaryCard label="VWIC Assigned Today" value={`${activeMain}/${mainAgents.length}`}     color="var(--accent)" sub="with VWIC entry today" />
+                <SummaryCard label="Voice Pool"         value={`${activeBackup}/${backupAgents.length}`} color="var(--text2)"  sub="not assigned to VWIC" />
+                <SummaryCard label="Coverage"           value={`${data.coveredHours}/${data.totalHours}h`}
+                  color={hasCoverage ? "#22c55e" : "#ef4444"} sub="hours meeting minimum staffing" />
+                <SummaryCard label="Gaps"               value={data.gaps.length}
                   color={data.gaps.length === 0 ? "#22c55e" : "#ef4444"}
-                  sub={data.gaps.length === 0 ? "fully covered" : "hours without Main"} />
+                  sub={data.gaps.length === 0 ? "fully staffed 24/7" : "hours below minimum"} />
               </div>
 
               {/* Timeline */}
@@ -977,8 +1284,8 @@ export default function VWICPage() {
 
               {/* Agent tables */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 16 }}>
-                <AgentTable title="Main Agents" agents={mainAgents} />
-                <AgentTable title="Backup Pool" agents={backupAgents} onRemove={a => removeMutation.mutate(a.employeeId)} />
+                <AgentTable title="VWIC Assigned Today" agents={mainAgents} />
+                <AgentTable title="Voice Pool — Not Assigned" agents={backupAgents} />
               </div>
             </>
           )}
