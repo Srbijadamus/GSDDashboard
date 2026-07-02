@@ -155,16 +155,18 @@ public class ShiftService
         );
     }
 
-    public record CoverageSlot(string Hour, int Voice, int Wic, int Al, int Sick, int Training, int Off, bool BelowThreshold);
+    public record CoverageSlot(string Hour, int Voice, int Wic, int Al, int Sick, int Training, int Off, bool BelowThreshold, int MinRequired);
 public record CoverageResponse(string Date, List<CoverageSlot> Slots, int Threshold);
 
     public async Task<CoverageResponse> GetCoverageAsync(DateOnly date)
     {
-        const int threshold = 3;
+        // Per-hour minimum: <08:00 → 1,  08:00–17:00 → 3,  ≥17:00 → 1
+        static int MinRequired(int h) => h < 8 ? 1 : h < 17 ? 3 : 1;
+
         var shifts = await _db.ShiftEntries
             .Where(s => s.ShiftDate == date)
             .Join(_db.Employees, s => s.EmployeeId, e => e.EmployeeId, (s, e) => new { Shift = s, Employee = e })
-            .Where(x => x.Employee.IsActive)
+            .Where(x => x.Employee.IsActive && x.Employee.PrimaryRole != "2nd Level")
             .ToListAsync();
 
         var slots = new List<CoverageSlot>();
@@ -193,9 +195,10 @@ public record CoverageResponse(string Date, List<CoverageSlot> Slots, int Thresh
                     }
                 }
             }
-            slots.Add(new CoverageSlot(hour, voice, wic, al, sick, training, off, (voice + wic) < threshold));
+            int min = MinRequired(h);
+            slots.Add(new CoverageSlot(hour, voice, wic, al, sick, training, off, (voice + wic) < min, min));
         }
-        return new CoverageResponse(date.ToString("yyyy-MM-dd"), slots, threshold);
+        return new CoverageResponse(date.ToString("yyyy-MM-dd"), slots, 3);
     }
 
     public async Task<byte[]> ExportToExcelAsync(ShiftFilterParams f)

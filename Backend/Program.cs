@@ -7,6 +7,7 @@ using GSDDashboard.API.Modules.Dashboard;
 using GSDDashboard.API.Modules.Shifts;
 using GSDDashboard.API.Modules.WicShifts;
 using GSDDashboard.API.Modules.Vwic;
+using GSDDashboard.API.Modules.Breaks;
 using GSDDashboard.API.Modules.SickLeave;
 using GSDDashboard.API.Modules.Vacations;
 using GSDDashboard.API.Modules.PublicHolidays;
@@ -34,6 +35,7 @@ builder.Services.AddScoped<ShiftService>();
 builder.Services.AddScoped<WicShiftService>();
 builder.Services.AddScoped<WicCardsService>();
 builder.Services.AddScoped<VwicService>();
+builder.Services.AddScoped<BreakService>();
 builder.Services.AddScoped<SickLeaveService>();
 builder.Services.AddScoped<VacationService>();
 builder.Services.AddScoped<ShiftSyncService>();
@@ -55,6 +57,7 @@ builder.Services.AddScoped<ForecastService>();
 builder.Services.AddScoped<WhatIfService>();
 builder.Services.AddScoped<BriefingService>();
 builder.Services.AddScoped<ALPlanningService>();
+builder.Services.AddScoped<WicCoverageService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -79,6 +82,84 @@ app.UseSwaggerUI(c =>
 
 app.UseCors();
 app.UseDefaultFiles();
+
+// Ensure BreakSlots table exists (idempotent – safe on every startup)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'BreakSlots')
+        CREATE TABLE BreakSlots (
+            Id             INT            IDENTITY(1,1) PRIMARY KEY,
+            EmployeeId     NVARCHAR(20)   NOT NULL,
+            BreakDate      DATE           NOT NULL,
+            BreakStart     NVARCHAR(10)   NOT NULL,
+            BreakEnd       NVARCHAR(10)   NOT NULL,
+            ActualStart    NVARCHAR(10)   NULL,
+            ActualEnd      NVARCHAR(10)   NULL,
+            DurationMinutes INT           NOT NULL DEFAULT 30,
+            Status         NVARCHAR(20)   NOT NULL DEFAULT 'SCHEDULED',
+            AgentRole      NVARCHAR(20)   NULL
+        )
+    """);
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Break_Date')   CREATE INDEX IX_Break_Date    ON BreakSlots (BreakDate)");
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Break_Status') CREATE INDEX IX_Break_Status  ON BreakSlots (Status)");
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Break_EmpDate') CREATE INDEX IX_Break_EmpDate ON BreakSlots (EmployeeId, BreakDate)");
+}
+
+// Ensure VwicRotationSlots table exists (idempotent)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'VwicRotationSlots')
+        CREATE TABLE VwicRotationSlots (
+            Id           INT          IDENTITY(1,1) PRIMARY KEY,
+            EmployeeId   NVARCHAR(20) NOT NULL,
+            RotationDate DATE         NOT NULL,
+            SlotStart    NVARCHAR(5)  NOT NULL,
+            SlotEnd      NVARCHAR(5)  NOT NULL
+        )
+    """);
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_VwicRot_Date')    CREATE INDEX IX_VwicRot_Date    ON VwicRotationSlots (RotationDate)");
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_VwicRot_EmpDate') CREATE INDEX IX_VwicRot_EmpDate ON VwicRotationSlots (EmployeeId, RotationDate)");
+}
+
+// WIC Coverage — add columns to Employees and WicLocations, create AgentReachableCities (all idempotent)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Employees') AND name='PrimaryKid')   ALTER TABLE Employees ADD PrimaryKid   nvarchar(20)  NULL
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Employees') AND name='SecondaryKid') ALTER TABLE Employees ADD SecondaryKid nvarchar(20)  NULL
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Employees') AND name='InfosysEmail') ALTER TABLE Employees ADD InfosysEmail nvarchar(200) NULL
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Employees') AND name='EonEmail')     ALTER TABLE Employees ADD EonEmail     nvarchar(200) NULL
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Employees') AND name='HasCar')       ALTER TABLE Employees ADD HasCar       bit           NULL
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Employees') AND name='GroupRegion')  ALTER TABLE Employees ADD GroupRegion  nvarchar(100) NULL
+    """);
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('WicLocations') AND name='OpeningDay') ALTER TABLE WicLocations ADD OpeningDay nvarchar(200)  NULL
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('WicLocations') AND name='Comment')    ALTER TABLE WicLocations ADD Comment    nvarchar(1000) NULL
+    """);
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'AgentReachableCities')
+        CREATE TABLE AgentReachableCities (
+            Id           INT           IDENTITY(1,1) PRIMARY KEY,
+            EmployeeId   NVARCHAR(20)  NULL,
+            EmployeeName NVARCHAR(200) NOT NULL,
+            City         NVARCHAR(200) NOT NULL,
+            Source       NVARCHAR(20)  NOT NULL DEFAULT 'seed'
+        )
+    """);
+}
+
+// WIC Coverage — seed import (idempotent; skips if data already present)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
+    await WicCoverageImport.RunAsync(db);
+}
+
 app.UseStaticFiles();
 
 app.MapDashboardEndpoints();
@@ -106,7 +187,8 @@ app.MapForecastEndpoints();
 app.MapWhatIfEndpoints();
 app.MapBriefingEndpoints();
 app.MapALPlanningEndpoints();
-
+app.MapBreakEndpoints();
+app.MapWicCoverageEndpoints();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.MapFallbackToFile("index.html");

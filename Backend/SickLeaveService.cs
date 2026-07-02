@@ -67,7 +67,8 @@ public class SickLeaveService
         IQueryable<SickLeaveModel> query = _db.SickLeaves;
 
         if (activeOnly == true)
-            query = query.Where(s => s.FirstDay <= today && s.LastDay >= today);
+            query = query.Where(s => s.FirstDay <= today && s.LastDay >= today
+                                  && (s.LeaveType == "SL" || s.LeaveType == "Self"));
         else
             query = query.Where(s => s.FirstDay <= toDate && s.LastDay >= fromDate);
 
@@ -77,33 +78,47 @@ public class SickLeaveService
         var rows = await query.OrderBy(s => s.TeamLeadName).ThenBy(s => s.LastName).ToListAsync();
         var empIds = rows.Select(r => r.EmployeeId).Where(x => x != null).Distinct().ToList();
         var empMap = await _db.Employees.Where(e => empIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
-        return rows.Select(s => { var emp = s.EmployeeId != null && empMap.TryGetValue(s.EmployeeId, out var ev) ? ev : null; return new SickLeaveDto(s.Id, s.EmployeeId, emp?.FirstName ?? s.FirstName, emp?.LastName ?? s.LastName, emp?.FullName ?? s.FullName, emp?.TeamLeadName ?? s.TeamLeadName, s.FirstDay.ToString("yyyy-MM-dd"), s.LastDay.ToString("yyyy-MM-dd"), s.DurationDays, s.LeaveType, s.ChildName, s.Comments, s.SourceSheet); }).ToList();
+        return rows
+            .Where(s => s.EmployeeId != null && empMap.ContainsKey(s.EmployeeId))
+            .Select(s => MapSl(s, empMap[s.EmployeeId!]))
+            .ToList();
     }
 
     public async Task<List<SickLeaveDto>> GetActiveOnDateAsync(DateOnly date)
     {
         var rows = await _db.SickLeaves
-            .Where(s => s.FirstDay <= date && s.LastDay >= date)
+            .Where(s => s.FirstDay <= date && s.LastDay >= date
+                     && (s.LeaveType == "SL" || s.LeaveType == "Self"))
             .OrderBy(s => s.TeamLeadName)
             .ThenBy(s => s.LastName)
             .ToListAsync();
         var empIds = rows.Select(r => r.EmployeeId).Where(x => x != null).Distinct().ToList();
         var empMap = await _db.Employees.Where(e => empIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
-        return rows.Select(s => { var emp = s.EmployeeId != null && empMap.TryGetValue(s.EmployeeId, out var ev) ? ev : null; return new SickLeaveDto(s.Id, s.EmployeeId, emp?.FirstName ?? s.FirstName, emp?.LastName ?? s.LastName, emp?.FullName ?? s.FullName, emp?.TeamLeadName ?? s.TeamLeadName, s.FirstDay.ToString("yyyy-MM-dd"), s.LastDay.ToString("yyyy-MM-dd"), s.DurationDays, s.LeaveType, s.ChildName, s.Comments, s.SourceSheet); }).ToList();
+        return rows
+            .Where(s => s.EmployeeId != null && empMap.ContainsKey(s.EmployeeId))
+            .Select(s => MapSl(s, empMap[s.EmployeeId!]))
+            .ToList();
     }
 
     public async Task<SickLeaveStatsDto> GetStatsAsync(string? from, string? to)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
         var active = await _db.SickLeaves
-            .Where(s => s.FirstDay <= today && s.LastDay >= today)
+            .Where(s => s.FirstDay <= today && s.LastDay >= today
+                     && (s.LeaveType == "SL" || s.LeaveType == "Self"))
             .ToListAsync();
+        var activeEmpIds = active.Select(s => s.EmployeeId).Where(x => x != null).Distinct().ToList();
+        var activeEmpMap = await _db.Employees.Where(e => activeEmpIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
+        active = active.Where(s => s.EmployeeId != null && activeEmpMap.ContainsKey(s.EmployeeId)).ToList();
         var avgDuration = active.Any()
             ? active.Where(s => s.DurationDays.HasValue).Average(s => (double)s.DurationDays!.Value)
             : 0;
 
         var byTL = active
-            .GroupBy(s => s.TeamLeadName?.Trim() ?? "Unknown")
+            .GroupBy(s => {
+                activeEmpMap.TryGetValue(s.EmployeeId ?? "", out var emp);
+                return (emp?.TeamLeadName ?? s.TeamLeadName)?.Trim() ?? "Unknown";
+            })
             .Select(g => new TLBreakdownDto(g.Key, g.Count()))
             .OrderByDescending(x => x.Count)
             .ToList();
@@ -115,6 +130,18 @@ public class SickLeaveService
             active.Count(s => s.LeaveType == "Child"),
             byTL
         );
+    }
+
+    private static SickLeaveDto MapSl(SickLeaveModel s, Employee? emp = null)
+    {
+        var fullName = !string.IsNullOrWhiteSpace(emp?.FullName)  ? emp!.FullName
+                     : !string.IsNullOrWhiteSpace(emp?.FirstName) ? $"{emp.FirstName} {emp.LastName}".Trim()
+                     : !string.IsNullOrWhiteSpace(s.FirstName)    ? $"{s.FirstName} {s.LastName}".Trim()
+                     : null;
+        var teamLead = emp?.TeamLeadName ?? s.TeamLeadName;
+        return new SickLeaveDto(s.Id, s.EmployeeId, null, null, fullName, teamLead,
+            s.FirstDay.ToString("yyyy-MM-dd"), s.LastDay.ToString("yyyy-MM-dd"),
+            s.DurationDays, s.LeaveType, s.ChildName, s.Comments, s.SourceSheet);
     }
 
     public async Task<SickLeaveDto> CreateAsync(CreateSickLeaveRequest req)

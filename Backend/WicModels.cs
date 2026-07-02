@@ -60,3 +60,13 @@ public class LeaveQuota
     [MaxLength(200)] public string? CreatedBy { get; set; }
 }
 
+[Table("VwicRotationSlots")]
+public class VwicRotationSlot
+{
+    [Key] public int Id { get; set; }
+    [Required, MaxLength(20)] public string EmployeeId   { get; set; } = "";
+    public DateOnly RotationDate { get; set; }
+    [MaxLength(5)] public string SlotStart { get; set; } = "";
+    [MaxLength(5)] public string SlotEnd   { get; set; } = "";
+}
+

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useState, useEffect } from "react"
 import {
   LayoutDashboard, Users, Calendar, Heart, MapPin,
-  ClipboardList, Building2, Scale, Globe, Search, Headphones
+  ClipboardList, Building2, Scale, Globe, Search, Headphones, Coffee, ShieldCheck
 } from "lucide-react"
 import { ThemeToggle } from "./components/ThemeToggle"
 import { CommandPalette } from "./components/CommandPalette"
@@ -24,6 +24,8 @@ import ALBalance from "./pages/ALBalance"
 import Attendance from "./pages/Attendance"
 import ALCalendar from "./pages/ALCalendar"
 import VWICPage from "./pages/VWICPage"
+import BreakPlanner from "./pages/BreakPlanner"
+import WicCoverage from "./pages/WicCoverage"
 
 function LangToggle() {
   const { i18n } = useTranslation()
@@ -70,6 +72,7 @@ function AppLayout() {
     { to: "/shifts",          icon: ClipboardList,   label: t("nav.shifts") },
     { to: "/wic-shifts",      icon: Building2,       label: t("nav.wicShifts") },
     { to: "/vwic",            icon: Headphones,      label: "VWIC" },
+    { to: "/breaks",          icon: Coffee,          label: "Break Planner" },
     { to: "/wic-attendance",  icon: Calendar,        label: "WIC Attendance" },
     { to: "/wic-schedule",    icon: MapPin,          label: "WIC Schedule" },
     { to: "/pipeline",        icon: ClipboardList,   label: "Pipeline" },
@@ -81,6 +84,7 @@ function AppLayout() {
     { to: "/albalance",       icon: Scale,           label: t("nav.alBalance") },
     { to: "/alcalendar",      icon: Calendar,        label: "AL Calendar" },
     { to: "/employees",       icon: Users,           label: t("nav.employees") },
+    { to: "/wic-coverage",    icon: ShieldCheck,     label: "WIC Coverage" },
   ]
 
   return (
@@ -187,6 +191,7 @@ function AppLayout() {
             <Route path="/shifts"          element={<Shifts />} />
             <Route path="/wic-shifts"      element={<WicShifts />} />
             <Route path="/vwic"            element={<VWICPage />} />
+            <Route path="/breaks"          element={<BreakPlanner />} />
             <Route path="/wic-attendance"  element={<WicAttendance />} />
             <Route path="/wic-schedule"    element={<WicSchedule />} />
             <Route path="/pipeline"        element={<Pipeline />} />
@@ -198,6 +203,7 @@ function AppLayout() {
             <Route path="/albalance"       element={<ALBalance />} />
             <Route path="/alcalendar"      element={<ALCalendar />} />
             <Route path="/employees"       element={<Employees />} />
+            <Route path="/wic-coverage"    element={<WicCoverage />} />
           </Routes>
         </main>
       </div>

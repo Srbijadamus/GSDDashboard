@@ -592,11 +592,38 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
   const [weekLoading,        setWeekLoading]        = useState(false)
   const [weekError,          setWeekError]          = useState<string | null>(null)
   const [activeDay,          setActiveDay]          = useState(0)
+  const [saveLoading,        setSaveLoading]        = useState(false)
+  const [saveMsg,            setSaveMsg]            = useState<string | null>(null)
+
+  const saveRotation = async () => {
+    if (!result) return
+    setSaveLoading(true)
+    setSaveMsg(null)
+    try {
+      const res = await fetch("/api/vwic/rotation-plan/save", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date:       result.date,
+          slotLabels: result.slotLabels,
+          schedule:   result.schedule.map(r => ({ employeeId: r.employeeId, slotStatus: r.slotStatus })),
+        }),
+      })
+      if (!res.ok) throw new Error("Server error")
+      const data = await res.json()
+      setSaveMsg(`Saved ${data.saved} slot assignments for ${result.date}`)
+    } catch {
+      setSaveMsg("Save failed — please try again")
+    } finally {
+      setSaveLoading(false)
+    }
+  }
 
   const calculate = async () => {
     setLoading(true)
     setError(null)
     setWeekResult(null)
+    setSaveMsg(null)
     try {
       const res = await fetch("/api/vwic/rotation-plan", {
         method:  "POST",
@@ -754,8 +781,25 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
           >
             {weekLoading ? "Planning…" : "Plan Week"}
           </button>
+          {result && (
+            <button
+              onClick={saveRotation} disabled={saveLoading}
+              style={{
+                background: "#16a34a", color: "#fff", border: "none",
+                padding: "9px 22px", borderRadius: 6, fontSize: 13, fontWeight: 600,
+                cursor: saveLoading ? "wait" : "pointer", opacity: saveLoading ? 0.7 : 1,
+              }}
+            >
+              {saveLoading ? "Saving…" : "Save Rotation"}
+            </button>
+          )}
           {error     && <span style={{ fontSize: 12, color: "#ef4444" }}>{error}</span>}
           {weekError && <span style={{ fontSize: 12, color: "#ef4444" }}>{weekError}</span>}
+          {saveMsg   && (
+            <span style={{ fontSize: 12, color: saveMsg.includes("failed") ? "#ef4444" : "#22c55e" }}>
+              {saveMsg}
+            </span>
+          )}
         </div>
       </div>
 

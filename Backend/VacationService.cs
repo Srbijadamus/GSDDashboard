@@ -10,7 +10,7 @@ public record VacationDto(
     int Id, string? EmployeeId, string? LastName, string? FirstName,
     string FirstDay, string LastDay, int? WorkDaysNet,
     string? Comments, string? ApprovedDenied, string? ApproverName,
-    string? SourceSheet, bool IsOverhead
+    string? SourceSheet, bool IsOverhead, string? TeamLeadName
 );
 
 public record DailyLeaveCountDto(
@@ -42,7 +42,12 @@ public class VacationService
             q = q.Where(v => v.EmployeeId == employeeId);
 
         var rows = await q.OrderBy(v => v.FirstDay).ToListAsync();
-        return rows.Select(Map).ToList();
+        var empIds = rows.Select(r => r.EmployeeId).Where(x => x != null).Distinct().ToList();
+        var empMap = await _db.Employees.Where(e => empIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
+        return rows
+            .Where(v => v.EmployeeId != null && empMap.ContainsKey(v.EmployeeId))
+            .Select(v => Map(v, empMap[v.EmployeeId!]))
+            .ToList();
     }
 
     public async Task<List<VacationDto>> GetActiveOnDateAsync(DateOnly date)
@@ -51,7 +56,7 @@ public class VacationService
             .Where(v => v.FirstDay <= date && v.LastDay >= date)
             .OrderBy(v => v.LastName)
             .ToListAsync();
-        return rows.Select(Map).ToList();
+        return rows.Select(v => Map(v)).ToList();
     }
 
     public async Task<List<VacationDto>> GetUpcomingAsync(int days)
@@ -62,7 +67,12 @@ public class VacationService
             .Where(v => v.FirstDay >= today && v.FirstDay <= future)
             .OrderBy(v => v.FirstDay)
             .ToListAsync();
-        return rows.Select(Map).ToList();
+        var empIds = rows.Select(r => r.EmployeeId).Where(x => x != null).Distinct().ToList();
+        var empMap = await _db.Employees.Where(e => empIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
+        return rows
+            .Where(v => v.EmployeeId != null && empMap.ContainsKey(v.EmployeeId))
+            .Select(v => Map(v, empMap[v.EmployeeId!]))
+            .ToList();
     }
 
 
@@ -145,11 +155,14 @@ public class VacationService
         return ms.ToArray();
     }
 
-    private static VacationDto Map(Vacation v) => new(
-        v.Id, v.EmployeeId, v.LastName, v.FirstName,
+    private static VacationDto Map(Vacation v, Employee? emp = null) => new(
+        v.Id, v.EmployeeId,
+        "",
+        emp?.FullName ?? v.FirstName,
         v.FirstDay.ToString("yyyy-MM-dd"), v.LastDay.ToString("yyyy-MM-dd"),
-        v.WorkDaysNet, v.Comments, v.ApprovedDenied, v.ApproverName,
-        v.SourceSheet, v.IsOverhead
+        v.WorkDaysNet ?? (v.LastDay.DayNumber - v.FirstDay.DayNumber + 1),
+        v.Comments, v.ApprovedDenied, v.ApproverName,
+        v.SourceSheet, v.IsOverhead, emp?.TeamLeadName
     );
 }
 

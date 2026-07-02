@@ -72,6 +72,10 @@ public class ForecastService
         var shiftByEmpDate = shiftEntries
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
             .ToDictionary(g => g.Key, g => g.First());
+        // Bulk-load sick leaves covering the forecast window for cross-check
+        var sickLeaves = await _db.SickLeaves
+            .Where(sl => sl.EmployeeId != null && sl.FirstDay <= endDate && sl.LastDay >= startDate)
+            .ToListAsync();
 
         var locationResults = new List<ForecastLocationDto>();
 
@@ -120,7 +124,9 @@ public class ForecastService
                 foreach (var w in dayWic)
                 {
                     shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
-                    if (sh != null && _fullAbsenceTypes.Contains(sh.ShiftType))
+                    bool isSick = sickLeaves.Any(sl =>
+                        sl.EmployeeId == w.EmployeeId && sl.FirstDay <= date && sl.LastDay >= date);
+                    if (isSick || (sh != null && _fullAbsenceTypes.Contains(sh.ShiftType)))
                         fullAbsentCount++;
                     else if (sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
                         presentDouble += 0.5;

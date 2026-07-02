@@ -23,6 +23,9 @@ public class GSDContext : DbContext
     public DbSet<TrainingSession>    TrainingSessions    { get; set; }
     public DbSet<LeaveQuota>         LeaveQuotas         { get; set; }
     public DbSet<SubstitutionHistory> SubstitutionHistory { get; set; } = null!;
+    public DbSet<BreakSlot>           BreakSlots           { get; set; }
+    public DbSet<VwicRotationSlot>    VwicRotationSlots    { get; set; }
+    public DbSet<AgentReachableCity>  AgentReachableCities { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -83,6 +86,16 @@ public class GSDContext : DbContext
         modelBuilder.Entity<SubstitutionHistory>(e => {
             e.HasIndex(x => x.EmployeeId).HasDatabaseName("IX_SubHist_Emp");
             e.HasIndex(x => x.Date).HasDatabaseName("IX_SubHist_Date");
+        });
+        modelBuilder.Entity<BreakSlot>(e => {
+            e.Property(b => b.Status).HasConversion<string>();  // DB column is NVARCHAR(20)
+            e.HasIndex(x => x.BreakDate).HasDatabaseName("IX_Break_Date");
+            e.HasIndex(x => x.Status).HasDatabaseName("IX_Break_Status");
+            e.HasIndex(x => new { x.EmployeeId, x.BreakDate }).HasDatabaseName("IX_Break_EmpDate");
+        });
+        modelBuilder.Entity<VwicRotationSlot>(e => {
+            e.HasIndex(x => x.RotationDate).HasDatabaseName("IX_VwicRot_Date");
+            e.HasIndex(x => new { x.EmployeeId, x.RotationDate }).HasDatabaseName("IX_VwicRot_EmpDate");
         });
         base.OnModelCreating(modelBuilder);
     }

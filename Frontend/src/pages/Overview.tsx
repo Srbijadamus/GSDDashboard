@@ -1,10 +1,10 @@
 import "leaflet/dist/leaflet.css"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useTheme } from "next-themes"
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet"
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet"
 import { AlertTriangle, Users, Calendar } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { api, apiFetch } from "../api/client"
@@ -12,7 +12,7 @@ import { Sheet } from "../components/Sheet"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface DayForecast { date: string; status: string; expectedAgents: number; minRequired: number }
+interface DayForecast { date: string; status: string; effectiveCoverage: number; minRequired: number }
 interface LocationForecast {
   locationCode: string; displayName: string; city: string; country: string
   coordinates: string | null; forecast: DayForecast[]; atRiskDays: number; todayStatus: string
@@ -97,6 +97,21 @@ function ThemedTileLayer() {
   )
 }
 
+const GERMANY_BOUNDS: [[number, number], [number, number]] = [[47.2, 5.8], [55.1, 15.1]]
+
+function GermanyBoundsLock() {
+  const map = useMap()
+  useEffect(() => {
+    map.setMinZoom(6)
+    map.setMaxBounds(GERMANY_BOUNDS)
+    setTimeout(() => {
+      map.invalidateSize()
+      map.fitBounds(GERMANY_BOUNDS, { padding: [0, 0] })
+    }, 100)
+  }, [map])
+  return null
+}
+
 interface WicMapProps {
   locations: WicLocation[]
   forecast: LocationForecast[]
@@ -126,11 +141,14 @@ function WicMapView({ locations, forecast, onPinClick }: WicMapProps) {
       <MapContainer
         center={[51.1657, 10.4515]}
         zoom={6}
-        minZoom={5}
+        minZoom={6}
         maxZoom={12}
-        style={{ height: 380 }}
+        maxBounds={GERMANY_BOUNDS}
+        maxBoundsViscosity={1.0}
+        style={{ height: 560, maxWidth: 520, margin: "0 auto", borderRadius: 12 }}
         scrollWheelZoom={false}
       >
+        <GermanyBoundsLock />
         <ThemedTileLayer />
         {withCoords.map(loc => {
           const coords = parseCoords(loc.coordinates)!
@@ -163,7 +181,7 @@ function WicMapView({ locations, forecast, onPinClick }: WicMapProps) {
                   }}>{status}</span>
                   {todayDF != null && (
                     <div style={{ marginTop: 8, fontSize: 11, color: "#666" }}>
-                      <span style={{ fontFamily: "monospace" }}>{todayDF.expectedAgents} / {todayDF.minRequired}</span>
+                      <span style={{ fontFamily: "monospace" }}>{todayDF.effectiveCoverage} / {todayDF.minRequired}</span>
                       {" agents today"}
                     </div>
                   )}
@@ -425,6 +443,17 @@ export default function Overview() {
   const coveragePct = totalOpen > 0 ? Math.round((coveredToday / totalOpen) * 100) : 0
   const absentToday  = briefing?.absences?.length ?? 0
   const closureRisk  = briefing?.nextAtRiskDays?.length ?? briefing?.gaps?.filter(g => g.gapDate !== today).length ?? 0
+  const sickToday    = briefing?.absences?.filter((a: any) => (a.shiftType ?? "").toUpperCase() === "SL").length ?? 0
+  const alToday      = briefing?.absences?.filter((a: any) => ["AL","HALF_AL"].includes((a.shiftType ?? "").toUpperCase())).length ?? 0
+  const gapsToday    = briefing?.gaps?.filter(g => g.gapDate === today).length ?? 0
+  const topAtRisk    = (forecast ?? [])
+    .filter(lf => lf.todayStatus === "UNCOVERED" || lf.todayStatus === "PARTIAL")
+    .map(lf => {
+      const df = lf.forecast?.find(d => d.date === today)
+      const gap = df ? Math.max(0, (df.minRequired ?? 0) - (df.effectiveCoverage ?? 0)) : 1
+      return { name: lf.displayName, status: lf.todayStatus, gap }
+    })
+    .slice(0, 5)
 
   // ── Heatmap dates ─────────────────────────────────────────────────────────────
   const heatDates = Array.from({ length: horizon }, (_, i) => {
@@ -556,21 +585,116 @@ export default function Overview() {
         )}
       </div>
 
-      {/* ── C. WIC Map ── */}
+      {/* ── C. WIC Map + Side Panels ── */}
       <div>
         <SectionHeader title={t("overview.map.title")} />
-        {(locations?.length ?? 0) > 0 ? (
-          <WicMapView
-            locations={locations ?? []}
-            forecast={forecast ?? []}
-            onPinClick={(code) => {
-              const lf = forecast?.find(f => f.locationCode === code)
-              if (lf) { setSheetCell({ locationCode: code, date: today, displayName: lf.displayName }); setSheetOpen(true) }
-            }}
-          />
-        ) : (
-          <div className="skeleton" style={{ height: 200, borderRadius: 8 }} />
-        )}
+        <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+
+          {/* ── Left: Coverage Status ── */}
+          <div style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Big coverage % */}
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "16px", textAlign: "center" }}>
+              <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>Coverage</div>
+              <div style={{ fontSize: 48, fontWeight: 700, fontFamily: "IBM Plex Mono", lineHeight: 1,
+                color: coveragePct >= 80 ? "var(--green)" : coveragePct >= 50 ? "var(--warn)" : "var(--danger)" }}>
+                {forecastLoading ? "—" : `${coveragePct}%`}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>of open locations covered</div>
+            </div>
+            {/* Open / covered / at-risk counts */}
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                { label: "Open today",   val: totalOpen,    color: "var(--accent)" },
+                { label: "Covered",      val: coveredToday, color: "var(--green)"  },
+                { label: "At risk",      val: atRiskToday,  color: "var(--danger)" },
+              ].map(({ label, val, color }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: "var(--text3)" }}>{label}</span>
+                  <span style={{ fontFamily: "IBM Plex Mono", fontWeight: 700, fontSize: 16, color }}>{val}</span>
+                </div>
+              ))}
+            </div>
+            {/* Top at-risk locations */}
+            {topAtRisk.length > 0 && (
+              <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px" }}>
+                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--danger)", marginBottom: 8 }}>
+                  At-risk today
+                </div>
+                {topAtRisk.map((loc, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "5px 0", borderBottom: i < topAtRisk.length - 1 ? "1px solid var(--border)" : "none" }}>
+                    <span style={{ fontSize: 11, color: "var(--text2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>
+                      {loc.name}
+                    </span>
+                    <span style={{
+                      fontSize: 10, fontFamily: "IBM Plex Mono", fontWeight: 700,
+                      padding: "1px 6px", borderRadius: 4,
+                      background: loc.status === "UNCOVERED" ? "rgba(255,59,92,.15)" : "rgba(255,124,59,.15)",
+                      color: loc.status === "UNCOVERED" ? "var(--danger)" : "var(--warn)",
+                    }}>
+                      {loc.gap > 0 ? `-${loc.gap}` : "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Centre: Map ── */}
+          <div style={{ flexShrink: 0, width: 520 }}>
+            {(locations?.length ?? 0) > 0 ? (
+              <WicMapView
+                locations={locations ?? []}
+                forecast={forecast ?? []}
+                onPinClick={(code) => {
+                  const lf = forecast?.find(f => f.locationCode === code)
+                  if (lf) { setSheetCell({ locationCode: code, date: today, displayName: lf.displayName }); setSheetOpen(true) }
+                }}
+              />
+            ) : (
+              <div className="skeleton" style={{ height: 480, borderRadius: 8 }} />
+            )}
+          </div>
+
+          {/* ── Right: Today in Numbers ── */}
+          <div style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Absent summary */}
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "16px", textAlign: "center" }}>
+              <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>Absent today</div>
+              <div style={{ fontSize: 48, fontWeight: 700, fontFamily: "IBM Plex Mono", lineHeight: 1, color: "var(--yellow)" }}>
+                {briefingLoading ? "—" : absentToday}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>agents not on shift</div>
+            </div>
+            {/* Absence breakdown */}
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                { label: "Sick leave",    val: sickToday,   color: "var(--danger)" },
+                { label: "Annual leave",  val: alToday,     color: "var(--accent)"  },
+                { label: "Other absence", val: Math.max(0, absentToday - sickToday - alToday), color: "var(--text3)" },
+              ].map(({ label, val, color }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: "var(--text3)" }}>{label}</span>
+                  <span style={{ fontFamily: "IBM Plex Mono", fontWeight: 700, fontSize: 16, color }}>{val}</span>
+                </div>
+              ))}
+            </div>
+            {/* WIC gaps + risk radar */}
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                { label: "Gaps today",         val: gapsToday,    color: gapsToday > 0 ? "var(--danger)" : "var(--green)" },
+                { label: "At-risk next 7 days", val: riskRadar.length, color: riskRadar.length > 0 ? "var(--warn)" : "var(--green)" },
+                { label: "Total WIC locations", val: (locations?.length ?? 0), color: "var(--text2)" },
+              ].map(({ label, val, color }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: "var(--text3)" }}>{label}</span>
+                  <span style={{ fontFamily: "IBM Plex Mono", fontWeight: 700, fontSize: 16, color }}>{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </div>
 
       {/* ── D. Recommendations ── */}
@@ -621,28 +745,52 @@ export default function Overview() {
       {(briefing?.absences?.length ?? 0) > 0 && (
         <div>
           <SectionHeader title={t("overview.absences.title")} count={briefing!.absences.length} color="var(--yellow)" />
-          <WarningBanner msg={t("overview.absences.noTeamLead")} />
           <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden", marginTop: 8 }}>
-            {briefing!.absences.map((ab, i) => (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "9px 14px",
-                borderBottom: "1px solid var(--border)", fontSize: 12
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+            {briefing!.absences.map((ab: any, i: number) => {
+              const typeColors: Record<string, [string, string]> = {
+                SL:      ["rgba(239,68,68,.15)",    "#ef4444"],
+                AL:      ["rgba(59,130,246,.15)",   "#60a5fa"],
+                HALF_AL: ["rgba(59,130,246,.10)",   "#93c5fd"],
+                UL:      ["rgba(148,163,184,.12)",  "#94a3b8"],
+                CD:      ["rgba(34,197,94,.15)",    "#22c55e"],
+                PH:      ["rgba(148,163,184,.12)",  "#94a3b8"],
+                LPH:     ["rgba(148,163,184,.12)",  "#94a3b8"],
+              }
+              const typeLabel: Record<string, string> = {
+                SL:"SL", AL:"AL", HALF_AL:"½AL", UL:"UL", CD:"CD", PH:"PH", LPH:"PH"
+              }
+              const key = (ab.shiftType ?? "").toUpperCase()
+              const [bg, fg] = typeColors[key] ?? ["rgba(148,163,184,.12)", "#94a3b8"]
+              const label = typeLabel[key] ?? ab.shiftType
+              const showRange = ab.firstDay && ab.lastDay && ab.firstDay !== ab.lastDay
+              return (
+                <div key={i} style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "9px 14px",
+                  borderBottom: "1px solid var(--border)", fontSize: 12
+                }}>
                   <Users size={12} style={{ color: "var(--text3)", flexShrink: 0 }} />
-                  <span style={{ fontWeight: 500, color: "var(--text)" }}>{ab.fullName}</span>
-                  <span style={{ fontSize: 10, fontFamily: "IBM Plex Mono", color: "var(--text3)" }}>{ab.employeeId}</span>
+                  <span style={{ fontWeight: 500, color: "var(--text)", minWidth: 160 }}>{ab.fullName}</span>
+                  <span style={{ fontSize: 10, fontFamily: "IBM Plex Mono", color: "var(--text3)", minWidth: 72 }}>{ab.employeeId}</span>
+                  <span style={{
+                    background: bg, color: fg,
+                    padding: "2px 7px", borderRadius: 4, fontSize: 10,
+                    fontFamily: "IBM Plex Mono", fontWeight: 700, minWidth: 32, textAlign: "center"
+                  }}>{label}</span>
+                  <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text2)", flex: 1 }}>
+                    {ab.firstDay}
+                    {showRange && <span style={{ color: "var(--text3)" }}> → {ab.lastDay}</span>}
+                  </span>
+                  <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>
+                    {ab.totalDays}d
+                    {ab.daysSoFar > 0 && ab.daysSoFar < ab.totalDays &&
+                      <span style={{ color: "var(--text3)", fontSize: 10 }}> ({ab.daysSoFar} so far)</span>}
+                  </span>
+                  {ab.wicLocation && (
+                    <span style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>{ab.wicLocation}</span>
+                  )}
                 </div>
-                <span style={{
-                  background: ab.leaveType === "SickLeave" ? "rgba(255,124,59,.15)" : "rgba(59,126,255,.15)",
-                  color: ab.leaveType === "SickLeave" ? "var(--warn)" : "var(--accent)",
-                  padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono", fontWeight: 600
-                }}>{ab.leaveType}</span>
-                {ab.locationCode && (
-                  <span style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>{ab.locationCode}</span>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

@@ -75,11 +75,29 @@ export const api = {
     getById:  (id: string)      => apiFetch<any>(`/api/employees/${id}`),
     timeline: (id: string)      => apiFetch<any>(`/api/employees/${id}/timeline`),
   },
+  breaks: {
+    get:          (date?: string)  => apiFetch<any[]>(`/api/breaks${date ? "?date=" + date : ""}`),
+    distribute:   (body: any)      => apiFetch<any>("/api/breaks/auto-distribute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    start:        (id: number)     => apiFetch<any>(`/api/breaks/${id}/start`,  { method: "POST" }),
+    end:          (id: number)     => apiFetch<any>(`/api/breaks/${id}/end`,    { method: "POST" }),
+    cancel:       (id: number)     => apiFetch<any>(`/api/breaks/${id}/cancel`, { method: "POST" }),
+    manual:       (body: any)      => apiFetch<any>("/api/breaks/manual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  },
   attendance: {
     get:          (params: string) => apiFetch<any[]>(`/api/attendance?${params}`),
     downloadToday: () => downloadExcel(`/api/attendance/download?from=${today()}&to=${today()}`, `Attendance_${today()}.xlsx`),
     download7:     () => downloadExcel(`/api/attendance/download?from=${daysAgo(7)}&to=${today()}`, `Attendance_7days.xlsx`),
     download30:    () => downloadExcel(`/api/attendance/download?from=${daysAgo(30)}&to=${today()}`, `Attendance_30days.xlsx`),
+  },
+  wicCoverage: {
+    patchAgent: (kid: string, body: object) =>
+      fetch(`${API_BASE}/api/wic-coverage/agents/${encodeURIComponent(kid)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      }),
+    pinBackupB: (code: string, body: object) =>
+      fetch(`${API_BASE}/api/wic-coverage/wics/${encodeURIComponent(code)}/backup-b`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      }),
   },
 }
 

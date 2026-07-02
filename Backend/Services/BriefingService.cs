@@ -11,7 +11,11 @@ public record BriefingAbsenceDto(
     string? FullName,
     string? TeamLead,
     string ShiftType,
-    string? WicLocation   // DisplayName of their primary WIC assignment (if any)
+    string? WicLocation,
+    string? FirstDay,
+    string? LastDay,
+    int TotalDays,
+    int DaysSoFar
 );
 
 public record BriefingGapDto(
@@ -94,6 +98,17 @@ public class BriefingService
 
         var empById = allEmployees.ToDictionary(e => e.EmployeeId, StringComparer.OrdinalIgnoreCase);
 
+        var sickToday = await _db.SickLeaves
+            .Where(s => s.FirstDay <= date && s.LastDay >= date && s.EmployeeId != null)
+            .ToListAsync();
+        var vacToday = await _db.Vacations
+            .Where(v => v.FirstDay <= date && v.LastDay >= date && v.EmployeeId != null)
+            .ToListAsync();
+        var sickByEmp = sickToday.GroupBy(s => s.EmployeeId!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.FirstDay).First(), StringComparer.OrdinalIgnoreCase);
+        var vacByEmp  = vacToday.GroupBy(v => v.EmployeeId!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(v => v.FirstDay).First(), StringComparer.OrdinalIgnoreCase);
+
         // Build WIC location lookup per employee name (for absence -> WIC link)
         var mainWicByEmpName = allAssignments
             .Where(a => a.AssignmentType == "MAIN")
@@ -112,16 +127,26 @@ public class BriefingService
             return null;
         }
 
-        var absences = absenceShifts.Select(s =>
-        {
-            empById.TryGetValue(s.EmployeeId, out var emp);
-            return new BriefingAbsenceDto(
-                s.EmployeeId,
-                emp?.FullName,
-                emp?.TeamLeadName,
-                s.ShiftType,
-                ResolveWicDisplay(s.EmployeeId));
-        }).OrderBy(a => a.FullName).ToList();
+        var absences = absenceShifts
+            .Where(s => empById.ContainsKey(s.EmployeeId))
+            .Select(s =>
+            {
+                var emp = empById[s.EmployeeId];
+                var isAl = s.ShiftType.Equals("AL", StringComparison.OrdinalIgnoreCase)
+                        || s.ShiftType.Equals("HALF_AL", StringComparison.OrdinalIgnoreCase);
+                DateOnly first = date, last = date;
+                if (isAl && vacByEmp.TryGetValue(s.EmployeeId, out var vac))
+                    { first = vac.FirstDay; last = vac.LastDay; }
+                else if (!isAl && sickByEmp.TryGetValue(s.EmployeeId, out var sl))
+                    { first = sl.FirstDay; last = sl.LastDay; }
+                int total    = last.DayNumber  - first.DayNumber + 1;
+                int soFar    = date.DayNumber  - first.DayNumber + 1;
+                return new BriefingAbsenceDto(
+                    s.EmployeeId, emp.FullName, emp.TeamLeadName, s.ShiftType,
+                    ResolveWicDisplay(s.EmployeeId),
+                    first.ToString("yyyy-MM-dd"), last.ToString("yyyy-MM-dd"),
+                    total, soFar);
+            }).OrderBy(a => a.FullName).ToList();
 
         // ── Gaps today ────────────────────────────────────────────────────────
         int todayDow = (int)date.DayOfWeek;
@@ -147,7 +172,8 @@ public class BriefingService
             foreach (var w in dayWic)
             {
                 shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
-                if (sh != null && _fullAbsenceTypes.Contains(sh.ShiftType)) continue;
+                bool isSick = sickToday.Any(sl => sl.EmployeeId == w.EmployeeId);
+                if (isSick || (sh != null && _fullAbsenceTypes.Contains(sh.ShiftType))) continue;
                 presentDouble += (sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
                     ? 0.5 : 1.0;
             }

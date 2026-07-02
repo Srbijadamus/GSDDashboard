@@ -35,6 +35,18 @@ public class WicLocation
     [MaxLength(50)]  public string? Bundesland { get; set; }      // for regional holiday matching
     [MaxLength(50)]  public string? LocationCodeLegacy { get; set; } // old-style code used in WicAgentAssignments (e.g. DE_Dortmund)
     public bool IsActive { get; set; } = true;
+    [MaxLength(200)]  public string? OpeningDay { get; set; }
+    [MaxLength(1000)] public string? Comment    { get; set; }
+}
+
+[Table("AgentReachableCities")]
+public class AgentReachableCity
+{
+    [Key] public int Id { get; set; }
+    [MaxLength(20)]  public string? EmployeeId   { get; set; }
+    [Required, MaxLength(200)] public string EmployeeName { get; set; } = "";
+    [Required, MaxLength(200)] public string City         { get; set; } = "";
+    [Required, MaxLength(20)]  public string Source       { get; set; } = "seed";
 }
 
 [Table("SickLeaves")]

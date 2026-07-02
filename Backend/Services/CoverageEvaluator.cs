@@ -102,7 +102,33 @@ public class CoverageEvaluator
             .Select(w => w.EmployeeId)
             .ToList();
 
+        // Cross-check SickLeaves and ShiftEntries: an agent with IsOnSite=1 who is on
+        // sick leave or an absence ShiftType must never be counted as present — stale
+        // import data in WicShiftEntries should not override the actual absence record.
+        var absenceTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "SL", "AL", "UL", "OFF", "OFF_WEEKEND", "PH", "LPH", "HALF_AL" };
+
+        var sickIds = scheduledIds.Count > 0
+            ? await _db.SickLeaves
+                .Where(sl => scheduledIds.Contains(sl.EmployeeId)
+                          && sl.FirstDay <= date && sl.LastDay >= date)
+                .Select(sl => sl.EmployeeId)
+                .ToListAsync()
+            : [];
+
+        var shiftAbsentIds = scheduledIds.Count > 0
+            ? await _db.ShiftEntries
+                .Where(s => scheduledIds.Contains(s.EmployeeId)
+                         && s.ShiftDate == date
+                         && absenceTypes.Contains(s.ShiftType))
+                .Select(s => s.EmployeeId)
+                .ToListAsync()
+            : [];
+
         var absentSet = new HashSet<string>(absentEmployeeIds, StringComparer.OrdinalIgnoreCase);
+        absentSet.UnionWith(sickIds);
+        absentSet.UnionWith(shiftAbsentIds);
+
         int present = scheduledIds.Count(id => !absentSet.Contains(id));
 
         return Classify(false, present, minRequired);

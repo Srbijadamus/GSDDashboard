@@ -23,5 +23,11 @@ public class Employee
     public DateOnly? Birthday { get; set; }
     [MaxLength(20)]  public string? SourceSheet { get; set; }
     [MaxLength(50)]  public string? Bundesland { get; set; }
+    [MaxLength(20)]  public string? PrimaryKid   { get; set; }
+    [MaxLength(20)]  public string? SecondaryKid  { get; set; }
+    [MaxLength(200)] public string? InfosysEmail  { get; set; }
+    [MaxLength(200)] public string? EonEmail      { get; set; }
+    public bool?     HasCar      { get; set; }
+    [MaxLength(100)] public string? GroupRegion   { get; set; }
 }
 

@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Modules.Breaks;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Modules.Vwic;
@@ -145,6 +146,11 @@ public record VwicWeekResponse(
     List<VwicWeekFairnessItem> WeeklyFairness
 );
 
+// ─── Save Rotation DTOs ───────────────────────────────────────────────────────
+
+public record SaveRotationSlotRow(string EmployeeId, List<string> SlotStatus);
+public record SaveRotationRequest(string Date, List<string> SlotLabels, List<SaveRotationSlotRow> Schedule);
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 public class VwicService
@@ -163,7 +169,7 @@ public class VwicService
         // All active Voice + VWIC-role employees
         // (VWIC-role agents auto-count toward coverage when working, so they must be included)
         var voiceEmps = await _db.Employees
-            .Where(e => e.IsActive && (
+            .Where(e => e.IsActive && e.PrimaryRole != "2nd Level" && (
                 e.PrimaryRole == "Voice"  || e.SecondaryRole == "Voice" ||
                 e.PrimaryRole == "VWIC"   || e.SecondaryRole == "VWIC"))
             .ToListAsync();
@@ -180,6 +186,12 @@ public class VwicService
                       && empIds.Contains(sl.EmployeeId)
                       && sl.FirstDay <= date
                       && sl.LastDay  >= date)
+            .ToListAsync();
+
+        // Break slots for today that are SCHEDULED or ON_BREAK (reduce coverage for those hours)
+        var breakSlots = await _db.BreakSlots
+            .Where(b => b.BreakDate == date
+                     && (b.Status == BreakStatus.SCHEDULED || b.Status == BreakStatus.ON_BREAK))
             .ToListAsync();
 
         // VWIC assignments today: any Voice employee with SupportLocation=VWIC
@@ -270,6 +282,12 @@ public class VwicService
 
                 if (covers)
                 {
+                    // Exclude agent if they have an active break slot covering this hour
+                    bool onBreak = breakSlots.Any(b =>
+                        b.EmployeeId == ag.EmployeeId &&
+                        BreakService.BreakCoverHour(b.BreakStart, b.BreakEnd, h));
+                    if (onBreak) continue;
+
                     var name = ag.FullName ?? ag.EmployeeId;
                     if (ag.Role == "Main") mainPresent.Add(name);
                     else                   backupPresent.Add(name);
@@ -346,7 +364,7 @@ public class VwicService
     public async Task<List<VwicCandidateDto>> GetCandidatesAsync(string? dateStr)
     {
         var voiceEmps = await _db.Employees
-            .Where(e => e.IsActive && (e.PrimaryRole == "Voice" || e.SecondaryRole == "Voice"))
+            .Where(e => e.IsActive && e.PrimaryRole != "2nd Level" && (e.PrimaryRole == "Voice" || e.SecondaryRole == "Voice"))
             .ToListAsync();
 
         // No date → return all Voice employees for Add-Agent modal (no shift filter)
@@ -437,7 +455,7 @@ public class VwicService
 
         // ── Load agents ──────────────────────────────────────────────────────
         var voiceEmps = await _db.Employees
-            .Where(e => e.IsActive && (e.PrimaryRole == "Voice" || e.SecondaryRole == "Voice"))
+            .Where(e => e.IsActive && e.PrimaryRole != "2nd Level" && (e.PrimaryRole == "Voice" || e.SecondaryRole == "Voice"))
             .ToListAsync();
         var empIds = voiceEmps.Select(e => e.EmployeeId).ToList();
 
@@ -835,6 +853,44 @@ public class VwicService
         return ms.ToArray();
     }
 
+    public async Task<object> SaveRotationSlotsAsync(SaveRotationRequest req)
+    {
+        if (!DateOnly.TryParse(req.Date, out var date))
+            return new { error = "Invalid date" };
+
+        var existing = await _db.VwicRotationSlots
+            .Where(r => r.RotationDate == date)
+            .ToListAsync();
+        _db.VwicRotationSlots.RemoveRange(existing);
+
+        var toInsert = new List<VwicRotationSlot>();
+        for (int si = 0; si < req.SlotLabels.Count; si++)
+        {
+            var label = req.SlotLabels[si];
+            // Format is always "HH:mm–HH:mm" (en-dash, 11 chars)
+            if (label.Length < 11) continue;
+            var slotStart = label[..5];
+            var slotEnd   = label[^5..];
+
+            foreach (var row in req.Schedule)
+            {
+                if (si >= row.SlotStatus.Count) continue;
+                var status = row.SlotStatus[si];
+                if (status == "ON" || status == "HANDOVER")
+                    toInsert.Add(new VwicRotationSlot {
+                        EmployeeId   = row.EmployeeId,
+                        RotationDate = date,
+                        SlotStart    = slotStart,
+                        SlotEnd      = slotEnd,
+                    });
+            }
+        }
+
+        _db.VwicRotationSlots.AddRange(toInsert);
+        await _db.SaveChangesAsync();
+        return new { saved = toInsert.Count, date = req.Date };
+    }
+
     private static VwicRotationResponse EmptyPlan(string date, string msg) =>
         new(date, [], [], [], [], msg, null, 0, 0, 0);
 
@@ -896,6 +952,10 @@ public static class VwicEndpointMapper
         // POST /api/vwic/rotation-plan
         grp.MapPost("/rotation-plan", async (VwicRotationRequest req, VwicService svc) =>
             Results.Ok(await svc.GenerateRotationPlanAsync(req)));
+
+        // POST /api/vwic/rotation-plan/save
+        grp.MapPost("/rotation-plan/save", async (SaveRotationRequest req, VwicService svc) =>
+            Results.Ok(await svc.SaveRotationSlotsAsync(req)));
 
         // POST /api/vwic/rotation-plan-week
         grp.MapPost("/rotation-plan-week", async (VwicWeekRequest req, VwicService svc) =>

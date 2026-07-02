@@ -183,6 +183,35 @@
       "success": "{{name}} — {{action}} erfasst"
     }
   },
+  "wicCoverage": {
+    "title": "WIC-Belegung",
+    "tabWics": "WIC-Standorte",
+    "tabAgents": "Agenten",
+    "searchWics": "WIC suchen...",
+    "searchAgents": "Agent suchen...",
+    "filterCar": "Mit Pkw",
+    "loading": "Wird geladen...",
+    "main": "Hauptbetreuung",
+    "backupA": "Backup A — Reguläre Vertretung",
+    "backupB": "Backup B — Erreichbar",
+    "backupC": "Backup C — Regionaler Support",
+    "mainCount": "{{n}} Haupt",
+    "backupACount": "{{n}} Backup A",
+    "openingDays": "Öffnungstage",
+    "hasCarLabel": "Pkw",
+    "hasCarYes": "Ja / Yes",
+    "hasCarNo": "Nein / No",
+    "hasCarUnknown": "Unbekannt",
+    "region": "Gruppe / Region",
+    "regionPlaceholder": "Gruppe eingeben...",
+    "save": "Speichern",
+    "reachableCities": "Erreichbare Städte",
+    "wicRoles": "WIC-Zuweisungen",
+    "pinNote": "Pinnen",
+    "note": "Hinweis",
+    "agentDetail": "Agent-Details",
+    "wicDetail": "WIC-Details"
+  },
   "wicShifts": {
     "newShift": {
       "button": "Neue Schicht",

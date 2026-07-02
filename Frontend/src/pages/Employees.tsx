@@ -215,6 +215,7 @@ export default function Employees() {
   const [search, setSearch]         = useState("")
   const [source, setSource]         = useState("")
   const [engagement, setEngagement] = useState("")
+  const [role, setRole]             = useState("")
   const [showModal, setShowModal]   = useState(false)
   const [editEmp, setEditEmp]       = useState<any>(null)
   const [deleteEmp, setDeleteEmp]   = useState<any>(null)
@@ -232,10 +233,11 @@ export default function Employees() {
   })
 
   const filtered = data?.filter((e: any) =>
-    !search ||
-    e.fullName?.toLowerCase().includes(search.toLowerCase()) ||
-    e.employeeId?.toString().includes(search) ||
-    e.teamLeadName?.toLowerCase().includes(search.toLowerCase())
+    (!role || e.primaryRole === role) &&
+    (!search ||
+      e.fullName?.toLowerCase().includes(search.toLowerCase()) ||
+      e.employeeId?.toString().includes(search) ||
+      e.teamLeadName?.toLowerCase().includes(search.toLowerCase()))
   ) ?? []
 
   const handleAdd = async (form: any) => {
@@ -315,6 +317,12 @@ export default function Employees() {
           <option value="Full Time">Full Time</option>
           <option value="Part-Time">Part-Time</option>
           <option value="Student">Student</option>
+        </select>
+        <select value={role} onChange={e => setRole(e.target.value)}
+          style={{ background:"var(--card)", border:"1px solid var(--border)",
+            color:"var(--text2)", padding:"7px 12px", borderRadius:6, fontSize:12 }}>
+          <option value="">All Roles</option>
+          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
 

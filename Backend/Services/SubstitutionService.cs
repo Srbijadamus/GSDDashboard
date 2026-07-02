@@ -110,7 +110,7 @@ public class SubstitutionService
 
         // ── Bulk-load reference data ──────────────────────────────────────────
         var allLocations   = await _db.WicLocations.Where(l => l.IsActive).ToListAsync();
-        var allEmployees   = await _db.Employees.Where(e => e.IsActive).ToListAsync();
+        var allEmployees   = await _db.Employees.Where(e => e.IsActive && e.PrimaryRole != "2nd Level").ToListAsync();
         var allAssignments = await _db.WicAgentAssignments.Where(a => a.IsActive).ToListAsync();
         var allHours       = await _db.WicOpeningHours.ToListAsync();
         var publicHolidays = await _db.PublicHolidays.ToListAsync();
@@ -235,6 +235,14 @@ public class SubstitutionService
                 ? new(explicitAbsentIds, StringComparer.OrdinalIgnoreCase)
                 : [];
 
+            // Count present only via WicShiftEntries at THIS location — same source
+            // as ForecastService. MAIN agents physically at another WIC today are absent here.
+            var dayWicHere = wicEntries
+                .Where(w => w.ShiftDate == date && w.IsOnSite &&
+                            WicLocationMatcher.MatchesSupportLocation(w.SupportLocation, loc))
+                .Select(w => w.EmployeeId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             double presentCount = 0;
             var absentMainIds   = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -249,11 +257,15 @@ public class SubstitutionService
                 shiftByEmpDate.TryGetValue((emp.EmployeeId, date), out var sh);
                 bool fullAbsent = explicitlyAbsent || sickToday2 ||
                     (sh != null && _fullAbsenceTypes.Contains(sh.ShiftType));
-                bool halfAL = !fullAbsent && sh != null &&
-                    string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase);
 
-                if (fullAbsent) { absentMainIds.Add(emp.EmployeeId); }
-                else            { presentCount += halfAL ? 0.5 : 1.0; }
+                if (fullAbsent) { absentMainIds.Add(emp.EmployeeId); continue; }
+
+                // Must have a WicShiftEntry at this location to count as present here
+                if (!dayWicHere.Contains(emp.EmployeeId)) { absentMainIds.Add(emp.EmployeeId); continue; }
+
+                bool halfAL = sh != null &&
+                    string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase);
+                presentCount += halfAL ? 0.5 : 1.0;
             }
 
             double gap    = Math.Max(0, minRequired - presentCount);
@@ -333,6 +345,8 @@ public class SubstitutionService
             }
 
             // ── (B) SSP backlog agents ────────────────────────────────────────
+            // FIX: sh==null means no shift row imported — treat as full working day.
+            // Only skip if IsUnavailable (sick/absent) or an explicit absence ShiftType.
             var sspAgents = allEmployees.Where(e => e.PrimaryRole == "SSP").ToList();
             foreach (var emp in sspAgents)
             {
@@ -340,9 +354,8 @@ public class SubstitutionService
                 if (onWicToday.Contains(emp.EmployeeId)) continue;
                 shiftByEmpDate.TryGetValue((emp.EmployeeId, date), out var sh);
                 if (IsUnavailable(emp, sh?.ShiftType)) continue;
-                if (sh == null) continue;
 
-                bool halfAL = string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase);
+                bool halfAL = sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase);
                 double avail = halfAL ? 0.5 : 1.0;
                 string availType = halfAL ? "HALF_AL" : "WORKING";
 
@@ -367,6 +380,54 @@ public class SubstitutionService
                     availType, avail, null,
                     $"{currentStatus}->{afterStatus}",
                     "SSP backlog agent — reassignment carries zero donor risk",
+                    null,
+                    loadCounts.GetValueOrDefault(emp.EmployeeId, 0),
+                    GetAbsences(emp.EmployeeId)));
+            }
+
+            // ── (B2) Working Voice / VWIC agents (office-based, redeployable) ──
+            // Voice agents working their normal shift are in the HQ office and can
+            // be sent to a nearby WIC. Excluded: absent, already on WIC today, 2nd Level.
+            var voiceAgents = allEmployees
+                .Where(e => e.PrimaryRole == "Voice" || e.PrimaryRole == "VWIC")
+                .ToList();
+            foreach (var emp in voiceAgents)
+            {
+                if (candidates.Any(c => c.EmployeeId == emp.EmployeeId)) continue;
+                if (onWicToday.Contains(emp.EmployeeId)) continue;
+                shiftByEmpDate.TryGetValue((emp.EmployeeId, date), out var sh);
+                if (IsUnavailable(emp, sh?.ShiftType)) continue;
+                // Only include if working (or no shift row = assumed working)
+                bool isWorking = sh == null ||
+                    string.Equals(sh.ShiftType, "WORKING", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase);
+                if (!isWorking) continue;
+
+                bool halfAL = sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase);
+                double avail = halfAL ? 0.5 : 1.0;
+                string availType = halfAL ? "HALF_AL" : "WORKING";
+
+                var (baseCode, baseCoords, baseLbl) = ResolveBase(emp, locationCode, loc.LocationCodeLegacy, allAssignments, locByCode, locByLegacyCode);
+                var reach = baseCode != null && baseCoords != null
+                    ? reachabilityMatrix.FirstOrDefault(r =>
+                        r.FromCode == baseCode && r.ToCode == locationCode)
+                    : null;
+                double? distKm  = reach?.DistanceKm;
+                string? tierStr = reach?.Tier.ToString();
+                if (distKm == null && !string.IsNullOrEmpty(baseCoords) && !string.IsNullOrEmpty(loc.Coordinates))
+                { distKm = HaversineKm(baseCoords, loc.Coordinates); tierStr = TierFromKm(distKm.Value); }
+
+                var afterStatus = CoverageEvaluator.Classify(false,
+                    (int)Math.Floor(presentCount + avail), minRequired).Status.ToString();
+
+                candidates.Add(new SubstituteCandidate(
+                    emp.EmployeeId, emp.FullName ?? emp.EmployeeId,
+                    "SSP", baseLbl, baseCoords,
+                    distKm, tierStr,
+                    null, null,
+                    availType, avail, null,
+                    $"{currentStatus}->{afterStatus}",
+                    $"Voice agent working today — office-based, redeployable to WIC",
                     null,
                     loadCounts.GetValueOrDefault(emp.EmployeeId, 0),
                     GetAbsences(emp.EmployeeId)));
@@ -585,8 +646,10 @@ public class SubstitutionService
                 return (wic.LocationCode, wic.Coordinates, wic.LocationCode);
         }
 
-        // SSP / Voice agents always home from Düsseldorf HQ — takes precedence over Bundesland centroid
-        if (emp.PrimaryRole is "SSP" or "Voice")
+        // All office-based roles home from Düsseldorf HQ — check both Primary and Secondary
+        static bool IsHqBased(string? r) =>
+            r is "SSP" or "Voice" or "VWIC" or "Chat" or "Dispatcher" or "SME" or "Booking Tool";
+        if (IsHqBased(emp.PrimaryRole) || IsHqBased(emp.SecondaryRole))
             return (null, "51.2154,6.7837", "Düsseldorf HQ");
 
         if (!string.IsNullOrEmpty(emp.Bundesland) &&

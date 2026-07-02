@@ -61,7 +61,7 @@ export default function CoverageBar({ date }) {
       {tooltip && (
         <div style={{ marginTop:8, padding:'8px 12px', background:'rgba(255,255,255,0.05)', borderRadius:6, fontSize:11, color:'#e2e8f0' }}>
           <strong>{tooltip.hour}</strong> — {tooltip.voice + tooltip.wic} available
-          {tooltip.belowThreshold && <span style={{ color:'#ef4444', marginLeft:8 }}>⚠ Below minimum ({data.threshold})</span>}
+          {tooltip.belowThreshold && <span style={{ color:'#ef4444', marginLeft:8 }}>⚠ Below minimum ({tooltip.minRequired})</span>}
           <span style={{ marginLeft:12, color:'#22c55e' }}>Voice: {tooltip.voice}</span>
           <span style={{ marginLeft:8, color:'#60a5fa' }}>WIC: {tooltip.wic}</span>
           {tooltip.al > 0 && <span style={{ marginLeft:8, color:'#f97316' }}>AL: {tooltip.al}</span>}
@@ -71,7 +71,7 @@ export default function CoverageBar({ date }) {
       )}
       {data.slots.some(s => s.belowThreshold) && (
         <div style={{ marginTop:8, padding:'6px 10px', background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:6, fontSize:11, color:'#ef4444' }}>
-          ⚠ Coverage below minimum ({data.threshold}) at: {data.slots.filter(s => s.belowThreshold).map(s => s.hour).join(', ')}
+          ⚠ Coverage below minimum at: {data.slots.filter(s => s.belowThreshold).map(s => `${s.hour} (min ${s.minRequired})`).join(', ')}
         </div>
       )}
     </div>

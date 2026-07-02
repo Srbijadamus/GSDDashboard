@@ -183,6 +183,35 @@
       "success": "{{name}} — {{action}} recorded"
     }
   },
+  "wicCoverage": {
+    "title": "WIC Coverage",
+    "tabWics": "WIC Locations",
+    "tabAgents": "Agents",
+    "searchWics": "Search WIC...",
+    "searchAgents": "Search agent...",
+    "filterCar": "Has Car",
+    "loading": "Loading...",
+    "main": "Main Support",
+    "backupA": "Backup A — Regular Substitute",
+    "backupB": "Backup B — Reachable",
+    "backupC": "Backup C — Regional Support",
+    "mainCount": "{{n}} Main",
+    "backupACount": "{{n}} Backup A",
+    "openingDays": "Opening days",
+    "hasCarLabel": "Has Car",
+    "hasCarYes": "Yes / Ja",
+    "hasCarNo": "No / Nein",
+    "hasCarUnknown": "Unknown",
+    "region": "Group / Region",
+    "regionPlaceholder": "Enter group...",
+    "save": "Save",
+    "reachableCities": "Reachable Cities",
+    "wicRoles": "WIC Assignments",
+    "pinNote": "Pin",
+    "note": "Note",
+    "agentDetail": "Agent Detail",
+    "wicDetail": "WIC Detail"
+  },
   "wicShifts": {
     "newShift": {
       "button": "New Shift",
