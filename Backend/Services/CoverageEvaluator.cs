@@ -110,7 +110,7 @@ public class CoverageEvaluator
 
         var sickIds = scheduledIds.Count > 0
             ? await _db.SickLeaves
-                .Where(sl => scheduledIds.Contains(sl.EmployeeId)
+                .Where(sl => sl.EmployeeId != null && scheduledIds.Contains(sl.EmployeeId)
                           && sl.FirstDay <= date && sl.LastDay >= date)
                 .Select(sl => sl.EmployeeId)
                 .ToListAsync()
@@ -126,7 +126,7 @@ public class CoverageEvaluator
             : [];
 
         var absentSet = new HashSet<string>(absentEmployeeIds, StringComparer.OrdinalIgnoreCase);
-        absentSet.UnionWith(sickIds);
+        absentSet.UnionWith(sickIds.OfType<string>());
         absentSet.UnionWith(shiftAbsentIds);
 
         int present = scheduledIds.Count(id => !absentSet.Contains(id));

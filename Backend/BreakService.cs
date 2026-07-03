@@ -448,49 +448,6 @@ public static class BreakEndpointMapper
     {
         var grp = app.MapGroup("/api/breaks").WithTags("Breaks");
 
-        // GET /api/breaks/diag  — temporary diagnostic endpoint
-        grp.MapGet("/diag", async (GSDContext db) =>
-        {
-            var result = new System.Text.StringBuilder();
-            // 1. Table existence
-            try
-            {
-                var tableCount = await db.Database
-                    .SqlQueryRaw<int>("SELECT COUNT(*) AS [Value] FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='BreakSlots'")
-                    .FirstOrDefaultAsync();
-                result.AppendLine($"TABLE_EXISTS: {tableCount}");
-            }
-            catch (Exception ex) { result.AppendLine($"TABLE_CHECK_ERROR: {ex.Message}"); }
-
-            // 2. Column definitions
-            try
-            {
-                var cols = await db.Database
-                    .SqlQueryRaw<string>("SELECT COLUMN_NAME + ' ' + DATA_TYPE AS [Value] FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='BreakSlots' ORDER BY ORDINAL_POSITION")
-                    .ToListAsync();
-                result.AppendLine("COLUMNS: " + string.Join(", ", cols));
-            }
-            catch (Exception ex) { result.AppendLine($"COLUMN_CHECK_ERROR: {ex.Message}"); }
-
-            // 3. Live EF query attempt
-            try
-            {
-                var today = DateOnly.FromDateTime(DateTime.Today);
-                var rows  = await db.BreakSlots.Where(b => b.BreakDate == today).CountAsync();
-                result.AppendLine($"EF_QUERY_OK: {rows} rows for today");
-            }
-            catch (Exception ex)
-            {
-                result.AppendLine($"EF_QUERY_ERROR: {ex.Message}");
-                result.AppendLine($"EF_INNER: {ex.InnerException?.Message}");
-                result.AppendLine($"EF_INNER2: {ex.InnerException?.InnerException?.Message}");
-                result.AppendLine($"EF_TYPE: {ex.GetType().FullName}");
-                result.AppendLine($"EF_STACK: {ex.StackTrace}");
-            }
-
-            return Results.Text(result.ToString());
-        });
-
         // GET /api/breaks?date=yyyy-MM-dd
         grp.MapGet("/", async (string? date, BreakService svc) =>
         {

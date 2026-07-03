@@ -63,7 +63,8 @@ public record WicOpenDayDto(string Date, string DayOfWeek, List<WicDayStatusDto>
 public class WicShiftService
 {
     private readonly GSDContext _db;
-    public WicShiftService(GSDContext db) => _db = db;
+    private readonly AvailabilityResolver _resolver;
+    public WicShiftService(GSDContext db, AvailabilityResolver resolver) { _db = db; _resolver = resolver; }
 
     public async Task<List<WicShiftDto>> GetWicShiftsAsync(
         string? from, string? to, string? location, string? employeeId, string? teamLead)
@@ -200,10 +201,6 @@ public class WicShiftService
         }).ToList();
     }
 
-    // Full-absence types (HALF_AL excluded — HALF_AL gives 0.5 coverage, matching SubstitutionService)
-    private static readonly HashSet<string> _fullAbsenceTypes =
-        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "PH", "LPH", "RESIGNED" };
-
     public async Task<List<WicOpenDayDto>> GetOpenAsync(string? dateStr, int horizon = 3)
     {
         horizon = Math.Clamp(horizon, 1, 7);
@@ -231,6 +228,11 @@ public class WicShiftService
             int dow = (int)date.DayOfWeek; // 0=Sun ... 6=Sat
 
             bool isNationalHoliday = publicHolidays.Any(ph => ph.HolidayDate == date && ph.IsNational);
+
+            var dayWicIds = wicEntries
+                .Where(w => w.ShiftDate == date && w.IsOnSite)
+                .Select(w => w.EmployeeId).Distinct().ToList();
+            var absentToday = await _resolver.GetAbsentIdsAsync(dayWicIds, date);
 
             var dayLocations = locations.Select(loc =>
             {
@@ -267,13 +269,16 @@ public class WicShiftService
                 double presentDouble = 0;
                 foreach (var w in dayWic)
                 {
-                    shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
-                    if (sh != null && _fullAbsenceTypes.Contains(sh.ShiftType))
+                    if (absentToday.Contains(w.EmployeeId))
                         fullAbsentCount++;
-                    else if (sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
-                        presentDouble += 0.5;
                     else
-                        presentDouble += 1.0;
+                    {
+                        shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
+                        if (sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
+                            presentDouble += 0.5;
+                        else
+                            presentDouble += 1.0;
+                    }
                 }
 
                 int scheduledCount = dayWic.Count;

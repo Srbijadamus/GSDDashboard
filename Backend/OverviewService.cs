@@ -27,10 +27,8 @@ public record OverviewDetailDto(
 public class OverviewService
 {
     private readonly GSDContext _db;
-    public OverviewService(GSDContext db) => _db = db;
-
-    private static readonly HashSet<string> _fullAbsenceTypes =
-        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "PH", "LPH", "RESIGNED" };
+    private readonly AvailabilityResolver _resolver;
+    public OverviewService(GSDContext db, AvailabilityResolver resolver) { _db = db; _resolver = resolver; }
 
     // WIC status summary for the overview screen (Feature 4).
     // Returns, for each day in [date, date+horizon), each WIC with status + top substitute (if at risk).
@@ -63,6 +61,11 @@ public class OverviewService
             int dow = (int)date.DayOfWeek;
             bool isNationalHoliday = publicHolidays.Any(ph => ph.HolidayDate == date && ph.IsNational);
 
+            var dayWicIds = wicEntries
+                .Where(w => w.ShiftDate == date && w.IsOnSite)
+                .Select(w => w.EmployeeId).Distinct().ToList();
+            var absentToday = await _resolver.GetAbsentIdsAsync(dayWicIds, date);
+
             var locSummaries = locations.Select(loc =>
             {
                 var hours = allHours.FirstOrDefault(h =>
@@ -85,16 +88,19 @@ public class OverviewService
                 double presentDouble = 0;
                 foreach (var w in dayWic)
                 {
-                    shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
-                    if (sh != null && _fullAbsenceTypes.Contains(sh.ShiftType))
+                    if (absentToday.Contains(w.EmployeeId))
                     {
                         var emp = allEmployees.FirstOrDefault(e => e.EmployeeId == w.EmployeeId);
                         absent.Add(emp?.FullName ?? w.EmployeeId);
                     }
-                    else if (sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
-                        presentDouble += 0.5;
                     else
-                        presentDouble += 1.0;
+                    {
+                        shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
+                        if (sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
+                            presentDouble += 0.5;
+                        else
+                            presentDouble += 1.0;
+                    }
                 }
 
                 int eff = (int)Math.Floor(presentDouble);

@@ -1,10 +1,8 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Modules.ALCalendar;
 using GSDDashboard.API.Modules.Overview;
-using GSDDashboard.API.Modules.Overview;
 using GSDDashboard.API.Modules.Shifts;
 using GSDDashboard.API.Modules.Dashboard;
-using GSDDashboard.API.Modules.Shifts;
 using GSDDashboard.API.Modules.WicShifts;
 using GSDDashboard.API.Modules.Vwic;
 using GSDDashboard.API.Modules.Breaks;
@@ -39,6 +37,7 @@ builder.Services.AddScoped<BreakService>();
 builder.Services.AddScoped<SickLeaveService>();
 builder.Services.AddScoped<VacationService>();
 builder.Services.AddScoped<ShiftSyncService>();
+builder.Services.AddScoped<AvailabilityResolver>();
 builder.Services.AddScoped<PublicHolidayService>();
 builder.Services.AddScoped<ShiftValidationService>();
 builder.Services.AddScoped<PipelineService>();

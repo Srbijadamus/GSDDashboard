@@ -1,4 +1,5 @@
 using GSDDashboard.API.Data.Models;
+using System.Globalization;
 
 namespace GSDDashboard.API.Services;
 
@@ -11,7 +12,7 @@ public static class WicLocationMatcher
     // WicShiftEntry.SupportLocation to old-style assignment code.
     // Checked against both LocationCode (new tilde format) and LocationCodeLegacy (old format).
     private static readonly Dictionary<string, string> _aliases =
-        new(StringComparer.OrdinalIgnoreCase)
+        new(StringComparer.Create(CultureInfo.InvariantCulture, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace))
     {
         { "Essen BP1",             "DE_Essen_BP1"       },
         { "Essen TK1",             "DE_Essen_TK1"       },
@@ -43,6 +44,22 @@ public static class WicLocationMatcher
         { "Stade",                 "DE_Stade"           },
         { "Stadland",              "DE_Stadland"        },
         { "Zwolle",                "NL_Zwolle"          },
+        // ── Bucket B: legacy / variant SupportLocation forms ────────────────────
+        // Two ASCII keys per umlaut location: ue/oe-romanized (matches those exact DB values)
+        // and u/o-stripped (IgnoreNonSpace comparer maps ü→u and ö→o at compare time,
+        // so the actual-umlaut DB forms resolve without any umlaut literals in source).
+        { "Essen (Bruesseler Pl.)",  "DE_Essen_BP1"       }, // ue form in DB
+        { "Essen (Brusseler Pl.)",   "DE_Essen_BP1"       }, // u-stripped; resolves ü form via IgnoreNonSpace
+        { "Essen (ThyssenKrupp)",    "DE_Essen_TK1"       },
+        { "Demmin (Am Hanseufer)",   "DE_Demmin_Hanse"    },
+        { "Berlin (Koepenicker)",    "DE_Berlin_Kopenick" }, // oe form in DB
+        { "Berlin (Kopenicker)",     "DE_Berlin_Kopenick" }, // o-stripped; resolves ö form via IgnoreNonSpace
+        { "Berlin - Kopenicker",     "DE_Berlin_Kopenick" }, // o-stripped dash; resolves ö dash form
+        // Underscore forms (PS1 scripts):
+        { "Essen_BP1",               "DE_Essen_BP1"       },
+        { "Essen_TK1",               "DE_Essen_TK1"       },
+        { "Demmin_Wold",             "DE_Demmin_Wold"     },
+        { "Demmin_Hanse",            "DE_Demmin_Hanse"    },
     };
 
     /// <summary>

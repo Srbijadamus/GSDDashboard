@@ -176,11 +176,15 @@ public class SickLeaveService
     {
         var entry = await _db.SickLeaves.FindAsync(id);
         if (entry == null) return null;
+        var oldFrom = entry.FirstDay;
+        var oldTo   = entry.LastDay;
         if (req.EndDate   != null) { entry.LastDay  = DateOnly.Parse(req.EndDate);   entry.DurationDays = (entry.LastDay.DayNumber - entry.FirstDay.DayNumber) + 1; }
         if (req.StartDate != null) { entry.FirstDay = DateOnly.Parse(req.StartDate); entry.DurationDays = (entry.LastDay.DayNumber - entry.FirstDay.DayNumber) + 1; }
         if (req.Type      != null) entry.LeaveType = req.Type;
         if (req.Notes     != null) entry.Comments  = req.Notes;
         await _db.SaveChangesAsync();
+        await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId ?? "", oldFrom, oldTo, entry.Id);
+        await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id);
         return new SickLeaveDto(entry.Id, entry.EmployeeId, entry.FirstName, entry.LastName,
             ((entry.FirstName ?? "") + " " + (entry.LastName ?? "")).Trim(),
             entry.TeamLeadName, entry.FirstDay.ToString("yyyy-MM-dd"), entry.LastDay.ToString("yyyy-MM-dd"),

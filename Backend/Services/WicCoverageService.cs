@@ -316,7 +316,7 @@ public class WicCoverageService(GSDContext db)
 
         var empsByName = (await db.Employees
             .Where(e => backupBEmpIds.Contains(e.EmployeeId)
-                     || allRelevantNames.Contains(e.FullName))
+                     || (e.FullName != null && allRelevantNames.Contains(e.FullName)))
             .ToListAsync())
             .ToLookup(e => e.FullName?.Trim().ToLowerInvariant() ?? "");
 
