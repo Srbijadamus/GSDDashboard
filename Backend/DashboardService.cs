@@ -156,7 +156,7 @@ public class DashboardService
 
         var wicEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate == date)
-            .Join(_db.Employees,
+            .Join(_db.Employees.Where(e => e.IsActive),
                   w => w.EmployeeId, e => e.EmployeeId,
                   (w, e) => new { Wic = w, Employee = e })
             .ToListAsync();

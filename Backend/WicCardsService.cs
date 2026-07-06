@@ -71,7 +71,7 @@ public class WicCardsService
             .ToListAsync();
         var wicShifts = await _db.WicShiftEntries
             .Where(w => w.ShiftDate == date && w.IsOnSite)
-            .Join(_db.Employees, w => w.EmployeeId, e => e.EmployeeId,
+            .Join(_db.Employees.Where(e => e.IsActive), w => w.EmployeeId, e => e.EmployeeId,
                   (w, e) => new { w, e })
             .ToListAsync();
 

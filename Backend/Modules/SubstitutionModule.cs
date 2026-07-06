@@ -41,7 +41,7 @@ public static class SubstituteAcceptEndpointMapper
             string workingShift = $"{openTime}-{closeTime}";
 
             var employee = await db.Employees
-                .FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId);
+                .FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId && e.IsActive);
             if (employee == null)
                 return Results.NotFound(new { error = $"Employee '{req.EmployeeId}' not found." });
 

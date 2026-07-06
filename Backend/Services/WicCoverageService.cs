@@ -54,8 +54,7 @@ public record PinBackupBDto(string EmployeeName);
 
 public class WicCoverageService(GSDContext db)
 {
-    private static readonly HashSet<string> Excluded = new(StringComparer.OrdinalIgnoreCase)
-        { "Ferenc Koreh", "Tunde Szabo", "Zsolt Fulop" };
+    private static readonly HashSet<string> Excluded = new(StringComparer.OrdinalIgnoreCase);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -87,7 +86,7 @@ public class WicCoverageService(GSDContext db)
             .ToListAsync();
 
         var employees = (await db.Employees
-            .Where(e => e.PrimaryKid != null || coveredIds.Contains(e.EmployeeId))
+            .Where(e => e.IsActive && (e.PrimaryKid != null || coveredIds.Contains(e.EmployeeId)))
             .ToListAsync())
             .Where(e => !IsExcluded(e.FullName ?? ""))
             .ToList();
@@ -137,7 +136,7 @@ public class WicCoverageService(GSDContext db)
     public async Task<AgentCoverageDto?> GetAgentByKidAsync(string kid)
     {
         var emp = await db.Employees
-            .FirstOrDefaultAsync(e => e.PrimaryKid == kid || e.EmployeeId == kid);
+            .FirstOrDefaultAsync(e => e.IsActive && (e.PrimaryKid == kid || e.EmployeeId == kid));
         if (emp == null || IsExcluded(emp.FullName ?? "")) return null;
 
         var cities = await db.AgentReachableCities
@@ -238,7 +237,7 @@ public class WicCoverageService(GSDContext db)
             .ToList();
 
         var employees = await db.Employees
-            .Where(e => empIds.Contains(e.EmployeeId))
+            .Where(e => e.IsActive && empIds.Contains(e.EmployeeId))
             .ToListAsync();
 
         var byName = employees.ToLookup(e => e.FullName?.Trim().ToLowerInvariant() ?? "");
@@ -315,8 +314,8 @@ public class WicCoverageService(GSDContext db)
             .ToList();
 
         var empsByName = (await db.Employees
-            .Where(e => backupBEmpIds.Contains(e.EmployeeId)
-                     || (e.FullName != null && allRelevantNames.Contains(e.FullName)))
+            .Where(e => e.IsActive && (backupBEmpIds.Contains(e.EmployeeId)
+                     || (e.FullName != null && allRelevantNames.Contains(e.FullName))))
             .ToListAsync())
             .ToLookup(e => e.FullName?.Trim().ToLowerInvariant() ?? "");
 

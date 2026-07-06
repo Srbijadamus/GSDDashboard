@@ -95,6 +95,7 @@ public class CoverageEvaluator
 
         var onSiteEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate == date && w.IsOnSite)
+            .Join(_db.Employees.Where(e => e.IsActive), w => w.EmployeeId, e => e.EmployeeId, (w, e) => w)
             .ToListAsync();
 
         var scheduledIds = onSiteEntries

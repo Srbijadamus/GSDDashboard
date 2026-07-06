@@ -7,8 +7,7 @@ namespace GSDDashboard.API.Services;
 public static class WicCoverageImport
 {
     // ─── Excluded agents ──────────────────────────────────────────────────────
-    private static readonly HashSet<string> Excluded = new(StringComparer.OrdinalIgnoreCase)
-        { "Ferenc Koreh", "Tunde Szabo", "Zsolt Fulop" };
+    private static readonly HashSet<string> Excluded = new(StringComparer.OrdinalIgnoreCase);
 
     // ─── City normalization ───────────────────────────────────────────────────
     private static readonly HashSet<string> JunkCities = new(StringComparer.OrdinalIgnoreCase)
@@ -137,7 +136,7 @@ public static class WicCoverageImport
         new("Ivan Leurs",                  "",        "",        "",                                  "",                                                     ["Denbosch", "Zwolle"]),
         new("Yolanda Coppers",             "",        "",        "",                                  "",                                                     ["Denbosch"]),
         new("Mehmet Tigli",                "",        "",        "",                                  "",                                                     ["Pfaffenhofen"]),
-        new("Mohammad Al Masalama",        "",        "",        "",                                  "",                                                     ["Neu-Isenburg"]),
+        new("Mohammad Al Masalma",         "M101365", "",        "",                                  "Mohammad.Al.Masalma.external@eon.com",                  ["Neu-Isenburg"]),
         new("Kai Eric Kumlehn",            "",        "",        "",                                  "",                                                     ["Münster", "Osnabrück", "Recklinghausen"]),
         new("Elliot van Staveren Kuster",  "",        "",        "",                                  "",                                                     ["Zwolle"]),
         new("Michael Holz",                "",        "",        "",                                  "",                                                     []),
@@ -201,7 +200,7 @@ public static class WicCoverageImport
         new("Neuss",                  "Mi.",                                                       null,
             ["Yun Hee Ho"], ["Burak Kurtulmaz"], ["Christoph Ulatowski"]),
         new("Neu-Isenburg",           "daily",                                                     null,
-            ["Elaheh Ramzi", "Mohammad Al Masalama"], [], []),
+            ["Elaheh Ramzi", "Mohammad Al Masalma"], [], []),
         new("Brokdorf",               "daily",                                                     "Viktor supported 1 time before, but maybe need a new backup.",
             ["Jannik Borner"], ["Viktor Winter"], []),
         new("Stade",                  "Mo. Do.",                                                   "no backup available, because of the demands from Stadland",

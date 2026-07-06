@@ -74,7 +74,7 @@ public class WicShiftService
 
         var q = _db.WicShiftEntries
             .Where(w => w.ShiftDate >= fromDate && w.ShiftDate <= toDate)
-            .Join(_db.Employees, w => w.EmployeeId, e => e.EmployeeId,
+            .Join(_db.Employees.Where(e => e.IsActive), w => w.EmployeeId, e => e.EmployeeId,
                   (w, e) => new { Wic = w, Emp = e });
 
         if (!string.IsNullOrWhiteSpace(location))
@@ -213,6 +213,7 @@ public class WicShiftService
 
         var wicEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate >= startDate && w.ShiftDate <= endDate)
+            .Join(_db.Employees.Where(e => e.IsActive), w => w.EmployeeId, e => e.EmployeeId, (w, e) => w)
             .ToListAsync();
         var shiftEntries = await _db.ShiftEntries
             .Where(s => s.ShiftDate >= startDate && s.ShiftDate <= endDate)
@@ -306,7 +307,7 @@ public class WicShiftService
         var locations = await _db.WicLocations.Where(l => l.IsActive).ToListAsync();
         var entries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate == date && w.IsOnSite)
-            .Join(_db.Employees, w => w.EmployeeId, e => e.EmployeeId, (w, e) => new { w, e })
+            .Join(_db.Employees.Where(e => e.IsActive), w => w.EmployeeId, e => e.EmployeeId, (w, e) => new { w, e })
             .ToListAsync();
 
         var byLocation = entries.GroupBy(x => x.w.SupportLocation ?? "").ToDictionary(g => g.Key, g => g.ToList());
@@ -331,7 +332,7 @@ public class WicShiftService
 
         var entries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate >= fromDate && w.ShiftDate <= toDate && w.IsOnSite && !w.IsOffDay)
-            .Join(_db.Employees, w => w.EmployeeId, e => e.EmployeeId, (w, e) => new { Wic = w, Emp = e })
+            .Join(_db.Employees.Where(e => e.IsActive), w => w.EmployeeId, e => e.EmployeeId, (w, e) => new { Wic = w, Emp = e })
             .ToListAsync();
 
         if (!string.IsNullOrWhiteSpace(teamLead))

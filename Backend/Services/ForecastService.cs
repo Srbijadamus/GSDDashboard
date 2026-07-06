@@ -65,6 +65,7 @@ public class ForecastService
             .ToListAsync();
         var wicEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate >= startDate && w.ShiftDate <= endDate)
+            .Join(_db.Employees.Where(e => e.IsActive), w => w.EmployeeId, e => e.EmployeeId, (w, e) => w)
             .ToListAsync();
         var shiftEntries = await _db.ShiftEntries
             .Where(s => s.ShiftDate >= startDate && s.ShiftDate <= endDate)

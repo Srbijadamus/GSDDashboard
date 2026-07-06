@@ -40,8 +40,8 @@ public class EmployeeService
             q = q.Where(e => e.TeamLeadName == teamLead);
         if (!string.IsNullOrWhiteSpace(category))
             q = q.Where(e => e.Category == category);
-        if (active.HasValue)
-            q = q.Where(e => e.IsActive == active.Value);
+        if (!active.HasValue || active.Value)
+            q = q.Where(e => e.IsActive);
 
         var rows = await q.OrderBy(e => e.TeamLeadName).ThenBy(e => e.FullName).ToListAsync();
         return rows.Select(Map).ToList();
@@ -125,13 +125,13 @@ public class EmployeeService
 
     public async Task<EmployeeDto?> GetByIdAsync(string employeeId)
     {
-        var e = await _db.Employees.FirstOrDefaultAsync(x => x.EmployeeId == employeeId);
+        var e = await _db.Employees.FirstOrDefaultAsync(x => x.EmployeeId == employeeId && x.IsActive);
         return e == null ? null : Map(e);
     }
 
     public async Task<EmployeeTimelineDto?> GetTimelineAsync(string employeeId, string? from, string? to)
     {
-        var emp = await _db.Employees.FirstOrDefaultAsync(x => x.EmployeeId == employeeId);
+        var emp = await _db.Employees.FirstOrDefaultAsync(x => x.EmployeeId == employeeId && x.IsActive);
         if (emp == null) return null;
 
         var fromDate = from != null && DateOnly.TryParse(from, out var fd) ? fd : new DateOnly(DateTime.Today.Year, 1, 1);

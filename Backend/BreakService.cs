@@ -374,7 +374,7 @@ public class BreakService
         if (!ParseHHMM(req.BreakStart, out int startMin))
             return new { error = "Invalid break start time" };
 
-        var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId);
+        var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId && e.IsActive);
         if (emp == null) return new { error = "Employee not found" };
 
         int dur  = req.DurationMinutes > 0 ? req.DurationMinutes : 30;
@@ -408,7 +408,7 @@ public class BreakService
         var ids = employeeIds.Distinct().ToList();
         if (ids.Count == 0) return new Dictionary<string, Employee>();
         return await _db.Employees
-            .Where(e => ids.Contains(e.EmployeeId))
+            .Where(e => e.IsActive && ids.Contains(e.EmployeeId))
             .ToDictionaryAsync(e => e.EmployeeId);
     }
 
