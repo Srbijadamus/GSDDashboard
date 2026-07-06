@@ -38,7 +38,7 @@ public class ALCalendarService
         // Get vacations in range
         var vacations = await _db.Vacations
             .Where(v => v.FirstDay <= to && v.LastDay >= from)
-            .Join(_db.Employees, v => v.EmployeeId, e => e.EmployeeId,
+            .Join(_db.Employees.Where(e => e.IsActive), v => v.EmployeeId, e => e.EmployeeId,
                 (v, e) => new { v, e })
             .Where(x => !x.e.IsTrainee)
             .Where(x => teamLead == null || x.e.TeamLeadName == teamLead)
@@ -48,7 +48,7 @@ public class ALCalendarService
         var alShifts = await _db.ShiftEntries
             .Where(s => s.ShiftDate >= from && s.ShiftDate <= to &&
                         (s.ShiftType == "AL" || s.ShiftType == "HALF_AL"))
-            .Join(_db.Employees, s => s.EmployeeId, e => e.EmployeeId,
+            .Join(_db.Employees.Where(e => e.IsActive), s => s.EmployeeId, e => e.EmployeeId,
                 (s, e) => new { s, e })
             .Where(x => teamLead == null || x.e.TeamLeadName == teamLead)
             .ToListAsync();

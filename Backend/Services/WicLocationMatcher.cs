@@ -55,6 +55,15 @@ public static class WicLocationMatcher
         { "Berlin (Koepenicker)",    "DE_Berlin_Kopenick" }, // oe form in DB
         { "Berlin (Kopenicker)",     "DE_Berlin_Kopenick" }, // o-stripped; resolves ö form via IgnoreNonSpace
         { "Berlin - Kopenicker",     "DE_Berlin_Kopenick" }, // o-stripped dash; resolves ö dash form
+        // ── Bucket C: post-decode alias forms ───────────────────────────────────
+        // These keys fire after RepairDoubleEncoding() converts corrupt input to correct Unicode.
+        // sharp-s (U+00DF) key: explicit alias needed because IgnoreNonSpace strips
+        // combining diacritics only; it cannot equate sharp-s to the "ss" in
+        // the existing "Berlin - Gaussstr" key.
+        { "Berlin - Gaußstr.",     "DE_Berlin_Gauss"    },
+        // "Berlin - Bruckenstrasse" (ASCII key): IgnoreNonSpace resolves the U+00FC
+        // (u-umlaut) form that RepairDoubleEncoding produces from the corrupt DB value.
+        { "Berlin - Bruckenstrasse",    "DE_Berlin_Kopenick" },
         // Underscore forms (PS1 scripts):
         { "Essen_BP1",               "DE_Essen_BP1"       },
         { "Essen_TK1",               "DE_Essen_TK1"       },
@@ -62,13 +71,50 @@ public static class WicLocationMatcher
         { "Demmin_Hanse",            "DE_Demmin_Hanse"    },
     };
 
+    // Repairs Windows-1252 mis-decodes of UTF-8 two-byte sequences stored in the DB.
+    // Each two-byte UTF-8 sequence 0xC3 0xNN was decoded as Windows-1252 characters
+    // Atilde (Ã) + the W1252 glyph for byte 0xNN.
+    //
+    // Guard: Ã (Atilde, U+00C3) never appears in any legitimate German location
+    // name, so clean values ("Munchen", "Saarbrucken", ASCII-only) return immediately
+    // without any string allocation.  Values already correctly encoded ("Saarbrucken"
+    // with real umlaut) also pass the guard unchanged because real umlauts (U+00FC etc.)
+    // are not U+00C3.
+    private static string RepairDoubleEncoding(string s)
+    {
+        if (!s.Contains('Ã')) return s;
+        // Corrupt pair -> correct char.
+        // Lowercase umlauts (covers all 8 affected WicShiftEntry values in Check 7):
+        //   Ã¼  Atilde + 1/4        -> ü  u-umlaut  (0xC3 0xBC)
+        //   Ã¶  Atilde + pilcrow     -> ö  o-umlaut  (0xC3 0xB6)
+        //   Ã¤  Atilde + currency    -> ä  a-umlaut  (0xC3 0xA4)
+        //   ÃŸ  Atilde + Y-diaeresis -> ß  sharp-s   (0xC3 0x9F; W1252 0x9F=U+0178)
+        // Uppercase umlauts (completeness; W1252 extended range):
+        //   Ã„  Atilde + low-9-quote -> Ä  A-umlaut  (0xC3 0x84; W1252 0x84=U+201E)
+        //   Ã–  Atilde + en-dash     -> Ö  O-umlaut  (0xC3 0x96; W1252 0x96=U+2013)
+        //   Ãœ  Atilde + oe-ligature -> Ü  U-umlaut  (0xC3 0x9C; W1252 0x9C=U+0153)
+        //   Ã©  Atilde + copyright   -> é  e-acute   (0xC3 0xA9)
+        return s
+            .Replace("Ã¼", "ü")
+            .Replace("Ã¶", "ö")
+            .Replace("Ã¤", "ä")
+            .Replace("ÃŸ", "ß")
+            .Replace("Ã„", "Ä")
+            .Replace("Ã–", "Ö")
+            .Replace("Ãœ", "Ü")
+            .Replace("Ã©", "é");
+    }
+
     /// <summary>
     /// Matches WicShiftEntry.SupportLocation against a WicLocation.
     /// Checks DisplayName, City, and the alias map (against both LocationCode and LocationCodeLegacy).
+    /// Applies RepairDoubleEncoding() first so Windows-1252 mis-decoded UTF-8 values
+    /// (e.g. corrupt "SaarbrXcken" sequences) resolve to their correct Unicode form before lookup.
     /// </summary>
     public static bool MatchesSupportLocation(string? sl, WicLocation loc)
     {
         if (sl == null) return false;
+        sl = RepairDoubleEncoding(sl);
         if (sl == loc.DisplayName) return true;
         if (loc.City != null && sl == loc.City) return true;
         if (_aliases.TryGetValue(sl, out var code))
