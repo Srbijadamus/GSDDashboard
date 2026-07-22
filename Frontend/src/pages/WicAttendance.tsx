@@ -256,7 +256,7 @@ export default function WicAttendance() {
   const { data: kioskData = [] } = useQuery<KioskRecord[]>({
     queryKey: ["kiosk-attendance"],
     queryFn: (): Promise<KioskRecord[]> =>
-      fetch("https://ssr7tm2l-8000.euw.devtunnels.ms/api/attendance").then(r => {
+      fetch(`${import.meta.env.VITE_KIOSK_API_URL ?? "https://ssr7tm2l-8000.euw.devtunnels.ms"}/api/attendance`).then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
       }),

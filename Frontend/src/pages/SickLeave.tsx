@@ -5,8 +5,6 @@ import { api } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
 import { maxFutureDateStr } from "../constants"
 
-const BASE = ""
-
 function resolveName(s: any): string {
   if (s.fullName && s.fullName.trim()) return s.fullName.trim()
   const composed = ((s.firstName ?? "") + " " + (s.lastName ?? "")).trim()
@@ -26,14 +24,12 @@ function CommentCell({ id, initial, onSaved }: { id: number; initial: string | n
     if (saving) return
     setSaving(true)
     try {
-      await fetch(BASE + "/api/sickleave/" + id, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: value }),
-      })
+      await api.sickLeave.patch(id, { notes: value })
       onSaved(value)
-    } catch { }
-    finally { setSaving(false); setEditing(false) }
+    } catch (err) {
+      console.error("Failed to save comment:", err)
+      alert("Failed to save — please try again.")
+    } finally { setSaving(false); setEditing(false) }
   }
 
   const cancel = () => { setValue(initial ?? ""); setEditing(false) }
@@ -204,7 +200,7 @@ function DayGrid({ days }: { days: number }) {
   const to = dates[dates.length - 1].toISOString().split("T")[0]
   const { data, isLoading } = useQuery({
     queryKey: ["sl-range", from, to],
-    queryFn: () => fetch(BASE + "/api/sickleave?from=" + from + "&to=" + to).then(r => r.json())
+    queryFn: () => api.sickLeave.get(`from=${from}&to=${to}`)
   })
   if (isLoading) return <div style={{ padding: 24, color: "var(--text3)", textAlign: "center" }}>Loading...</div>
   const entries: any[] = data ?? []
@@ -422,7 +418,7 @@ export default function SickLeave() {
   const { data: stats } = useQuery({ queryKey: ["sl-stats"], queryFn: api.sickLeave.stats })
   const { data: activeToday } = useQuery({
     queryKey: ["sl-active-today"],
-    queryFn: () => fetch(BASE + "/api/sickleave?activeOnly=true").then(r => r.json())
+    queryFn: () => api.sickLeave.get("activeOnly=true")
   })
 
   const cards = [

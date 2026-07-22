@@ -247,6 +247,9 @@ function SubstituteDrawer({
       setAcceptedName(s.fullName ?? s.name)
       queryClient.invalidateQueries({ queryKey: ["forecast-overview"] })
       queryClient.invalidateQueries({ queryKey: ["subs-drawer", locationCode, date] })
+    } catch (err) {
+      console.error("Accept substitute failed:", err)
+      alert("Failed to accept substitute — please refresh and try again.")
     } finally {
       setAccepting(null)
     }

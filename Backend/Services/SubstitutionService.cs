@@ -87,11 +87,14 @@ public class SubstitutionService
         new(StringComparer.OrdinalIgnoreCase)
         { "SL", "AL", "UL", "OL", "PH", "LPH", "RESIGNED", "TRAINING" };
 
-    public SubstitutionService(GSDContext db, ReachabilityService reach, CoverageEvaluator eval)
+    private readonly ILogger<SubstitutionService> _logger;
+
+    public SubstitutionService(GSDContext db, ReachabilityService reach, CoverageEvaluator eval, ILogger<SubstitutionService> logger)
     {
-        _db    = db;
-        _reach = reach;
-        _eval  = eval;
+        _db     = db;
+        _reach  = reach;
+        _eval   = eval;
+        _logger = logger;
     }
 
     public async Task<SubstitutionResponse?> GetSubstitutesAsync(
@@ -151,8 +154,9 @@ public class SubstitutionService
                 .GroupBy(h => h.EmployeeId, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "SubstitutionHistory not available — falling back to empty load counts");
             loadCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         }
 

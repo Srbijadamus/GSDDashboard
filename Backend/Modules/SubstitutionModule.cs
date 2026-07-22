@@ -1,6 +1,7 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace GSDDashboard.API.Modules.SubstituteAccept;
 
@@ -19,7 +20,8 @@ public static class SubstituteAcceptEndpointMapper
     {
         app.MapPost("/api/wic/substitutes/accept", async (
             AcceptSubstituteRequest req,
-            GSDContext db) =>
+            GSDContext db,
+            ILoggerFactory loggerFactory) =>
         {
             if (string.IsNullOrEmpty(req.EmployeeId) || string.IsNullOrEmpty(req.LocationCode))
                 return Results.BadRequest(new { error = "EmployeeId and LocationCode are required." });
@@ -118,7 +120,20 @@ public static class SubstituteAcceptEndpointMapper
                 AssignedAt   = DateTime.UtcNow
             });
 
-            await db.SaveChangesAsync();
+            await using var tx = await db.Database.BeginTransactionAsync();
+            try
+            {
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                await tx.RollbackAsync();
+                var logger = loggerFactory.CreateLogger("SubstituteAccept");
+                logger.LogError(ex, "SubstituteAccept failed for {EmployeeId} at {LocationCode} on {Date}",
+                    req.EmployeeId, req.LocationCode, req.Date);
+                return Results.Conflict(new { error = "Accept failed — a concurrent change may have occurred. Please refresh and retry." });
+            }
 
             return Results.Ok(new
             {

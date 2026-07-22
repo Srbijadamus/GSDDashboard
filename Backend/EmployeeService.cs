@@ -51,6 +51,8 @@ public class EmployeeService
 
     public async Task<EmployeeDto?> CreateAsync(CreateEmployeeDto dto)
     {
+        if (string.IsNullOrWhiteSpace(dto.EmployeeId) || string.IsNullOrWhiteSpace(dto.FullName))
+            return null;
         var existing = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == dto.EmployeeId);
         if (existing != null) return null;
 

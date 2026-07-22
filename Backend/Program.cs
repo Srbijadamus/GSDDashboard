@@ -74,6 +74,17 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
+{
+    ctx.Response.StatusCode  = 500;
+    ctx.Response.ContentType = "application/json";
+    var feature = ctx.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+    var logger  = ctx.RequestServices.GetRequiredService<ILogger<Program>>();
+    logger.LogError(feature?.Error, "Unhandled exception on {Method} {Path}",
+        ctx.Request.Method, ctx.Request.Path);
+    await ctx.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred." });
+}));
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {

@@ -8,7 +8,6 @@ import CoverageBar from "./CoverageBar"
 import { MoreVertical, Pencil, Trash2, UserMinus, ChevronUp, ChevronDown } from "lucide-react"
 import { maxFutureDateStr } from "../constants"
 
-// const READONLY_TYPES = ["OFF_WEEKEND", "PH"]
 const OVERRIDE_CONFIRM_TYPES = ["OFF_WEEKEND", "PH"]
 const TASKS = ["WIC", "Voice", "Backlog"]
 

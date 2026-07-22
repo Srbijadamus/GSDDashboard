@@ -144,11 +144,11 @@ public class SickLeaveService
             s.DurationDays, s.LeaveType, s.ChildName, s.Comments, s.SourceSheet);
     }
 
-    public async Task<SickLeaveDto> CreateAsync(CreateSickLeaveRequest req)
+    public async Task<SickLeaveDto?> CreateAsync(CreateSickLeaveRequest req)
     {
+        if (!DateOnly.TryParse(req.StartDate, out var start)) return null;
+        if (!DateOnly.TryParse(req.EndDate,   out var end))   return null;
         var emp = req.EmployeeId != null ? await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId) : null;
-        var start = DateOnly.Parse(req.StartDate);
-        var end   = DateOnly.Parse(req.EndDate);
         var entry = new SickLeaveModel
         {
             EmployeeId   = req.EmployeeId,
@@ -178,8 +178,8 @@ public class SickLeaveService
         if (entry == null) return null;
         var oldFrom = entry.FirstDay;
         var oldTo   = entry.LastDay;
-        if (req.EndDate   != null) { entry.LastDay  = DateOnly.Parse(req.EndDate);   entry.DurationDays = (entry.LastDay.DayNumber - entry.FirstDay.DayNumber) + 1; }
-        if (req.StartDate != null) { entry.FirstDay = DateOnly.Parse(req.StartDate); entry.DurationDays = (entry.LastDay.DayNumber - entry.FirstDay.DayNumber) + 1; }
+        if (req.EndDate   != null && DateOnly.TryParse(req.EndDate,   out var newEnd))   { entry.LastDay  = newEnd;   entry.DurationDays = (entry.LastDay.DayNumber  - entry.FirstDay.DayNumber) + 1; }
+        if (req.StartDate != null && DateOnly.TryParse(req.StartDate, out var newStart)) { entry.FirstDay = newStart; entry.DurationDays = (entry.LastDay.DayNumber  - entry.FirstDay.DayNumber) + 1; }
         if (req.Type      != null) entry.LeaveType = req.Type;
         if (req.Notes     != null) entry.Comments  = req.Notes;
         await _db.SaveChangesAsync();
@@ -262,7 +262,9 @@ public static class SickLeaveEndpointMapper
         grp.MapPost("/", async (CreateSickLeaveRequest req, SickLeaveService svc) =>
         {
             var result = await svc.CreateAsync(req);
-            return Results.Created($"/api/sickleave/{result.Id}", result);
+            return result == null
+                ? Results.BadRequest(new { error = "Invalid date format. Expected yyyy-MM-dd." })
+                : Results.Created($"/api/sickleave/{result.Id}", result);
         });
 
         grp.MapPatch("/{id:int}", async (int id, PatchSickLeaveRequest req, SickLeaveService svc) =>

@@ -122,7 +122,6 @@ public class VacationService
             CreatedAt   = DateTime.UtcNow
         };
         _db.Vacations.Add(vac);
-        await _db.SaveChangesAsync();
 
         if (workDays > 0)
         {
@@ -135,8 +134,9 @@ public class VacationService
             bal.PlannedTakenAL = bal.PlannedTakenAL + workDays;
             bal.RemainingAL    = bal.EligibleDays - bal.PlannedTakenAL;
             bal.LastUpdated    = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
         }
+
+        await _db.SaveChangesAsync();
 
         await _shiftSync.SyncVacationAsync(dto.EmployeeId, firstDay, lastDay, vac.Id);
 
