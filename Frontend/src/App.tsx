@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useState, useEffect } from "react"
 import {
   LayoutDashboard, Users, Calendar, Heart, MapPin,
-  ClipboardList, Building2, Scale, Globe, Search, Headphones, Coffee, ShieldCheck
+  ClipboardList, Building2, Scale, Globe, Search, Headphones, Coffee, ShieldCheck, ListChecks
 } from "lucide-react"
 import { ThemeToggle } from "./components/ThemeToggle"
 import { CommandPalette } from "./components/CommandPalette"
@@ -26,6 +26,7 @@ import ALCalendar from "./pages/ALCalendar"
 import VWICPage from "./pages/VWICPage"
 import BreakPlanner from "./pages/BreakPlanner"
 import WicCoverage from "./pages/WicCoverage"
+import BoList from "./pages/BoList"
 
 function LangToggle() {
   const { i18n } = useTranslation()
@@ -85,6 +86,7 @@ function AppLayout() {
     { to: "/alcalendar",      icon: Calendar,        label: "AL Calendar" },
     { to: "/employees",       icon: Users,           label: t("nav.employees") },
     { to: "/wic-coverage",    icon: ShieldCheck,     label: "WIC Coverage" },
+    { to: "/bo-list",         icon: ListChecks,      label: "BO Liste" },
   ]
 
   return (
@@ -204,6 +206,7 @@ function AppLayout() {
             <Route path="/alcalendar"      element={<ALCalendar />} />
             <Route path="/employees"       element={<Employees />} />
             <Route path="/wic-coverage"    element={<WicCoverage />} />
+            <Route path="/bo-list"         element={<BoList />} />
           </Routes>
         </main>
       </div>

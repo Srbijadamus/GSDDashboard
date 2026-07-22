@@ -42,7 +42,7 @@ public class ForecastService
     private readonly GSDContext _db;
 
     private static readonly HashSet<string> _fullAbsenceTypes =
-        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "PH", "LPH", "RESIGNED" };
+        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "OL", "PH", "LPH", "RESIGNED" };
 
     public ForecastService(GSDContext db) => _db = db;
 
@@ -170,7 +170,7 @@ public static class ForecastEndpointMapper
     public static void MapForecastEndpoints(this WebApplication app)
     {
         app.MapGet("/api/wic/forecast", async (int? horizon, string? locationCode, ForecastService svc) =>
-            Results.Ok(await svc.GetForecastAsync(horizon ?? 14, locationCode))
+            Results.Ok(await svc.GetForecastAsync(horizon ?? 28, locationCode))
         ).WithTags("WIC");
     }
 }

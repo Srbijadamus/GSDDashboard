@@ -3,13 +3,107 @@ import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { api, apiFetch } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
-import { Trash2, ChevronDown, ChevronRight } from "lucide-react"
+import { Trash2, ChevronDown, ChevronRight, Plus, X, Check } from "lucide-react"
+import { maxFutureDateStr } from "../constants"
+
+interface EmployeeOption {
+  employeeId: string
+  fullName: string | null
+}
+
+const modalInputStyle: React.CSSProperties = {
+  width: "100%", background: "var(--card2)", border: "1px solid var(--border)",
+  color: "var(--text)", padding: "7px 10px", borderRadius: 6, fontSize: 12,
+  outline: "none", fontFamily: "IBM Plex Sans", boxSizing: "border-box",
+}
+
+function AddVacationModal({ onClose, onSave }: { onClose: () => void; onSave: (data: any) => void }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const [employeeId, setEmployeeId] = useState("")
+  const [firstDay, setFirstDay] = useState(today)
+  const [lastDay, setLastDay] = useState(today)
+  const [comments, setComments] = useState("")
+  const [error, setError] = useState("")
+
+  const { data: employees = [] } = useQuery<EmployeeOption[]>({
+    queryKey: ["employees-active"],
+    queryFn: () => fetch("/api/employees/?active=true").then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const handleSubmit = () => {
+    if (!employeeId) { setError("Select an employee"); return }
+    if (lastDay < firstDay) { setError("To date must be on or after From date"); return }
+    onSave({ employeeId, firstDay, lastDay, comments: comments || null })
+  }
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 1000,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10,
+        padding: 24, width: 420,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)" }}>Add Vacation (AL)</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text3)", cursor: "pointer" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>Employee *</label>
+            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} style={modalInputStyle}>
+              <option value="">-- Select employee --</option>
+              {employees.map(e => (
+                <option key={e.employeeId} value={e.employeeId}>{e.fullName ?? e.employeeId}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>From *</label>
+              <input type="date" value={firstDay} max={maxFutureDateStr()} onChange={e => setFirstDay(e.target.value)} style={modalInputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>To *</label>
+              <input type="date" value={lastDay} max={maxFutureDateStr()} onChange={e => setLastDay(e.target.value)} style={modalInputStyle} />
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>Comments</label>
+            <input value={comments} onChange={e => setComments(e.target.value)} style={modalInputStyle} placeholder="Optional" />
+          </div>
+          {error && <div style={{ fontSize: 11, color: "var(--danger)" }}>{error}</div>}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 20, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{
+            background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text2)",
+            padding: "8px 16px", borderRadius: 6, fontSize: 12, cursor: "pointer",
+          }}>Cancel</button>
+          <button onClick={handleSubmit} style={{
+            background: "var(--accent)", border: "none", color: "#fff",
+            padding: "8px 16px", borderRadius: 6, fontSize: 12, cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 4,
+          }}>
+            <Check size={14} /> Add Vacation
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Vacations() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [sheet, setSheet] = useState("")
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
   const [error, setError] = useState("")
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -63,6 +157,22 @@ export default function Vacations() {
     })
   }
 
+  const handleAdd = async (form: any) => {
+    try {
+      await apiFetch("/api/vacations", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form)
+      } as any)
+      qc.invalidateQueries({ queryKey: ["vacations"] })
+      qc.invalidateQueries({ queryKey: ["vac-active"] })
+      qc.invalidateQueries({ queryKey: ["vac-upcoming"] })
+      qc.invalidateQueries({ queryKey: ["albalance"] })
+      setShowAddModal(false)
+      setError("")
+    } catch {
+      setError("Failed to add vacation. Check the employee and date range.")
+    }
+  }
+
   const handleDelete = async () => {
     if (!deleteId) return
     try {
@@ -85,7 +195,16 @@ export default function Vacations() {
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
         <h1 style={{ fontSize:22, fontWeight:600, color:"var(--text)" }}>{t("nav.vacations")}</h1>
-        <DownloadButtons onToday={api.vacations.downloadToday} on7Days={api.vacations.download7} on30Days={api.vacations.download30} />
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <button onClick={() => setShowAddModal(true)} style={{
+            background:"var(--accent)", border:"none", color:"#fff",
+            padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer",
+            display:"flex", alignItems:"center", gap:6
+          }}>
+            <Plus size={14} /> Add Vacation
+          </button>
+          <DownloadButtons onToday={api.vacations.downloadToday} on7Days={api.vacations.download7} on30Days={api.vacations.download30} />
+        </div>
       </div>
 
       {error && (
@@ -228,6 +347,8 @@ export default function Vacations() {
           {grouped.length} employees · {(data as any[])?.length ?? 0} periods
         </div>
       </div>
+
+      {showAddModal && <AddVacationModal onClose={() => { setShowAddModal(false); setError("") }} onSave={handleAdd} />}
 
       {deleteId && deleteVac && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:1000,

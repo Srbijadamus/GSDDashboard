@@ -18,6 +18,7 @@ using GSDDashboard.API.Modules.ALBalance;
 using GSDDashboard.API.Modules.Attendance;
 using GSDDashboard.API.Modules.Backup;
 using GSDDashboard.API.Modules.SubstituteAccept;
+using GSDDashboard.API.Modules.BoList;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -57,6 +58,7 @@ builder.Services.AddScoped<WhatIfService>();
 builder.Services.AddScoped<BriefingService>();
 builder.Services.AddScoped<ALPlanningService>();
 builder.Services.AddScoped<WicCoverageService>();
+builder.Services.AddScoped<BoListService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -81,6 +83,25 @@ app.UseSwaggerUI(c =>
 
 app.UseCors();
 app.UseDefaultFiles();
+
+// Ensure BoEntries table exists (idempotent)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'BoEntries')
+        CREATE TABLE BoEntries (
+            Id           INT           IDENTITY(1,1) PRIMARY KEY,
+            EntryDate    DATE          NOT NULL,
+            EmployeeName NVARCHAR(200) NOT NULL,
+            ShiftStart   NVARCHAR(10)  NOT NULL DEFAULT '08:00',
+            ShiftEnd     NVARCHAR(10)  NOT NULL DEFAULT '17:00',
+            Note         NVARCHAR(500) NULL,
+            SortOrder    INT           NOT NULL DEFAULT 0
+        )
+    """);
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Bo_Date') CREATE INDEX IX_Bo_Date ON BoEntries (EntryDate)");
+}
 
 // Ensure BreakSlots table exists (idempotent – safe on every startup)
 {
@@ -124,6 +145,19 @@ app.UseDefaultFiles();
     db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_VwicRot_EmpDate') CREATE INDEX IX_VwicRot_EmpDate ON VwicRotationSlots (EmployeeId, RotationDate)");
 }
 
+// WicOpeningHours — add EffectiveFrom + ChangeNote columns (idempotent)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('WicOpeningHours') AND name='EffectiveFrom')
+            ALTER TABLE WicOpeningHours ADD EffectiveFrom DATE NULL
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('WicOpeningHours') AND name='ChangeNote')
+            ALTER TABLE WicOpeningHours ADD ChangeNote NVARCHAR(500) NULL
+    """);
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_WicHours_Effective') CREATE INDEX IX_WicHours_Effective ON WicOpeningHours (LocationCode, DayOfWeek, EffectiveFrom)");
+}
+
 // WIC Coverage — add columns to Employees and WicLocations, create AgentReachableCities (all idempotent)
 {
     using var scope = app.Services.CreateScope();
@@ -135,6 +169,7 @@ app.UseDefaultFiles();
         IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Employees') AND name='EonEmail')     ALTER TABLE Employees ADD EonEmail     nvarchar(200) NULL
         IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Employees') AND name='HasCar')       ALTER TABLE Employees ADD HasCar       bit           NULL
         IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Employees') AND name='GroupRegion')  ALTER TABLE Employees ADD GroupRegion  nvarchar(100) NULL
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Employees') AND name='ShiftPattern') ALTER TABLE Employees ADD ShiftPattern nvarchar(20)  NULL
     """);
     db.Database.ExecuteSqlRaw("""
         IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('WicLocations') AND name='OpeningDay') ALTER TABLE WicLocations ADD OpeningDay nvarchar(200)  NULL
@@ -159,7 +194,27 @@ app.UseDefaultFiles();
     await WicCoverageImport.RunAsync(db);
 }
 
-app.UseStaticFiles();
+// index.html is the SPA shell that points at the current content-hashed bundle —
+// it must never be cached, or browsers keep loading a stale bundle reference after
+// a redeploy. The /assets/*.js|css files ARE content-hashed (filename changes when
+// content changes), so those are safe to cache forever.
+var staticFileOptions = new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        if (ctx.File.Name.Equals("index.html", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+            ctx.Context.Response.Headers["Pragma"] = "no-cache";
+            ctx.Context.Response.Headers["Expires"] = "0";
+        }
+        else if (ctx.Context.Request.Path.StartsWithSegments("/assets"))
+        {
+            ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
+        }
+    }
+};
+app.UseStaticFiles(staticFileOptions);
 
 app.MapDashboardEndpoints();
 app.MapShiftEndpoints();
@@ -188,9 +243,10 @@ app.MapBriefingEndpoints();
 app.MapALPlanningEndpoints();
 app.MapBreakEndpoints();
 app.MapWicCoverageEndpoints();
+app.MapBoListEndpoints();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html", staticFileOptions);
 app.Run();
 
 

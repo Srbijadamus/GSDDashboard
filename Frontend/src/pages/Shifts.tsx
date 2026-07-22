@@ -6,6 +6,7 @@ import { DownloadButtons } from "../components/DownloadButtons"
 // @ts-ignore
 import CoverageBar from "./CoverageBar"
 import { MoreVertical, Pencil, Trash2, UserMinus, ChevronUp, ChevronDown } from "lucide-react"
+import { maxFutureDateStr } from "../constants"
 
 // const READONLY_TYPES = ["OFF_WEEKEND", "PH"]
 const OVERRIDE_CONFIRM_TYPES = ["OFF_WEEKEND", "PH"]
@@ -19,6 +20,7 @@ const shiftColor = (type: string) => {
     HALF_AL:     {bg:"rgba(59,126,255,.08)", color:"var(--blue-light)"},
     SL:          {bg:"rgba(255,124,59,.15)", color:"var(--warn)"},
     UL:          {bg:"rgba(255,59,92,.15)",  color:"var(--danger)"},
+    OL:          {bg:"rgba(255,255,255,.05)",color:"var(--text2)"},
     TRAINING:    {bg:"rgba(167,139,250,.15)",color:"var(--purple)"},
     OFF:         {bg:"rgba(74,95,122,.12)",  color:"var(--text3)"},
     OFF_WEEKEND: {bg:"rgba(30,45,69,.4)",    color:"var(--text3)"},
@@ -39,7 +41,7 @@ const taskStyle = (task: string | null) => {
   return {bg:"rgba(255,59,92,.15)", color:"var(--danger)", border:"rgba(255,59,92,.3)"}
 }
 
-const SHIFT_TYPES = ["WORKING","WIC_DUTY","AL","HALF_AL","SL","UL","TRAINING","OFF","OFF_WEEKEND","PH","LPH","CD","CO","RESIGNED"]
+const SHIFT_TYPES = ["WORKING","WIC_DUTY","AL","HALF_AL","SL","UL","OL","TRAINING","OFF","OFF_WEEKEND","PH","LPH","CD","CO","RESIGNED"]
 
 function OverrideConfirmModal({ type, onConfirm, onCancel }: {
   type: string; onConfirm: () => void; onCancel: () => void
@@ -248,7 +250,7 @@ function TaskBadge({ shift, onTaskChange }: {
 
 function ShiftCell({ shift, onUpdate }: {
   shift: any
-  onUpdate: (id: number, type: string, start?: string, end?: string) => void
+  onUpdate: (shift: any, type: string, start?: string, end?: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [editStart, setEditStart] = useState(shift.shiftStart ?? "")
@@ -261,7 +263,7 @@ function ShiftCell({ shift, onUpdate }: {
     if (OVERRIDE_CONFIRM_TYPES.includes(shift.shiftType)) {
       setOverrideType(t); setOpen(false)
     } else {
-      onUpdate(shift.id, t, editStart || undefined, editEnd || undefined)
+      onUpdate(shift, t, editStart || undefined, editEnd || undefined)
       setOpen(false)
     }
   }
@@ -313,7 +315,7 @@ function ShiftCell({ shift, onUpdate }: {
                     padding:"3px 4px", borderRadius:4, fontSize:10,
                     fontFamily:"IBM Plex Mono", outline:"none" }} />
               </div>
-              <button onClick={() => { onUpdate(shift.id, shift.shiftType, editStart, editEnd); setOpen(false) }}
+              <button onClick={() => { onUpdate(shift, shift.shiftType, editStart, editEnd); setOpen(false) }}
                 style={{ marginTop:4, width:"100%", background:"var(--accent)", border:"none",
                   color:"#fff", padding:4, borderRadius:4, fontSize:10, cursor:"pointer" }}>
                 Save Time
@@ -326,7 +328,7 @@ function ShiftCell({ shift, onUpdate }: {
       {overrideType && (
         <OverrideConfirmModal
           type={shift.shiftType}
-          onConfirm={() => { onUpdate(shift.id, overrideType, editStart || undefined, editEnd || undefined); setOverrideType(null) }}
+          onConfirm={() => { onUpdate(shift, overrideType, editStart || undefined, editEnd || undefined); setOverrideType(null) }}
           onCancel={() => setOverrideType(null)}
         />
       )}
@@ -380,6 +382,7 @@ export default function Shifts() {
   const [empType,    setEmpType]    = useState("")
   const [search,     setSearch]     = useState("")
   const [days,       setDays]       = useState(7)
+  const [startDate,  setStartDate]  = useState(today.toISOString().split("T")[0])
   const [order,      setOrder]      = useState<string[]>([])
   const [contextEmp, setContextEmp] = useState<{emp:any;idx:number} | null>(null)
 
@@ -396,7 +399,7 @@ export default function Shifts() {
 
   const dates: string[] = []
   for (let i = 0; i < days; i++) {
-    const d = new Date(today); d.setDate(d.getDate() + i)
+    const d = new Date(startDate); d.setDate(d.getDate() + i)
     dates.push(d.toISOString().split("T")[0])
   }
   const from = dates[0]
@@ -426,24 +429,37 @@ export default function Shifts() {
 
   const orderedEmps = order.length > 0 ? order.map(id => byEmployee[id]).filter(Boolean) : empList
 
-  const updateShift = async (id: number, type: string, start?: string, end?: string) => {
+  const updateShift = async (shift: any, type: string, start?: string, end?: string) => {
+    if (!shift.id) {
+      // No ShiftEntries row exists yet for this employee+date (e.g. a far-future
+      // month the import job hasn't reached) — create it instead of patching.
+      await doAssignShift(shift.employeeId, shift.shiftDate, type, start, end)
+      return
+    }
     try {
       const vRes = await fetch(`/api/shifts/validate`, {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ shiftId: id, shiftType: type, shiftStart: start ?? null, shiftEnd: end ?? null })
+        body: JSON.stringify({ shiftId: shift.id, shiftType: type, shiftStart: start ?? null, shiftEnd: end ?? null })
       })
       const vData = await vRes.json()
       if (!vData.valid || vData.violations?.length > 0) {
-        setLegalModal({ violations: vData.violations, pendingUpdate: () => doUpdateShift(id, type, start, end) })
+        setLegalModal({ violations: vData.violations, pendingUpdate: () => doUpdateShift(shift.id, type, start, end) })
         return
       }
     } catch {}
-    await doUpdateShift(id, type, start, end)
+    await doUpdateShift(shift.id, type, start, end)
   }
   const doUpdateShift = async (id: number, type: string, start?: string, end?: string) => {
     await apiFetch(`/api/shifts/${id}`, {
       method:"PATCH", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ shiftType:type, shiftStart:start ?? null, shiftEnd:end ?? null })
+    } as any)
+    qc.invalidateQueries({ queryKey:["shifts-cal"] })
+  }
+  const doAssignShift = async (employeeId: string, shiftDate: string, type: string, start?: string, end?: string) => {
+    await apiFetch("/api/shifts/assign", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ employeeId, shiftDate, shiftType:type, shiftStart:start ?? null, shiftEnd:end ?? null })
     } as any)
     qc.invalidateQueries({ queryKey:["shifts-cal"] })
   }
@@ -533,6 +549,12 @@ export default function Shifts() {
             }}>{d}d</button>
           ))}
         </div>
+        <input type="date" value={startDate} max={maxFutureDateStr()}
+          onChange={e => setStartDate(e.target.value)} style={inputStyle} />
+        {startDate !== today.toISOString().split("T")[0] && (
+          <button onClick={() => setStartDate(today.toISOString().split("T")[0])}
+            style={{ ...inputStyle, cursor:"pointer", color:"var(--text2)" }}>Today</button>
+        )}
       </div>
 
       <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, overflow:"hidden" }}>
@@ -619,15 +641,19 @@ export default function Shifts() {
                       const s  = shifts[d]
                       const we = isWeekend(d)
                       const tod = isToday(d)
-                      if (!s) return (
+                      if (!s && we) return (
                         <td key={d} style={{ padding:"3px 4px", borderLeft:"1px solid var(--border)",
-                          background: we ? "rgba(30,45,69,.2)" : tod ? "rgba(59,126,255,.03)" : "transparent" }}>
-                          <div style={{ textAlign:"center", fontSize:9, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{we ? "WE" : "—"}</div>
+                          background: "rgba(30,45,69,.2)" }}>
+                          <div style={{ textAlign:"center", fontSize:9, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>WE</div>
                         </td>
                       )
+                      // No ShiftEntries row yet for this employee+date (common for far-future
+                      // months) — still render a clickable cell; onUpdate creates the row on demand.
+                      const cellShift = s ?? { id: null, employeeId: emp.id, shiftDate: d, shiftType: "EMPTY", shiftStart: null, shiftEnd: null }
                       return (
-                        <td key={d} style={{ borderLeft:"1px solid var(--border)" }}>
-                          <ShiftCell shift={s} onUpdate={updateShift} />
+                        <td key={d} style={{ borderLeft:"1px solid var(--border)",
+                          background: !s && tod ? "rgba(59,126,255,.03)" : "transparent" }}>
+                          <ShiftCell shift={cellShift} onUpdate={updateShift} />
                         </td>
                       )
                     })}

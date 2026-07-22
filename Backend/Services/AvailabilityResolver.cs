@@ -26,7 +26,7 @@ public class AvailabilityResolver
     // SubstitutionService intentionally adds TRAINING for its own scheduling logic; that
     // local addition stays in SubstitutionService and is not reflected here.
     public static readonly HashSet<string> FullAbsenceTypes =
-        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "PH", "LPH", "RESIGNED" };
+        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "OL", "PH", "LPH", "RESIGNED" };
 
     // Reusable as a List<string> for EF Core IN-clause translation.
     private static readonly List<string> FullAbsenceTypesList = FullAbsenceTypes.ToList();
@@ -50,6 +50,7 @@ public class AvailabilityResolver
             "SL"          => AbsenceStatus.SL,
             "AL"          => AbsenceStatus.AL,
             "UL"          => AbsenceStatus.AL,
+            "OL"          => AbsenceStatus.AL,
             "HALF_AL"     => AbsenceStatus.HALF_AL,
             "OFF"         => AbsenceStatus.OFF,
             "OFF_WEEKEND" => AbsenceStatus.OFF_WEEKEND,

@@ -18,8 +18,9 @@
   },
   "status": {
     "working": "Arbeitet",
-    "annualLeave": "Jahresurlaub",
+    "annualLeave": "Jahresurlaub (AL)",
     "sickLeave": "Krank",
+    "otherLeave": "Sonstige Freistellung (unbezahlt)",
     "training": "Schulung",
     "publicHoliday": "Feiertag",
     "offWeekend": "Wochenende",
@@ -96,7 +97,7 @@
     "selectLocation": "Standort aus der Seitenleiste auswählen",
     "noLocations": "Keine Standorte gefunden",
     "today": "Heute",
-    "horizon": "7-Tage-Ausblick",
+    "horizon": "{{n}}-Tage-Ausblick",
     "status": {
       "covered": "Besetzt",
       "partial": "Teilbesetzt",

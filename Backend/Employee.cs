@@ -29,5 +29,19 @@ public class Employee
     [MaxLength(200)] public string? EonEmail      { get; set; }
     public bool?     HasCar      { get; set; }
     [MaxLength(100)] public string? GroupRegion   { get; set; }
+    [MaxLength(20)]  public string? ShiftPattern  { get; set; }
+}
+
+// The agent's default daily shift-time slot (distinct from ShiftEntry.ShiftType,
+// which is the per-day work/absence status).
+public static class ShiftPatterns
+{
+    public const string Early     = "EARLY";
+    public const string Morning   = "MORNING";
+    public const string Afternoon = "AFTERNOON";
+    public const string Night     = "NIGHT";
+    public const string Backup    = "BACKUP";
+
+    public static readonly string[] All = { Early, Morning, Afternoon, Night, Backup };
 }
 

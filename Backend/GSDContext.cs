@@ -26,6 +26,7 @@ public class GSDContext : DbContext
     public DbSet<BreakSlot>           BreakSlots           { get; set; }
     public DbSet<VwicRotationSlot>    VwicRotationSlots    { get; set; }
     public DbSet<AgentReachableCity>  AgentReachableCities { get; set; }
+    public DbSet<BoEntry>             BoEntries            { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -96,6 +97,9 @@ public class GSDContext : DbContext
         modelBuilder.Entity<VwicRotationSlot>(e => {
             e.HasIndex(x => x.RotationDate).HasDatabaseName("IX_VwicRot_Date");
             e.HasIndex(x => new { x.EmployeeId, x.RotationDate }).HasDatabaseName("IX_VwicRot_EmpDate");
+        });
+        modelBuilder.Entity<BoEntry>(e => {
+            e.HasIndex(x => x.EntryDate).HasDatabaseName("IX_Bo_Date");
         });
         base.OnModelCreating(modelBuilder);
     }

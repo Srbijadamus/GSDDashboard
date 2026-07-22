@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, Fragment } from "react"
 import { useTranslation } from "react-i18next"
 import { api } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
+import { maxFutureDateStr } from "../constants"
 
 const BASE = ""
 
@@ -121,11 +122,11 @@ function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved:
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
               <label style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }}>Start</label>
-              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inp} />
+              <input type="date" value={startDate} max={maxFutureDateStr()} onChange={e => setStartDate(e.target.value)} style={inp} />
             </div>
             <div>
               <label style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }}>Ende</label>
-              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inp} />
+              <input type="date" value={endDate} max={maxFutureDateStr()} onChange={e => setEndDate(e.target.value)} style={inp} />
             </div>
           </div>
           <div>

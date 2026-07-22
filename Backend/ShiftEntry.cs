@@ -43,6 +43,12 @@ public static class ShiftTypes
     public const string Resigned    = "RESIGNED";
     public const string Empty       = "EMPTY";
 
+    // Leave types that carry no pay. Everything else (notably AL) is paid.
+    public static readonly HashSet<string> UnpaidTypes =
+        new(StringComparer.OrdinalIgnoreCase) { UnpaidLeave, OtherLeave };
+
+    public static bool IsPaidType(string shiftType) => !UnpaidTypes.Contains(shiftType);
+
     public static (string shiftType, string? start, string? end, bool isWic) Parse(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return (Empty, null, null, false);

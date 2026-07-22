@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using ALBalanceModel = GSDDashboard.API.Data.Models.ALBalance;
 using Microsoft.EntityFrameworkCore;
 using GSDDashboard.API.Services;
 
@@ -12,6 +13,8 @@ public record VacationDto(
     string? Comments, string? ApprovedDenied, string? ApproverName,
     string? SourceSheet, bool IsOverhead, string? TeamLeadName
 );
+
+public record CreateVacationDto(string EmployeeId, string FirstDay, string LastDay, string? Comments);
 
 public record DailyLeaveCountDto(
     string Date, int MaxLeave, int TotalOff, int AlCount, int SlCount, int Remaining, bool IsFull
@@ -94,6 +97,58 @@ public class VacationService
             result.Add(new DailyLeaveCountDto(d.ToString("yyyy-MM-dd"), maxLeave, total, alCount, slCount, Math.Max(0, maxLeave - total), total >= maxLeave));
         }
         return result;
+    }
+
+    public async Task<VacationDto?> CreateAsync(CreateVacationDto dto)
+    {
+        if (!DateOnly.TryParse(dto.FirstDay, out var firstDay) || !DateOnly.TryParse(dto.LastDay, out var lastDay))
+            return null;
+        if (lastDay < firstDay) return null;
+        if (lastDay > DateOnly.FromDateTime(DateTime.Today).AddDays(ScheduleLimits.MaxFutureDays)) return null;
+
+        var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == dto.EmployeeId && e.IsActive);
+        if (emp == null) return null;
+
+        var workDays = CountWeekdays(firstDay, lastDay);
+
+        var vac = new Vacation
+        {
+            EmployeeId  = dto.EmployeeId,
+            FirstDay    = firstDay,
+            LastDay     = lastDay,
+            WorkDaysNet = workDays,
+            Comments    = dto.Comments,
+            SourceSheet = emp.SourceSheet,
+            CreatedAt   = DateTime.UtcNow
+        };
+        _db.Vacations.Add(vac);
+        await _db.SaveChangesAsync();
+
+        if (workDays > 0)
+        {
+            var bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == dto.EmployeeId);
+            if (bal == null)
+            {
+                bal = new ALBalanceModel { EmployeeId = dto.EmployeeId, EmployeeName = emp.FullName, EligibleDays = 28 };
+                _db.ALBalances.Add(bal);
+            }
+            bal.PlannedTakenAL = bal.PlannedTakenAL + workDays;
+            bal.RemainingAL    = bal.EligibleDays - bal.PlannedTakenAL;
+            bal.LastUpdated    = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+
+        await _shiftSync.SyncVacationAsync(dto.EmployeeId, firstDay, lastDay, vac.Id);
+
+        return Map(vac, emp);
+    }
+
+    private static int CountWeekdays(DateOnly from, DateOnly to)
+    {
+        int count = 0;
+        for (var d = from; d <= to; d = d.AddDays(1))
+            if (d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday) count++;
+        return count;
     }
 
     public async Task<bool> DeleteAsync(int id)
@@ -190,6 +245,12 @@ public static class VacationEndpointMapper
             var f = from ?? DateTime.Today.ToString("yyyy-MM-dd");
             var t = to   ?? DateTime.Today.AddDays(13).ToString("yyyy-MM-dd");
             return Results.Ok(await svc.GetLeaveAvailabilityAsync(f, t, maxLeave ?? 8));
+        });
+
+        grp.MapPost("/", async (CreateVacationDto dto, VacationService svc) =>
+        {
+            var vac = await svc.CreateAsync(dto);
+            return vac == null ? Results.BadRequest("Invalid date range or unknown employee") : Results.Ok(vac);
         });
 
         grp.MapDelete("/{id:int}", async (int id, VacationService svc) =>

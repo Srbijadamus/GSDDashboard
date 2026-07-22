@@ -33,7 +33,9 @@ interface BreakDistributeResult {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:5000"
+// Relative by default — see Frontend/src/api/client.ts for why an absolute
+// fallback here breaks the app on any origin other than localhost:5000.
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? ""
 
 function timeToMin(t: string): number {
   const [h, m] = t.split(":").map(Number)

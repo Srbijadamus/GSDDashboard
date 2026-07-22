@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
+import { maxFutureDateStr } from "../../constants"
 
 const SHIFT_TYPES = [
   { value: "WORKING",   label: "Working" },
@@ -8,6 +9,7 @@ const SHIFT_TYPES = [
   { value: "HALF_AL",   label: "Half AL" },
   { value: "SL",        label: "Sick Leave (SL)" },
   { value: "UL",        label: "Unpaid Leave (UL)" },
+  { value: "OL",        label: "Other Leave (OL)" },
   { value: "OFF",       label: "Off Day" },
   { value: "TRAINING",  label: "Training" },
   { value: "PH",        label: "Public Holiday (PH)" },
@@ -139,7 +141,7 @@ export default function NewShiftModal({ isOpen, onClose, onSuccess }) {
             <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
               {p("date")}
               <input
-                type="date" value={date}
+                type="date" value={date} max={maxFutureDateStr()}
                 onChange={e => setDate(e.target.value)}
                 required style={inputStyle}
               />

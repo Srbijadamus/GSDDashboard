@@ -6,3 +6,5 @@ Backend/obj/
 Backend/bin/
 Frontend/node_modules/
 Frontend/dist/
+db-backups/
+*.bak

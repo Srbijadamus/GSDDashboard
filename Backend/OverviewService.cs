@@ -117,7 +117,8 @@ public class OverviewService
                                !onWicIds.Contains(e.EmployeeId) &&
                                shiftByEmpDate.TryGetValue((e.EmployeeId, date), out var sh) &&
                                sh.ShiftType != "SL" && sh.ShiftType != "AL" &&
-                               sh.ShiftType != "HALF_AL" && sh.ShiftType != "UL")
+                               sh.ShiftType != "HALF_AL" && sh.ShiftType != "UL" &&
+                               sh.ShiftType != "OL")
                         .Select(e => e.FullName ?? e.EmployeeId)
                         .FirstOrDefault();
                 }
@@ -189,6 +190,14 @@ public class OverviewService
 
             "SL" => await query
                 .Where(x => x.Shift.ShiftType == "SL")
+                .Select(x => new OverviewAgentDto(
+                    x.Employee.EmployeeId, x.Employee.FullName ?? x.Employee.EmployeeId,
+                    x.Employee.TeamLeadName, x.Employee.Engagement, x.Employee.PrimaryRole,
+                    x.Shift.ShiftStart, x.Shift.ShiftEnd, x.Shift.AgentTask, x.Shift.LocationId, x.Shift.ShiftType))
+                .ToListAsync(),
+
+            "OL" => await query
+                .Where(x => x.Shift.ShiftType == "OL")
                 .Select(x => new OverviewAgentDto(
                     x.Employee.EmployeeId, x.Employee.FullName ?? x.Employee.EmployeeId,
                     x.Employee.TeamLeadName, x.Employee.Engagement, x.Employee.PrimaryRole,

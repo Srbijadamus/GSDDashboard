@@ -52,7 +52,7 @@ public class BackupService
 
     // Full-absence types only — HALF_AL handled separately as 0.5 coverage
     private static readonly HashSet<string> FullAbsenceTypes =
-        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "PH", "LPH", "RESIGNED" };
+        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "OL", "PH", "LPH", "RESIGNED" };
 
     private static readonly HashSet<string> OccupiedTypes =
         new(StringComparer.OrdinalIgnoreCase) { "WIC_DUTY", "TRAINING" };

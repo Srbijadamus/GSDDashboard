@@ -392,8 +392,13 @@ function SectionHeader({ title, count, color }: { title: string; count?: number;
 
 export default function Overview() {
   const { t } = useTranslation()
-  const [searchParams] = useSearchParams()
-  const horizon = Math.max(1, Math.min(30, Number(searchParams.get("horizon")) || 14))
+  const [searchParams, setSearchParams] = useSearchParams()
+  const horizon = Math.max(1, Math.min(30, Number(searchParams.get("horizon")) || 28))
+  const setHorizon = (n: number) => setSearchParams(prev => {
+    const next = new URLSearchParams(prev)
+    next.set("horizon", String(n))
+    return next
+  })
   const today = new Date().toISOString().split("T")[0]
 
   const [sheetOpen, setSheetOpen]       = useState(false)
@@ -508,13 +513,31 @@ export default function Overview() {
       <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between" }}>
           <SectionHeader title={t("overview.heatmap.title")} />
-          <div style={{ fontSize: 10, color: "var(--text3)", display: "flex", gap: 10, alignItems: "center" }}>
-            {["COVERED","PARTIAL","UNCOVERED","CLOSED"].map(s => (
-              <span key={s} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: STATUS_HEX[s], display: "inline-block" }} />
-                {s.toLowerCase()}
-              </span>
-            ))}
+          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 4 }}>
+              {[7, 14, 28].map(n => (
+                <button
+                  key={n}
+                  onClick={() => setHorizon(n)}
+                  style={{
+                    background: horizon === n ? "var(--accent)" : "var(--card2)",
+                    border: `1px solid ${horizon === n ? "var(--accent)" : "var(--border)"}`,
+                    color: horizon === n ? "#fff" : "var(--text2)",
+                    borderRadius: 5, padding: "3px 9px", fontSize: 10, fontWeight: 600, cursor: "pointer",
+                  }}
+                >
+                  {n}d
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, color: "var(--text3)", display: "flex", gap: 10, alignItems: "center" }}>
+              {["COVERED","PARTIAL","UNCOVERED","CLOSED"].map(s => (
+                <span key={s} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: STATUS_HEX[s], display: "inline-block" }} />
+                  {s.toLowerCase()}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
         {forecastLoading ? (

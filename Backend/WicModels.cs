@@ -26,6 +26,8 @@ public class WicOpeningHour
     [MaxLength(10)] public string? CloseTime2 { get; set; }
     public bool IsClosed { get; set; } = false;
     [MaxLength(100)] public string? RawSchedule { get; set; }
+    public DateOnly? EffectiveFrom { get; set; }
+    [MaxLength(500)] public string? ChangeNote { get; set; }
 }
 
 [Table("WicPipeline")]

@@ -85,7 +85,7 @@ public class SubstitutionService
     // Absence types that fully remove an agent from coverage (HALF_AL handled separately).
     private static readonly HashSet<string> _fullAbsenceTypes =
         new(StringComparer.OrdinalIgnoreCase)
-        { "SL", "AL", "UL", "PH", "LPH", "RESIGNED", "TRAINING" };
+        { "SL", "AL", "UL", "OL", "PH", "LPH", "RESIGNED", "TRAINING" };
 
     public SubstitutionService(GSDContext db, ReachabilityService reach, CoverageEvaluator eval)
     {

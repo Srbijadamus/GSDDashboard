@@ -67,14 +67,24 @@ public class WicScheduleService
         return result;
     }
 
-    public async Task<List<WicOpeningHoursDto>> GetOpeningHoursAsync()
+    public async Task<List<WicOpeningHoursDto>> GetOpeningHoursAsync(DateOnly? asOf = null)
     {
-        var locations = await _db.WicLocations.Where(l => l.IsActive).OrderBy(l => l.DisplayName).ToListAsync();
-        var allHours  = await _db.WicOpeningHours.ToListAsync();
+        var effectiveDate = asOf ?? DateOnly.FromDateTime(DateTime.Today);
+        var locations   = await _db.WicLocations.Where(l => l.IsActive).OrderBy(l => l.DisplayName).ToListAsync();
+        var allHours    = await _db.WicOpeningHours.ToListAsync();
         var assignments = await _db.WicAgentAssignments.Where(a => a.IsActive).ToListAsync();
 
+        // Per location+day, pick the latest version whose EffectiveFrom <= today (NULL = from inception)
+        var effectiveHours = allHours
+            .Where(h => h.EffectiveFrom == null || h.EffectiveFrom <= effectiveDate)
+            .GroupBy(h => (h.LocationCode, h.DayOfWeek))
+            .Select(g => g.OrderByDescending(h => h.EffectiveFrom ?? DateOnly.MinValue).First())
+            .ToList();
+
         return locations.Select(loc => {
-            var locHours = allHours.Where(h => h.LocationCode == loc.LocationCode).OrderBy(h => h.DayOfWeek)
+            var locHours = effectiveHours
+                .Where(h => h.LocationCode == loc.LocationCode)
+                .OrderBy(h => h.DayOfWeek)
                 .Select(h => new WicDayHoursDto(h.DayOfWeek, DayName(h.DayOfWeek), h.IsClosed,
                     h.OpenTime, h.CloseTime, h.OpenTime2, h.CloseTime2, h.RawSchedule)).ToList();
             int agentCount = assignments.Count(a =>

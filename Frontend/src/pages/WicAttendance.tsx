@@ -126,6 +126,12 @@ const AGENT_MATCH_COLORS: Record<string, { bg: string; color: string }> = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function chunkWeeks(days: ForecastDay[]): ForecastDay[][] {
+  const weeks: ForecastDay[][] = []
+  for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7))
+  return weeks
+}
+
 function kioskActiveAt(records: KioskRecord[], displayName: string): KioskRecord[] {
   if (!displayName) return []
   const q = displayName.toLowerCase()
@@ -164,10 +170,10 @@ function StatCard({ label, children }: { label: string; children: React.ReactNod
 }
 
 function SectionCard({
-  title, icon, children, style,
+  title, icon, children, style, action,
 }: {
   title: string; icon: React.ReactNode;
-  children: React.ReactNode; style?: React.CSSProperties
+  children: React.ReactNode; style?: React.CSSProperties; action?: React.ReactNode
 }) {
   return (
     <div style={{
@@ -176,10 +182,13 @@ function SectionCard({
     }}>
       <div style={{
         padding: "10px 16px", borderBottom: "1px solid var(--border)",
-        display: "flex", alignItems: "center", gap: 6,
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
       }}>
-        <span style={{ color: "var(--text3)" }}>{icon}</span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{title}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ color: "var(--text3)" }}>{icon}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{title}</span>
+        </div>
+        {action}
       </div>
       <div style={{ padding: 16 }}>{children}</div>
     </div>
@@ -188,11 +197,14 @@ function SectionCard({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
+const HORIZON_OPTIONS = [7, 28]
+
 export default function WicAttendance() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const today = new Date().toISOString().split("T")[0]
 
+  const [horizonDays, setHorizonDays] = useState(28)
   const [selectedDate, setSelectedDate] = useState(today)
   const [selectedLocationCode, setSelectedLocationCode] = useState<string | null>(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
@@ -208,9 +220,9 @@ export default function WicAttendance() {
   const [countryFilter, setCountryFilter] = useState("")
 
   const { data: forecast, isLoading: forecastLoading } = useQuery({
-    queryKey: ["wic-forecast", 7],
+    queryKey: ["wic-forecast", horizonDays],
     queryFn: (): Promise<ForecastResponse> =>
-      fetch("/api/wic/forecast?horizon=7").then(r => {
+      fetch(`/api/wic/forecast?horizon=${horizonDays}`).then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
       }),
@@ -347,7 +359,7 @@ export default function WicAttendance() {
       setAcceptedSubName(c.fullName)
       setAcceptError(null)
       queryClient.invalidateQueries({ queryKey: ["wic-subs", selectedLocationCode, sheetDate] })
-      queryClient.refetchQueries({ queryKey: ["wic-forecast", 7], exact: true })
+      queryClient.refetchQueries({ queryKey: ["wic-forecast"] })
       queryClient.refetchQueries({ queryKey: ["wic-cards", selectedDate], exact: true })
     } catch (err) {
       console.error("Accept error:", err)
@@ -788,37 +800,67 @@ export default function WicAttendance() {
               )}
             </SectionCard>
 
-            {/* 7-day forecast mini-calendar */}
-            <SectionCard title={t("attendance.horizon")} icon={<Clock size={13} />} style={{ marginTop: 14 }}>
+            {/* N-day forecast mini-calendar, grouped by week */}
+            <SectionCard
+              title={t("attendance.horizon", { n: horizonDays })}
+              icon={<Clock size={13} />}
+              style={{ marginTop: 14 }}
+              action={
+                <div style={{ display: "flex", gap: 4 }}>
+                  {HORIZON_OPTIONS.map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setHorizonDays(n)}
+                      style={{
+                        background: horizonDays === n ? "var(--accent)" : "var(--card2)",
+                        border: `1px solid ${horizonDays === n ? "var(--accent)" : "var(--border)"}`,
+                        color: horizonDays === n ? "#fff" : "var(--text2)",
+                        borderRadius: 5, padding: "3px 9px", fontSize: 10, fontWeight: 600, cursor: "pointer",
+                      }}
+                    >
+                      {n}d
+                    </button>
+                  ))}
+                </div>
+              }
+            >
               {forecastLoading ? (
-                <div style={{ display: "flex", gap: 8 }}>
-                  {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} width={78} height={72} />)}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {Array.from({ length: Math.ceil(horizonDays / 7) }).map((_, w) => (
+                    <div key={w} style={{ display: "flex", gap: 6 }}>
+                      {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} width={78} height={68} />)}
+                    </div>
+                  ))}
                 </div>
               ) : !(selectedForecast?.forecast?.length) ? (
                 <div style={{ color: "var(--text3)", fontSize: 12 }}>—</div>
               ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {(selectedForecast.forecast ?? []).map(day => (
-                    <div
-                      key={day.date}
-                      onClick={() => { setSelectedDate(day.date); if (day.isAtRisk) openSub(day.date) }}
-                      style={{
-                        background: day.date === selectedDate ? "rgba(59,126,255,0.12)" : "var(--card2)",
-                        border: `1px solid ${day.date === selectedDate ? "var(--accent)" : "var(--border)"}`,
-                        borderRadius: 8, padding: "10px 12px",
-                        minWidth: 76, cursor: "pointer",
-                        transition: "all 0.1s",
-                        display: "flex", flexDirection: "column", gap: 5, alignItems: "center",
-                      }}
-                    >
-                      <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
-                        {new Date(day.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short" })}
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--text2)", fontFamily: "IBM Plex Mono" }}>
-                        {day.date.slice(5)}
-                      </div>
-                      <CoverageBadge status={day.status} compact />
-                      {day.isAtRisk && <AlertTriangle size={10} color="var(--danger)" />}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {chunkWeeks(selectedForecast.forecast ?? []).map((week, wi) => (
+                    <div key={wi} style={{ display: "flex", gap: 6 }}>
+                      {week.map(day => (
+                        <div
+                          key={day.date}
+                          onClick={() => { setSelectedDate(day.date); if (day.isAtRisk) openSub(day.date) }}
+                          style={{
+                            background: day.date === selectedDate ? "rgba(59,126,255,0.12)" : "var(--card2)",
+                            border: `1px solid ${day.date === selectedDate ? "var(--accent)" : "var(--border)"}`,
+                            borderRadius: 8, padding: "8px 4px",
+                            flex: "1 1 0", minWidth: 0, cursor: "pointer",
+                            transition: "all 0.1s",
+                            display: "flex", flexDirection: "column", gap: 4, alignItems: "center",
+                          }}
+                        >
+                          <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                            {new Date(day.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short" })}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--text2)", fontFamily: "IBM Plex Mono" }}>
+                            {day.date.slice(5)}
+                          </div>
+                          <CoverageBadge status={day.status} compact />
+                          {day.isAtRisk && <AlertTriangle size={10} color="var(--danger)" />}
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>

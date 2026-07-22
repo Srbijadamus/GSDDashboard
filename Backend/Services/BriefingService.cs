@@ -56,7 +56,7 @@ public class BriefingService
     private const int AtRiskLookahead = 14;
 
     private static readonly HashSet<string> _fullAbsenceTypes =
-        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "PH", "LPH", "RESIGNED" };
+        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "OL", "PH", "LPH", "RESIGNED" };
 
     public BriefingService(GSDContext db, SubstitutionService substitution)
     {

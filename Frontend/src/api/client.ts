@@ -1,4 +1,8 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000"
+// Relative by default: works whether the app is served from localhost:5000,
+// a devtunnel URL, or anywhere else — the fetch just targets the same origin
+// the page was loaded from. Only set VITE_API_BASE_URL if the API is
+// genuinely on a different, CORS/auth-open origin than the frontend.
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ""
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, options)
@@ -98,6 +102,12 @@ export const api = {
       fetch(`${API_BASE}/api/wic-coverage/wics/${encodeURIComponent(code)}/backup-b`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       }),
+  },
+  boList: {
+    get:    (date: string) => apiFetch<any[]>(`/api/bo-list?date=${date}`),
+    create: (body: any)    => apiFetch<any>("/api/bo-list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    update: (id: number, body: any) => apiFetch<any>(`/api/bo-list/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    remove: (id: number)   => fetch(`${API_BASE}/api/bo-list/${id}`, { method: "DELETE" }),
   },
 }
 

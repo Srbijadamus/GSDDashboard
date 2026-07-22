@@ -11,6 +11,23 @@ const TEAM_LEADS = ["Karlo Coric","Oliver Schleusen","Tobias Rossberg","Delia Pa
 const ENGAGEMENTS = ["Full Time","Part-Time","Student"]
 const SOURCES = ["GSD_DE","GSD_NL","GSD_WIC"]
 const BUNDESLAENDER = ["Bayern","NRW","Hamburg","Berlin","Baden-Württemberg","Sachsen","Thüringen","Brandenburg","Sachsen-Anhalt","Mecklenburg-Vorpommern","Niedersachsen","Bremen","Hessen","Rheinland-Pfalz","Saarland","Schleswig-Holstein"]
+const SHIFT_PATTERNS = [
+  { value:"EARLY",     label:"Early (06/07)" },
+  { value:"MORNING",   label:"Morning (08)" },
+  { value:"AFTERNOON", label:"Afternoon (13)" },
+  { value:"NIGHT",     label:"Night" },
+  { value:"BACKUP",    label:"Backup" },
+]
+
+const shiftBadge = (pattern: string) => {
+  if (!pattern) return null
+  const colors: Record<string,string> = {
+    EARLY:"var(--warn)", MORNING:"var(--accent)", AFTERNOON:"var(--accent2)",
+    NIGHT:"var(--purple)", BACKUP:"var(--text2)",
+  }
+  const label = SHIFT_PATTERNS.find(s => s.value === pattern)?.label ?? pattern
+  return <span style={{ color: colors[pattern] ?? "var(--text2)", fontSize:11, fontFamily:"IBM Plex Mono" }}>{label}</span>
+}
 
 const badge = (type: string) => {
   const styles: Record<string,any> = {
@@ -52,6 +69,7 @@ function EmployeeModal({ emp, onClose, onSave }: {
     sourceSheet:  emp?.sourceSheet ?? "GSD_DE",
     category:     emp?.category ?? "",
     bundesland:   emp?.bundesland ?? "",
+    shiftPattern: emp?.shiftPattern ?? "",
   })
   const [errors, setErrors] = useState<Record<string,string>>({})
 
@@ -146,6 +164,14 @@ function EmployeeModal({ emp, onClose, onSave }: {
             <select value={(form as any).bundesland} onChange={e => handleChange("bundesland", e.target.value)} style={selectStyle}>
               <option value="">-- Select Bundesland --</option>
               {BUNDESLAENDER.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          {/* Shift Pattern */}
+          <div>
+            <label style={{ fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }}>Shift</label>
+            <select value={(form as any).shiftPattern} onChange={e => handleChange("shiftPattern", e.target.value)} style={selectStyle}>
+              <option value="">-- Select Shift --</option>
+              {SHIFT_PATTERNS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
         </div>
@@ -331,7 +357,7 @@ export default function Employees() {
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
             <thead>
               <tr style={{ background:"var(--card2)" }}>
-                {["ID","Full Name","Type","Primary Role","Team Lead","Source","Bundesland","Actions"].map(h => (
+                {["ID","Full Name","Type","Primary Role","Team Lead","Source","Bundesland","Shift","Actions"].map(h => (
                   <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontSize:10,
                     fontWeight:500, textTransform:"uppercase", letterSpacing:".07em",
                     color:"var(--text3)", borderBottom:"1px solid var(--border)" }}>{h}</th>
@@ -339,7 +365,7 @@ export default function Employees() {
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={8} style={{ padding:24, textAlign:"center", color:"var(--text3)" }}>Loading...</td></tr>}
+              {isLoading && <tr><td colSpan={9} style={{ padding:24, textAlign:"center", color:"var(--text3)" }}>Loading...</td></tr>}
               {filtered.map((e: any) => (
                 <tr key={e.employeeId}
                   style={{ borderBottom:"1px solid var(--border)" }}
@@ -352,6 +378,7 @@ export default function Employees() {
                   <td style={{ padding:"9px 12px", color:"var(--text2)", fontSize:11 }}>{e.teamLeadName}</td>
                   <td style={{ padding:"9px 12px", fontSize:10, fontFamily:"IBM Plex Mono", color:"var(--text3)" }}>{e.sourceSheet}</td>
                   <td style={{ padding:"9px 12px" }}>{(e as any).bundesland && <span style={{ background:"rgba(250,204,21,0.1)", border:"1px solid rgba(250,204,21,0.3)", color:"var(--yellow)", borderRadius:4, fontSize:9, padding:"2px 6px", fontWeight:600 }}>{(e as any).bundesland}</span>}</td>
+                  <td style={{ padding:"9px 12px" }}>{shiftBadge((e as any).shiftPattern)}</td>
                   <td style={{ padding:"9px 12px" }}>
                     <div style={{ display:"flex", gap:6 }}>
                       <button onClick={() => setEditEmp(e)} style={{

@@ -18,8 +18,9 @@
   },
   "status": {
     "working": "Working",
-    "annualLeave": "Annual Leave",
+    "annualLeave": "Annual Leave (AL)",
     "sickLeave": "Sick Leave",
+    "otherLeave": "Other Leave (Unpaid)",
     "training": "Training",
     "publicHoliday": "Public Holiday",
     "offWeekend": "Off Weekend",
@@ -96,7 +97,7 @@
     "selectLocation": "Select a location from the sidebar",
     "noLocations": "No locations found",
     "today": "Today",
-    "horizon": "7-day outlook",
+    "horizon": "{{n}}-day outlook",
     "status": {
       "covered": "Covered",
       "partial": "Partial",

@@ -104,7 +104,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
       }
       const data = await res.json()
       setSuccess(p("success", { loc: data.displayName }))
-      queryClient.refetchQueries({ queryKey: ["wic-forecast", 7], exact: true })
+      queryClient.refetchQueries({ queryKey: ["wic-forecast"] })
       queryClient.refetchQueries({ queryKey: ["wic-cards", date], exact: true })
       setTimeout(() => { setSuccess(null); onClose() }, 1800)
     } catch (err) {
