@@ -121,6 +121,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
 
     let lastDisplayName = ""
     let failed = 0
+    let skipped = 0
 
     for (let i = 0; i < dates.length; i++) {
       const d = dates[i]
@@ -142,6 +143,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
           throw new Error(`HTTP ${res.status}${body ? ": " + body : ""}`)
         }
         const data = await res.json()
+        if (data.skipped) { skipped++; continue }
         lastDisplayName = data.displayName ?? lastDisplayName
       } catch (err) {
         failed++
@@ -154,8 +156,11 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
     setProgress(null)
 
     if (failed === 0) {
+      const assigned = dates.length - skipped
       const msg = isRange
-        ? `${dates.length} days assigned to ${lastDisplayName}`
+        ? skipped > 0
+          ? `${assigned} day${assigned !== 1 ? "s" : ""} assigned to ${lastDisplayName} (${skipped} skipped — non-working days)`
+          : `${assigned} day${assigned !== 1 ? "s" : ""} assigned to ${lastDisplayName}`
         : p("success", { loc: lastDisplayName })
       setSuccess(msg)
       queryClient.refetchQueries({ queryKey: ["wic-forecast"] })

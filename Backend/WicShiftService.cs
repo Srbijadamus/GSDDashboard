@@ -601,8 +601,16 @@ public static class WicEndpointMapper
                 return Results.NotFound(new { error = $"Location '{req.LocationCode}' not found." });
 
             int dow = (int)date.DayOfWeek;
-            var hours = await db.WicOpeningHours
-                .FirstOrDefaultAsync(h => h.LocationCode == req.LocationCode && h.DayOfWeek == dow);
+            var allHours = await db.WicOpeningHours.ToListAsync();
+            var hours    = WicHoursResolver.Resolve(allHours, req.LocationCode, dow, date);
+            if (hours?.IsClosed == true)
+                return Results.Ok(new
+                {
+                    success = true,
+                    skipped = true,
+                    reason  = $"WIC location is closed on {date:yyyy-MM-dd}",
+                    date    = date.ToString("yyyy-MM-dd"),
+                });
             string openTime  = hours?.OpenTime  ?? req.ShiftStart ?? "08:00";
             string closeTime = hours?.CloseTime ?? req.ShiftEnd   ?? "17:00";
 
@@ -612,6 +620,22 @@ public static class WicEndpointMapper
 
             var shift = await db.ShiftEntries
                 .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+
+            // Skip dates where the agent is on a non-working shift; never overwrite AL/SL/OFF/PH etc.
+            if (shift != null)
+            {
+                var blockingTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    { "AL", "HALF_AL", "SL", "UL", "PH", "LPH", "OFF", "OFF_WEEKEND", "OL", "RESIGNED" };
+                if (blockingTypes.Contains(shift.ShiftType ?? ""))
+                    return Results.Ok(new
+                    {
+                        success = true,
+                        skipped = true,
+                        reason  = $"Agent has shift type '{shift.ShiftType}' on {date:yyyy-MM-dd}",
+                        date    = date.ToString("yyyy-MM-dd"),
+                    });
+            }
+
             if (shift != null)
             {
                 shift.ShiftType    = ShiftTypes.WicDuty;
