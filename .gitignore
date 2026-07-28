@@ -12,3 +12,5 @@ db-backups/
 *.log
 Backend/NUL
 Frontend/NUL
+Backend/publish/
+pending_queue.json

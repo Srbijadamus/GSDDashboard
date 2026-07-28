@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useState, useEffect } from "react"
 import {
   LayoutDashboard, Users, Calendar, Heart, MapPin,
-  ClipboardList, Building2, Scale, Globe, Search, Headphones, Coffee, ShieldCheck, ListChecks, CalendarOff, Bot
+  ClipboardList, Building2, Scale, Globe, Search, Headphones, Coffee, ShieldCheck, ListChecks, CalendarOff, Bot, FileText
 } from "lucide-react"
 import { ThemeToggle } from "./components/ThemeToggle"
 import { CommandPalette } from "./components/CommandPalette"
@@ -29,6 +29,7 @@ import BreakPlanner from "./pages/BreakPlanner"
 import WicCoverage from "./pages/WicCoverage"
 import BoList from "./pages/BoList"
 import WicAnnualLeave from "./pages/WicAnnualLeave"
+import BulkRtm from "./pages/BulkRtm"
 import WicAssistant from "./pages/WicAssistant"
 import { WicChatWidget } from "./components/WicChatWidget"
 
@@ -93,6 +94,7 @@ function AppLayout() {
     { to: "/wic-al",          icon: CalendarOff,     label: "WIC Annual Leave" },
     { to: "/assistant",       icon: Bot,             label: "GSD Assistant" },
     { to: "/bo-list",         icon: ListChecks,      label: "BO Liste" },
+    { to: "/bulk-rtm",        icon: FileText,        label: "Bulk RTM Entry" },
   ]
 
   return (
@@ -216,6 +218,7 @@ function AppLayout() {
             <Route path="/assistant"       element={<WicAssistant />} />
             <Route path="/wic-assistant"   element={<Navigate to="/assistant" replace />} />
             <Route path="/bo-list"         element={<BoList />} />
+            <Route path="/bulk-rtm"        element={<BulkRtm />} />
           </Routes>
         </main>
       </div>

@@ -24,6 +24,7 @@ public record ForecastLocationDto(
     string City,
     string Country,
     string? Coordinates,
+    bool IsNpp,
     string TodayStatus,
     List<ForecastDayDto> Forecast,
     int AtRiskDays
@@ -149,7 +150,7 @@ public class ForecastService
             string todayStatus = todayDay?.Status ?? "N/A";
             locationResults.Add(new ForecastLocationDto(
                 loc.LocationCode, loc.DisplayName, loc.City ?? "", loc.Country ?? "DE",
-                loc.Coordinates, todayStatus, days, atRiskDays));
+                loc.Coordinates, loc.IsNpp, todayStatus, days, atRiskDays));
         }
 
         int totalAtRisk = locationResults.Sum(l => l.AtRiskDays);

@@ -9,13 +9,14 @@ import { AlertTriangle, Users, Calendar } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { api, apiFetch } from "../api/client"
 import { Sheet } from "../components/Sheet"
+import { NppBadge } from "../components/NppBadge"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface DayForecast { date: string; status: string; effectiveCoverage: number; minRequired: number }
 interface LocationForecast {
   locationCode: string; displayName: string; city: string; country: string
-  coordinates: string | null; forecast: DayForecast[]; atRiskDays: number; todayStatus: string
+  coordinates: string | null; isNpp: boolean; forecast: DayForecast[]; atRiskDays: number; todayStatus: string
 }
 interface BriefingGap {
   locationCode: string; displayName: string; gapDate: string
@@ -245,7 +246,7 @@ function SubstituteDrawer({
       })
       setAcceptedId(s.employeeId)
       setAcceptedName(s.fullName ?? s.name)
-      queryClient.invalidateQueries({ queryKey: ["forecast-overview"] })
+      queryClient.invalidateQueries({ queryKey: ["wic-forecast"] })
       queryClient.invalidateQueries({ queryKey: ["subs-drawer", locationCode, date] })
     } catch (err) {
       console.error("Accept substitute failed:", err)
@@ -411,7 +412,7 @@ export default function Overview() {
 
   // ── Queries ──────────────────────────────────────────────────────────────────
   const { data: forecast, isLoading: forecastLoading } = useQuery({
-    queryKey: ["forecast-overview", horizon],
+    queryKey: ["wic-forecast", horizon],
     queryFn: async () => {
       const r = await apiFetch<{ locations: LocationForecast[] }>(`/api/wic/forecast?horizon=${horizon}`)
       return r.locations ?? []
@@ -475,12 +476,12 @@ export default function Overview() {
   }
   const isWeekend = (d: string) => { const dt = new Date(d); return dt.getDay() === 0 || dt.getDay() === 6 }
 
-  // ── Risk radar (next 7 days, UNCOVERED only) ──────────────────────────────────
-  const sevenOut = new Date(today); sevenOut.setDate(sevenOut.getDate() + 7)
-  const sevenStr = sevenOut.toISOString().split("T")[0]
+  // ── Risk radar (follows horizon toggle) ─────────────────────────────────────
+  const horizonOut = new Date(today); horizonOut.setDate(horizonOut.getDate() + horizon)
+  const horizonStr = horizonOut.toISOString().split("T")[0]
   const riskRadar = (forecast ?? []).flatMap(lf =>
     (lf.forecast ?? [])
-      .filter(df => df.date > today && df.date <= sevenStr && (df.status === "UNCOVERED" || df.status === "PARTIAL"))
+      .filter(df => df.date > today && df.date <= horizonStr && (df.status === "UNCOVERED" || df.status === "PARTIAL"))
       .map(df => ({ locationCode: lf.locationCode, displayName: lf.displayName, date: df.date, status: df.status }))
   ).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 20)
 
@@ -578,9 +579,11 @@ export default function Overview() {
                   <tr key={lf.locationCode} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{
                       padding: "6px 12px", position: "sticky", left: 0,
-                      background: "var(--card)", zIndex: 1, fontWeight: 500, fontSize: 11, color: "var(--text2)"
+                      background: "var(--card)", zIndex: 1, fontWeight: 500, fontSize: 11, color: "var(--text2)",
+                      display: "flex", alignItems: "center", gap: 5,
                     }}>
                       {lf.displayName}
+                      {lf.isNpp && <NppBadge />}
                     </td>
                     {heatDates.map(d => {
                       const cell = lf.forecast?.find(df => df.date === d)
@@ -709,7 +712,7 @@ export default function Overview() {
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
               {[
                 { label: "Gaps today",         val: gapsToday,    color: gapsToday > 0 ? "var(--danger)" : "var(--green)" },
-                { label: "At-risk next 7 days", val: riskRadar.length, color: riskRadar.length > 0 ? "var(--warn)" : "var(--green)" },
+                { label: `At-risk next ${horizon}d`, val: riskRadar.length, color: riskRadar.length > 0 ? "var(--warn)" : "var(--green)" },
                 { label: "Total WIC locations", val: (locations?.length ?? 0), color: "var(--text2)" },
               ].map(({ label, val, color }) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -827,7 +830,7 @@ export default function Overview() {
       {/* ── F. Risk Radar ── */}
       {riskRadar.length > 0 && (
         <div>
-          <SectionHeader title={t("overview.radar.title")} count={riskRadar.length} color="var(--danger)" />
+          <SectionHeader title={t("overview.radar.title", { horizon })} count={riskRadar.length} color="var(--danger)" />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
             {riskRadar.map((r, i) => (
               <div

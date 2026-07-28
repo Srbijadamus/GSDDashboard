@@ -30,6 +30,7 @@ public class Employee
     public bool?     HasCar      { get; set; }
     [MaxLength(100)] public string? GroupRegion   { get; set; }
     [MaxLength(20)]  public string? ShiftPattern  { get; set; }
+    public bool NppQualified { get; set; } = false;
 }
 
 // The agent's default daily shift-time slot (distinct from ShiftEntry.ShiftType,

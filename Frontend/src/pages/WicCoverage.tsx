@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { MapPin, Users, Car, Search, ChevronRight, Shield, ShieldCheck, ShieldAlert, Globe } from "lucide-react"
 import { apiFetch, api } from "../api/client"
 import { Sheet } from "../components/Sheet"
+import { NppBadge } from "../components/NppBadge"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ interface WicListItemDto {
   city:         string | null
   bundesland:   string | null
   openingDay:   string | null
+  isNpp:        boolean
   mainCount:    number
   backupACount: number
 }
@@ -51,6 +53,7 @@ interface WicCoverageDto {
   openingDay:   string | null
   comment:      string | null
   fullAddress:  string | null
+  isNpp:        boolean
   main:         AgentTierDto[]
   backupA:      AgentTierDto[]
   backupB:      AgentTierDto[]
@@ -280,7 +283,10 @@ function WicCard({ wic, onClick }: { wic: WicListItemDto; onClick: () => void })
           <MapPin size={16} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-[13px] text-[var(--text)]">{wic.displayName}</div>
+          <div className="font-semibold text-[13px] text-[var(--text)] flex items-center gap-1.5">
+            {wic.displayName}
+            {wic.isNpp && <NppBadge />}
+          </div>
           <div className="text-[10px] text-[var(--text3)]">
             {[wic.city, wic.bundesland].filter(Boolean).join(" · ")}
           </div>
@@ -378,7 +384,10 @@ function WicDetail({ locationCode }: { locationCode: string }) {
           <MapPin size={18} />
         </div>
         <div className="flex-1">
-          <div className="font-bold text-[15px] text-[var(--text)]">{wic.displayName}</div>
+          <div className="font-bold text-[15px] text-[var(--text)] flex items-center gap-2">
+            {wic.displayName}
+            {wic.isNpp && <NppBadge />}
+          </div>
           <div className="text-[11px] text-[var(--text3)]">
             {[wic.city, wic.bundesland].filter(Boolean).join(" · ")}
           </div>

@@ -88,7 +88,7 @@
       "noTeamLead": "Team lead grouping unavailable on this endpoint — showing flat list."
     },
     "radar": {
-      "title": "Risk Radar (next 7 days)"
+      "title": "Risk Radar (next {{horizon}} days)"
     }
   },
   "attendance": {

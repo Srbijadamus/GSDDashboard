@@ -1,5 +1,6 @@
 import { useState } from "react"
 import AgentRow from "./AgentRow"
+import { NppBadge } from "../../components/NppBadge"
 
 const borderColor = { covered: "#22c55e", partial: "#f97316", uncovered: "#ef4444" }
 const statusBg    = { covered: "rgba(34,197,94,.12)",  partial: "rgba(249,115,22,.12)",  uncovered: "rgba(239,68,68,.12)" }
@@ -36,7 +37,10 @@ export default function LocationCard({ location, onAgentClick, onDrop, dragAgent
       <div style={{ padding: "10px 12px 8px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{location.name}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", display: "flex", alignItems: "center", gap: 6 }}>
+              {location.name}
+              {location.isNpp && <NppBadge />}
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
               <span style={{ fontSize: 10, color: "#8892a4" }}>{location.city}</span>
               <span style={{ fontSize: 9, background: "rgba(255,255,255,.06)", color: "#e2e8f0", padding: "1px 5px", borderRadius: 4 }}>{location.country}</span>

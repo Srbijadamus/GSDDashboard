@@ -88,7 +88,7 @@
       "noTeamLead": "Teamleiter-Gruppierung an diesem Endpunkt nicht verfügbar — flache Listenansicht."
     },
     "radar": {
-      "title": "Risikoradar (nächste 7 Tage)"
+      "title": "Risikoradar (nächste {{horizon}} Tage)"
     }
   },
   "attendance": {

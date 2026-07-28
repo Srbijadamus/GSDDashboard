@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Users } from "lucide-react"
+import { NppBadge } from "../components/NppBadge"
 
 interface Employee {
   employeeId: string
@@ -11,6 +12,7 @@ interface Employee {
 interface WicLocation {
   locationCode: string
   displayName: string
+  isNpp?: boolean
 }
 
 interface AssignAgentModalProps {
@@ -59,6 +61,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
   const [submitting, setSubmitting]       = useState(false)
   const [progress, setProgress]           = useState<string | null>(null)
   const [success, setSuccess]             = useState<string | null>(null)
+  const [nppWarn, setNppWarn]             = useState<string | null>(null)
   const [error, setError]                 = useState<string | null>(null)
 
   useEffect(() => {
@@ -71,6 +74,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
       setShiftStart("")
       setShiftEnd("")
       setSuccess(null)
+      setNppWarn(null)
       setError(null)
       setProgress(null)
     }
@@ -118,10 +122,12 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
     setSubmitting(true)
     setError(null)
     setSuccess(null)
+    setNppWarn(null)
 
     let lastDisplayName = ""
     let failed = 0
     let skipped = 0
+    let firstNppWarning: string | null = null
 
     for (let i = 0; i < dates.length; i++) {
       const d = dates[i]
@@ -145,6 +151,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
         const data = await res.json()
         if (data.skipped) { skipped++; continue }
         lastDisplayName = data.displayName ?? lastDisplayName
+        if (data.nppWarning && !firstNppWarning) firstNppWarning = data.nppWarning
       } catch (err) {
         failed++
         setError(`Failed on ${d}: ${String(err)}`)
@@ -163,9 +170,10 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
           : `${assigned} day${assigned !== 1 ? "s" : ""} assigned to ${lastDisplayName}`
         : p("success", { loc: lastDisplayName })
       setSuccess(msg)
+      if (firstNppWarning) setNppWarn(firstNppWarning)
       queryClient.refetchQueries({ queryKey: ["wic-forecast"] })
       queryClient.refetchQueries({ queryKey: ["wic-cards", dateFrom], exact: true })
-      setTimeout(() => { setSuccess(null); onClose() }, 1800)
+      setTimeout(() => { setSuccess(null); setNppWarn(null); onClose() }, firstNppWarning ? 5000 : 1800)
     }
   }
 
@@ -201,6 +209,16 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
             {success}
           </div>
         )}
+        {nppWarn && (
+          <div style={{
+            background: "rgba(239,68,68,.12)", border: "1px solid rgba(239,68,68,.4)",
+            borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444", marginBottom: 14,
+            display: "flex", alignItems: "flex-start", gap: 8,
+          }}>
+            <span style={{ fontWeight: 700, flexShrink: 0 }}>⚠ NPP Warning:</span>
+            <span>{nppWarn}</span>
+          </div>
+        )}
         {error && (
           <div style={{
             background: "rgba(255,59,92,.12)", border: "1px solid rgba(255,59,92,.3)",
@@ -234,10 +252,23 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
             <select value={locationCode} onChange={e => setLocationCode(e.target.value)} required style={inputStyle}>
               <option value="">{p("selectLocation")}</option>
               {locations.map(l => (
-                <option key={l.locationCode} value={l.locationCode}>{l.displayName}</option>
+                <option key={l.locationCode} value={l.locationCode}>
+                  {l.displayName}{l.isNpp ? " (npp)" : ""}
+                </option>
               ))}
             </select>
           </label>
+
+          {locations.find(l => l.locationCode === locationCode)?.isNpp && (
+            <div style={{
+              background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)",
+              borderRadius: 6, padding: "7px 11px", fontSize: 11, color: "#ef4444",
+              display: "flex", alignItems: "center", gap: 6,
+            }}>
+              <NppBadge />
+              NPP site — only NPP-qualified agents may be assigned here.
+            </div>
+          )}
 
           {/* Date range */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

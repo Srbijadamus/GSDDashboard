@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { NppBadge } from "../components/NppBadge"
 
 const BASE = ""
 
@@ -65,6 +67,15 @@ export default function WicSchedule() {
   const [teamLeadFilter,setTeamLeadFilter]=useState("")
 
   const weekEnd=new Date(new Date(weekStart).getTime()+6*24*60*60*1000).toISOString().split("T")[0]
+
+  const { data: wicLocations } = useQuery<any[]>({
+    queryKey: ["wic-locations"],
+    queryFn: () => fetch(`${BASE}/api/wic/locations`).then(r => r.json()),
+    staleTime: 15 * 60 * 1000,
+  })
+  const nppDisplayNames = new Set<string>(
+    (wicLocations ?? []).filter((l: any) => l.isNpp).map((l: any) => l.displayName as string)
+  )
 
   const fetchAgents=async(f:string,t:string)=>{
     setLoading(true);setFetchError(null)
@@ -152,9 +163,14 @@ export default function WicSchedule() {
                         <td style={{padding:"5px 10px",position:"sticky",left:0,background:"var(--card)",zIndex:1,borderRight:"1px solid rgba(30,45,69,.4)",minWidth:180}}>
                           <div style={{fontWeight:500,fontSize:11,color:"var(--text)"}}>{agent.fullName}</div>
                           <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:2}}>
-                            {(agent.assignedLocations as string[]).slice(0,2).map((l:string)=>(
-                              <span key={l} style={{fontSize:8,background:"rgba(96,165,250,.12)",color:"#60a5fa",border:"1px solid rgba(96,165,250,.2)",borderRadius:3,padding:"1px 4px"}}>{l.replace("DE_","")}</span>
-                            ))}
+                            {(agent.assignedLocations as string[]).slice(0,2).map((l:string)=>{
+                              const stripped=l.replace("DE_","")
+                              const isNpp=nppDisplayNames.has(stripped)
+                              return <span key={l} style={{display:"inline-flex",alignItems:"center",gap:2}}>
+                                <span style={{fontSize:8,background:"rgba(96,165,250,.12)",color:"#60a5fa",border:"1px solid rgba(96,165,250,.2)",borderRadius:3,padding:"1px 4px"}}>{stripped}</span>
+                                {isNpp&&<NppBadge/>}
+                              </span>
+                            })}
                             {agent.assignedLocations.length>2&&<span style={{fontSize:8,color:"var(--text3)"}}>+{agent.assignedLocations.length-2}</span>}
                           </div>
                         </td>
@@ -231,7 +247,12 @@ export default function WicSchedule() {
                   loc.weeklyHours?.forEach((h:any)=>{hbd[h.dayOfWeek]=h})
                   return (
                     <tr key={loc.locationCode} onMouseEnter={e=>e.currentTarget.style.background="var(--card2)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                      <td style={{...tdStyle,fontWeight:600}}>{loc.displayName}</td>
+                      <td style={{...tdStyle,fontWeight:600}}>
+                        <span style={{display:"flex",alignItems:"center",gap:5}}>
+                          {loc.displayName}
+                          {nppDisplayNames.has(loc.displayName)&&<NppBadge/>}
+                        </span>
+                      </td>
                       <td style={{...tdStyle,color:"var(--text2)",fontSize:11}}>{loc.city}</td>
                       <td style={tdStyle}><span style={{background:"rgba(96,165,250,.12)",border:"1px solid rgba(96,165,250,.2)",color:"#60a5fa",borderRadius:4,fontSize:10,padding:"2px 6px",fontWeight:600}}>{loc.assignedAgentCount}</span></td>
                       {[1,2,3,4,5,6,7].map(dow=>{const h=hbd[dow]

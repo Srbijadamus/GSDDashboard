@@ -19,6 +19,7 @@ using GSDDashboard.API.Modules.Attendance;
 using GSDDashboard.API.Modules.Backup;
 using GSDDashboard.API.Modules.SubstituteAccept;
 using GSDDashboard.API.Modules.BoList;
+using GSDDashboard.API.Modules.BulkRtm;
 using GSDDashboard.API.Modules.WicAssistant;
 using GSDDashboard.API.Modules.Assistant;
 using Microsoft.EntityFrameworkCore;
@@ -61,6 +62,7 @@ builder.Services.AddScoped<BriefingService>();
 builder.Services.AddScoped<ALPlanningService>();
 builder.Services.AddScoped<WicCoverageService>();
 builder.Services.AddScoped<BoListService>();
+builder.Services.AddScoped<BulkRtmService>();
 builder.Services.AddScoped<WicAssistantService>();
 
 // Full-dashboard assistant — domain handlers + router
@@ -187,6 +189,28 @@ app.UseDefaultFiles();
     db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_WicHours_Effective') CREATE INDEX IX_WicHours_Effective ON WicOpeningHours (LocationCode, DayOfWeek, EffectiveFrom)");
 }
 
+// RtmEntries table (idempotent)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'RtmEntries')
+        CREATE TABLE RtmEntries (
+            Id          INT           IDENTITY(1,1) PRIMARY KEY,
+            EntryDate   DATE          NOT NULL,
+            EmployeeId  NVARCHAR(20)  NOT NULL,
+            FullName    NVARCHAR(200) NULL,
+            ShiftStart  NVARCHAR(10)  NOT NULL DEFAULT '08:00',
+            ShiftEnd    NVARCHAR(10)  NOT NULL DEFAULT '17:00',
+            Tag         NVARCHAR(500) NULL,
+            SourceLine  NVARCHAR(500) NULL,
+            CreatedAt   DATETIME2     NOT NULL DEFAULT GETUTCDATE()
+        )
+    """);
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Rtm_Date') CREATE INDEX IX_Rtm_Date ON RtmEntries (EntryDate)");
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Rtm_Emp')  CREATE INDEX IX_Rtm_Emp  ON RtmEntries (EmployeeId)");
+}
+
 // WIC Coverage — add columns to Employees and WicLocations, create AgentReachableCities (all idempotent)
 {
     using var scope = app.Services.CreateScope();
@@ -273,6 +297,7 @@ app.MapALPlanningEndpoints();
 app.MapBreakEndpoints();
 app.MapWicCoverageEndpoints();
 app.MapBoListEndpoints();
+app.MapBulkRtmEndpoints();
 app.MapWicAssistantEndpoints();
 app.MapAssistantEndpoints();
 

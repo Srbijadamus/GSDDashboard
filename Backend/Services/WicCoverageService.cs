@@ -29,6 +29,7 @@ public record WicCoverageDto(
     string?  OpeningDay,
     string?  Comment,
     string?  FullAddress,
+    bool     IsNpp,
     AgentTierDto[] Main,
     AgentTierDto[] BackupA,
     AgentTierDto[] BackupB,
@@ -43,6 +44,7 @@ public record WicListItemDto(
     string? City,
     string? Bundesland,
     string? OpeningDay,
+    bool    IsNpp,
     int     MainCount,
     int     BackupACount
 );
@@ -196,7 +198,7 @@ public class WicCoverageService(GSDContext db)
         return wics
             .OrderBy(w => w.DisplayName)
             .Select(w => new WicListItemDto(
-                w.LocationCode, w.DisplayName, w.City, w.Bundesland, w.OpeningDay,
+                w.LocationCode, w.DisplayName, w.City, w.Bundesland, w.OpeningDay, w.IsNpp,
                 assignments.Count(a => a.LocationCode == w.LocationCode && a.AssignmentType == "MAIN"),
                 assignments.Count(a => a.LocationCode == w.LocationCode && a.AssignmentType == "BACKUP")))
             .ToList();
@@ -335,7 +337,7 @@ public class WicCoverageService(GSDContext db)
 
         return new WicCoverageDto(
             wic.LocationCode, wic.DisplayName, wic.City, wic.Bundesland,
-            wic.OpeningDay, wic.Comment, address,
+            wic.OpeningDay, wic.Comment, address, wic.IsNpp,
             mainNames   .Where(n => !IsExcluded(n)).Select(ToDto).ToArray(),
             backupANames.Where(n => !IsExcluded(n)).Select(ToDto).ToArray(),
             backupB,

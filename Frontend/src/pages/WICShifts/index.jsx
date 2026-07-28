@@ -70,7 +70,7 @@ export default function WICShifts() {
             : c.coverageStatus?.toLowerCase() === 'partial' ? 'partial' : 'uncovered'
           return {
             id: c.locationCode, name: c.displayName, city: c.city, country: c.country,
-            required: c.todaySchedule?.rawSchedule ?? '', status, agents,
+            required: c.todaySchedule?.rawSchedule ?? '', status, agents, isNpp: c.isNpp ?? false,
             mainAgents: c.mainAgents ?? [], backupAgents: c.backupAgents ?? []
           }
         })

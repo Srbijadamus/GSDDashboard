@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { api } from "../api/client"
+import { NppBadge } from "../components/NppBadge"
 
 export default function WicLocations() {
   const { t } = useTranslation()
@@ -74,7 +75,10 @@ export default function WicLocations() {
               <tr key={l.id} style={{ borderBottom: "1px solid var(--border)" }}
                 onMouseEnter={ev => (ev.currentTarget.style.background = "var(--card2)")}
                 onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}>
-                <td style={{ padding: "9px 12px", fontWeight: 500 }}>{l.displayName}</td>
+                <td style={{ padding: "9px 12px", fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
+                  {l.displayName}
+                  {l.isNpp && <NppBadge />}
+                </td>
                 <td style={{ padding: "9px 12px", color: "var(--text2)" }}>{l.city}</td>
                 <td style={{ padding: "9px 12px" }}>
                   <span style={{

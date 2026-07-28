@@ -199,6 +199,7 @@ public class WicShiftService
             l.City,
             l.Country,
             l.IsActive,
+            l.IsNpp,
             l.Coordinates,
             openingSchedule = BuildSchedule(l.LocationCode, l.LocationCodeLegacy),
             fullAddress = BuildAddress(l.LocationCode)
@@ -600,6 +601,10 @@ public static class WicEndpointMapper
             if (location == null)
                 return Results.NotFound(new { error = $"Location '{req.LocationCode}' not found." });
 
+            string? nppWarning = (location.IsNpp && !employee.NppQualified)
+                ? $"{employee.FullName ?? req.EmployeeId} is not NPP-qualified for NPP site {location.DisplayName}."
+                : null;
+
             int dow = (int)date.DayOfWeek;
             var allHours = await db.WicOpeningHours.ToListAsync();
             var hours    = WicHoursResolver.Resolve(allHours, req.LocationCode, dow, date);
@@ -695,6 +700,7 @@ public static class WicEndpointMapper
                 employeeName = employee.FullName ?? req.EmployeeId,
                 displayName  = location.DisplayName,
                 date         = date.ToString("yyyy-MM-dd"),
+                nppWarning,
             });
         });
     }

@@ -35,6 +35,7 @@ public class WicLocation
     [MaxLength(50)]  public string? Bundesland { get; set; }      // for regional holiday matching
     [MaxLength(50)]  public string? LocationCodeLegacy { get; set; } // old-style code used in WicAgentAssignments (e.g. DE_Dortmund)
     public bool IsActive { get; set; } = true;
+    public bool IsNpp   { get; set; } = false;
     [MaxLength(200)]  public string? OpeningDay { get; set; }
     [MaxLength(1000)] public string? Comment    { get; set; }
 }

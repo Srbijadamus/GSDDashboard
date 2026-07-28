@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Search, AlertTriangle, UserCheck, Users, Clock, Calendar } from "lucide-react"
 import { CoverageBadge } from "../components/CoverageBadge"
+import { NppBadge } from "../components/NppBadge"
 import { Sheet } from "../components/Sheet"
 import { ALPlanningModal } from "./ALPlanningModal"
 import { AssignAgentModal } from "./AssignAgentModal"
@@ -25,6 +26,7 @@ interface ForecastLocation {
   displayName: string
   city: string
   country: string
+  isNpp: boolean
   atRiskDays: number
   forecast: ForecastDay[]
 }
@@ -488,13 +490,16 @@ export default function WicAttendance() {
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                      <span style={{
-                        fontSize: 12, fontWeight: isSelected ? 600 : 400,
-                        color: isSelected ? "var(--accent)" : "var(--text)",
-                        overflow: "hidden", textOverflow: "ellipsis",
-                        whiteSpace: "nowrap", flex: 1,
-                      }}>
-                        {loc.displayName}
+                      <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
+                        <span style={{
+                          fontSize: 12, fontWeight: isSelected ? 600 : 400,
+                          color: isSelected ? "var(--accent)" : "var(--text)",
+                          overflow: "hidden", textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}>
+                          {loc.displayName}
+                        </span>
+                        {loc.isNpp && <NppBadge />}
                       </span>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         {locActiveCount > 0 && (
@@ -557,8 +562,9 @@ export default function WicAttendance() {
               alignItems: "flex-start", marginBottom: 16, gap: 12,
             }}>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: "var(--text)" }}>
+                <div style={{ fontSize: 20, fontWeight: 600, color: "var(--text)", display: "flex", alignItems: "center", gap: 8 }}>
                   {selectedForecast?.displayName ?? selectedCard?.displayName ?? "—"}
+                  {selectedForecast?.isNpp && <NppBadge />}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
                   {selectedForecast?.city} · {selectedForecast?.country}
