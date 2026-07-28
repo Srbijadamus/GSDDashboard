@@ -55,6 +55,7 @@ function DayCell({ day }: { day: any }) {
 export default function WicSchedule() {
   const [tab,setTab]=useState<"14d"|"weekly"|"hours">("14d")
   const [loading,setLoading]=useState(false)
+  const [fetchError,setFetchError]=useState<string|null>(null)
   const [agentData,setAgentData]=useState<any[]>([])
   const [openingHours,setOpeningHours]=useState<any[]>([])
   const [from,setFrom]=useState(today)
@@ -66,12 +67,21 @@ export default function WicSchedule() {
   const weekEnd=new Date(new Date(weekStart).getTime()+6*24*60*60*1000).toISOString().split("T")[0]
 
   const fetchAgents=async(f:string,t:string)=>{
-    setLoading(true)
-    try{const r=await fetch(`${BASE}/api/wicschedule/agents?from=${f}&to=${t}`);setAgentData(await r.json())}catch{}
+    setLoading(true);setFetchError(null)
+    try{
+      const r=await fetch(`${BASE}/api/wicschedule/agents?from=${f}&to=${t}`)
+      if(!r.ok){setFetchError(`Could not load data — ${r.status}`);setAgentData([])}
+      else setAgentData(await r.json())
+    }catch{setFetchError("Could not load data — network error")}
     setLoading(false)
   }
   const fetchHours=async()=>{
-    try{const r=await fetch(`${BASE}/api/wicschedule/opening-hours`);setOpeningHours(await r.json())}catch{}
+    setFetchError(null)
+    try{
+      const r=await fetch(`${BASE}/api/wicschedule/opening-hours`)
+      if(!r.ok){setFetchError(`Could not load data — ${r.status}`);setOpeningHours([])}
+      else setOpeningHours(await r.json())
+    }catch{setFetchError("Could not load data — network error")}
   }
 
   useEffect(()=>{
@@ -106,6 +116,7 @@ export default function WicSchedule() {
           <button key={v} onClick={()=>setTab(v as any)} style={{background:tab===v?"var(--accent)":"var(--card)",border:`1px solid ${tab===v?"var(--accent)":"var(--border)"}`,color:tab===v?"#fff":"var(--text2)",borderRadius:6,padding:"6px 16px",fontSize:12,cursor:"pointer",fontWeight:tab===v?600:400}}>{label}</button>
         ))}
       </div>
+      {fetchError&&<div style={{background:"rgba(255,59,92,.1)",border:"1px solid var(--danger)",borderRadius:6,padding:"10px 14px",color:"var(--danger)",fontSize:13}}>{fetchError}</div>}
 
       {tab==="14d"&&(<>
         <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>

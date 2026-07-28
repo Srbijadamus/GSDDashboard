@@ -17,7 +17,7 @@ export default function CoverageBar({ date }) {
   useEffect(() => {
     if (!date) return
     fetch(`${BASE}/api/shifts/coverage?date=${date}`)
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() })
       .then(setData)
       .catch(console.error)
   }, [date])

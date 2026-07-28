@@ -1,9 +1,9 @@
-import { BrowserRouter, Routes, Route, NavLink, useLocation, useNavigate } from "react-router-dom"
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useState, useEffect } from "react"
 import {
   LayoutDashboard, Users, Calendar, Heart, MapPin,
-  ClipboardList, Building2, Scale, Globe, Search, Headphones, Coffee, ShieldCheck, ListChecks
+  ClipboardList, Building2, Scale, Globe, Search, Headphones, Coffee, ShieldCheck, ListChecks, CalendarOff, Bot
 } from "lucide-react"
 import { ThemeToggle } from "./components/ThemeToggle"
 import { CommandPalette } from "./components/CommandPalette"
@@ -12,7 +12,8 @@ import Employees from "./pages/Employees"
 import SickLeave from "./pages/SickLeave"
 import Vacations from "./pages/Vacations"
 import WicLocations from "./pages/WicLocations"
-import WicShifts from "./pages/WicShifts_old"
+// @ts-ignore
+import WicShifts from "./pages/WICShifts/index"
 // @ts-ignore
 import Pipeline from "./pages/Pipeline"
 import Training from "./pages/Training"
@@ -27,6 +28,9 @@ import VWICPage from "./pages/VWICPage"
 import BreakPlanner from "./pages/BreakPlanner"
 import WicCoverage from "./pages/WicCoverage"
 import BoList from "./pages/BoList"
+import WicAnnualLeave from "./pages/WicAnnualLeave"
+import WicAssistant from "./pages/WicAssistant"
+import { WicChatWidget } from "./components/WicChatWidget"
 
 function LangToggle() {
   const { i18n } = useTranslation()
@@ -86,6 +90,8 @@ function AppLayout() {
     { to: "/alcalendar",      icon: Calendar,        label: "AL Calendar" },
     { to: "/employees",       icon: Users,           label: t("nav.employees") },
     { to: "/wic-coverage",    icon: ShieldCheck,     label: "WIC Coverage" },
+    { to: "/wic-al",          icon: CalendarOff,     label: "WIC Annual Leave" },
+    { to: "/assistant",       icon: Bot,             label: "GSD Assistant" },
     { to: "/bo-list",         icon: ListChecks,      label: "BO Liste" },
   ]
 
@@ -206,12 +212,16 @@ function AppLayout() {
             <Route path="/alcalendar"      element={<ALCalendar />} />
             <Route path="/employees"       element={<Employees />} />
             <Route path="/wic-coverage"    element={<WicCoverage />} />
+            <Route path="/wic-al"          element={<WicAnnualLeave />} />
+            <Route path="/assistant"       element={<WicAssistant />} />
+            <Route path="/wic-assistant"   element={<Navigate to="/assistant" replace />} />
             <Route path="/bo-list"         element={<BoList />} />
           </Routes>
         </main>
       </div>
 
       <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
+      <WicChatWidget />
     </div>
   )
 }

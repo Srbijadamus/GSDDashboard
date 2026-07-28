@@ -18,11 +18,12 @@ export default function AvailableHoursPanel() {
       const params = new URLSearchParams({ from, to });
       if (teamLead) params.append('teamLead', teamLead);
       const res = await fetch(`${BASE}/api/wic/availableHours?${params}`);
+      if (!res.ok) throw new Error(`API ${res.status}`);
       const json = await res.json();
-      setData(json);
+      setData(Array.isArray(json) ? json : []);
       const tls = [...new Set(json.map(r => r.teamLead).filter(Boolean))];
       setTeamLeads(tls);
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error(e); setData([]); }
     setLoading(false);
   };
 

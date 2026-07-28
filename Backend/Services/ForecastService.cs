@@ -46,12 +46,12 @@ public class ForecastService
 
     public ForecastService(GSDContext db) => _db = db;
 
-    public async Task<ForecastResponse> GetForecastAsync(int horizon, string? locationCode)
+    public async Task<ForecastResponse> GetForecastAsync(int horizon, string? locationCode, DateOnly? fromDate = null)
     {
-        horizon = Math.Clamp(horizon, 1, 30);
+        horizon = Math.Clamp(horizon, 1, 62);
         var today     = DateOnly.FromDateTime(DateTime.Today);
-        var startDate = today;
-        var endDate   = today.AddDays(horizon - 1);
+        var startDate = fromDate ?? today;
+        var endDate   = startDate.AddDays(horizon - 1);
 
         var locations = await _db.WicLocations
             .Where(l => l.IsActive)
@@ -72,7 +72,7 @@ public class ForecastService
             .ToListAsync();
         var shiftByEmpDate = shiftEntries
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
         // Bulk-load sick leaves covering the forecast window for cross-check
         var sickLeaves = await _db.SickLeaves
             .Where(sl => sl.EmployeeId != null && sl.FirstDay <= endDate && sl.LastDay >= startDate)
@@ -88,10 +88,7 @@ public class ForecastService
             {
                 int dow = (int)date.DayOfWeek; // 0=Sun...6=Sat
 
-                var hours = allHours.FirstOrDefault(h =>
-                    (h.LocationCode == loc.LocationCode ||
-                     (loc.LocationCodeLegacy != null && h.LocationCode == loc.LocationCodeLegacy)) &&
-                    h.DayOfWeek == dow);
+                var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, dow, date);
 
                 bool isNational = publicHolidays.Any(ph => ph.HolidayDate == date && ph.IsNational);
                 string? bundesland = loc.Bundesland
@@ -149,7 +146,7 @@ public class ForecastService
             int atRiskDays = days.Count(d => d.IsAtRisk);
             var todayStr = today.ToString("yyyy-MM-dd");
             var todayDay = days.FirstOrDefault(d => d.Date == todayStr);
-            string todayStatus = todayDay?.Status ?? "CLOSED";
+            string todayStatus = todayDay?.Status ?? "N/A";
             locationResults.Add(new ForecastLocationDto(
                 loc.LocationCode, loc.DisplayName, loc.City ?? "", loc.Country ?? "DE",
                 loc.Coordinates, todayStatus, days, atRiskDays));
@@ -169,8 +166,12 @@ public static class ForecastEndpointMapper
 {
     public static void MapForecastEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/wic/forecast", async (int? horizon, string? locationCode, ForecastService svc) =>
-            Results.Ok(await svc.GetForecastAsync(horizon ?? 28, locationCode))
-        ).WithTags("WIC");
+        app.MapGet("/api/wic/forecast", async (int? horizon, string? locationCode, string? startDate, ForecastService svc) =>
+        {
+            DateOnly? fromDate = null;
+            if (startDate != null && DateOnly.TryParse(startDate, out var d))
+                fromDate = d;
+            return Results.Ok(await svc.GetForecastAsync(horizon ?? 28, locationCode, fromDate));
+        }).WithTags("WIC");
     }
 }

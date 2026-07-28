@@ -96,7 +96,7 @@ public class BackupService
             .ToListAsync();
         var shiftByEmpDate = shiftEntries
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
 
         var wicEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate >= startDate && w.ShiftDate <= endDate)
@@ -121,10 +121,7 @@ public class BackupService
         {
             int dow = (int)date.DayOfWeek; // 0=Sun, 1=Mon ... 6=Sat
 
-            var hours = openingHours.FirstOrDefault(h =>
-                (h.LocationCode == locationCode ||
-                 (location.LocationCodeLegacy != null && h.LocationCode == location.LocationCodeLegacy)) &&
-                h.DayOfWeek == dow);
+            var hours = WicHoursResolver.Resolve(openingHours, locationCode, location.LocationCodeLegacy, dow, date);
 
             bool isNationalHoliday = publicHolidays.Any(ph => ph.HolidayDate == date && ph.IsNational);
             string? bundesland = location.Bundesland

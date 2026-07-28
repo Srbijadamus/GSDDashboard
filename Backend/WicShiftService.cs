@@ -89,13 +89,13 @@ public class WicShiftService
         var empIds = rows.Select(r => r.Wic.EmployeeId).Distinct().ToList();
         var shiftStatuses = await _db.ShiftEntries
             .Where(s => s.ShiftDate >= fromDate && s.ShiftDate <= toDate && empIds.Contains(s.EmployeeId))
-            .Select(s => new { s.EmployeeId, s.ShiftDate, s.ShiftType })
+            .Select(s => new { s.EmployeeId, s.ShiftDate, s.ShiftType, s.Id })
             .ToListAsync();
 
-        var statusMap = shiftStatuses.ToDictionary(
-            s => s.EmployeeId + "_" + s.ShiftDate.ToString("yyyy-MM-dd"),
-            s => s.ShiftType
-        );
+        // GroupBy guards against duplicate (EmployeeId, ShiftDate) rows; highest Id wins.
+        var statusMap = shiftStatuses
+            .GroupBy(s => s.EmployeeId + "_" + s.ShiftDate.ToString("yyyy-MM-dd"))
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.Id).First().ShiftType);
 
         return rows.Select(x => {
             var key = x.Wic.EmployeeId + "_" + x.Wic.ShiftDate.ToString("yyyy-MM-dd");
@@ -166,11 +166,15 @@ public class WicShiftService
             if (!hoursByCode.TryGetValue(code, out var list) &&
                 (legacyCode == null || !hoursByCode.TryGetValue(legacyCode, out list)))
                 return "";
+            var today = DateOnly.FromDateTime(DateTime.Today);
             int[] order = { 1, 2, 3, 4, 5, 6, 0 };
             var parts = new List<string>();
             foreach (var dow in order)
             {
-                var h = list.FirstOrDefault(x => x.DayOfWeek == dow);
+                var h = list
+                    .Where(x => x.DayOfWeek == dow && (x.EffectiveFrom == null || x.EffectiveFrom <= today))
+                    .OrderByDescending(x => x.EffectiveFrom ?? DateOnly.MinValue)
+                    .FirstOrDefault();
                 if (h == null) continue;
                 if (h.IsClosed) { parts.Add($"{dayAbbr[dow]} Closed"); continue; }
                 if (string.IsNullOrEmpty(h.OpenTime) && string.IsNullOrEmpty(h.CloseTime)) continue;
@@ -220,7 +224,7 @@ public class WicShiftService
             .ToListAsync();
         var shiftByEmpDate = shiftEntries
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
 
         var result = new List<WicOpenDayDto>();
 

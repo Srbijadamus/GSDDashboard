@@ -85,7 +85,7 @@ public class WicCardsService
 
         var cards = locations.Select(loc =>
         {
-            var hours = openingHours.FirstOrDefault(h => h.LocationCode == loc.LocationCode);
+            var hours = WicHoursResolver.Resolve(openingHours, loc.LocationCode, dow, date);
 
             var locShifts = wicShifts
                 .Where(x => WicLocationMatcher.MatchesSupportLocation(x.w.SupportLocation, loc))

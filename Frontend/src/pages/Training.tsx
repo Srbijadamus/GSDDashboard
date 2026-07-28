@@ -66,11 +66,12 @@ export default function Training() {
 
   const fetchTopics = async () => {
     const r = await fetch(`${BASE}/api/training/topics`)
+    if (!r.ok) return
     const d = await r.json()
     setTopics(Array.isArray(d) ? d : [])
   }
-  const fetchSessions = async () => { const r = await fetch(`${BASE}/api/training/sessions?from=${today}&to=${new Date(Date.now()+30*24*60*60*1000).toISOString().split("T")[0]}`); setSessions(await r.json()) }
-  const fetchEmployees = async () => { const r = await fetch(`${BASE}/api/employees`); setEmployees(await r.json()) }
+  const fetchSessions = async () => { const r = await fetch(`${BASE}/api/training/sessions?from=${today}&to=${new Date(Date.now()+30*24*60*60*1000).toISOString().split("T")[0]}`); if (!r.ok) return; setSessions(await r.json()) }
+  const fetchEmployees = async () => { const r = await fetch(`${BASE}/api/employees`); if (!r.ok) return; setEmployees(await r.json()) }
 
   useEffect(() => { fetchTopics(); fetchSessions(); fetchEmployees() }, [])
 
@@ -113,7 +114,8 @@ export default function Training() {
 
   const deleteSession = async (id: number) => {
     if (!window.confirm("Delete this session?")) return
-    await fetch(`${BASE}/api/training/sessions/${id}`, { method:"DELETE" })
+    const r = await fetch(`${BASE}/api/training/sessions/${id}`, { method:"DELETE" })
+    if (!r.ok) { showToast(`Could not delete session — ${r.status}`); return }
     fetchSessions()
   }
 

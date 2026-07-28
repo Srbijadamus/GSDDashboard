@@ -149,6 +149,17 @@ public class SickLeaveService
         if (!DateOnly.TryParse(req.StartDate, out var start)) return null;
         if (!DateOnly.TryParse(req.EndDate,   out var end))   return null;
         var emp = req.EmployeeId != null ? await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId) : null;
+
+        if (req.EmployeeId != null)
+        {
+            var duplicate = await _db.SickLeaves.FirstOrDefaultAsync(s =>
+                s.EmployeeId == req.EmployeeId && s.FirstDay == start && s.LastDay == end);
+            if (duplicate != null) return new SickLeaveDto(duplicate.Id, duplicate.EmployeeId, duplicate.FirstName, duplicate.LastName,
+                ((duplicate.FirstName ?? "") + " " + (duplicate.LastName ?? "")).Trim(),
+                duplicate.TeamLeadName, duplicate.FirstDay.ToString("yyyy-MM-dd"), duplicate.LastDay.ToString("yyyy-MM-dd"),
+                duplicate.DurationDays, duplicate.LeaveType, duplicate.ChildName, duplicate.Comments, duplicate.SourceSheet);
+        }
+
         var entry = new SickLeaveModel
         {
             EmployeeId   = req.EmployeeId,

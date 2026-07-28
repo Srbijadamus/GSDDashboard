@@ -1,6 +1,8 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 namespace GSDDashboard.API.Modules.WicSchedule;
 
 public record WicDayDto(string Date, string DayOfWeek, string? SupportLocation, string? WicOpeningHours, string? WorkingShift, bool IsOnSite, bool IsOffDay, string? Task);
@@ -13,7 +15,8 @@ public record WicOpeningHoursDto(string LocationCode, string DisplayName, string
 public class WicScheduleService
 {
     private readonly GSDContext _db;
-    public WicScheduleService(GSDContext db) => _db = db;
+    private readonly ILogger<WicScheduleService> _log;
+    public WicScheduleService(GSDContext db, ILogger<WicScheduleService> log) { _db = db; _log = log; }
 
     private static string DayName(int d) => d switch {
         1 => "Mon", 2 => "Tue", 3 => "Wed", 4 => "Thu",
@@ -50,7 +53,15 @@ public class WicScheduleService
         foreach (var emp in employees.OrderBy(e => e.TeamLeadName).ThenBy(e => e.FullName))
         {
             var empAssignments = assignments.Where(a => a.EmployeeName == emp.FullName).Select(a => a.LocationCode).ToList();
-            var empEntries = wicEntries.Where(w => w.EmployeeId == emp.EmployeeId).ToDictionary(w => w.ShiftDate);
+            var empEntries = wicEntries.Where(w => w.EmployeeId == emp.EmployeeId)
+                .GroupBy(w => w.ShiftDate)
+                .ToDictionary(g => g.Key, g =>
+                {
+                    if (g.Count() > 1)
+                        _log.LogWarning("WicSchedule: {Count} WicShiftEntries for {EmpId} on {Date}",
+                            g.Count(), emp.EmployeeId, g.Key);
+                    return ShiftDuplicateResolver.BestWicEntry(g);
+                });
 
             var days = new List<WicDayDto>();
             for (var d = fromDate; d <= toDate; d = d.AddDays(1))

@@ -10,8 +10,8 @@ export default function LeaveAvailabilityBar({ from, to, maxLeave = 8 }) {
     if (!from || !to) return
     setLoading(true)
     fetch(`/api/vacations/availability?from=${from}&to=${to}&maxLeave=${max}`)
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
+      .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() })
+      .then(d => { setData(Array.isArray(d) ? d : []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [from, to, max])
 

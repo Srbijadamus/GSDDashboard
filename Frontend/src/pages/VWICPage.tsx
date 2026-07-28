@@ -134,7 +134,7 @@ function AssignSlotModal({
 
   const { data: candidates, isLoading } = useQuery<VwicCandidate[]>({
     queryKey: ["vwic-candidates", date],
-    queryFn:  () => fetch(`/api/vwic/candidates?date=${date}`).then(r => r.json()),
+    queryFn:  () => fetch(`/api/vwic/candidates?date=${date}`).then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
   })
 
   const alreadyInSlot = new Set([...slot.mainAgents, ...slot.backupAgents])
@@ -288,7 +288,7 @@ function AddAgentModal({ onClose, onAdded }: { onClose: () => void; onAdded: () 
 
   const { data: candidates, isLoading } = useQuery<VwicCandidate[]>({
     queryKey: ["vwic-candidates"],
-    queryFn:  () => fetch("/api/vwic/candidates").then(r => r.json()),
+    queryFn:  () => fetch("/api/vwic/candidates").then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
   })
 
   const mutation = useMutation({

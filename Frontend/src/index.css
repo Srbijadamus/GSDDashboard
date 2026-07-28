@@ -86,6 +86,13 @@ body {
   border-radius: 4px;
 }
 
+/* ── Spin animation (refresh button) ────────────────────────────────────── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.spin { animation: spin 0.8s linear infinite; }
+
 /* ── Pulse dot animation ─────────────────────────────────────────────────── */
 @keyframes pulse-green {
   0%   { box-shadow: 0 0 0 0 rgba(34, 208, 122, 0.6); }

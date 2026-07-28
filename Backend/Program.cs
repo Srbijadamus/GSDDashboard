@@ -19,6 +19,8 @@ using GSDDashboard.API.Modules.Attendance;
 using GSDDashboard.API.Modules.Backup;
 using GSDDashboard.API.Modules.SubstituteAccept;
 using GSDDashboard.API.Modules.BoList;
+using GSDDashboard.API.Modules.WicAssistant;
+using GSDDashboard.API.Modules.Assistant;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -59,6 +61,22 @@ builder.Services.AddScoped<BriefingService>();
 builder.Services.AddScoped<ALPlanningService>();
 builder.Services.AddScoped<WicCoverageService>();
 builder.Services.AddScoped<BoListService>();
+builder.Services.AddScoped<WicAssistantService>();
+
+// Full-dashboard assistant — domain handlers + router
+builder.Services.AddScoped<IDomainHandler, WicLeaveHandler>();
+builder.Services.AddScoped<IDomainHandler, SickLeaveHandler>();
+builder.Services.AddScoped<IDomainHandler, VacationsHandler>();
+builder.Services.AddScoped<IDomainHandler, ALBalanceHandler>();
+builder.Services.AddScoped<IDomainHandler, DashboardHandler>();
+builder.Services.AddScoped<IDomainHandler, WicForecastHandler>();
+builder.Services.AddScoped<IDomainHandler, WicCoverageDetailHandler>();
+builder.Services.AddScoped<IDomainHandler, PipelineHandler>();
+builder.Services.AddScoped<IDomainHandler, TrainingHandler>();
+builder.Services.AddScoped<IDomainHandler, EmployeesHandler>();
+builder.Services.AddScoped<IDomainHandler, WicOpeningHoursHandler>();
+builder.Services.AddScoped<IDomainHandler, AgentAvailabilityHandler>();
+builder.Services.AddScoped<AssistantService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -255,6 +273,8 @@ app.MapALPlanningEndpoints();
 app.MapBreakEndpoints();
 app.MapWicCoverageEndpoints();
 app.MapBoListEndpoints();
+app.MapWicAssistantEndpoints();
+app.MapAssistantEndpoints();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.MapFallbackToFile("index.html", staticFileOptions);

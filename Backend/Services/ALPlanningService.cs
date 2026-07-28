@@ -191,8 +191,12 @@ public class ALPlanningService
                       && sl.FirstDay <= date && sl.LastDay >= date)
             .ToListAsync();
 
+        // GroupBy guards against duplicate rows for the same employee+date (e.g. WORKING
+        // from EXCEL + AL from AL_IMPORT). BestShiftEntry picks highest Id (latest correction).
         var shiftByEmpId = shiftAbsences
-            .ToDictionary(s => s.EmployeeId, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(s => s.EmployeeId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g),
+                StringComparer.OrdinalIgnoreCase);
         var sickEmpIds = sickAbsences
             .Where(sl => sl.EmployeeId != null)
             .Select(sl => sl.EmployeeId!)

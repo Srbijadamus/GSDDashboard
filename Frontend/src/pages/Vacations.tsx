@@ -27,7 +27,7 @@ function AddVacationModal({ onClose, onSave }: { onClose: () => void; onSave: (d
 
   const { data: employees = [] } = useQuery<EmployeeOption[]>({
     queryKey: ["employees-active"],
-    queryFn: () => fetch("/api/employees/?active=true").then(r => r.json()),
+    queryFn: () => fetch("/api/employees/?active=true").then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
     staleTime: 5 * 60 * 1000,
   })
 

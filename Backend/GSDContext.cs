@@ -65,6 +65,8 @@ public class GSDContext : DbContext
         modelBuilder.Entity<Vacation>(e => {
             e.HasIndex(x => x.EmployeeId).HasDatabaseName("IX_Vac_Emp");
             e.HasIndex(x => new { x.FirstDay, x.LastDay }).HasDatabaseName("IX_Vac_Dates");
+            e.HasIndex(x => new { x.EmployeeId, x.FirstDay, x.LastDay })
+             .IsUnique().HasDatabaseName("UQ_Vacations_EmpFirstLastDay");
         });
         modelBuilder.Entity<ALBalance>(e => {
             e.HasIndex(x => x.EmployeeId).IsUnique();

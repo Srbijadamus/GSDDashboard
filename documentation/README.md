@@ -12,7 +12,7 @@ Tunnels expire every 4 days and auto-restart via Task Scheduler.
 
 | Service | URL |
 |---------|-----|
-| GSD Dashboard | https://8nh5k5g1-5000.euw.devtunnels.ms |
+| GSD Dashboard | https://d2jn94qg-5000.euw.devtunnels.ms |
 | Kiosk | https://ssr7tm2l-8000.euw.devtunnels.ms |
 | Kiosk Dashboard | https://ssr7tm2l-8000.euw.devtunnels.ms/dashboard |
 

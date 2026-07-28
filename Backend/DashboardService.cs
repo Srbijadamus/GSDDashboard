@@ -1,6 +1,8 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace GSDDashboard.API.Modules.Dashboard;
 
@@ -52,18 +54,24 @@ public record WicCardDto(
 public class DashboardService
 {
     private readonly GSDContext _db;
-    public DashboardService(GSDContext db) => _db = db;
+    private readonly ILogger<DashboardService> _log;
+    public DashboardService(GSDContext db, ILogger<DashboardService> log) { _db = db; _log = log; }
 
     public async Task<DashboardSummaryDto> GetSummaryAsync(DateOnly date)
     {
-        var shifts = await _db.ShiftEntries
+        // Deduplicate per employee before counting: an employee with WORKING (EXCEL) +
+        // AL (AL_IMPORT) rows for the same day would otherwise inflate multiple buckets.
+        var shifts = (await _db.ShiftEntries
             .Where(s => s.ShiftDate == date)
             .Join(_db.Employees,
                   s => s.EmployeeId,
                   e => e.EmployeeId,
                   (s, e) => new { Shift = s, Employee = e })
             .Where(x => x.Employee.IsActive)
-            .ToListAsync();
+            .ToListAsync())
+            .GroupBy(x => x.Shift.EmployeeId)
+            .Select(g => g.OrderByDescending(x => x.Shift.Id).First())
+            .ToList();
 
         var workingVoice      = shifts.Count(x => x.Shift.ShiftType == ShiftTypes.Working      && x.Employee.PrimaryRole == "Voice");
         var workingChat       = shifts.Count(x => x.Shift.ShiftType == ShiftTypes.Working      && x.Employee.PrimaryRole is "Chat" or "Chat CRO");
@@ -129,8 +137,19 @@ public class DashboardService
             .Where(w => w.ShiftDate == date && w.IsOnSite)
             .ToListAsync();
 
-        var shiftsByEmp = shifts.ToDictionary(s => s.EmployeeId);
-        var wicByEmp    = wicEntries.ToDictionary(w => w.EmployeeId);
+        // ShiftEntries can have multiple rows per employee+date (WORKING from EXCEL + AL from AL_IMPORT).
+        // ShiftDuplicateResolver.BestShiftEntry picks highest Id (latest import = latest correction).
+        var shiftsByEmp = shifts
+            .GroupBy(s => s.EmployeeId)
+            .ToDictionary(g => g.Key, g =>
+            {
+                if (g.Count() > 1)
+                    _log.LogWarning("Dashboard: {Count} ShiftEntries for {EmpId} on {Date}",
+                        g.Count(), g.Key, date);
+                return ShiftDuplicateResolver.BestShiftEntry(g);
+            });
+        // wicByEmp only needs a presence check — HashSet avoids duplicate-key crash entirely.
+        var wicEmpSet = wicEntries.Select(w => w.EmployeeId).ToHashSet();
 
         return employees
             .GroupBy(e => e.TeamLeadName!.Trim())
@@ -140,7 +159,7 @@ public class DashboardService
                 var onAL        = g.Count(e => shiftsByEmp.TryGetValue(e.EmployeeId, out var s) && s.ShiftType is ShiftTypes.AnnualLeave or ShiftTypes.HalfAL);
                 var onSL        = g.Count(e => shiftsByEmp.TryGetValue(e.EmployeeId, out var s) && s.ShiftType == ShiftTypes.SickLeave);
                 var training    = g.Count(e => shiftsByEmp.TryGetValue(e.EmployeeId, out var s) && s.ShiftType == ShiftTypes.Training);
-                var wicAssigned = g.Count(e => wicByEmp.ContainsKey(e.EmployeeId));
+                var wicAssigned = g.Count(e => wicEmpSet.Contains(e.EmployeeId));
                 return new TeamLeadSummaryDto(g.Key, working, onAL, onSL, training, wicAssigned, g.Count());
             })
             .OrderByDescending(t => t.TotalAgents)

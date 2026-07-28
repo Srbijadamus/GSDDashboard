@@ -87,7 +87,7 @@ public class BriefingService
             .ToListAsync();
         var shiftByEmpDate = shiftEntries
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
 
         // ── Absences today ────────────────────────────────────────────────────
         var todayShifts = shiftEntries.Where(s => s.ShiftDate == date).ToList();
@@ -156,7 +156,7 @@ public class BriefingService
 
         foreach (var loc in locations)
         {
-            var hours = allHours.FirstOrDefault(h => h.LocationCode == loc.LocationCode && h.DayOfWeek == todayDow);
+            var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, todayDow, date);
             string? bundesland = loc.Bundesland ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
             bool isRegional = bundesland != null && publicHolidays.Any(ph =>
                 ph.HolidayDate == date && string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
@@ -219,7 +219,7 @@ public class BriefingService
             {
                 if (atRiskList.Count >= 3) break;
 
-                var hours = allHours.FirstOrDefault(h => h.LocationCode == loc.LocationCode && h.DayOfWeek == scanDow);
+                var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, scanDow, scanDate);
                 string? bundesland = loc.Bundesland ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
                 bool isRegional = bundesland != null && publicHolidays.Any(ph =>
                     ph.HolidayDate == scanDate && string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));

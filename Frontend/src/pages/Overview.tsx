@@ -807,9 +807,12 @@ export default function Overview() {
                     {showRange && <span style={{ color: "var(--text3)" }}> → {ab.lastDay}</span>}
                   </span>
                   <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)", whiteSpace: "nowrap" }}>
-                    {ab.totalDays}d
-                    {ab.daysSoFar > 0 && ab.daysSoFar < ab.totalDays &&
-                      <span style={{ color: "var(--text3)", fontSize: 10 }}> ({ab.daysSoFar} so far)</span>}
+                    {ab.lastDay >= "2099-01-01"
+                      ? <span style={{ color: "var(--warn)", fontSize: 10 }}>open ({ab.daysSoFar} {ab.daysSoFar === 1 ? "day" : "days"} so far)</span>
+                      : <>{ab.totalDays}d
+                          {ab.daysSoFar > 0 && ab.daysSoFar < ab.totalDays &&
+                            <span style={{ color: "var(--text3)", fontSize: 10 }}> ({ab.daysSoFar} so far)</span>}
+                        </>}
                   </span>
                   {ab.wicLocation && (
                     <span style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>{ab.wicLocation}</span>

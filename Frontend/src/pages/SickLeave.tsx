@@ -167,8 +167,9 @@ function DrillDownModal({ title, entries, onClose }: { title: string; entries: a
                 const since = new Date(s.firstDay)
                 const todayD = new Date(today)
                 const daysSoFar = Math.max(0, Math.floor((todayD.getTime() - since.getTime()) / 86400000) + 1)
+                const isOpenEnded = s.lastDay >= "2099-01-01"
                 const lastDay = new Date(s.lastDay); lastDay.setDate(lastDay.getDate() + 1)
-                const expectedReturn = lastDay.toISOString().split("T")[0]
+                const expectedReturn = isOpenEnded ? "–" : lastDay.toISOString().split("T")[0]
                 const isCritical = daysSoFar >= 10; const isWarn = daysSoFar >= 5
                 return (
                   <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
@@ -372,11 +373,13 @@ function GroupedSickTable({ data, commentCache, setCommentCache }: {
                     <tr key={p.id ?? i} style={{ borderBottom: i === periods.length - 1 ? "1px solid var(--border)" : "none", background: "rgba(99,102,241,.03)" }}>
                       <td style={{ padding: "7px 12px 7px 32px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text2)" }}>
                         <span style={{ color: "rgba(99,102,241,.4)", marginRight: 6 }}>└</span>
-                        {p.firstDay} – {p.lastDay}
+                        {p.firstDay} – {p.lastDay >= "2099-01-01" ? "aktiv" : p.lastDay}
                       </td>
                       <td />
                       <td style={{ padding: "7px 12px" }}>
-                        <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: dayColor(p.durationDays ?? 0) }}>{p.durationDays ?? "?"}d</span>
+                        {p.lastDay >= "2099-01-01"
+                          ? <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--warn)" }}>open</span>
+                          : <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: dayColor(p.durationDays ?? 0) }}>{p.durationDays ?? "?"}d</span>}
                       </td>
                       <td style={{ padding: "7px 12px" }}>
                         <span style={{ background: p.leaveType === "Self" ? "rgba(255,124,59,.15)" : "rgba(250,204,21,.15)", color: p.leaveType === "Self" ? "var(--warn)" : "var(--yellow)", padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono" }}>{p.leaveType}</span>

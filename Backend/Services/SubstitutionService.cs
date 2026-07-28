@@ -123,7 +123,7 @@ public class SubstitutionService
             .ToListAsync();
         var shiftByEmpDate = shiftEntries
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
 
         var wicEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate >= startDate && w.ShiftDate <= endDate)
@@ -205,10 +205,7 @@ public class SubstitutionService
         for (var date = startDate; date <= endDate; date = date.AddDays(1))
         {
             int dow = (int)date.DayOfWeek;
-            var hours = allHours.FirstOrDefault(h =>
-                (h.LocationCode == locationCode ||
-                 (loc.LocationCodeLegacy != null && h.LocationCode == loc.LocationCodeLegacy)) &&
-                h.DayOfWeek == dow);
+            var hours = WicHoursResolver.Resolve(allHours, locationCode, loc.LocationCodeLegacy, dow, date);
 
             bool isNational = publicHolidays.Any(ph => ph.HolidayDate == date && ph.IsNational);
             string? bundesland = loc.Bundesland

@@ -52,7 +52,7 @@ public class OverviewService
             .ToListAsync();
         var shiftByEmpDate = shiftEntries
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
 
         var days = new List<object>();
 
@@ -68,10 +68,7 @@ public class OverviewService
 
             var locSummaries = locations.Select(loc =>
             {
-                var hours = allHours.FirstOrDefault(h =>
-                    (h.LocationCode == loc.LocationCode ||
-                     (loc.LocationCodeLegacy != null && h.LocationCode == loc.LocationCodeLegacy)) &&
-                    h.DayOfWeek == dow);
+                var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, dow, date);
                 string? bundesland = loc.Bundesland
                     ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
                 bool isRegionalHoliday = bundesland != null &&

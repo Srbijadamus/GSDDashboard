@@ -1,5 +1,6 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -36,8 +37,8 @@ public static class SubstituteAcceptEndpointMapper
 
             // Look up opening hours to populate WorkingShift on the WicShiftEntry
             int dow = (int)date.DayOfWeek;
-            var hours = await db.WicOpeningHours
-                .FirstOrDefaultAsync(h => h.LocationCode == req.LocationCode && h.DayOfWeek == dow);
+            var allHoursForSub = await db.WicOpeningHours.ToListAsync();
+            var hours = WicHoursResolver.Resolve(allHoursForSub, req.LocationCode, dow, date);
             string openTime  = hours?.OpenTime  ?? req.ShiftStart ?? "08:00";
             string closeTime = hours?.CloseTime ?? req.ShiftEnd   ?? "17:00";
             string workingShift = $"{openTime}-{closeTime}";

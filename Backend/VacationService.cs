@@ -109,6 +109,10 @@ public class VacationService
         var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == dto.EmployeeId && e.IsActive);
         if (emp == null) return null;
 
+        var duplicate = await _db.Vacations.FirstOrDefaultAsync(v =>
+            v.EmployeeId == dto.EmployeeId && v.FirstDay == firstDay && v.LastDay == lastDay);
+        if (duplicate != null) return Map(duplicate, emp);
+
         var workDays = CountWeekdays(firstDay, lastDay);
 
         var vac = new Vacation

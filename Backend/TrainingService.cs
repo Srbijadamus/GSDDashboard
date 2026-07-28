@@ -1,5 +1,6 @@
 ﻿using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 namespace GSDDashboard.API.Modules.Training;
 
@@ -84,7 +85,7 @@ public class TrainingService
             .Where(s => allIds.Contains(s.EmployeeId) && s.ShiftDate >= fromDate && s.ShiftDate <= toDate)
             .ToListAsync())
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
 
         var selected = (req.SelectedAgentIds ?? new List<string>())
             .Where(id => !string.IsNullOrWhiteSpace(id)).ToHashSet();

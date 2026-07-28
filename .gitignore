@@ -8,3 +8,7 @@ Frontend/node_modules/
 Frontend/dist/
 db-backups/
 *.bak
+.vs/
+*.log
+Backend/NUL
+Frontend/NUL

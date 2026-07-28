@@ -110,7 +110,7 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
   useEffect(() => {
     if (!isOpen) return
     fetch("/api/employees/?active=true")
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() })
       .then((data: EmployeeRow[]) =>
         setEmployees(data.filter(e => e.fullName).sort((a, b) =>
           (a.fullName ?? "").localeCompare(b.fullName ?? "")))

@@ -137,6 +137,7 @@ export default function Pipeline() {
     setLoading(true)
     try {
       const r = await fetch(`${BASE}/api/pipeline?from=${fromDate}&to=${toDate}`)
+      if (!r.ok) throw new Error(`API ${r.status}`)
       setEvents(await r.json())
     } catch {}
     setLoading(false)
@@ -145,6 +146,7 @@ export default function Pipeline() {
   const fetchLocations = async () => {
     try {
       const r = await fetch(`${BASE}/api/wic/locations`)
+      if (!r.ok) throw new Error(`API ${r.status}`)
       setLocations(await r.json())
     } catch {}
   }
