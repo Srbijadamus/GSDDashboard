@@ -66,12 +66,13 @@ public class WicAssistantService(
 
         return parsed.Intent switch
         {
-            Intent.ListLeave      => BuildListResponse(wicVacs, agentById, rangeStr),
-            Intent.PersonLeave    => BuildPersonResponse(wicVacs, agentById, agents, rangeStr, parsed),
-            Intent.LocationLeave  => BuildLocationResponse(wicVacs, agentById, rangeStr, parsed),
-            Intent.CountOnDate    => BuildCountResponse(wicVacs, agentById, rangeStr, parsed),
-            Intent.LowestCoverage => BuildLowestCoverageResponse(wicVacs, agentById, agents, rangeStr, parsed),
-            _                     => new AssistantResponse(OutOfScopeMsg, rangeStr, null, null)
+            Intent.ListLeave       => BuildListResponse(wicVacs, agentById, rangeStr),
+            Intent.PersonLeave     => BuildPersonResponse(wicVacs, agentById, agents, rangeStr, parsed),
+            Intent.LocationLeave   => BuildLocationResponse(wicVacs, agentById, rangeStr, parsed),
+            Intent.CountOnDate     => BuildCountResponse(wicVacs, agentById, rangeStr, parsed),
+            Intent.LowestCoverage  => BuildLowestCoverageResponse(wicVacs, agentById, agents, rangeStr, parsed),
+            Intent.BackupCoverage  => BuildBackupCoverageResponse(wicVacs, agentById, agents, rangeStr, parsed),
+            _                      => new AssistantResponse(OutOfScopeMsg, rangeStr, null, null)
         };
     }
 
@@ -222,6 +223,104 @@ public class WicAssistantService(
         return new AssistantResponse(text, rangeStr, rows.Length > 0 ? rows : null, null);
     }
 
+    private static AssistantResponse BuildBackupCoverageResponse(
+        List<VacationDto> wicVacs,
+        Dictionary<string, AgentCoverageDto> agentById,
+        List<AgentCoverageDto> allAgents,
+        string rangeStr,
+        ParsedQuery parsed)
+    {
+        // Start with anyone already confirmed on leave in range
+        var onLeaveIds = wicVacs
+            .Select(v => v.EmployeeId)
+            .Where(id => id != null)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase)!;
+
+        // Determine whose locations need coverage
+        List<AgentCoverageDto> awayAgents;
+        if (parsed.PersonHint is not null)
+        {
+            var personAgent = allAgents.FirstOrDefault(a =>
+                (a.FullName ?? "").Contains(parsed.PersonHint, StringComparison.OrdinalIgnoreCase));
+            if (personAgent is null)
+                return new AssistantResponse(
+                    $"No WIC agent found matching \"{parsed.PersonHint}\".", rangeStr, null, null);
+            awayAgents = new List<AgentCoverageDto> { personAgent };
+            // Exclude this person from the available pool even if their vacation isn't recorded
+            onLeaveIds.Add(personAgent.EmployeeId ?? "");
+        }
+        else
+        {
+            awayAgents = allAgents
+                .Where(a => onLeaveIds.Contains(a.EmployeeId ?? "") &&
+                            a.WicRoles.Any(r => r.AssignmentType == "MAIN"))
+                .ToList();
+            if (awayAgents.Count == 0)
+                return new AssistantResponse(
+                    $"No MAIN WIC agents on leave in {rangeStr}. Full coverage expected.", rangeStr, null, null);
+        }
+
+        // Build location → available agent map
+        var locCoverage = new Dictionary<string, List<(AgentCoverageDto agent, string role)>>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var awayAgent in awayAgents)
+            foreach (var r in awayAgent.WicRoles.Where(r => r.AssignmentType == "MAIN"))
+            {
+                var loc = CleanLocation(r.DisplayName ?? r.LocationCode);
+                if (!locCoverage.ContainsKey(loc))
+                    locCoverage[loc] = new List<(AgentCoverageDto, string)>();
+            }
+
+        foreach (var agent in allAgents)
+        {
+            if (onLeaveIds.Contains(agent.EmployeeId ?? "")) continue;
+            foreach (var r in agent.WicRoles)
+            {
+                var loc = CleanLocation(r.DisplayName ?? r.LocationCode);
+                if (!locCoverage.TryGetValue(loc, out var list)) continue;
+                if (!list.Any(x => x.agent.EmployeeId == agent.EmployeeId))
+                    list.Add((agent, r.AssignmentType));
+            }
+        }
+
+        var rows = new List<AssistantTableRow>();
+        foreach (var (locName, coverList) in locCoverage.OrderBy(kv => kv.Key))
+        {
+            if (coverList.Count == 0)
+            {
+                rows.Add(new AssistantTableRow("— NO COVER —", "",
+                    parsed.From.ToString("yyyy-MM-dd"), parsed.To.ToString("yyyy-MM-dd"),
+                    null, locName, "GAP"));
+            }
+            else
+            {
+                foreach (var (agent, role) in coverList
+                    .OrderBy(x => x.role == "MAIN" ? 0 : x.role == "BACKUP" ? 1 : 2)
+                    .ThenBy(x => x.agent.FullName))
+                {
+                    rows.Add(new AssistantTableRow(
+                        agent.FullName ?? agent.EmployeeId ?? "",
+                        agent.EmployeeId ?? "",
+                        parsed.From.ToString("yyyy-MM-dd"),
+                        parsed.To.ToString("yyyy-MM-dd"),
+                        null, locName, role));
+                }
+            }
+        }
+
+        if (rows.Count == 0)
+            return new AssistantResponse($"No coverage data found for {rangeStr}.", rangeStr, null, null);
+
+        var locCount   = rows.Select(r => r.WicLocation).Distinct().Count();
+        var gapCount   = rows.Count(r => r.Role == "GAP");
+        var coverCount = rows.Count(r => r.Role != "GAP");
+        var awayNames  = string.Join(", ", awayAgents.Select(a => a.FullName).Distinct());
+        var text = gapCount > 0
+            ? $"Coverage plan {rangeStr} (covering for {awayNames}): {coverCount} agent{(coverCount == 1 ? "" : "s")} available across {locCount - gapCount} location(s); {gapCount} location(s) have no backup."
+            : $"Coverage plan {rangeStr} (covering for {awayNames}): {coverCount} agent{(coverCount == 1 ? "" : "s")} available across {locCount} location(s).";
+        return new AssistantResponse(text, rangeStr, rows.ToArray(), null);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static AssistantTableRow[] ToTableRows(
@@ -269,7 +368,7 @@ public class WicAssistantService(
 
 // ─── Intent / ParsedQuery ─────────────────────────────────────────────────────
 
-internal enum Intent { ListLeave, PersonLeave, LocationLeave, CountOnDate, LowestCoverage, OutOfScope }
+internal enum Intent { ListLeave, PersonLeave, LocationLeave, CountOnDate, LowestCoverage, BackupCoverage, OutOfScope }
 
 internal record ParsedQuery(
     Intent  Intent,
@@ -342,6 +441,11 @@ internal static class IntentParser
 
         if (!InScope(q) && !IsPureDate(q)) return OOS();
 
+        // BackupCoverage intent: user wants to know who can cover a location while someone is away
+        if (Regex.IsMatch(q, @"\bcover\b") || q.Contains("backup plan") ||
+            q.Contains("abdeckung") || q.Contains("who can") || q.Contains("wer kann"))
+            return new ParsedQuery(Intent.BackupCoverage, from, to, ExtractPerson(q), null);
+
         // Person intent
         var person = ExtractPerson(q);
         if (person is not null)
@@ -391,6 +495,7 @@ internal static class IntentParser
         // Ordered from most-specific to least-specific
         string[] patterns =
         [
+            @"\bwhile\s+([a-z][a-z\s\-]{1,30}?)\s+is\s+(?:on\s+(?:annual\s+)?leave|away|absent|on\s+vacation|out)",
             @"\bis\s+([a-z][a-z\s\-]{1,30}?)\s+on\s+(?:annual\s+)?leave",
             @"\bis\s+([a-z][a-z\s\-]{1,30}?)\s+(?:vacation|away|absent|off)",
             @"\bist\s+([a-z][a-z\s\-]{1,30}?)\s+im\s+urlaub",
@@ -457,7 +562,7 @@ internal static class IntentParser
         // Month name → whole month
         foreach (var (name, num) in MonthMap)
         {
-            if (!q.Contains(name)) continue;
+            if (!Regex.IsMatch(q, @"\b" + Regex.Escape(name) + @"\b")) continue;
             var first = new DateOnly(year, num, 1);
             var last  = new DateOnly(year, num, DateTime.DaysInMonth(year, num));
             return (first, last);
