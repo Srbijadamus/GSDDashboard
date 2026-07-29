@@ -395,6 +395,7 @@ export default function Shifts() {
     if (table) topInner.style.width = table.scrollWidth + "px"
   })
   const [legalModal, setLegalModal] = useState<{violations:any[]; pendingUpdate:()=>void} | null>(null)
+  const [assignError, setAssignError] = useState<string | null>(null)
 
   const dates: string[] = []
   for (let i = 0; i < days; i++) {
@@ -432,7 +433,11 @@ export default function Shifts() {
     if (!shift.id) {
       // No ShiftEntries row exists yet for this employee+date (e.g. a far-future
       // month the import job hasn't reached) — create it instead of patching.
-      await doAssignShift(shift.employeeId, shift.shiftDate, type, start, end)
+      try {
+        await doAssignShift(shift.employeeId, shift.shiftDate, type, start, end)
+      } catch (e: any) {
+        setAssignError(e?.message ?? String(e))
+      }
       return
     }
     try {
@@ -456,11 +461,15 @@ export default function Shifts() {
     qc.invalidateQueries({ queryKey:["shifts-cal"] })
   }
   const doAssignShift = async (employeeId: string, shiftDate: string, type: string, start?: string, end?: string) => {
-    await apiFetch("/api/shifts/assign", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ employeeId, shiftDate, shiftType:type, shiftStart:start ?? null, shiftEnd:end ?? null })
-    } as any)
-    qc.invalidateQueries({ queryKey:["shifts-cal"] })
+    const res = await fetch("/api/shifts/assign", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employeeId, shiftDate, shiftType: type, shiftStart: start ?? null, shiftEnd: end ?? null }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body?.error ?? `HTTP ${res.status}`)
+    }
+    qc.invalidateQueries({ queryKey: ["shifts-cal"] })
   }
 
   const updateTask = async (id: number, task: string, locationId?: string) => {
@@ -517,6 +526,12 @@ export default function Shifts() {
         <h1 style={{ fontSize:22, fontWeight:600, color:"var(--text)" }}>{t("nav.shifts")}</h1>
         <DownloadButtons onToday={api.shifts.downloadToday} on7Days={api.shifts.download7} on30Days={api.shifts.download30} />
       </div>
+      {assignError && (
+        <div style={{ background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>{assignError}</span>
+          <button onClick={() => setAssignError(null)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px" }}>×</button>
+        </div>
+      )}
       <CoverageBar date={from} />
 
       <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>

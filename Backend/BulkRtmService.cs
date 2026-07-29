@@ -23,6 +23,7 @@ public record RtmManualAddDto(
 public record RtmRowUpdateDto(string? ShiftStart, string? ShiftEnd, string? Tag);
 
 public record RtmSaveResult(int SavedCount, string Date);
+public record HomeWicDto(string EmployeeId, string? LocationCode, string? DisplayName);
 
 public class BulkRtmService
 {
@@ -140,6 +141,52 @@ public static class BulkRtmEndpointMapper
         {
             var ok = await svc.DeleteRowAsync(id);
             return ok ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Returns [{employeeId, locationCode, displayName}] for each requested ID.
+        // Resolves MAIN WicAgentAssignment via EF Core queries (SQL Server collation handles
+        // any encoding mismatches between WicAgentAssignments and WicLocations codes).
+        grp.MapGet("/home-wic", async (string? ids, GSDContext db) =>
+        {
+            if (string.IsNullOrWhiteSpace(ids)) return Results.Ok(Array.Empty<HomeWicDto>());
+            var idSet = ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                           .ToHashSet();
+
+            var emps = await db.Employees
+                .Where(e => idSet.Contains(e.EmployeeId) && e.IsActive && e.FullName != null)
+                .Select(e => new { e.EmployeeId, FullName = e.FullName! })
+                .ToListAsync();
+
+            if (emps.Count == 0) return Results.Ok(idSet.Select(id => new HomeWicDto(id, null, null)).ToList());
+
+            var nameSet = emps.Select(e => e.FullName).ToHashSet();
+            var assignments = await db.WicAgentAssignments
+                .Where(a => a.IsActive && a.AssignmentType == "MAIN" && nameSet.Contains(a.EmployeeName))
+                .Select(a => new { a.EmployeeName, a.LocationCode })
+                .ToListAsync();
+
+            // Resolve each distinct assignment code via EF Core (SQL Server collation handles
+            // encoding inconsistencies between the two tables; returns null when unresolvable).
+            var distinctCodes = assignments.Select(a => a.LocationCode).Distinct().ToList();
+            var codeToLoc = new Dictionary<string, (string Code, string Name)?>();
+            foreach (var code in distinctCodes)
+            {
+                var loc = await db.WicLocations
+                    .Where(l => l.IsActive && (l.LocationCode == code || l.LocationCodeLegacy == code))
+                    .Select(l => new { l.LocationCode, l.DisplayName })
+                    .FirstOrDefaultAsync();
+                codeToLoc[code] = loc != null ? (loc.LocationCode, loc.DisplayName) : ((string, string)?)null;
+            }
+
+            var result = emps.Select(e =>
+            {
+                var asgn = assignments.FirstOrDefault(a => a.EmployeeName == e.FullName);
+                if (asgn == null) return new HomeWicDto(e.EmployeeId, null, null);
+                var loc = codeToLoc.TryGetValue(asgn.LocationCode, out var v) ? v : null;
+                return new HomeWicDto(e.EmployeeId, loc?.Code, loc?.Name);
+            }).ToList();
+
+            return Results.Ok(result);
         });
     }
 }

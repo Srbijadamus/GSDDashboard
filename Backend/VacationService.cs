@@ -113,6 +113,12 @@ public class VacationService
             v.EmployeeId == dto.EmployeeId && v.FirstDay == firstDay && v.LastDay == lastDay);
         if (duplicate != null) return Map(duplicate, emp);
 
+        // AL and SL must never be merged into one entry. Reject if any day in this
+        // AL range is already covered by a SickLeave record for the same employee.
+        var hasSickLeaveOverlap = await _db.SickLeaves.AnyAsync(s =>
+            s.EmployeeId == dto.EmployeeId && s.FirstDay <= lastDay && s.LastDay >= firstDay);
+        if (hasSickLeaveOverlap) return null;
+
         var workDays = CountWeekdays(firstDay, lastDay);
 
         var vac = new Vacation

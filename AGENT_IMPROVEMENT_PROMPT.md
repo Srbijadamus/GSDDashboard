@@ -1,5 +1,12 @@
 # GSDDashboard — AI Agent Improvement & Stabilization Prompt
 
+> **IMPORTANT — Read before starting any work:**
+> See **[CLAUDE.md](CLAUDE.md)** for verification rules (never claim success without proof).
+> See **[DEPLOYMENT_AND_VERIFICATION.md](DEPLOYMENT_AND_VERIFICATION.md)** for the
+> definition of done for frontend and backend changes.
+> **Frontend changes must be built into `Backend/wwwroot` and verified on the
+> tunnel (port 5000), never only on localhost:5173.**
+
 > **Purpose:** Hand this document to an AI coding agent (or a developer) to systematically
 > improve the stability, correctness, and maintainability of GSDDashboard.
 > Every issue below was found by static analysis of the actual source tree — all

@@ -1,5 +1,9 @@
 # GSDDashboard — Deployment Guide
 
+> **Agents and developers:** Read **[DEPLOYMENT_AND_VERIFICATION.md](DEPLOYMENT_AND_VERIFICATION.md)**
+> before claiming any change is done. Frontend changes are not live until verified
+> on the port-5000 served build (the tunnel), not localhost:5173.
+
 ## Frontend build
 
 ```bash

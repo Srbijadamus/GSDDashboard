@@ -40,6 +40,8 @@ public class GSDContext : DbContext
             e.HasIndex(x => x.ShiftType).HasDatabaseName("IX_Shift_Type");
             e.HasIndex(x => new { x.EmployeeId, x.ShiftDate, x.SourceSheet })
              .IsUnique().HasDatabaseName("UQ_ShiftEntries_EmpDateSheet");
+            e.HasIndex(x => new { x.EmployeeId, x.ShiftDate, x.ShiftType })
+             .IsUnique().HasDatabaseName("UQ_ShiftEntries_EmpDateType");
         });
         modelBuilder.Entity<WicShiftEntry>(e => {
             e.HasIndex(x => x.ShiftDate).HasDatabaseName("IX_Wic_Date");

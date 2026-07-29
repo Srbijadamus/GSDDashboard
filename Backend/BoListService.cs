@@ -60,6 +60,14 @@ public class BoListService
         await _db.SaveChangesAsync();
         return true;
     }
+
+    public async Task<int> DeleteByDateAsync(DateOnly date)
+    {
+        var entries = await _db.BoEntries.Where(x => x.EntryDate == date).ToListAsync();
+        _db.BoEntries.RemoveRange(entries);
+        await _db.SaveChangesAsync();
+        return entries.Count;
+    }
 }
 
 public static class BoListEndpointMapper
@@ -87,6 +95,13 @@ public static class BoListEndpointMapper
         {
             var ok = await svc.DeleteAsync(id);
             return ok ? Results.NoContent() : Results.NotFound();
+        });
+
+        grp.MapDelete("/by-date", async (string? date, BoListService svc) =>
+        {
+            var d = date != null ? DateOnly.Parse(date) : DateOnly.FromDateTime(DateTime.Today);
+            var n = await svc.DeleteByDateAsync(d);
+            return Results.Ok(new { deleted = n });
         });
     }
 }

@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { FileText, Plus, Pencil, Trash2, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
+import { FileText, Plus, Pencil, Trash2, CheckCircle2, XCircle, AlertCircle, MapPin } from "lucide-react"
+import { resolveEmployee } from "../utils/resolveEmployee"
+import type { BaseRowStatus, MatchType } from "../utils/resolveEmployee"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,6 +23,46 @@ interface RtmEntry {
   createdAt: string
 }
 
+interface WicLocation {
+  id: number
+  locationCode: string
+  displayName: string
+  isActive: boolean
+  isNpp: boolean
+}
+
+interface HomeWicEntry {
+  employeeId: string
+  locationCode: string | null
+  displayName: string | null
+}
+
+type ParsedHeader = "AL" | "SL" | "OFF" | "CD" | "NIGHT" | "BO" | "WIC"
+
+const VALID_HEADERS: ParsedHeader[] = ["AL", "SL", "OFF", "CD", "NIGHT", "BO", "WIC"]
+
+const HEADER_LABELS: Record<ParsedHeader, string> = {
+  AL:    "AL — Annual Leave",
+  SL:    "SL — Sick Leave",
+  OFF:   "OFF — Day Off",
+  CD:    "CD — Compensation Day",
+  NIGHT: "Night — WORKING (night shift hours)",
+  BO:    "BO — BO Liste (replaces today)",
+  WIC:   "WIC — WIC Location Assignment",
+}
+
+const HEADER_COLORS: Record<ParsedHeader, string> = {
+  AL:    "#f59e0b",
+  SL:    "#b91c1c",
+  OFF:   "#6b7280",
+  CD:    "#8b5cf6",
+  NIGHT: "#1d4ed8",
+  BO:    "#0891b2",
+  WIC:   "#059669",
+}
+
+type RowStatus = BaseRowStatus | "night-no-time"
+
 interface ParsedRow {
   rawLine: string
   rawName: string
@@ -29,7 +71,16 @@ interface ParsedRow {
   tag: string | null
   resolved: Employee | null
   ambiguous: Employee[]
-  status: "resolved" | "unresolved" | "ambiguous"
+  status: RowStatus
+  matchType?: MatchType
+  suggestions?: Employee[]
+}
+
+interface SaveRowResult {
+  name: string
+  status: "saved" | "skipped" | "error"
+  reason?: string
+  locationUsed?: string
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -37,35 +88,6 @@ interface ParsedRow {
 const today = new Date().toISOString().split("T")[0]
 const todayLabel = new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
 
-function normStr(s: string): string {
-  return (s ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")  // strip diacritics: ü→u, ö→o, etc.
-    .replace(/[-]/g, " ")              // hyphens → spaces (Eva-Liane → Eva Liane)
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
-function resolveEmployee(rawName: string, employees: Employee[]): Pick<ParsedRow, "resolved" | "ambiguous" | "status"> {
-  const q = normStr(rawName)
-  const words = q.split(" ").filter(w => w.length > 1)
-
-  const exact = employees.filter(e => normStr(e.fullName ?? "") === q)
-  if (exact.length === 1) return { resolved: exact[0], ambiguous: [], status: "resolved" }
-  if (exact.length > 1)  return { resolved: null, ambiguous: exact, status: "ambiguous" }
-
-  if (words.length < 2) return { resolved: null, ambiguous: [], status: "unresolved" }
-
-  const partial = employees.filter(e => {
-    const en = normStr(e.fullName ?? "")
-    return words.every(w => en.includes(w))
-  })
-  if (partial.length === 1) return { resolved: partial[0], ambiguous: [], status: "resolved" }
-  if (partial.length > 1)  return { resolved: null, ambiguous: partial, status: "ambiguous" }
-
-  return { resolved: null, ambiguous: [], status: "unresolved" }
-}
 
 function parseLine(line: string): { rawName: string; shiftStart: string; shiftEnd: string; tag: string | null } | null {
   const m = line.trim().match(/^(.+?)\s+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s*(.*)$/)
@@ -77,6 +99,15 @@ function parseLine(line: string): { rawName: string; shiftStart: string; shiftEn
     shiftEnd:   pad(m[3]),
     tag:        m[4].trim() || null,
   }
+}
+
+// For SL: no times required. Strip any trailing HH:MM or HH:MM - HH:MM noise
+// (users may paste from a shift-format list), then treat the rest as the name.
+function parseSlLine(line: string): { rawName: string; tag: string | null } {
+  const stripped = line.trim()
+    .replace(/\s+\d{1,2}:\d{2}(\s*[-–]\s*\d{1,2}:\d{2})?(\s+.*)?$/, "")
+    .trim()
+  return { rawName: stripped || line.trim(), tag: null }
 }
 
 // ── Styles ───────────────────────────────────────────────────────────────────
@@ -125,7 +156,6 @@ export default function BulkRtm() {
   const qc = useQueryClient()
   const [tab, setTab] = useState<"paste" | "manual">("paste")
 
-  // ── Data queries ──────────────────────────────────────────────────────────
   const { data: todayEntries = [], isLoading: loadingEntries } = useQuery<RtmEntry[]>({
     queryKey: ["rtm-today", today],
     queryFn: () => fetch(`/api/rtm?date=${today}`).then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
@@ -138,27 +168,25 @@ export default function BulkRtm() {
     staleTime: 5 * 60_000,
   })
 
+  const { data: wicLocations = [] } = useQuery<WicLocation[]>({
+    queryKey: ["wic-locations"],
+    queryFn: () => fetch("/api/wic/locations").then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
+    staleTime: 5 * 60_000,
+  })
+
   const refetch = useCallback(() => qc.invalidateQueries({ queryKey: ["rtm-today", today] }), [qc])
 
   return (
-    <div style={{ maxWidth: 920 }}>
+    <div style={{ maxWidth: 960 }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <FileText size={18} color="var(--accent)" />
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--text)" }}>Bulk RTM Entry</h1>
-          <span style={{
-            fontSize: 11, fontFamily: "IBM Plex Mono", color: "var(--text3)",
-            background: "var(--card2)", border: "1px solid var(--border)",
-            padding: "3px 9px", borderRadius: 5,
-          }}>{todayLabel}</span>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+        <FileText size={18} color="var(--accent)" />
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--text)" }}>Bulk RTM Entry</h1>
         <span style={{
-          fontSize: 11, color: "var(--text3)",
-          fontFamily: "IBM Plex Mono",
-        }}>
-          {todayEntries.length} row{todayEntries.length !== 1 ? "s" : ""} saved today
-        </span>
+          fontSize: 11, fontFamily: "IBM Plex Mono", color: "var(--text3)",
+          background: "var(--card2)", border: "1px solid var(--border)",
+          padding: "3px 9px", borderRadius: 5,
+        }}>{todayLabel}</span>
       </div>
 
       {/* Tab selector */}
@@ -177,7 +205,7 @@ export default function BulkRtm() {
       </div>
 
       {tab === "paste"
-        ? <PastePanel employees={allEmployees} onSaved={refetch} />
+        ? <PastePanel employees={allEmployees} wicLocations={wicLocations} onSaved={refetch} />
         : <ManualPanel entries={todayEntries} employees={allEmployees} loading={loadingEntries} onChanged={refetch} />
       }
     </div>
@@ -186,83 +214,246 @@ export default function BulkRtm() {
 
 // ── Paste Panel ───────────────────────────────────────────────────────────────
 
-function PastePanel({ employees, onSaved }: { employees: Employee[]; onSaved: () => void }) {
-  const [text, setText] = useState("")
-  const [parsed, setParsed] = useState<ParsedRow[] | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [saveMsg, setSaveMsg] = useState<{ saved: number; unresolved: string[] } | null>(null)
-  const [error, setError] = useState<string | null>(null)
+function PastePanel({
+  employees, wicLocations, onSaved,
+}: {
+  employees: Employee[]
+  wicLocations: WicLocation[]
+  onSaved: () => void
+}) {
+  const [text, setText]                         = useState("")
+  const [category, setCategory]                 = useState<ParsedHeader>("AL")
+  const [wicCenterDefault, setWicCenterDefault] = useState<string | null>(null)
+  const [rows, setRows]                         = useState<ParsedRow[] | null>(null)
+  const [rowOverrides, setRowOverrides]         = useState<(string | null)[]>([])
+  const [homeWicMap, setHomeWicMap]             = useState<Record<string, HomeWicEntry>>({})
+  const [homeWicLoading, setHomeWicLoading]     = useState(false)
+  const [saving, setSaving]                     = useState(false)
+  const [saveResults, setSaveResults]           = useState<SaveRowResult[] | null>(null)
+  const [error, setError]                       = useState<string | null>(null)
 
-  const handleParse = () => {
-    const lines = text.split("\n").map(l => l.trim()).filter(Boolean)
-    const rows: ParsedRow[] = lines.map(line => {
-      const parsed = parseLine(line)
-      if (!parsed) return { rawLine: line, rawName: line, shiftStart: "", shiftEnd: "", tag: null, resolved: null, ambiguous: [], status: "unresolved" as const }
-      const resolution = resolveEmployee(parsed.rawName, employees)
-      return { rawLine: line, ...parsed, ...resolution }
-    })
-    setParsed(rows)
-    setSaveMsg(null)
+  // When a user picks from the "Did you mean?" dropdown, upgrade that row to resolved
+  const handleSuggestionPick = (rowIndex: number, employeeId: string) => {
+    const emp = employees.find(e => e.employeeId === employeeId)
+    if (!emp || !rows) return
+    setRows(rows.map((r, i) => i !== rowIndex ? r : { ...r, resolved: emp, status: "resolved" as RowStatus, matchType: "fuzzy" as MatchType }))
+    if (category === "WIC" && !homeWicMap[employeeId]) {
+      fetch(`/api/rtm/home-wic?ids=${employeeId}`)
+        .then(r => r.ok ? r.json() : [])
+        .then((data: HomeWicEntry[]) => {
+          if (data.length > 0) setHomeWicMap(prev => ({ ...prev, [employeeId]: data[0] }))
+        })
+        .catch(() => {})
+    }
+  }
+
+  const handleParse = async () => {
     setError(null)
+    setSaveResults(null)
+    setHomeWicMap({})
+    setRowOverrides([])
+
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0)
+    if (lines.length === 0) { setError("Nothing to parse."); return }
+
+    const parsedRows: ParsedRow[] = lines.map(line => {
+      if (category === "SL") {
+        const p = parseSlLine(line)
+        return { rawLine: line, rawName: p.rawName, shiftStart: "", shiftEnd: "", tag: p.tag, ...resolveEmployee(p.rawName, employees) }
+      }
+      const p = parseLine(line)
+      if (!p) {
+        if (category === "NIGHT") {
+          const resolved = resolveEmployee(line.trim(), employees)
+          return { rawLine: line, rawName: line.trim(), shiftStart: "", shiftEnd: "", tag: null, ...resolved, status: "night-no-time" as const }
+        }
+        return { rawLine: line, rawName: line, shiftStart: "", shiftEnd: "", tag: null, resolved: null, ambiguous: [], status: "unresolved" as const }
+      }
+      return { rawLine: line, ...p, ...resolveEmployee(p.rawName, employees) }
+    })
+
+    setRows(parsedRows)
+    setRowOverrides(new Array(parsedRows.length).fill(null))
+
+    if (category === "WIC") {
+      const resolvedIds = parsedRows
+        .filter(r => (r.status === "resolved" || r.status === "resolved-corrected") && r.resolved)
+        .map(r => r.resolved!.employeeId)
+      if (resolvedIds.length > 0) {
+        setHomeWicLoading(true)
+        try {
+          const data: HomeWicEntry[] = await fetch(`/api/rtm/home-wic?ids=${resolvedIds.join(",")}`)
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+          const map: Record<string, HomeWicEntry> = {}
+          data.forEach(e => { map[e.employeeId] = e })
+          setHomeWicMap(map)
+        } catch (e) {
+          setError(`Could not load home WIC data: ${e}`)
+        } finally {
+          setHomeWicLoading(false)
+        }
+      }
+    }
   }
 
   const handleSave = async () => {
-    if (!parsed) return
-    const resolved = parsed.filter(r => r.status === "resolved" && r.resolved)
-    const unresolved = parsed.filter(r => r.status !== "resolved").map(r => r.rawName)
+    if (!rows) return
+    setSaving(true)
+    setSaveResults(null)
+    setError(null)
 
-    if (resolved.length === 0) {
-      setError("No rows could be resolved. Nothing to save.")
-      return
+    const results: SaveRowResult[] = []
+
+    if (category === "BO") {
+      try {
+        const res = await fetch(`/api/bo-list/by-date?date=${today}`, { method: "DELETE" })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      } catch (e) {
+        setError(`Failed to clear existing BO entries: ${e}`)
+        setSaving(false)
+        return
+      }
     }
 
-    setSaving(true)
-    setError(null)
-    try {
-      const res = await fetch("/api/rtm/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date: today,
-          rows: resolved.map(r => ({
-            employeeId: r.resolved!.employeeId,
-            fullName:   r.resolved!.fullName,
-            shiftStart: r.shiftStart,
-            shiftEnd:   r.shiftEnd,
-            tag:        r.tag,
-            sourceLine: r.rawLine,
-          })),
-        }),
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      setSaveMsg({ saved: resolved.length, unresolved })
-      setText("")
-      setParsed(null)
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+
+      if ((row.status !== "resolved" && row.status !== "resolved-corrected") || !row.resolved) {
+        results.push({
+          name: row.rawName,
+          status: "skipped",
+          reason: row.status === "suggest" ? "Needs selection (Did you mean?)"
+                : row.status === "ambiguous" ? "Ambiguous name"
+                : row.status === "night-no-time" ? "Night requires shift hours, e.g. 22:00 - 07:00"
+                : row.shiftStart ? "Name not in system" : "Parse error",
+        })
+        continue
+      }
+
+      const displayName = row.resolved.fullName ?? row.rawName
+
+      try {
+        if (category === "AL" || category === "OFF" || category === "CD") {
+          const r = await fetch("/api/shifts/assign", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ employeeId: row.resolved.employeeId, shiftDate: today, shiftType: category, shiftStart: null, shiftEnd: null }),
+          })
+          const body = r.ok ? null : await r.json().catch(() => ({}))
+          results.push(r.ok ? { name: displayName, status: "saved" } : { name: displayName, status: "error", reason: body?.error ?? `HTTP ${r.status}` })
+
+        } else if (category === "NIGHT") {
+          const r = await fetch("/api/shifts/assign", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ employeeId: row.resolved.employeeId, shiftDate: today, shiftType: "WORKING", shiftStart: row.shiftStart, shiftEnd: row.shiftEnd }),
+          })
+          const body = r.ok ? null : await r.json().catch(() => ({}))
+          results.push(r.ok ? { name: displayName, status: "saved" } : { name: displayName, status: "error", reason: body?.error ?? `HTTP ${r.status}` })
+
+        } else if (category === "BO") {
+          const r = await fetch("/api/bo-list", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: today, employeeName: displayName, shiftStart: row.shiftStart, shiftEnd: row.shiftEnd, note: row.tag ?? null }),
+          })
+          const body = r.ok ? null : await r.json().catch(() => ({}))
+          results.push(r.ok ? { name: displayName, status: "saved" } : { name: displayName, status: "error", reason: body?.error ?? `HTTP ${r.status}` })
+
+        } else if (category === "SL") {
+          const r = await fetch("/api/sickleave", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              employeeId: row.resolved.employeeId,
+              startDate: today,
+              endDate: "2099-12-31",
+              type: "Self",
+              notes: row.tag ?? null,
+            }),
+          })
+          const body = r.ok ? null : await r.json().catch(() => ({}))
+          results.push(r.ok ? { name: displayName, status: "saved" } : { name: displayName, status: "error", reason: body?.error ?? `HTTP ${r.status}` })
+
+        } else if (category === "WIC") {
+          const override = rowOverrides[i]
+          const homeWic  = homeWicMap[row.resolved.employeeId]
+          // Precedence: per-row override > WIC-center dropdown default > home WIC
+          const locCode  = override ?? wicCenterDefault ?? homeWic?.locationCode ?? null
+
+          if (!locCode) {
+            results.push({ name: displayName, status: "skipped", reason: "No home WIC and no location selected" })
+            continue
+          }
+
+          const locDisp = wicLocations.find(l => l.locationCode === locCode)?.displayName ?? locCode
+          const r = await fetch("/api/wic/assignments", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ employeeId: row.resolved.employeeId, locationCode: locCode, date: today, shiftStart: row.shiftStart, shiftEnd: row.shiftEnd }),
+          })
+          const body = r.ok ? await r.json().catch(() => null) : await r.json().catch(() => ({}))
+          if (!r.ok) {
+            results.push({ name: displayName, status: "error", reason: body?.error ?? `HTTP ${r.status}` })
+          } else if (body?.skipped) {
+            results.push({ name: displayName, status: "skipped", reason: body.reason ?? "Skipped by WIC assignment rules" })
+          } else {
+            results.push({ name: displayName, status: "saved", locationUsed: locDisp })
+          }
+        }
+      } catch (e) {
+        results.push({ name: displayName, status: "error", reason: String(e) })
+      }
+    }
+
+    setSaveResults(results)
+    setSaving(false)
+    if (results.some(r => r.status === "saved")) {
+      setText(""); setRows(null); setRowOverrides([]); setHomeWicMap({})
       onSaved()
-    } catch (e) {
-      setError(String(e))
-    } finally {
-      setSaving(false)
     }
   }
 
-  const resolvedCount   = parsed?.filter(r => r.status === "resolved").length ?? 0
-  const unresolvedCount = parsed?.filter(r => r.status !== "resolved").length ?? 0
+  const resolvedCount   = rows?.filter(r => r.status === "resolved" || r.status === "resolved-corrected").length ?? 0
+  const unresolvedCount = rows?.filter(r => r.status !== "resolved" && r.status !== "resolved-corrected").length ?? 0
+  // When a center-level default is chosen every row has a location; noLocCount is only relevant without it.
+  const noLocCount = category === "WIC" && rows && !wicCenterDefault
+    ? rows.filter(r => (r.status === "resolved" || r.status === "resolved-corrected") && r.resolved && !rowOverrides[rows.indexOf(r)] && !homeWicMap[r.resolved.employeeId]?.locationCode).length
+    : 0
+  const saveDisabled = saving || resolvedCount === 0 || (category === "WIC" && homeWicLoading)
+
+  const saveBtnLabel = (() => {
+    if (saving) return "Saving…"
+    if (category === "BO")  return `Replace Today's BO List (${resolvedCount} row${resolvedCount !== 1 ? "s" : ""})`
+    if (category === "WIC") return `Save ${resolvedCount} WIC Assignment${resolvedCount !== 1 ? "s" : ""}`
+    return `Save ${resolvedCount} Row${resolvedCount !== 1 ? "s" : ""}`
+  })()
+
+  const wicCenterName = wicCenterDefault
+    ? (wicLocations.find(l => l.locationCode === wicCenterDefault)?.displayName ?? wicCenterDefault)
+    : null
 
   return (
     <div>
-      {/* Save result */}
-      {saveMsg && (
-        <div style={{ ...card, background: "rgba(34,208,122,.08)", border: "1px solid rgba(34,208,122,.3)", marginBottom: 16 }}>
-          <div style={{ fontSize: 13, color: "var(--green)", fontWeight: 600, marginBottom: saveMsg.unresolved.length > 0 ? 8 : 0 }}>
-            ✓ {saveMsg.saved} row{saveMsg.saved !== 1 ? "s" : ""} saved for today (existing list replaced).
+
+      {/* Save results */}
+      {saveResults && (
+        <div style={{ ...card, marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 10 }}>
+            Save complete — {saveResults.filter(r => r.status === "saved").length} saved
+            {saveResults.some(r => r.status === "skipped") && `, ${saveResults.filter(r => r.status === "skipped").length} skipped`}
+            {saveResults.some(r => r.status === "error") && `, ${saveResults.filter(r => r.status === "error").length} errors`}
           </div>
-          {saveMsg.unresolved.length > 0 && (
-            <div style={{ fontSize: 12, color: "var(--text2)" }}>
-              <span style={{ color: "#f97316", fontWeight: 600 }}>Not saved — could not resolve:</span>{" "}
-              {saveMsg.unresolved.join(", ")}
-            </div>
-          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {saveResults.map((r, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                {r.status === "saved"
+                  ? <CheckCircle2 size={13} color="var(--green)" />
+                  : r.status === "skipped"
+                    ? <AlertCircle size={13} color="#f97316" />
+                    : <XCircle size={13} color="#ef4444" />
+                }
+                <span style={{ color: "var(--text)", fontWeight: r.status === "saved" ? 500 : 400 }}>{r.name}</span>
+                {r.locationUsed && <span style={{ color: "var(--text3)", fontSize: 11 }}>→ {r.locationUsed}</span>}
+                {r.reason && <span style={{ color: r.status === "error" ? "#ef4444" : "#f97316", fontSize: 11 }}>— {r.reason}</span>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -273,67 +464,132 @@ function PastePanel({ employees, onSaved }: { employees: Employee[]; onSaved: ()
         </div>
       )}
 
-      {/* Textarea */}
+      {/* Input card: category selector + optional WIC center + textarea */}
       <div style={card}>
-        <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-          Paste list — one agent per line: Name HH:MM - HH:MM [optional tag]
+
+        {/* Category + WIC center selectors */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text2)", fontWeight: 600 }}>
+            Category
+            <select
+              value={category}
+              onChange={e => {
+                setCategory(e.target.value as ParsedHeader)
+                setRows(null); setSaveResults(null); setError(null)
+              }}
+              style={{ ...inputStyle, minWidth: 230 }}
+            >
+              {VALID_HEADERS.map(h => (
+                <option key={h} value={h}>{HEADER_LABELS[h]}</option>
+              ))}
+            </select>
+          </label>
+
+          {category === "WIC" && (
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text2)", fontWeight: 600 }}>
+              WIC Center
+              <select
+                value={wicCenterDefault ?? ""}
+                onChange={e => setWicCenterDefault(e.target.value || null)}
+                style={{ ...inputStyle, minWidth: 230 }}
+              >
+                <option value="">— Home WIC —</option>
+                {wicLocations.map(l => (
+                  <option key={l.locationCode} value={l.locationCode}>{l.displayName}{l.isNpp ? " ★NPP" : ""}</option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
+
+        {/* Format hint */}
+        <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 10, fontFamily: "IBM Plex Mono" }}>
+          {category === "SL"
+            ? "One agent per line: Agent Name  [optional tag]"
+            : category === "NIGHT"
+              ? "One agent per line: Agent Name HH:MM - HH:MM  (times required, e.g. 22:00 - 07:00)"
+              : "One agent per line: Agent Name  HH:MM - HH:MM  [optional tag]"
+          }
+        </div>
+
         <textarea
           value={text}
-          onChange={e => { setText(e.target.value); setParsed(null); setSaveMsg(null) }}
-          placeholder={"Tim Nguyen 08:00 - 17:00\nEva-Liane Schliwa 07:00 - 16:00 LEW\nJavier Sang 09:00-16:00 ENVIAM"}
+          onChange={e => { setText(e.target.value); setRows(null); setSaveResults(null); setError(null) }}
+          placeholder={category === "SL"
+            ? "Anas Daba\nTim Böger\nPascal Dutz"
+            : "Tim Nguyen 08:00 - 17:00\nEva-Liane Schliwa 07:00 - 16:00"
+          }
           rows={10}
-          style={{
-            ...inputStyle, width: "100%", resize: "vertical",
-            fontFamily: "IBM Plex Mono", fontSize: 12, lineHeight: 1.6,
-          }}
+          style={{ ...inputStyle, width: "100%", resize: "vertical", fontFamily: "IBM Plex Mono", fontSize: 12, lineHeight: 1.6 }}
         />
         <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
           <button onClick={handleParse} disabled={!text.trim()} style={{
-            ...btnPrimary,
-            opacity: text.trim() ? 1 : 0.5,
-            cursor: text.trim() ? "pointer" : "not-allowed",
+            ...btnPrimary, opacity: text.trim() ? 1 : 0.5, cursor: text.trim() ? "pointer" : "not-allowed",
           }}>
             Parse Preview
           </button>
           {text.trim() && (
-            <button onClick={() => { setText(""); setParsed(null); setSaveMsg(null); setError(null) }} style={btnSecondary}>
+            <button onClick={() => { setText(""); setRows(null); setSaveResults(null); setError(null); setRowOverrides([]); setHomeWicMap({}) }} style={btnSecondary}>
               Clear
             </button>
           )}
         </div>
       </div>
 
-      {/* Preview table */}
-      {parsed && parsed.length > 0 && (
+      {/* Preview */}
+      {rows && (
         <div style={card}>
+          {/* Category badge + stats */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
-              Preview — {parsed.length} line{parsed.length !== 1 ? "s" : ""} parsed
-              {" "}<span style={{ color: "var(--green)", fontWeight: 500 }}>{resolvedCount} resolved</span>
-              {unresolvedCount > 0 && <span style={{ color: "#f97316", fontWeight: 500 }}>, {unresolvedCount} not resolved</span>}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{
+                background: HEADER_COLORS[category] + "22",
+                border: `1px solid ${HEADER_COLORS[category]}55`,
+                color: HEADER_COLORS[category],
+                fontFamily: "IBM Plex Mono", fontSize: 11, fontWeight: 700,
+                padding: "3px 10px", borderRadius: 5,
+              }}>
+                {category}
+              </span>
+              <span style={{ fontSize: 12, color: "var(--text2)" }}>
+                {HEADER_LABELS[category]}
+              </span>
+              <span style={{ fontSize: 12, color: "var(--text3)" }}>
+                · {rows.length} line{rows.length !== 1 ? "s" : ""}
+                {" "}<span style={{ color: "var(--green)" }}>{resolvedCount} resolved</span>
+                {unresolvedCount > 0 && <span style={{ color: "#f97316" }}>, {unresolvedCount} not resolved</span>}
+                {homeWicLoading && <span style={{ color: "var(--text3)" }}> · loading home WIC…</span>}
+              </span>
             </div>
             <button
               onClick={handleSave}
-              disabled={saving || resolvedCount === 0}
-              style={{
-                ...btnPrimary,
-                opacity: saving || resolvedCount === 0 ? 0.5 : 1,
-                cursor: saving || resolvedCount === 0 ? "not-allowed" : "pointer",
-              }}
+              disabled={saveDisabled}
+              style={{ ...btnPrimary, opacity: saveDisabled ? 0.5 : 1, cursor: saveDisabled ? "not-allowed" : "pointer" }}
             >
-              {saving ? "Saving…" : `Save ${resolvedCount} Row${resolvedCount !== 1 ? "s" : ""}`}
+              {saveBtnLabel}
             </button>
           </div>
 
+          {/* Unresolved warning */}
           {unresolvedCount > 0 && (
             <div style={{
               fontSize: 11, color: "#f97316",
               background: "rgba(249,115,22,.08)", border: "1px solid rgba(249,115,22,.3)",
               borderRadius: 6, padding: "7px 12px", marginBottom: 12,
             }}>
-              <strong>Not saved:</strong>{" "}
-              {parsed.filter(r => r.status !== "resolved").map(r => r.rawName).join(", ")}
+              <strong>Not saved (skipped):</strong>{" "}
+              {rows.filter(r => r.status !== "resolved" && r.status !== "resolved-corrected").map(r => r.rawName).join(", ")}
+            </div>
+          )}
+
+          {/* WIC no-home warning (suppressed when a center default is chosen) */}
+          {category === "WIC" && !homeWicLoading && noLocCount > 0 && (
+            <div style={{
+              fontSize: 11, color: "#ef4444",
+              background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)",
+              borderRadius: 6, padding: "7px 12px", marginBottom: 12,
+            }}>
+              <strong>{noLocCount} row{noLocCount !== 1 ? "s have" : " has"} no home WIC</strong> — select a location from the per-row dropdown or choose a WIC center above.
             </div>
           )}
 
@@ -343,54 +599,127 @@ function PastePanel({ employees, onSaved }: { employees: Employee[]; onSaved: ()
                 <tr>
                   <th style={thStyle}>#</th>
                   <th style={thStyle}>Raw Input Name</th>
-                  <th style={thStyle}>Resolved Employee</th>
-                  <th style={thStyle}>Hours</th>
-                  <th style={thStyle}>Tag</th>
+                  <th style={thStyle}>Resolved</th>
+                  {category !== "SL" && <th style={thStyle}>Hours</th>}
+                  {category !== "AL" && category !== "OFF" && category !== "CD" && <th style={thStyle}>Tag / Notes</th>}
+                  {category === "WIC" && <th style={{ ...thStyle, minWidth: 200 }}>WIC Location</th>}
                   <th style={thStyle}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {parsed.map((row, i) => (
-                  <tr key={i} style={{ opacity: row.status !== "resolved" ? 0.7 : 1 }}>
-                    <td style={{ ...tdStyle, color: "var(--text3)", fontFamily: "IBM Plex Mono", width: 32 }}>{i + 1}</td>
-                    <td style={{ ...tdStyle, fontFamily: "IBM Plex Mono", fontSize: 11 }}>{row.rawName || <em style={{ color: "var(--text3)" }}>no name</em>}</td>
-                    <td style={{ ...tdStyle }}>
-                      {row.status === "resolved" && row.resolved
-                        ? <span style={{ color: "var(--green)", fontWeight: 500 }}>{row.resolved.fullName}</span>
-                        : row.status === "ambiguous"
-                          ? <span style={{ color: "#f97316" }}>Ambiguous ({row.ambiguous.length} matches)</span>
-                          : <span style={{ color: "#ef4444" }}>—</span>
-                      }
-                    </td>
-                    <td style={{ ...tdStyle, fontFamily: "IBM Plex Mono", fontSize: 11 }}>
-                      {row.shiftStart && row.shiftEnd ? `${row.shiftStart} – ${row.shiftEnd}` : <span style={{ color: "var(--text3)" }}>—</span>}
-                    </td>
-                    <td style={{ ...tdStyle }}>
-                      {row.tag
-                        ? <span style={{ background: "rgba(99,102,241,.12)", color: "var(--accent)", border: "1px solid rgba(99,102,241,.25)", borderRadius: 4, padding: "2px 7px", fontSize: 10, fontWeight: 600 }}>{row.tag}</span>
-                        : <span style={{ color: "var(--text3)", fontSize: 11 }}>—</span>}
-                    </td>
-                    <td style={{ ...tdStyle }}>
-                      {row.status === "resolved"
-                        ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--green)", fontSize: 11 }}><CheckCircle2 size={13} /> Resolved</span>
-                        : row.status === "ambiguous"
-                          ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#f97316", fontSize: 11 }}><AlertCircle size={13} /> Ambiguous</span>
-                          : row.shiftStart
-                            ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#ef4444", fontSize: 11 }}><XCircle size={13} /> Not found</span>
-                            : <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#8892a4", fontSize: 11 }}><XCircle size={13} /> Parse error</span>
-                      }
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((row, i) => {
+                  const homeWic  = row.resolved ? homeWicMap[row.resolved.employeeId] : undefined
+                  const override = rowOverrides[i] ?? null
+                  // Red background only when there's truly no resolvable location for this row
+                  const hasNoLoc = category === "WIC" && (row.status === "resolved" || row.status === "resolved-corrected") && !override && !wicCenterDefault && !homeWic?.locationCode
+
+                  return (
+                    <tr key={i} style={{ opacity: (row.status === "resolved" || row.status === "resolved-corrected") ? 1 : 0.7, background: hasNoLoc ? "rgba(239,68,68,.04)" : undefined }}>
+                      <td style={{ ...tdStyle, color: "var(--text3)", fontFamily: "IBM Plex Mono", width: 32 }}>{i + 1}</td>
+                      <td style={{ ...tdStyle, fontFamily: "IBM Plex Mono", fontSize: 11 }}>{row.rawName || <em style={{ color: "var(--text3)" }}>no name</em>}</td>
+                      <td style={{ ...tdStyle }}>
+                        {(row.status === "resolved" || row.status === "resolved-corrected" || row.status === "night-no-time") && row.resolved ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ color: "var(--green)", fontWeight: 500 }}>{row.resolved.fullName}</span>
+                            {row.status === "resolved-corrected" && (
+                              <span style={{ fontSize: 10, color: "#d97706", background: "rgba(217,119,6,.1)", border: "1px solid rgba(217,119,6,.3)", borderRadius: 3, padding: "1px 5px" }}>corrected</span>
+                            )}
+                          </div>
+                        ) : row.status === "suggest" ? (
+                          <select
+                            defaultValue=""
+                            onChange={e => { if (e.target.value) handleSuggestionPick(i, e.target.value) }}
+                            style={{ ...inputStyle, fontSize: 11, padding: "4px 8px", minWidth: 200 }}
+                          >
+                            <option value="">— select —</option>
+                            {row.suggestions?.map(s => (
+                              <option key={s.employeeId} value={s.employeeId}>{s.fullName} ({s.employeeId})</option>
+                            ))}
+                          </select>
+                        ) : row.status === "ambiguous" ? (
+                          <span style={{ color: "#f97316" }}>Ambiguous ({row.ambiguous.length})</span>
+                        ) : (
+                          <span style={{ color: "#ef4444" }}>—</span>
+                        )}
+                      </td>
+                      {category !== "SL" && (
+                        <td style={{ ...tdStyle, fontFamily: "IBM Plex Mono", fontSize: 11 }}>
+                          {row.shiftStart && row.shiftEnd ? `${row.shiftStart} – ${row.shiftEnd}` : <span style={{ color: "var(--text3)" }}>—</span>}
+                        </td>
+                      )}
+                      {category !== "AL" && category !== "OFF" && category !== "CD" && (
+                        <td style={{ ...tdStyle }}>
+                          {row.tag
+                            ? <span style={{ background: "rgba(99,102,241,.12)", color: "var(--accent)", border: "1px solid rgba(99,102,241,.25)", borderRadius: 4, padding: "2px 7px", fontSize: 10, fontWeight: 600 }}>{row.tag}</span>
+                            : <span style={{ color: "var(--text3)", fontSize: 11 }}>—</span>}
+                        </td>
+                      )}
+                      {category === "WIC" && (
+                        <td style={{ ...tdStyle }}>
+                          {(row.status === "resolved" || row.status === "resolved-corrected") ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                              <select
+                                value={override ?? ""}
+                                onChange={e => {
+                                  const next = [...rowOverrides]
+                                  next[i] = e.target.value || null
+                                  setRowOverrides(next)
+                                }}
+                                style={{ ...inputStyle, fontSize: 11, padding: "4px 8px", maxWidth: 220 }}
+                              >
+                                <option value="">— Home WIC —</option>
+                                {wicLocations.map(l => (
+                                  <option key={l.locationCode} value={l.locationCode}>{l.displayName}{l.isNpp ? " ★NPP" : ""}</option>
+                                ))}
+                              </select>
+                              {/* Effective location hint: per-row wins, then center default, then home WIC */}
+                              {!override && (
+                                homeWicLoading
+                                  ? <span style={{ fontSize: 10, color: "var(--text3)", fontStyle: "italic" }}>Loading…</span>
+                                  : wicCenterDefault
+                                    ? <span style={{ fontSize: 10, color: "#0891b2", display: "flex", alignItems: "center", gap: 3 }}>
+                                        <MapPin size={9} /> {wicCenterName}
+                                      </span>
+                                    : homeWic?.displayName
+                                      ? <span style={{ fontSize: 10, color: "#059669", display: "flex", alignItems: "center", gap: 3 }}>
+                                          <MapPin size={9} /> {homeWic.displayName}
+                                        </span>
+                                      : <span style={{ fontSize: 10, color: "#ef4444" }}>No home WIC — select one</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ color: "var(--text3)", fontSize: 11 }}>—</span>
+                          )}
+                        </td>
+                      )}
+                      <td style={{ ...tdStyle }}>
+                        {row.status === "resolved"
+                          ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--green)", fontSize: 11 }}><CheckCircle2 size={13} /> Resolved</span>
+                          : row.status === "resolved-corrected"
+                            ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#d97706", fontSize: 11 }}><CheckCircle2 size={13} /> Resolved (corrected)</span>
+                            : row.status === "suggest"
+                              ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#f97316", fontSize: 11 }}><AlertCircle size={13} /> Did you mean?</span>
+                              : row.status === "ambiguous"
+                                ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#f97316", fontSize: 11 }}><AlertCircle size={13} /> Ambiguous</span>
+                                : row.status === "night-no-time"
+                                  ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#f97316", fontSize: 11 }}><AlertCircle size={13} /> Night requires shift hours, e.g. 22:00 - 07:00</span>
+                                  : (row.shiftStart || (category === "SL" && row.rawName))
+                                    ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#ef4444", fontSize: 11 }}><XCircle size={13} /> Name not in system</span>
+                                    : <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#8892a4", fontSize: 11 }}><XCircle size={13} /> Parse error</span>
+                        }
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {parsed && parsed.length === 0 && (
+      {rows && rows.length === 0 && (
         <div style={{ ...card, color: "var(--text3)", fontSize: 13, textAlign: "center" }}>
-          No parseable lines found. Each line must contain a name followed by times (e.g. "08:00 - 17:00").
+          No agent rows found. Each line must include: Name HH:MM - HH:MM
         </div>
       )}
     </div>

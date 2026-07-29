@@ -69,6 +69,11 @@ CREATE INDEX IX_Shift_Date ON ShiftEntries (ShiftDate);
 CREATE INDEX IX_Shift_Emp  ON ShiftEntries (EmployeeId);
 CREATE INDEX IX_Shift_Type ON ShiftEntries (ShiftType);
 
+-- Prevent duplicate daily entries: same employee + same date + same type is rejected.
+-- Different types on the same day (e.g. WORKING + SL for a half-day-sick) remain allowed.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UQ_ShiftEntries_EmpDateType' AND object_id = OBJECT_ID(N'dbo.ShiftEntries'))
+    CREATE UNIQUE INDEX UQ_ShiftEntries_EmpDateType ON dbo.ShiftEntries (EmployeeId, ShiftDate, ShiftType);
+
 -- =============================================
 -- TABLE: WicShiftEntries
 -- =============================================

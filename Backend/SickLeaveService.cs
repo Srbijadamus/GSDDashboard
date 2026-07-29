@@ -158,6 +158,15 @@ public class SickLeaveService
                 ((duplicate.FirstName ?? "") + " " + (duplicate.LastName ?? "")).Trim(),
                 duplicate.TeamLeadName, duplicate.FirstDay.ToString("yyyy-MM-dd"), duplicate.LastDay.ToString("yyyy-MM-dd"),
                 duplicate.DurationDays, duplicate.LeaveType, duplicate.ChildName, duplicate.Comments, duplicate.SourceSheet);
+
+            // AL and SL must never be merged into one entry. Reject if any day in the
+            // near-term start of this SL is covered by a Vacation (AL) record.
+            // Use a 14-day window so open-ended SL (end=2099-12-31) doesn't block
+            // distant future vacations that are separate records, not a merge.
+            var guardEnd = end > start.AddDays(14) ? start.AddDays(14) : end;
+            var hasVacationOverlap = await _db.Vacations.AnyAsync(v =>
+                v.EmployeeId == req.EmployeeId && v.FirstDay <= guardEnd && v.LastDay >= start);
+            if (hasVacationOverlap) return null;
         }
 
         var entry = new SickLeaveModel
@@ -208,6 +217,8 @@ public class SickLeaveService
         if (entry == null) return false;
         _db.SickLeaves.Remove(entry);
         await _db.SaveChangesAsync();
+        if (entry.EmployeeId != null)
+            await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId, entry.FirstDay, entry.LastDay, entry.Id);
         return true;
     }
 

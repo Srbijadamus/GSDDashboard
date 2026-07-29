@@ -666,32 +666,25 @@ public static class WicEndpointMapper
                 });
             }
 
-            var wicShift = await db.WicShiftEntries
-                .FirstOrDefaultAsync(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date);
-            if (wicShift != null)
+            // Replace all WicShiftEntries for this employee+date with a single canonical entry.
+            // Agents with duplicate MAIN assignments may already have multiple WicShiftEntries;
+            // FirstOrDefault + update would hit UQ_WicShift_EmpDateLoc when both map to the same location.
+            var existingWicShifts = await db.WicShiftEntries
+                .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date)
+                .ToListAsync();
+            db.WicShiftEntries.RemoveRange(existingWicShifts);
+            db.WicShiftEntries.Add(new WicShiftEntry
             {
-                wicShift.SupportLocation = location.DisplayName;
-                wicShift.IsOnSite        = true;
-                wicShift.IsOffDay        = false;
-                wicShift.IsGSDDay        = false;
-                wicShift.WorkingShift    = $"{openTime}-{closeTime}";
-                wicShift.Task            = "WIC";
-            }
-            else
-            {
-                db.WicShiftEntries.Add(new WicShiftEntry
-                {
-                    EmployeeId      = req.EmployeeId,
-                    ShiftDate       = date,
-                    DayOfWeek       = date.DayOfWeek.ToString(),
-                    SupportLocation = location.DisplayName,
-                    IsOnSite        = true,
-                    IsGSDDay        = false,
-                    IsOffDay        = false,
-                    WorkingShift    = $"{openTime}-{closeTime}",
-                    Task            = "WIC",
-                });
-            }
+                EmployeeId      = req.EmployeeId,
+                ShiftDate       = date,
+                DayOfWeek       = date.DayOfWeek.ToString(),
+                SupportLocation = location.DisplayName,
+                IsOnSite        = true,
+                IsGSDDay        = false,
+                IsOffDay        = false,
+                WorkingShift    = $"{openTime}-{closeTime}",
+                Task            = "WIC",
+            });
 
             await db.SaveChangesAsync();
             return Results.Ok(new

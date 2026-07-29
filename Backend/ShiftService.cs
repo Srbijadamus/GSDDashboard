@@ -43,6 +43,7 @@ public record ShiftUpdateDto(
     string? AssignmentStatus
 );
 public record AssignShiftDto(string EmployeeId, string ShiftDate, string ShiftType, string? ShiftStart, string? ShiftEnd);
+public record AssignShiftResult(ShiftRowDto? Row, string? DuplicateError);
 
 public class ShiftService
 {
@@ -156,38 +157,55 @@ public class ShiftService
         );
     }
 
-    // Finds-or-creates the ShiftEntry for employee+date. The shift grid only shows a
-    // clickable cell for rows that already exist (PATCH requires an Id) — this is the
-    // entry point for assigning a status (incl. AL/SL/OL/UL) on a date that has no row
-    // yet, e.g. a future month the import job hasn't generated placeholder rows for.
-    public async Task<ShiftRowDto?> AssignShiftAsync(AssignShiftDto dto)
+    // Assigns a shift type for employee+date. Rejects with a DuplicateError when the
+    // exact same (employee, date, type) already exists. A different type on the same day
+    // is allowed — the existing row is updated (e.g. EMPTY → AL, or WORKING → SL).
+    // The DB enforces one row per (employee, date) via UQ_ShiftEntries_EmpDate.
+    public async Task<AssignShiftResult> AssignShiftAsync(AssignShiftDto dto)
     {
-        if (!DateOnly.TryParse(dto.ShiftDate, out var date)) return null;
-        if (date > DateOnly.FromDateTime(DateTime.Today).AddDays(ScheduleLimits.MaxFutureDays)) return null;
+        if (!DateOnly.TryParse(dto.ShiftDate, out var date)) return new(null, null);
+        if (date > DateOnly.FromDateTime(DateTime.Today).AddDays(ScheduleLimits.MaxFutureDays)) return new(null, null);
 
         var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == dto.EmployeeId && e.IsActive);
-        if (emp == null) return null;
+        if (emp == null) return new(null, null);
 
-        var shift = await _db.ShiftEntries.FirstOrDefaultAsync(s => s.EmployeeId == dto.EmployeeId && s.ShiftDate == date);
-        if (shift == null)
+        var existing = await _db.ShiftEntries.FirstOrDefaultAsync(
+            s => s.EmployeeId == dto.EmployeeId && s.ShiftDate == date);
+
+        if (existing != null && existing.ShiftType == dto.ShiftType)
         {
-            shift = new ShiftEntry { EmployeeId = dto.EmployeeId, ShiftDate = date, ShiftType = dto.ShiftType, ShiftStart = dto.ShiftStart, ShiftEnd = dto.ShiftEnd };
-            _db.ShiftEntries.Add(shift);
+            var name = emp.FullName ?? dto.EmployeeId;
+            return new(null, $"Already exists: {name} on {date:yyyy-MM-dd} ({dto.ShiftType})");
         }
-        else
+
+        ShiftEntry shift;
+        if (existing != null)
         {
+            shift = existing;
             shift.ShiftType  = dto.ShiftType;
             shift.ShiftStart = dto.ShiftStart;
             shift.ShiftEnd   = dto.ShiftEnd;
         }
+        else
+        {
+            shift = new ShiftEntry
+            {
+                EmployeeId = dto.EmployeeId,
+                ShiftDate  = date,
+                ShiftType  = dto.ShiftType,
+                ShiftStart = dto.ShiftStart,
+                ShiftEnd   = dto.ShiftEnd,
+            };
+            _db.ShiftEntries.Add(shift);
+        }
         await _db.SaveChangesAsync();
 
-        return new ShiftRowDto(
+        return new(new ShiftRowDto(
             shift.Id, emp.EmployeeId, emp.FullName ?? emp.EmployeeId,
             emp.Engagement, emp.PrimaryRole, emp.SecondaryRole, emp.TeamLeadName,
             shift.ShiftDate, shift.ShiftType, shift.ShiftStart, shift.ShiftEnd,
             shift.IsWicDuty, shift.RawValue, shift.AgentTask, shift.LocationId, shift.AssignmentStatus
-        );
+        ), null);
     }
 
     public record CoverageSlot(string Hour, int Voice, int Wic, int Al, int Sick, int Training, int Off, bool BelowThreshold, int MinRequired);
@@ -301,7 +319,9 @@ public static class ShiftEndpointMapper
         grp.MapPost("/assign", async (AssignShiftDto dto, ShiftService svc) =>
         {
             var result = await svc.AssignShiftAsync(dto);
-            return result == null ? Results.BadRequest("Invalid date, unknown employee, or date beyond the planning horizon") : Results.Ok(result);
+            if (result.DuplicateError != null) return Results.Conflict(new { error = result.DuplicateError });
+            if (result.Row == null) return Results.BadRequest(new { error = "Invalid date, unknown employee, or date beyond the planning horizon" });
+            return Results.Ok(result.Row);
         });
 
         grp.MapGet("/coverage", async (string? date, ShiftService svc) =>

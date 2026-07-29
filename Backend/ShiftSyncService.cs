@@ -12,6 +12,11 @@ public class ShiftSyncService
 
     public async Task SyncSickLeaveAsync(string employeeId, DateOnly dateFrom, DateOnly dateTo, int sourceId)
     {
+        // Cap sync horizon so open-ended SL records (dateTo=2099-12-31) don't
+        // flood ShiftEntries with decades of placeholder rows.
+        var horizon = DateOnly.FromDateTime(DateTime.Today).AddDays(90);
+        if (dateTo > horizon) dateTo = horizon;
+
         for (var d = dateFrom; d <= dateTo; d = d.AddDays(1))
         {
             if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday) continue;
