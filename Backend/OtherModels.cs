@@ -57,7 +57,7 @@ public class SickLeave
     [MaxLength(20)]  public string? EmployeeId { get; set; }
     [MaxLength(100)] public string? FirstName { get; set; }
     [MaxLength(100)] public string? LastName { get; set; }
-    [MaxLength(200)] public string? FullName { get => (FirstName + " " + LastName).Trim(); }
+    [NotMapped]      public string? FullName { get => (FirstName + " " + LastName).Trim(); }
     [MaxLength(200)] public string? TeamLeadName { get; set; }
     public DateOnly FirstDay { get; set; }
     public DateOnly LastDay { get; set; }
