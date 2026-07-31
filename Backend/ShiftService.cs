@@ -337,6 +337,17 @@ public static class ShiftEndpointMapper
             return Results.Ok(result);
         });
 
+        grp.MapGet("/{id:int}/wic-entries", async (int id, GSDDashboard.API.Data.GSDContext db) =>
+        {
+            var shift = await db.ShiftEntries.FindAsync(id);
+            if (shift == null) return Results.NotFound(new { error = "Shift not found" });
+            var entries = await db.WicShiftEntries
+                .Where(w => w.EmployeeId == shift.EmployeeId && w.ShiftDate == shift.ShiftDate && w.IsOnSite)
+                .Select(w => new { supportLocation = w.SupportLocation, workingShift = w.WorkingShift })
+                .ToListAsync();
+            return Results.Ok(new { employeeId = shift.EmployeeId, date = shift.ShiftDate.ToString("yyyy-MM-dd"), entries });
+        });
+
         grp.MapPost("/{id:int}/swap", async (int id, SwapShiftDto dto, GSDDashboard.API.Data.GSDContext db) =>
         {
             var original = await db.ShiftEntries.FindAsync(id);
@@ -355,6 +366,34 @@ public static class ShiftEndpointMapper
             var locId     = original.LocationId;
             var oldEmpId  = original.EmployeeId;
 
+            // Load WicShiftEntries to transfer
+            var wicEntries = await db.WicShiftEntries
+                .Where(w => w.EmployeeId == oldEmpId && w.ShiftDate == date)
+                .ToListAsync();
+
+            // Guard: if the replacement already has a WicShiftEntry for any of the same
+            // locations on the same date, the EmployeeId reassignment would violate
+            // UQ_WicShift_EmpDateLoc — reject clearly rather than throw 500.
+            if (wicEntries.Count > 0)
+            {
+                var oldLocations = wicEntries
+                    .Where(w => w.SupportLocation != null)
+                    .Select(w => w.SupportLocation!)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                var collisions = await db.WicShiftEntries
+                    .Where(w => w.EmployeeId == dto.NewEmployeeId && w.ShiftDate == date
+                                && w.SupportLocation != null && oldLocations.Contains(w.SupportLocation))
+                    .Select(w => w.SupportLocation!)
+                    .ToListAsync();
+
+                if (collisions.Count > 0)
+                    return Results.Conflict(new
+                    {
+                        error = $"Cannot swap: {newEmp.FullName ?? dto.NewEmployeeId} already has WIC assignments at the same location(s) on {date:dd.MM.yyyy}: {string.Join(", ", collisions)}. / Kann nicht getauscht werden: {newEmp.FullName ?? dto.NewEmployeeId} hat bereits WIC-Einsätze an denselben Standorten am {date:dd.MM.yyyy}: {string.Join(", ", collisions)}."
+                    });
+            }
+
             // Soft-delete the original: set to EMPTY
             original.ShiftType    = "EMPTY";
             original.IsWicDuty    = false;
@@ -362,9 +401,6 @@ public static class ShiftEndpointMapper
             original.LocationId   = null;
 
             // Transfer WicShiftEntries from old to new employee
-            var wicEntries = await db.WicShiftEntries
-                .Where(w => w.EmployeeId == oldEmpId && w.ShiftDate == date)
-                .ToListAsync();
             foreach (var w in wicEntries) w.EmployeeId = dto.NewEmployeeId;
 
             // Create or update ShiftEntry for the new employee on the same date

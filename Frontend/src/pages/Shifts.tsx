@@ -256,16 +256,19 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
   const [editStart, setEditStart] = useState(shift.shiftStart ?? "")
   const [editEnd,   setEditEnd]   = useState(shift.shiftEnd   ?? "")
   const [overrideType, setOverrideType] = useState<string | null>(null)
-  const [showSwap, setShowSwap] = useState(false)
+  const [swapStep, setSwapStep] = useState<"idle"|"loading"|"warn"|"pick">("idle")
+  const [wicEntries, setWicEntries] = useState<{supportLocation:string;workingShift:string}[]>([])
   const [swapSearch, setSwapSearch] = useState("")
   const [swapping, setSwapping] = useState(false)
   const c = shiftColor(shift.shiftType)
+  const [, swapMM, swapDD] = (shift.shiftDate ?? "").split("-")
+  const swapFmtDate = `${swapDD}.${swapMM}.`
   const showTime = (shift.shiftType === "WORKING" || shift.shiftType === "WIC_DUTY") && shift.shiftStart && shift.shiftEnd
 
   const { data: employees } = useQuery({
     queryKey: ["employees-all"],
     queryFn: () => api.employees.get("active=true"),
-    enabled: showSwap,
+    enabled: swapStep === "pick",
     staleTime: 60000,
   })
 
@@ -284,6 +287,21 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
     setOpen(false)
   }
 
+  const startSwap = async () => {
+    if (!shift.id) return
+    setSwapStep("loading")
+    setOpen(false)
+    try {
+      const res = await apiFetch<{entries:{supportLocation:string;workingShift:string}[]}>(`/api/shifts/${shift.id}/wic-entries`)
+      const entries = res.entries ?? []
+      setWicEntries(entries)
+      setSwapStep(entries.length > 1 ? "warn" : "pick")
+    } catch {
+      setWicEntries([])
+      setSwapStep("pick")
+    }
+  }
+
   const doSwap = async (newEmpId: string) => {
     if (!shift.id) return
     setSwapping(true)
@@ -292,7 +310,7 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ newEmployeeId: newEmpId }),
       } as any)
-      setShowSwap(false); setOpen(false)
+      setSwapStep("idle"); setOpen(false)
       onSwapDone?.()
     } catch (e: any) {
       alert(e?.message ?? "Swap failed")
@@ -370,7 +388,7 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
                 }}>Delete</button>
               )}
               {(shift.shiftType === "WIC_DUTY" || shift.shiftType === "WORKING") && (
-                <button onClick={() => { setShowSwap(true); setOpen(false) }} style={{
+                <button onClick={startSwap} style={{
                   flex:1, background:"rgba(59,126,255,.1)", border:"1px solid rgba(59,126,255,.2)",
                   color:"var(--accent)", padding:"4px 0", borderRadius:4, fontSize:9,
                   cursor:"pointer", fontFamily:"IBM Plex Mono"
@@ -381,38 +399,70 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
         </div>
       )}
 
-      {showSwap && (
+      {swapStep !== "idle" && (
         <div style={{
           position:"absolute", top:"100%", left:0, zIndex:200,
           background:"var(--card2)", border:"1px solid var(--border)",
-          borderRadius:6, padding:8, width:220,
+          borderRadius:6, padding:8, width:240,
           boxShadow:"0 8px 24px rgba(0,0,0,.4)"
         }}>
-          <div style={{ fontSize:10, color:"var(--text3)", marginBottom:6 }}>Swap with agent:</div>
-          <input autoFocus value={swapSearch} onChange={e => setSwapSearch(e.target.value)}
-            placeholder="Search name or ID..."
-            style={{ width:"100%", boxSizing:"border-box", background:"var(--card)",
-              border:"1px solid var(--border)", color:"var(--text)",
-              padding:"4px 7px", borderRadius:4, fontSize:11, outline:"none", marginBottom:4 }} />
-          <div style={{ maxHeight:180, overflowY:"auto" }}>
-            {filteredEmps.map((e: any) => (
-              <div key={e.employeeId} onClick={() => doSwap(e.employeeId)}
-                style={{ padding:"5px 8px", borderRadius:4, cursor: swapping ? "not-allowed" : "pointer",
-                  fontSize:11, color:"var(--text2)", opacity: swapping ? 0.5 : 1 }}
-                onMouseEnter={el => (el.currentTarget.style.background = "rgba(255,255,255,.05)")}
-                onMouseLeave={el => (el.currentTarget.style.background = "transparent")}>
-                <div style={{ fontWeight:500 }}>{e.fullName}</div>
-                <div style={{ fontSize:9, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{e.employeeId}</div>
+          {swapStep === "loading" && (
+            <div style={{ fontSize:11, color:"var(--text3)", padding:"8px 4px", textAlign:"center" }}>Loading…</div>
+          )}
+          {swapStep === "warn" && (
+            <div>
+              <div style={{ fontSize:11, color:"var(--warn)", fontWeight:600, marginBottom:6 }}>
+                ⚠ Dieser Agent deckt am {swapFmtDate} {wicEntries.length} Standorte ab: / This agent covers {wicEntries.length} locations on {swapFmtDate}:
               </div>
-            ))}
-            {filteredEmps.length === 0 && (
-              <div style={{ fontSize:11, color:"var(--text3)", padding:"6px 8px" }}>No matches</div>
-            )}
-          </div>
-          <button onClick={() => setShowSwap(false)} style={{
-            marginTop:6, width:"100%", background:"var(--card)", border:"1px solid var(--border)",
-            color:"var(--text2)", padding:"4px 0", borderRadius:4, fontSize:10, cursor:"pointer"
-          }}>Cancel</button>
+              <ul style={{ margin:"0 0 8px 0", paddingLeft:16, fontSize:11, color:"var(--text2)", lineHeight:1.6 }}>
+                {wicEntries.map((entry, i) => (
+                  <li key={i}>{entry.supportLocation}{entry.workingShift ? ` (${entry.workingShift})` : ""}</li>
+                ))}
+              </ul>
+              <div style={{ fontSize:10, color:"var(--text3)", marginBottom:8 }}>
+                Alle werden auf den ausgewählten Agenten übertragen. / All will be transferred to the selected agent.
+              </div>
+              <div style={{ display:"flex", gap:6 }}>
+                <button onClick={() => setSwapStep("pick")} style={{
+                  flex:1, background:"var(--accent)", border:"none",
+                  color:"#fff", padding:"5px 0", borderRadius:4, fontSize:11, cursor:"pointer", fontWeight:600
+                }}>Weiter / Proceed</button>
+                <button onClick={() => setSwapStep("idle")} style={{
+                  background:"var(--card)", border:"1px solid var(--border)",
+                  color:"var(--text2)", padding:"5px 8px", borderRadius:4, fontSize:11, cursor:"pointer"
+                }}>✕</button>
+              </div>
+            </div>
+          )}
+          {swapStep === "pick" && (
+            <>
+              <div style={{ fontSize:10, color:"var(--text3)", marginBottom:6 }}>Swap with agent:</div>
+              <input autoFocus value={swapSearch} onChange={e => setSwapSearch(e.target.value)}
+                placeholder="Search name or ID..."
+                style={{ width:"100%", boxSizing:"border-box", background:"var(--card)",
+                  border:"1px solid var(--border)", color:"var(--text)",
+                  padding:"4px 7px", borderRadius:4, fontSize:11, outline:"none", marginBottom:4 }} />
+              <div style={{ maxHeight:180, overflowY:"auto" }}>
+                {filteredEmps.map((e: any) => (
+                  <div key={e.employeeId} onClick={() => doSwap(e.employeeId)}
+                    style={{ padding:"5px 8px", borderRadius:4, cursor: swapping ? "not-allowed" : "pointer",
+                      fontSize:11, color:"var(--text2)", opacity: swapping ? 0.5 : 1 }}
+                    onMouseEnter={el => (el.currentTarget.style.background = "rgba(255,255,255,.05)")}
+                    onMouseLeave={el => (el.currentTarget.style.background = "transparent")}>
+                    <div style={{ fontWeight:500 }}>{e.fullName}</div>
+                    <div style={{ fontSize:9, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{e.employeeId}</div>
+                  </div>
+                ))}
+                {filteredEmps.length === 0 && (
+                  <div style={{ fontSize:11, color:"var(--text3)", padding:"6px 8px" }}>No matches</div>
+                )}
+              </div>
+              <button onClick={() => setSwapStep("idle")} style={{
+                marginTop:6, width:"100%", background:"var(--card)", border:"1px solid var(--border)",
+                color:"var(--text2)", padding:"4px 0", borderRadius:4, fontSize:10, cursor:"pointer"
+              }}>Cancel</button>
+            </>
+          )}
         </div>
       )}
 
