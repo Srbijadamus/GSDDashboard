@@ -86,7 +86,7 @@ function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved:
     try {
       await api.sickLeave.create({ employeeId, startDate, endDate, type, notes })
       onSaved(); onClose()
-    } catch { setError("Fehler beim Speichern") }
+    } catch (err: any) { setError(err?.message || "Fehler beim Speichern") }
     finally { setSaving(false) }
   }
   const inp: React.CSSProperties = { background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", padding: "8px 12px", borderRadius: 6, fontSize: 13, outline: "none", width: "100%" }
@@ -143,11 +143,29 @@ function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved:
   )
 }
 
-function DrillDownModal({ title, entries, onClose }: { title: string; entries: any[]; onClose: () => void }) {
-  const today = new Date().toISOString().split("T")[0]
+function DrillDownModal({ title, entries, onClose, onEnd }: { title: string; entries: any[]; onClose: () => void; onEnd?: () => void }) {
+  const today = new Date().toLocaleDateString("en-CA")
+  const [endingEmpId, setEndingEmpId] = useState<string | null>(null)
+
+  const activeCountForEmp = (empId: string) =>
+    entries.filter(e => String(e.employeeId) === String(empId)).length
+
+  const endAgent = async (empId: string) => {
+    const count = activeCountForEmp(empId)
+    const msg = count > 1 ? `${count} aktive Krankmeldungen beenden?` : "Krankmeldung heute beenden?"
+    if (!confirm(msg)) return
+    setEndingEmpId(empId)
+    try {
+      await api.sickLeave.endActive(String(empId))
+      onEnd?.()
+      onClose()
+    } catch { alert("Fehler beim Beenden.") }
+    finally { setEndingEmpId(null) }
+  }
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, width: 780, maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, width: 860, maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
           <span style={{ fontWeight: 600, fontSize: 15 }}>{title}</span>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer" }}>✕</button>
@@ -156,21 +174,23 @@ function DrillDownModal({ title, entries, onClose }: { title: string; entries: a
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ background: "var(--card2)" }}>
-                {["ID", "Name", "Team Lead", "Sick Since", "Expected Return", "Days So Far"].map(h => (
+                {["ID", "Name", "Team Lead", "Sick Since", "Expected Return", "Days So Far", ""].map(h => (
                   <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", borderBottom: "1px solid var(--border)" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {entries.length === 0 && <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>No entries</td></tr>}
+              {entries.length === 0 && <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>No entries</td></tr>}
               {entries.map((s: any, i: number) => {
                 const since = new Date(s.firstDay)
                 const todayD = new Date(today)
                 const daysSoFar = Math.max(0, Math.floor((todayD.getTime() - since.getTime()) / 86400000) + 1)
                 const isOpenEnded = s.lastDay >= "2099-01-01"
                 const lastDay = new Date(s.lastDay); lastDay.setDate(lastDay.getDate() + 1)
-                const expectedReturn = isOpenEnded ? "–" : lastDay.toISOString().split("T")[0]
+                const expectedReturn = isOpenEnded ? "–" : lastDay.toLocaleDateString("en-CA")
                 const isCritical = daysSoFar >= 10; const isWarn = daysSoFar >= 5
+                const empId = String(s.employeeId)
+                const isEnding = endingEmpId === empId
                 return (
                   <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "8px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>{s.employeeId}</td>
@@ -182,6 +202,14 @@ function DrillDownModal({ title, entries, onClose }: { title: string; entries: a
                       <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, fontWeight: 600, color: isCritical ? "var(--danger)" : isWarn ? "var(--warn)" : "var(--text2)" }}>
                         {isCritical ? "🔴 " : isWarn ? "⚠️ " : ""}{daysSoFar}d
                       </span>
+                    </td>
+                    <td style={{ padding: "8px 8px" }}>
+                      <button
+                        onClick={e => { e.stopPropagation(); endAgent(empId) }}
+                        disabled={isEnding}
+                        style={{ background: "rgba(185,28,28,.15)", border: "1px solid rgba(185,28,28,.4)", color: "var(--danger)", borderRadius: 4, padding: "3px 10px", fontSize: 11, cursor: "pointer", fontWeight: 600, opacity: isEnding ? .5 : 1, whiteSpace: "nowrap" }}>
+                        {isEnding ? "…" : "End"}
+                      </button>
                     </td>
                   </tr>
                 )
@@ -271,10 +299,23 @@ function DayGrid({ days }: { days: number }) {
 }
 
 // ─── Grouped table ───────────────────────────────────────────────────────────
-function GroupedSickTable({ data, commentCache, setCommentCache }: {
-  data: any[]; commentCache: Record<number, string>; setCommentCache: (fn: (prev: Record<number, string>) => Record<number, string>) => void
+function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
+  data: any[]; commentCache: Record<number, string>; setCommentCache: (fn: (prev: Record<number, string>) => Record<number, string>) => void; onEnd: () => void
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [endingEmpId, setEndingEmpId] = useState<string | null>(null)
+  const todayStr = new Date().toLocaleDateString("en-CA")
+
+  const endAgent = async (empId: string, activeCount: number) => {
+    const msg = activeCount > 1 ? `${activeCount} aktive Krankmeldungen beenden?` : "Krankmeldung heute beenden?"
+    if (!confirm(msg)) return
+    setEndingEmpId(empId)
+    try {
+      await api.sickLeave.endActive(empId)
+      onEnd()
+    } catch { alert("Fehler beim Beenden der Krankmeldung.") }
+    finally { setEndingEmpId(null) }
+  }
 
   const toggle = (id: string) => setExpanded(prev => {
     const next = new Set(prev)
@@ -355,8 +396,25 @@ function GroupedSickTable({ data, commentCache, setCommentCache }: {
                         : <span style={{ color: "var(--text3)", fontSize: 10 }}>1×</span>}
                     </td>
 
-                    {/* Last Sick Leave */}
-                    <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{lastSick}</td>
+                    {/* Last Sick Leave + End button inline */}
+                    <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span>{lastSick}</span>
+                        {(() => {
+                          const activeCount = groups[empId].filter((s: any) => s.lastDay >= todayStr).length
+                          if (activeCount === 0) return null
+                          const isEnding = endingEmpId === empId
+                          return (
+                            <button
+                              onClick={e => { e.stopPropagation(); endAgent(empId, activeCount) }}
+                              disabled={isEnding}
+                              style={{ background: "rgba(185,28,28,.15)", border: "1px solid rgba(185,28,28,.4)", color: "var(--danger)", borderRadius: 4, padding: "2px 8px", fontSize: 10, cursor: "pointer", fontWeight: 600, opacity: isEnding ? .5 : 1, fontFamily: "sans-serif" }}>
+                              {isEnding ? "…" : "End"}
+                            </button>
+                          )
+                        })()}
+                      </div>
+                    </td>
 
                     {/* Notes — only on summary row for single-period agents */}
                     <td style={{ padding: "6px 8px", minWidth: 160 }}>
@@ -372,8 +430,12 @@ function GroupedSickTable({ data, commentCache, setCommentCache }: {
                   {multi && isExp && periods.map((p: any, i: number) => (
                     <tr key={p.id ?? i} style={{ borderBottom: i === periods.length - 1 ? "1px solid var(--border)" : "none", background: "rgba(99,102,241,.03)" }}>
                       <td style={{ padding: "7px 12px 7px 32px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text2)" }}>
-                        <span style={{ color: "rgba(99,102,241,.4)", marginRight: 6 }}>└</span>
-                        {p.firstDay} – {p.lastDay >= "2099-01-01" ? "aktiv" : p.lastDay}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span>
+                            <span style={{ color: "rgba(99,102,241,.4)", marginRight: 6 }}>└</span>
+                            {p.firstDay} – {p.lastDay >= "2099-01-01" ? "aktiv" : p.lastDay}
+                          </span>
+                        </div>
                       </td>
                       <td />
                       <td style={{ padding: "7px 12px" }}>
@@ -433,7 +495,7 @@ export default function SickLeave() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {modal && <DrillDownModal title={modal.title} entries={modal.entries} onClose={() => setModal(null)} />}
+      {modal && <DrillDownModal title={modal.title} entries={modal.entries} onClose={() => setModal(null)} onEnd={() => { queryClient.invalidateQueries(); setModal(null) }} />}
       {showAdd && <AddSickLeaveModal onClose={() => setShowAdd(false)} onSaved={() => queryClient.invalidateQueries()} />}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -499,7 +561,7 @@ export default function SickLeave() {
 
           {isLoading
             ? <div style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>Loading...</div>
-            : <GroupedSickTable data={data ?? []} commentCache={commentCache} setCommentCache={setCommentCache} />
+            : <GroupedSickTable data={data ?? []} commentCache={commentCache} setCommentCache={setCommentCache} onEnd={() => queryClient.invalidateQueries()} />
           }
         </div>
       )}

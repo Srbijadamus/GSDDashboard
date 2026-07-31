@@ -51,6 +51,8 @@ public record PatchSickLeaveRequest(
     string? Notes
 );
 
+public record CreateSickLeaveResult(SickLeaveDto? Dto, string? Error);
+
 public class SickLeaveService
 {
     private readonly GSDContext _db;
@@ -111,7 +113,7 @@ public class SickLeaveService
         var activeEmpMap = await _db.Employees.Where(e => activeEmpIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
         active = active.Where(s => s.EmployeeId != null && activeEmpMap.ContainsKey(s.EmployeeId)).ToList();
         var avgDuration = active.Any()
-            ? active.Where(s => s.DurationDays.HasValue).Average(s => (double)s.DurationDays!.Value)
+            ? active.Average(s => (double)((s.LastDay < today ? s.LastDay : today).DayNumber - s.FirstDay.DayNumber + 1))
             : 0;
 
         var byTL = active
@@ -144,20 +146,30 @@ public class SickLeaveService
             s.DurationDays, s.LeaveType, s.ChildName, s.Comments, s.SourceSheet);
     }
 
-    public async Task<SickLeaveDto?> CreateAsync(CreateSickLeaveRequest req)
+    public async Task<CreateSickLeaveResult> CreateAsync(CreateSickLeaveRequest req)
     {
-        if (!DateOnly.TryParse(req.StartDate, out var start)) return null;
-        if (!DateOnly.TryParse(req.EndDate,   out var end))   return null;
+        if (!DateOnly.TryParse(req.StartDate, out var start)) return new CreateSickLeaveResult(null, "Ungültiges Datumsformat (erwartet yyyy-MM-dd). / Invalid date format (expected yyyy-MM-dd).");
+        if (!DateOnly.TryParse(req.EndDate,   out var end))   return new CreateSickLeaveResult(null, "Ungültiges Datumsformat (erwartet yyyy-MM-dd). / Invalid date format (expected yyyy-MM-dd).");
         var emp = req.EmployeeId != null ? await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId) : null;
 
         if (req.EmployeeId != null)
         {
             var duplicate = await _db.SickLeaves.FirstOrDefaultAsync(s =>
                 s.EmployeeId == req.EmployeeId && s.FirstDay == start && s.LastDay == end);
-            if (duplicate != null) return new SickLeaveDto(duplicate.Id, duplicate.EmployeeId, duplicate.FirstName, duplicate.LastName,
+            if (duplicate != null) return new CreateSickLeaveResult(new SickLeaveDto(duplicate.Id, duplicate.EmployeeId, duplicate.FirstName, duplicate.LastName,
                 ((duplicate.FirstName ?? "") + " " + (duplicate.LastName ?? "")).Trim(),
                 duplicate.TeamLeadName, duplicate.FirstDay.ToString("yyyy-MM-dd"), duplicate.LastDay.ToString("yyyy-MM-dd"),
-                duplicate.DurationDays, duplicate.LeaveType, duplicate.ChildName, duplicate.Comments, duplicate.SourceSheet);
+                duplicate.DurationDays, duplicate.LeaveType, duplicate.ChildName, duplicate.Comments, duplicate.SourceSheet), null);
+
+            // Block any new SL whose date range overlaps an existing SL for the same employee.
+            var conflict = await _db.SickLeaves.FirstOrDefaultAsync(s =>
+                s.EmployeeId == req.EmployeeId && s.FirstDay <= end && s.LastDay >= start);
+            if (conflict != null)
+            {
+                var conflictEnd = conflict.LastDay.Year >= 2099 ? "offen / open-ended" : conflict.LastDay.ToString("dd.MM.yyyy");
+                return new CreateSickLeaveResult(null,
+                    $"Überlappung mit bestehender Krankmeldung (ID {conflict.Id}: {conflict.FirstDay:dd.MM.yyyy} – {conflictEnd}). Bitte bestehenden Eintrag zuerst prüfen. / Overlaps existing sick leave record (ID {conflict.Id}: {conflict.FirstDay:dd.MM.yyyy} – {conflictEnd}).");
+            }
 
             // AL and SL must never be merged into one entry. Reject if any day in the
             // near-term start of this SL is covered by a Vacation (AL) record.
@@ -166,7 +178,7 @@ public class SickLeaveService
             var guardEnd = end > start.AddDays(14) ? start.AddDays(14) : end;
             var hasVacationOverlap = await _db.Vacations.AnyAsync(v =>
                 v.EmployeeId == req.EmployeeId && v.FirstDay <= guardEnd && v.LastDay >= start);
-            if (hasVacationOverlap) return null;
+            if (hasVacationOverlap) return new CreateSickLeaveResult(null, "Überlappung mit einer Urlaubsmeldung. / Overlaps an existing vacation record.");
         }
 
         var entry = new SickLeaveModel
@@ -186,10 +198,10 @@ public class SickLeaveService
         _db.SickLeaves.Add(entry);
         await _db.SaveChangesAsync();
         await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id);
-        return new SickLeaveDto(entry.Id, entry.EmployeeId, entry.FirstName, entry.LastName,
+        return new CreateSickLeaveResult(new SickLeaveDto(entry.Id, entry.EmployeeId, entry.FirstName, entry.LastName,
             ((entry.FirstName ?? "") + " " + (entry.LastName ?? "")).Trim(),
             entry.TeamLeadName, entry.FirstDay.ToString("yyyy-MM-dd"), entry.LastDay.ToString("yyyy-MM-dd"),
-            entry.DurationDays, entry.LeaveType, entry.ChildName, entry.Comments, entry.SourceSheet);
+            entry.DurationDays, entry.LeaveType, entry.ChildName, entry.Comments, entry.SourceSheet), null);
     }
 
     public async Task<SickLeaveDto?> PatchAsync(int id, PatchSickLeaveRequest req)
@@ -220,6 +232,28 @@ public class SickLeaveService
         if (entry.EmployeeId != null)
             await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId, entry.FirstDay, entry.LastDay, entry.Id);
         return true;
+    }
+
+    public async Task<int> EndActiveAsync(string employeeId)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var active = await _db.SickLeaves
+            .Where(s => s.EmployeeId == employeeId && s.FirstDay <= today && s.LastDay >= today)
+            .ToListAsync();
+        var snapshot = active.Select(s => (s.Id, s.FirstDay, OldLastDay: s.LastDay)).ToList();
+        foreach (var sl in active)
+        {
+            sl.LastDay = today;
+            sl.DurationDays = (today.DayNumber - sl.FirstDay.DayNumber) + 1;
+        }
+        if (active.Count > 0)
+            await _db.SaveChangesAsync();
+        foreach (var (id, firstDay, oldLastDay) in snapshot)
+        {
+            await _shiftSync.RevertSickLeaveAsync(employeeId, firstDay, oldLastDay, id);
+            await _shiftSync.SyncSickLeaveAsync(employeeId, firstDay, today, id);
+        }
+        return active.Count;
     }
 
     public async Task<byte[]> ExportToExcelAsync(string? from, string? to)
@@ -283,10 +317,15 @@ public static class SickLeaveEndpointMapper
 
         grp.MapPost("/", async (CreateSickLeaveRequest req, SickLeaveService svc) =>
         {
-            var result = await svc.CreateAsync(req);
-            return result == null
-                ? Results.BadRequest(new { error = "Invalid date format. Expected yyyy-MM-dd." })
-                : Results.Created($"/api/sickleave/{result.Id}", result);
+            var r = await svc.CreateAsync(req);
+            if (r.Dto != null) return Results.Created($"/api/sickleave/{r.Dto.Id}", r.Dto);
+            return Results.BadRequest(new { error = r.Error });
+        });
+
+        grp.MapPost("/end-active/{employeeId}", async (string employeeId, SickLeaveService svc) =>
+        {
+            var closed = await svc.EndActiveAsync(employeeId);
+            return Results.Ok(new { closed });
         });
 
         grp.MapPatch("/{id:int}", async (int id, PatchSickLeaveRequest req, SickLeaveService svc) =>

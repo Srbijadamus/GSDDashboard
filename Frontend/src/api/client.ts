@@ -6,7 +6,11 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ""
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, options)
-  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+  if (!res.ok) {
+    let msg = `API error ${res.status}`
+    try { const body = await res.json(); if (body?.error) msg = body.error } catch {}
+    throw new Error(msg)
+  }
   return res.json()
 }
 
@@ -61,6 +65,7 @@ export const api = {
     create:        (body: any)             => apiFetch<any>("/api/sickleave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     patch:         (id: number, body: any)  => apiFetch<any>(`/api/sickleave/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     remove:        (id: number)             => fetch(`${API_BASE}/api/sickleave/${id}`, { method: "DELETE" }),
+    endActive:     (employeeId: string)     => apiFetch<{ closed: number }>(`/api/sickleave/end-active/${employeeId}`, { method: "POST" }),
   },
   vacations: {
     get:          (params: string) => apiFetch<any[]>(`/api/vacations?${params}`),
