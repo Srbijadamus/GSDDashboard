@@ -226,13 +226,14 @@ public static class WicScheduleEndpointMapper
                 }
             }
 
-            // Carry MinRequired forward from current (today-effective) version per DOW
-            var today = DateOnly.FromDateTime(DateTime.Today);
+            // Carry MinRequired forward from the latest version effective on or before the NEW EffectiveFrom.
+            // Using effectiveDate (not today) means two future versions saved in sequence each inherit
+            // from the previous future version, not from the currently-live schedule.
             var allHours = await db.WicOpeningHours
                 .Where(h => h.LocationCode == locationCode)
                 .ToListAsync();
             var currentMinRequired = allHours
-                .Where(h => h.EffectiveFrom == null || h.EffectiveFrom <= today)
+                .Where(h => h.EffectiveFrom == null || h.EffectiveFrom <= effectiveDate)
                 .GroupBy(h => h.DayOfWeek)
                 .ToDictionary(
                     g => g.Key,
@@ -291,10 +292,16 @@ public static class WicScheduleEndpointMapper
                         TimeSpan.TryParse(parts[0].Trim(), out var shiftStart) &&
                         TimeSpan.TryParse(parts[1].Trim(), out var shiftEnd) &&
                         TimeSpan.TryParse(daySchedule.OpenTime, out var openTs) &&
-                        TimeSpan.TryParse(daySchedule.CloseTime, out var closeTs) &&
-                        (shiftStart < openTs || shiftEnd > closeTs))
+                        TimeSpan.TryParse(daySchedule.CloseTime, out var closeTs))
                     {
-                        issue = "OUTSIDE_WINDOW";
+                        bool withinW1 = shiftStart >= openTs && shiftEnd <= closeTs;
+                        bool withinW2 = !string.IsNullOrEmpty(daySchedule.OpenTime2)
+                                     && !string.IsNullOrEmpty(daySchedule.CloseTime2)
+                                     && TimeSpan.TryParse(daySchedule.OpenTime2, out var openTs2)
+                                     && TimeSpan.TryParse(daySchedule.CloseTime2, out var closeTs2)
+                                     && shiftStart >= openTs2 && shiftEnd <= closeTs2;
+                        if (!withinW1 && !withinW2)
+                            issue = "OUTSIDE_WINDOW";
                     }
                 }
 
