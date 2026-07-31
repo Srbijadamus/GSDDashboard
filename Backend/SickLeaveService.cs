@@ -53,6 +53,8 @@ public record PatchSickLeaveRequest(
 
 public record CreateSickLeaveResult(SickLeaveDto? Dto, string? Error);
 
+public record PatchSickLeaveResult(SickLeaveDto? Dto, string? Error, bool NotFound = false);
+
 public class SickLeaveService
 {
     private readonly GSDContext _db;
@@ -204,10 +206,33 @@ public class SickLeaveService
             entry.DurationDays, entry.LeaveType, entry.ChildName, entry.Comments, entry.SourceSheet), null);
     }
 
-    public async Task<SickLeaveDto?> PatchAsync(int id, PatchSickLeaveRequest req)
+    public async Task<PatchSickLeaveResult> PatchAsync(int id, PatchSickLeaveRequest req)
     {
         var entry = await _db.SickLeaves.FindAsync(id);
-        if (entry == null) return null;
+        if (entry == null) return new PatchSickLeaveResult(null, null, NotFound: true);
+
+        // Compute the effective date range after the patch, without modifying entry yet
+        var effectiveStart = req.StartDate != null && DateOnly.TryParse(req.StartDate, out var ps) ? ps : entry.FirstDay;
+        var effectiveEnd   = req.EndDate   != null && DateOnly.TryParse(req.EndDate,   out var pe) ? pe : entry.LastDay;
+
+        // Overlap check only when dates are actually changing and EmployeeId is known
+        if (entry.EmployeeId != null && (effectiveStart != entry.FirstDay || effectiveEnd != entry.LastDay))
+        {
+            var conflict = await _db.SickLeaves.FirstOrDefaultAsync(s =>
+                s.Id != id &&
+                s.EmployeeId == entry.EmployeeId &&
+                s.FirstDay <= effectiveEnd &&
+                s.LastDay  >= effectiveStart);
+            if (conflict != null)
+            {
+                var conflictEnd = conflict.LastDay.Year >= 2099
+                    ? "offen / open-ended"
+                    : conflict.LastDay.ToString("dd.MM.yyyy");
+                return new PatchSickLeaveResult(null,
+                    $"Überlappung mit bestehender Krankmeldung (ID {conflict.Id}: {conflict.FirstDay:dd.MM.yyyy} – {conflictEnd}). Bitte bestehenden Eintrag zuerst prüfen. / Overlaps existing sick leave record (ID {conflict.Id}: {conflict.FirstDay:dd.MM.yyyy} – {conflictEnd}).");
+            }
+        }
+
         var oldFrom = entry.FirstDay;
         var oldTo   = entry.LastDay;
         if (req.EndDate   != null && DateOnly.TryParse(req.EndDate,   out var newEnd))   { entry.LastDay  = newEnd;   entry.DurationDays = (entry.LastDay.DayNumber  - entry.FirstDay.DayNumber) + 1; }
@@ -217,10 +242,10 @@ public class SickLeaveService
         await _db.SaveChangesAsync();
         await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId ?? "", oldFrom, oldTo, entry.Id);
         await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id);
-        return new SickLeaveDto(entry.Id, entry.EmployeeId, entry.FirstName, entry.LastName,
+        return new PatchSickLeaveResult(new SickLeaveDto(entry.Id, entry.EmployeeId, entry.FirstName, entry.LastName,
             ((entry.FirstName ?? "") + " " + (entry.LastName ?? "")).Trim(),
             entry.TeamLeadName, entry.FirstDay.ToString("yyyy-MM-dd"), entry.LastDay.ToString("yyyy-MM-dd"),
-            entry.DurationDays, entry.LeaveType, entry.ChildName, entry.Comments, entry.SourceSheet);
+            entry.DurationDays, entry.LeaveType, entry.ChildName, entry.Comments, entry.SourceSheet), null);
     }
 
     public async Task<bool> DeleteAsync(int id)
@@ -331,7 +356,9 @@ public static class SickLeaveEndpointMapper
         grp.MapPatch("/{id:int}", async (int id, PatchSickLeaveRequest req, SickLeaveService svc) =>
         {
             var result = await svc.PatchAsync(id, req);
-            return result == null ? Results.NotFound() : Results.Ok(result);
+            if (result.NotFound) return Results.NotFound();
+            if (result.Error != null) return Results.Conflict(new { error = result.Error });
+            return Results.Ok(result.Dto);
         });
 
         grp.MapDelete("/{id:int}", async (int id, SickLeaveService svc) =>

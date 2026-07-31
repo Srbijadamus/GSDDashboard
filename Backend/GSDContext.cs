@@ -64,6 +64,10 @@ public class GSDContext : DbContext
             e.HasIndex(x => x.TeamLeadName).HasDatabaseName("IX_SL_TL");
             e.HasIndex(x => new { x.EmployeeId, x.FirstDay })
              .IsUnique().HasDatabaseName("UQ_SickLeaves_EmpFirstDay");
+            e.HasIndex(x => x.EmployeeId)
+             .HasFilter("[LastDay] = '2099-12-31'")
+             .IsUnique()
+             .HasDatabaseName("UQ_SickLeaves_EmployeeId_Sentinel");
         });
         modelBuilder.Entity<Vacation>(e => {
             e.HasIndex(x => x.EmployeeId).HasDatabaseName("IX_Vac_Emp");
