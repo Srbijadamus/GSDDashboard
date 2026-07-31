@@ -103,7 +103,7 @@ public class ForecastService
                     ? (isNational || isRegional ? "PUBLIC_HOLIDAY" : "CLOSED_DAY")
                     : null;
 
-                int minReq = loc.MinAgentsRequired ?? 1;
+                int minReq = hours?.MinRequired ?? loc.MinAgentsRequired ?? 1;
 
                 if (isClosed)
                 {

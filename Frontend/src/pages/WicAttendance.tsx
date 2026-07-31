@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Search, AlertTriangle, UserCheck, Users, Clock, Calendar } from "lucide-react"
+import { Search, AlertTriangle, UserCheck, Users, Clock, Calendar, Settings } from "lucide-react"
 import { CoverageBadge } from "../components/CoverageBadge"
 import { NppBadge } from "../components/NppBadge"
 import { Sheet } from "../components/Sheet"
@@ -193,6 +193,106 @@ function SectionCard({
         {action}
       </div>
       <div style={{ padding: 16 }}>{children}</div>
+    </div>
+  )
+}
+
+const DOW_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+function MinRequiredEditor({ locationCode }: { locationCode: string }) {
+  const qc = useQueryClient()
+  const { data: hoursData } = useQuery({
+    queryKey: ["wic-opening-hours"],
+    queryFn: () => fetch("/api/wicschedule/opening-hours").then(r => r.json()),
+    staleTime: 60000,
+  })
+
+  const locHours = (hoursData ?? []).find((l: any) => l.locationCode === locationCode)
+  const weeklyHours: any[] = locHours?.weeklyHours ?? []
+
+  const [editing, setEditing] = useState<Record<number, string>>({})
+  const [saving, setSaving] = useState<number | null>(null)
+
+  const saveMin = async (dow: number, value: string) => {
+    const parsed = value === "" ? null : parseInt(value, 10)
+    if (value !== "" && isNaN(parsed!)) return
+    setSaving(dow)
+    try {
+      const res = await fetch(`/api/wicschedule/opening-hours/${encodeURIComponent(locationCode)}/${dow}/min-required`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: parsed }),
+      })
+      if (!res.ok) throw new Error("Save failed")
+      qc.invalidateQueries({ queryKey: ["wic-opening-hours"] })
+      qc.invalidateQueries({ queryKey: ["wic-forecast"] })
+      setEditing(prev => { const n = { ...prev }; delete n[dow]; return n })
+    } catch (e: any) {
+      alert(e?.message ?? "Save failed")
+    } finally { setSaving(null) }
+  }
+
+  if (weeklyHours.length === 0) return null
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <SectionCard title="Required headcount per weekday" icon={<Settings size={13} />}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+          {weeklyHours.map((h: any) => {
+            const val = editing[h.dayOfWeek] !== undefined ? editing[h.dayOfWeek] : (h.minRequired ?? "")
+            return (
+              <div key={h.dayOfWeek} style={{
+                background: h.isClosed ? "rgba(30,45,69,.3)" : "var(--card2)",
+                border: "1px solid var(--border)", borderRadius: 6,
+                padding: "8px 6px", textAlign: "center", opacity: h.isClosed ? 0.5 : 1,
+              }}>
+                <div style={{ fontSize: 9, color: "var(--text3)", textTransform: "uppercase", marginBottom: 4 }}>
+                  {DOW_NAMES[h.dayOfWeek]}
+                </div>
+                {h.isClosed ? (
+                  <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>—</div>
+                ) : (
+                  <>
+                    <input
+                      type="number" min={0} max={20}
+                      value={val}
+                      onChange={e => setEditing(prev => ({ ...prev, [h.dayOfWeek]: e.target.value }))}
+                      onKeyDown={e => { if (e.key === "Enter") saveMin(h.dayOfWeek, String(val)) }}
+                      disabled={saving === h.dayOfWeek}
+                      style={{
+                        width: "100%", boxSizing: "border-box" as const,
+                        background: "var(--card)", border: "1px solid var(--border)",
+                        color: "var(--text)", padding: "3px 4px", borderRadius: 4,
+                        fontSize: 12, fontFamily: "IBM Plex Mono", textAlign: "center",
+                        outline: "none",
+                      }}
+                    />
+                    {editing[h.dayOfWeek] !== undefined && (
+                      <button
+                        onClick={() => saveMin(h.dayOfWeek, String(val))}
+                        disabled={saving === h.dayOfWeek}
+                        style={{
+                          marginTop: 4, width: "100%", background: "var(--accent)",
+                          border: "none", color: "#fff", padding: "2px 0",
+                          borderRadius: 3, fontSize: 9, cursor: "pointer",
+                        }}
+                      >
+                        {saving === h.dayOfWeek ? "…" : "Save"}
+                      </button>
+                    )}
+                    {editing[h.dayOfWeek] === undefined && h.minRequired == null && (
+                      <div style={{ fontSize: 9, color: "var(--text3)", marginTop: 2 }}>default</div>
+                    )}
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        <div style={{ marginTop: 8, fontSize: 10, color: "var(--text3)" }}>
+          Blank = inherit from location default. Press Enter or Save after editing.
+        </div>
+      </SectionCard>
     </div>
   )
 }
@@ -805,6 +905,9 @@ export default function WicAttendance() {
                 </div>
               )}
             </SectionCard>
+
+            {/* Per-weekday required headcount editor */}
+            {selectedLocationCode && <MinRequiredEditor locationCode={selectedLocationCode} />}
 
             {/* N-day forecast mini-calendar, grouped by week */}
             <SectionCard

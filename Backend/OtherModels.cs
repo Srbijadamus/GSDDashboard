@@ -17,6 +17,7 @@ public class WicShiftEntry
     public bool IsGSDDay { get; set; } = false;
     public bool IsOffDay { get; set; } = false;
     [MaxLength(20)]  public string? Task { get; set; } = "WIC";
+    [MaxLength(50)]  public string? LocationCode { get; set; }
 }
 
 [Table("WicLocations")]

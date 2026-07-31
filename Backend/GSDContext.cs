@@ -47,8 +47,8 @@ public class GSDContext : DbContext
             e.HasIndex(x => x.ShiftDate).HasDatabaseName("IX_Wic_Date");
             e.HasIndex(x => x.EmployeeId).HasDatabaseName("IX_Wic_Emp");
             e.HasIndex(x => x.SupportLocation).HasDatabaseName("IX_Wic_Location");
-            e.HasIndex(x => new { x.EmployeeId, x.ShiftDate })
-             .IsUnique().HasDatabaseName("UQ_WicShift_EmpDate");
+            e.HasIndex(x => new { x.EmployeeId, x.ShiftDate, x.SupportLocation })
+             .IsUnique().HasDatabaseName("UQ_WicShift_EmpDateLoc");
         });
         modelBuilder.Entity<WicLocation>(e => {
             e.HasIndex(x => x.LocationCode).IsUnique();

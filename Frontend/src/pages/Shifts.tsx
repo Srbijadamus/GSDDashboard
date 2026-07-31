@@ -247,16 +247,27 @@ function TaskBadge({ shift, onTaskChange }: {
   )
 }
 
-function ShiftCell({ shift, onUpdate }: {
+function ShiftCell({ shift, onUpdate, onSwapDone }: {
   shift: any
   onUpdate: (shift: any, type: string, start?: string, end?: string) => void
+  onSwapDone?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [editStart, setEditStart] = useState(shift.shiftStart ?? "")
   const [editEnd,   setEditEnd]   = useState(shift.shiftEnd   ?? "")
   const [overrideType, setOverrideType] = useState<string | null>(null)
+  const [showSwap, setShowSwap] = useState(false)
+  const [swapSearch, setSwapSearch] = useState("")
+  const [swapping, setSwapping] = useState(false)
   const c = shiftColor(shift.shiftType)
   const showTime = (shift.shiftType === "WORKING" || shift.shiftType === "WIC_DUTY") && shift.shiftStart && shift.shiftEnd
+
+  const { data: employees } = useQuery({
+    queryKey: ["employees-all"],
+    queryFn: () => api.employees.get("active=true"),
+    enabled: showSwap,
+    staleTime: 60000,
+  })
 
   const handleTypeClick = (t: string) => {
     if (OVERRIDE_CONFIRM_TYPES.includes(shift.shiftType)) {
@@ -266,6 +277,34 @@ function ShiftCell({ shift, onUpdate }: {
       setOpen(false)
     }
   }
+
+  const handleDelete = () => {
+    if (!confirm("Delete this shift entry (set to empty)?")) return
+    onUpdate(shift, "EMPTY")
+    setOpen(false)
+  }
+
+  const doSwap = async (newEmpId: string) => {
+    if (!shift.id) return
+    setSwapping(true)
+    try {
+      await apiFetch(`/api/shifts/${shift.id}/swap`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newEmployeeId: newEmpId }),
+      } as any)
+      setShowSwap(false); setOpen(false)
+      onSwapDone?.()
+    } catch (e: any) {
+      alert(e?.message ?? "Swap failed")
+    } finally { setSwapping(false) }
+  }
+
+  const filteredEmps = (employees ?? [])
+    .filter((e: any) => e.employeeId !== shift.employeeId)
+    .filter((e: any) => !swapSearch ||
+      e.fullName?.toLowerCase().includes(swapSearch.toLowerCase()) ||
+      e.employeeId?.includes(swapSearch))
+    .slice(0, 20)
 
   return (
     <td style={{ padding:"3px 4px", position:"relative", minWidth:90 }}>
@@ -321,6 +360,59 @@ function ShiftCell({ shift, onUpdate }: {
               </button>
             </div>
           )}
+          {shift.id && (
+            <div style={{ marginTop:6, borderTop:"1px solid var(--border)", paddingTop:6, display:"flex", gap:4 }}>
+              {shift.shiftType !== "EMPTY" && (
+                <button onClick={handleDelete} style={{
+                  flex:1, background:"rgba(255,59,92,.1)", border:"1px solid rgba(255,59,92,.2)",
+                  color:"var(--danger)", padding:"4px 0", borderRadius:4, fontSize:9,
+                  cursor:"pointer", fontFamily:"IBM Plex Mono"
+                }}>Delete</button>
+              )}
+              {(shift.shiftType === "WIC_DUTY" || shift.shiftType === "WORKING") && (
+                <button onClick={() => { setShowSwap(true); setOpen(false) }} style={{
+                  flex:1, background:"rgba(59,126,255,.1)", border:"1px solid rgba(59,126,255,.2)",
+                  color:"var(--accent)", padding:"4px 0", borderRadius:4, fontSize:9,
+                  cursor:"pointer", fontFamily:"IBM Plex Mono"
+                }}>Swap</button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {showSwap && (
+        <div style={{
+          position:"absolute", top:"100%", left:0, zIndex:200,
+          background:"var(--card2)", border:"1px solid var(--border)",
+          borderRadius:6, padding:8, width:220,
+          boxShadow:"0 8px 24px rgba(0,0,0,.4)"
+        }}>
+          <div style={{ fontSize:10, color:"var(--text3)", marginBottom:6 }}>Swap with agent:</div>
+          <input autoFocus value={swapSearch} onChange={e => setSwapSearch(e.target.value)}
+            placeholder="Search name or ID..."
+            style={{ width:"100%", boxSizing:"border-box", background:"var(--card)",
+              border:"1px solid var(--border)", color:"var(--text)",
+              padding:"4px 7px", borderRadius:4, fontSize:11, outline:"none", marginBottom:4 }} />
+          <div style={{ maxHeight:180, overflowY:"auto" }}>
+            {filteredEmps.map((e: any) => (
+              <div key={e.employeeId} onClick={() => doSwap(e.employeeId)}
+                style={{ padding:"5px 8px", borderRadius:4, cursor: swapping ? "not-allowed" : "pointer",
+                  fontSize:11, color:"var(--text2)", opacity: swapping ? 0.5 : 1 }}
+                onMouseEnter={el => (el.currentTarget.style.background = "rgba(255,255,255,.05)")}
+                onMouseLeave={el => (el.currentTarget.style.background = "transparent")}>
+                <div style={{ fontWeight:500 }}>{e.fullName}</div>
+                <div style={{ fontSize:9, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{e.employeeId}</div>
+              </div>
+            ))}
+            {filteredEmps.length === 0 && (
+              <div style={{ fontSize:11, color:"var(--text3)", padding:"6px 8px" }}>No matches</div>
+            )}
+          </div>
+          <button onClick={() => setShowSwap(false)} style={{
+            marginTop:6, width:"100%", background:"var(--card)", border:"1px solid var(--border)",
+            color:"var(--text2)", padding:"4px 0", borderRadius:4, fontSize:10, cursor:"pointer"
+          }}>Cancel</button>
         </div>
       )}
 
@@ -571,7 +663,7 @@ export default function Shifts() {
         )}
       </div>
 
-      <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, overflow:"hidden" }}>
+      <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8 }}>
         <div style={{ overflowX:"auto", direction:"rtl" }} onScroll={e => { const el = e.currentTarget; el.querySelectorAll("[data-scroll-sync]").forEach((s: any) => { if (s !== el) s.scrollLeft = el.scrollLeft }) }}>
         <div style={{ direction:"ltr" }}>
         </div>
@@ -667,7 +759,7 @@ export default function Shifts() {
                       return (
                         <td key={d} style={{ borderLeft:"1px solid var(--border)",
                           background: !s && tod ? "rgba(59,126,255,.03)" : "transparent" }}>
-                          <ShiftCell shift={cellShift} onUpdate={updateShift} />
+                          <ShiftCell shift={cellShift} onUpdate={updateShift} onSwapDone={() => qc.invalidateQueries({ queryKey:["shifts-cal"] })} />
                         </td>
                       )
                     })}

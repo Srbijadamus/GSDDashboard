@@ -28,6 +28,7 @@ public class WicOpeningHour
     [MaxLength(100)] public string? RawSchedule { get; set; }
     public DateOnly? EffectiveFrom { get; set; }
     [MaxLength(500)] public string? ChangeNote { get; set; }
+    public int? MinRequired { get; set; }
 }
 
 [Table("WicPipeline")]

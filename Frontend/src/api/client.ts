@@ -42,6 +42,7 @@ export const api = {
   shifts: {
     get:          (params: string) => apiFetch<any[]>(`/api/shifts?${params}`),
     workingToday: (date?: string)  => apiFetch<any[]>(`/api/shifts/working-today?date=${date ?? today()}`),
+    swap:         (id: number, newEmployeeId: string) => apiFetch<any>(`/api/shifts/${id}/swap`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newEmployeeId }) }),
     downloadToday: () => downloadExcel(`/api/shifts/download?from=${today()}&to=${today()}`, `Shifts_${today()}.xlsx`),
     download7:     () => downloadExcel(`/api/shifts/download?from=${daysAgo(7)}&to=${today()}`, `Shifts_7days.xlsx`),
     download30:    () => downloadExcel(`/api/shifts/download?from=${daysAgo(30)}&to=${today()}`, `Shifts_30days.xlsx`),

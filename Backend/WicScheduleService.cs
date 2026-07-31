@@ -9,7 +9,8 @@ public record WicDayDto(string Date, string DayOfWeek, string? SupportLocation, 
 public record WicAgentScheduleDto(string EmployeeId, string FullName, string? TeamLeadName, List<string> AssignedLocations, List<WicDayDto> Days);
 public record WicLocationDayDto(string Date, string DayOfWeek, bool IsOpen, string? OpenTime, string? CloseTime, string? OpenTime2, string? CloseTime2, string? RawSchedule, int AgentCount, List<string> AgentNames);
 public record WicLocationScheduleDto(string LocationCode, string DisplayName, string? City, int TotalAssignedAgents, List<WicLocationDayDto> Days);
-public record WicDayHoursDto(int DayOfWeek, string DayName, bool IsClosed, string? OpenTime, string? CloseTime, string? OpenTime2, string? CloseTime2, string? RawSchedule);
+public record WicDayHoursDto(int DayOfWeek, string DayName, bool IsClosed, string? OpenTime, string? CloseTime, string? OpenTime2, string? CloseTime2, string? RawSchedule, int? MinRequired = null);
+public record MinRequiredDto(int? Value);
 public record WicOpeningHoursDto(string LocationCode, string DisplayName, string? City, int AssignedAgentCount, List<WicDayHoursDto> WeeklyHours);
 
 public class WicScheduleService
@@ -97,7 +98,7 @@ public class WicScheduleService
                 .Where(h => h.LocationCode == loc.LocationCode)
                 .OrderBy(h => h.DayOfWeek)
                 .Select(h => new WicDayHoursDto(h.DayOfWeek, DayName(h.DayOfWeek), h.IsClosed,
-                    h.OpenTime, h.CloseTime, h.OpenTime2, h.CloseTime2, h.RawSchedule)).ToList();
+                    h.OpenTime, h.CloseTime, h.OpenTime2, h.CloseTime2, h.RawSchedule, h.MinRequired)).ToList();
             int agentCount = assignments.Count(a =>
                 a.LocationCode == loc.LocationCode ||
                 a.LocationCode == loc.LocationCodeLegacy);
@@ -150,6 +151,19 @@ public static class WicScheduleEndpointMapper
 
         grp.MapGet("/opening-hours", async (WicScheduleService svc) =>
             Results.Ok(await svc.GetOpeningHoursAsync()));
+
+        grp.MapPatch("/opening-hours/{locationCode}/{dow:int}/min-required",
+            async (string locationCode, int dow, MinRequiredDto body, GSDDashboard.API.Data.GSDContext db) =>
+        {
+            var rows = await db.WicOpeningHours
+                .Where(h => h.LocationCode == locationCode && h.DayOfWeek == dow)
+                .ToListAsync();
+            if (rows.Count == 0)
+                return Results.NotFound(new { error = $"No opening-hours row for {locationCode} DOW={dow}" });
+            foreach (var r in rows) r.MinRequired = body.Value;
+            await db.SaveChangesAsync();
+            return Results.Ok(new { locationCode, dow, minRequired = body.Value });
+        });
 
         grp.MapGet("/export/agents/csv", async (string? from, string? to, WicScheduleService svc, HttpContext ctx) =>
         {

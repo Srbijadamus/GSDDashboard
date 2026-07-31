@@ -44,6 +44,7 @@ public record ShiftUpdateDto(
 );
 public record AssignShiftDto(string EmployeeId, string ShiftDate, string ShiftType, string? ShiftStart, string? ShiftEnd);
 public record AssignShiftResult(ShiftRowDto? Row, string? DuplicateError);
+public record SwapShiftDto(string NewEmployeeId);
 
 public class ShiftService
 {
@@ -334,6 +335,77 @@ public static class ShiftEndpointMapper
         {
             var result = await svc.ValidateAsync(req.ShiftId, req.ShiftType, req.ShiftStart, req.ShiftEnd);
             return Results.Ok(result);
+        });
+
+        grp.MapPost("/{id:int}/swap", async (int id, SwapShiftDto dto, GSDDashboard.API.Data.GSDContext db) =>
+        {
+            var original = await db.ShiftEntries.FindAsync(id);
+            if (original == null) return Results.NotFound(new { error = "Shift not found" });
+            if (string.IsNullOrWhiteSpace(dto.NewEmployeeId))
+                return Results.BadRequest(new { error = "NewEmployeeId required" });
+
+            var newEmp = await db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == dto.NewEmployeeId);
+            if (newEmp == null) return Results.NotFound(new { error = $"Employee '{dto.NewEmployeeId}' not found" });
+
+            var date      = original.ShiftDate;
+            var shiftType = original.ShiftType ?? "WIC_DUTY";
+            var start     = original.ShiftStart;
+            var end       = original.ShiftEnd;
+            var task      = original.AgentTask;
+            var locId     = original.LocationId;
+            var oldEmpId  = original.EmployeeId;
+
+            // Soft-delete the original: set to EMPTY
+            original.ShiftType    = "EMPTY";
+            original.IsWicDuty    = false;
+            original.AgentTask    = null;
+            original.LocationId   = null;
+
+            // Transfer WicShiftEntries from old to new employee
+            var wicEntries = await db.WicShiftEntries
+                .Where(w => w.EmployeeId == oldEmpId && w.ShiftDate == date)
+                .ToListAsync();
+            foreach (var w in wicEntries) w.EmployeeId = dto.NewEmployeeId;
+
+            // Create or update ShiftEntry for the new employee on the same date
+            var newShift = await db.ShiftEntries.FirstOrDefaultAsync(s => s.EmployeeId == dto.NewEmployeeId && s.ShiftDate == date);
+            if (newShift != null)
+            {
+                newShift.ShiftType    = shiftType;
+                newShift.IsWicDuty    = shiftType == "WIC_DUTY";
+                newShift.ShiftStart   = start;
+                newShift.ShiftEnd     = end;
+                newShift.AgentTask    = task;
+                newShift.LocationId   = locId;
+                newShift.SourceModule = "SWAP";
+            }
+            else
+            {
+                db.ShiftEntries.Add(new ShiftEntry
+                {
+                    EmployeeId   = dto.NewEmployeeId,
+                    ShiftDate    = date,
+                    ShiftType    = shiftType,
+                    IsWicDuty    = shiftType == "WIC_DUTY",
+                    ShiftStart   = start,
+                    ShiftEnd     = end,
+                    AgentTask    = task,
+                    LocationId   = locId,
+                    SourceSheet  = "ASSIGN",
+                    SourceModule = "SWAP",
+                });
+            }
+
+            await db.SaveChangesAsync();
+            return Results.Ok(new
+            {
+                swapped    = true,
+                date       = date.ToString("yyyy-MM-dd"),
+                from       = oldEmpId,
+                to         = dto.NewEmployeeId,
+                toName     = newEmp.FullName ?? dto.NewEmployeeId,
+                shiftType,
+            });
         });
 
         grp.MapGet("/download", async (string? from, string? to, string? teamLead, string? role, ShiftService svc, HttpContext ctx) =>
