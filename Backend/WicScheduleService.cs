@@ -13,6 +13,26 @@ public record WicDayHoursDto(int DayOfWeek, string DayName, bool IsClosed, strin
 public record MinRequiredDto(int? Value);
 public record WicOpeningHoursDto(string LocationCode, string DisplayName, string? City, int AssignedAgentCount, List<WicDayHoursDto> WeeklyHours);
 
+public record UpdateScheduleDayDto(
+    int DayOfWeek, bool IsClosed,
+    string? OpenTime = null, string? CloseTime = null,
+    string? OpenTime2 = null, string? CloseTime2 = null);
+
+public record UpdateScheduleRequestDto(
+    string EffectiveFrom,
+    string? ChangeNote,
+    bool CloseEntireCentre,
+    List<UpdateScheduleDayDto> Days);
+
+public record ScheduleConsequenceDto(
+    string EmployeeId, string? FullName,
+    string Date, string Weekday,
+    string? SupportLocation, string? WorkingShift, string Issue);
+
+public record UpdateScheduleResponseDto(
+    bool Saved, string EffectiveFrom, int RowsInserted,
+    List<ScheduleConsequenceDto> Consequences);
+
 public class WicScheduleService
 {
     private readonly GSDContext _db;
@@ -163,6 +183,131 @@ public static class WicScheduleEndpointMapper
             foreach (var r in rows) r.MinRequired = body.Value;
             await db.SaveChangesAsync();
             return Results.Ok(new { locationCode, dow, minRequired = body.Value });
+        });
+
+        // ── Schedule version editor ──────────────────────────────────────────────
+        grp.MapPost("/opening-hours/{locationCode}/version",
+            async (string locationCode, UpdateScheduleRequestDto req, GSDDashboard.API.Data.GSDContext db) =>
+        {
+            if (!DateOnly.TryParse(req.EffectiveFrom, out var effectiveDate))
+                return Results.BadRequest(new { error = "Invalid effectiveFrom date." });
+
+            var location = await db.WicLocations.FirstOrDefaultAsync(l => l.LocationCode == locationCode);
+            if (location == null)
+                return Results.NotFound(new { error = $"Location '{locationCode}' not found." });
+
+            // CloseEntireCentre: override every day to closed
+            var days = req.CloseEntireCentre
+                ? Enumerable.Range(0, 7).Select(i => new UpdateScheduleDayDto(i, true)).ToList()
+                : req.Days ?? new();
+
+            if (days.Count != 7 || days.Select(d => d.DayOfWeek).Distinct().Count() != 7)
+                return Results.BadRequest(new { error = "Must provide exactly 7 entries, one per DayOfWeek (0=Sun … 6=Sat)." });
+
+            // Validate open-day time windows
+            foreach (var d in days.Where(d => !d.IsClosed))
+            {
+                if (string.IsNullOrWhiteSpace(d.OpenTime) || string.IsNullOrWhiteSpace(d.CloseTime))
+                    return Results.BadRequest(new { error = $"DayOfWeek {d.DayOfWeek}: open and close times required for an open day." });
+                if (!TimeSpan.TryParse(d.OpenTime, out var ts1) || !TimeSpan.TryParse(d.CloseTime, out var ts2))
+                    return Results.BadRequest(new { error = $"DayOfWeek {d.DayOfWeek}: invalid time format (use HH:MM)." });
+                if (ts2 <= ts1)
+                    return Results.BadRequest(new { error = $"DayOfWeek {d.DayOfWeek}: close time must be after open time." });
+                if (!string.IsNullOrWhiteSpace(d.OpenTime2) || !string.IsNullOrWhiteSpace(d.CloseTime2))
+                {
+                    if (string.IsNullOrWhiteSpace(d.OpenTime2) || string.IsNullOrWhiteSpace(d.CloseTime2))
+                        return Results.BadRequest(new { error = $"DayOfWeek {d.DayOfWeek}: both start and end required for second window." });
+                    if (!TimeSpan.TryParse(d.OpenTime2, out var ts3) || !TimeSpan.TryParse(d.CloseTime2, out var ts4))
+                        return Results.BadRequest(new { error = $"DayOfWeek {d.DayOfWeek}: invalid time format in second window." });
+                    if (ts3 <= ts2)
+                        return Results.BadRequest(new { error = $"DayOfWeek {d.DayOfWeek}: second window must start after first window ends." });
+                    if (ts4 <= ts3)
+                        return Results.BadRequest(new { error = $"DayOfWeek {d.DayOfWeek}: second window close must be after second window open." });
+                }
+            }
+
+            // Carry MinRequired forward from current (today-effective) version per DOW
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var allHours = await db.WicOpeningHours
+                .Where(h => h.LocationCode == locationCode)
+                .ToListAsync();
+            var currentMinRequired = allHours
+                .Where(h => h.EffectiveFrom == null || h.EffectiveFrom <= today)
+                .GroupBy(h => h.DayOfWeek)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(h => h.EffectiveFrom ?? DateOnly.MinValue).First().MinRequired);
+
+            static string BuildRaw(UpdateScheduleDayDto d)
+            {
+                if (d.IsClosed) return "Closed";
+                if (!string.IsNullOrWhiteSpace(d.OpenTime2) && !string.IsNullOrWhiteSpace(d.CloseTime2))
+                    return $"{d.OpenTime} - {d.CloseTime} / {d.OpenTime2} - {d.CloseTime2}";
+                return $"{d.OpenTime} - {d.CloseTime}";
+            }
+
+            var note = req.ChangeNote;
+            var newRows = days.Select(d => new WicOpeningHour
+            {
+                LocationCode  = locationCode,
+                DayOfWeek     = d.DayOfWeek,
+                OpenTime      = d.IsClosed ? null : d.OpenTime,
+                CloseTime     = d.IsClosed ? null : d.CloseTime,
+                OpenTime2     = (d.IsClosed || string.IsNullOrWhiteSpace(d.OpenTime2)) ? null : d.OpenTime2,
+                CloseTime2    = (d.IsClosed || string.IsNullOrWhiteSpace(d.CloseTime2)) ? null : d.CloseTime2,
+                IsClosed      = d.IsClosed,
+                RawSchedule   = BuildRaw(d),
+                EffectiveFrom = effectiveDate,
+                ChangeNote    = note,
+                MinRequired   = currentMinRequired.TryGetValue(d.DayOfWeek, out var mr) ? mr : null,
+            }).ToList();
+
+            db.WicOpeningHours.AddRange(newRows);
+            await db.SaveChangesAsync();
+
+            // Compute consequences: WicShiftEntries for this location on/after effectiveFrom
+            var scheduleByDow = days.ToDictionary(d => d.DayOfWeek);
+            var futureEntries = await db.WicShiftEntries
+                .Where(w => w.SupportLocation == location.DisplayName && w.ShiftDate >= effectiveDate)
+                .Join(db.Employees, w => w.EmployeeId, e => e.EmployeeId,
+                      (w, e) => new { w, e.FullName })
+                .ToListAsync();
+
+            var consequences = new List<ScheduleConsequenceDto>();
+            foreach (var item in futureEntries)
+            {
+                var dow = (int)item.w.ShiftDate.DayOfWeek;
+                if (!scheduleByDow.TryGetValue(dow, out var daySchedule)) continue;
+
+                string? issue = null;
+                if (daySchedule.IsClosed)
+                {
+                    issue = "CLOSED_DAY";
+                }
+                else if (!string.IsNullOrEmpty(item.w.WorkingShift) && !string.IsNullOrEmpty(daySchedule.OpenTime))
+                {
+                    var parts = item.w.WorkingShift.Split('-');
+                    if (parts.Length >= 2 &&
+                        TimeSpan.TryParse(parts[0].Trim(), out var shiftStart) &&
+                        TimeSpan.TryParse(parts[1].Trim(), out var shiftEnd) &&
+                        TimeSpan.TryParse(daySchedule.OpenTime, out var openTs) &&
+                        TimeSpan.TryParse(daySchedule.CloseTime, out var closeTs) &&
+                        (shiftStart < openTs || shiftEnd > closeTs))
+                    {
+                        issue = "OUTSIDE_WINDOW";
+                    }
+                }
+
+                if (issue != null)
+                    consequences.Add(new ScheduleConsequenceDto(
+                        item.w.EmployeeId, item.FullName,
+                        item.w.ShiftDate.ToString("yyyy-MM-dd"),
+                        item.w.ShiftDate.DayOfWeek.ToString()[..3],
+                        item.w.SupportLocation, item.w.WorkingShift, issue));
+            }
+
+            return Results.Ok(new UpdateScheduleResponseDto(
+                true, req.EffectiveFrom, newRows.Count, consequences));
         });
 
         grp.MapGet("/export/agents/csv", async (string? from, string? to, WicScheduleService svc, HttpContext ctx) =>

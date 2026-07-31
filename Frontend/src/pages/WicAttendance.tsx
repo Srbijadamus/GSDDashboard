@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Search, AlertTriangle, UserCheck, Users, Clock, Calendar, Settings } from "lucide-react"
+import { Search, AlertTriangle, UserCheck, Users, Clock, Calendar, Settings, Edit2 } from "lucide-react"
+import { apiFetch } from "../api/client"
 import { CoverageBadge } from "../components/CoverageBadge"
 import { NppBadge } from "../components/NppBadge"
 import { Sheet } from "../components/Sheet"
@@ -199,11 +200,381 @@ function SectionCard({
 
 const DOW_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
+// Display order: Mon(1)…Fri(5) Sat(6) Sun(0)
+const EDITOR_DOW_ORDER = [1, 2, 3, 4, 5, 6, 0]
+const DOW_LABEL: Record<number, string> = { 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" }
+
+interface DayConfig {
+  dayOfWeek: number
+  isClosed: boolean
+  openTime: string
+  closeTime: string
+  openTime2: string
+  closeTime2: string
+  hasSecondWindow: boolean
+}
+
+function blankDay(dow: number): DayConfig {
+  return { dayOfWeek: dow, isClosed: true, openTime: "", closeTime: "", openTime2: "", closeTime2: "", hasSecondWindow: false }
+}
+
+function WicScheduleEditor({ locationCode }: { locationCode: string }) {
+  const qc = useQueryClient()
+  const todayStr = new Date().toISOString().split("T")[0]
+
+  const { data: hoursData } = useQuery({
+    queryKey: ["wic-opening-hours"],
+    queryFn: () => apiFetch<any[]>("/api/wicschedule/opening-hours"),
+    staleTime: 60000,
+  })
+
+  const locHours = (hoursData ?? []).find((l: any) => l.locationCode === locationCode)
+  const weeklyHours: any[] = locHours?.weeklyHours ?? []
+
+  const [open, setOpen] = useState(false)
+  const [effectiveFrom, setEffectiveFrom] = useState(todayStr)
+  const [changeNote, setChangeNote] = useState("")
+  const [days, setDays] = useState<DayConfig[]>(() => EDITOR_DOW_ORDER.map(blankDay))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [consequences, setConsequences] = useState<any[] | null>(null)
+  const [savedAt, setSavedAt] = useState<string | null>(null)
+
+  // Pre-populate from current effective schedule whenever location or hours load
+  useEffect(() => {
+    if (weeklyHours.length === 0) return
+    setDays(EDITOR_DOW_ORDER.map(dow => {
+      const h = weeklyHours.find((w: any) => w.dayOfWeek === dow)
+      if (!h) return blankDay(dow)
+      return {
+        dayOfWeek: dow,
+        isClosed: h.isClosed,
+        openTime: h.openTime ?? "",
+        closeTime: h.closeTime ?? "",
+        openTime2: h.openTime2 ?? "",
+        closeTime2: h.closeTime2 ?? "",
+        hasSecondWindow: !!(h.openTime2 && h.closeTime2),
+      }
+    }))
+    setConsequences(null)
+    setSavedAt(null)
+    setError(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weeklyHours.length, locationCode])
+
+  const patchDay = (dow: number, patch: Partial<DayConfig>) =>
+    setDays(prev => prev.map(d => d.dayOfWeek === dow ? { ...d, ...patch } : d))
+
+  const closeCentre = () => setDays(EDITOR_DOW_ORDER.map(blankDay))
+
+  const validate = (): string | null => {
+    for (const d of days) {
+      if (d.isClosed) continue
+      if (!d.openTime || !d.closeTime)
+        return `${DOW_LABEL[d.dayOfWeek]}: open and close times required.`
+      if (d.openTime >= d.closeTime)
+        return `${DOW_LABEL[d.dayOfWeek]}: close time must be after open time.`
+      if (d.hasSecondWindow) {
+        if (!d.openTime2 || !d.closeTime2)
+          return `${DOW_LABEL[d.dayOfWeek]}: both times required for second window.`
+        if (d.openTime2 <= d.closeTime)
+          return `${DOW_LABEL[d.dayOfWeek]}: second window must start after first window ends.`
+        if (d.closeTime2 <= d.openTime2)
+          return `${DOW_LABEL[d.dayOfWeek]}: second window close must be after open.`
+      }
+    }
+    return null
+  }
+
+  const save = async () => {
+    const err = validate()
+    if (err) { setError(err); return }
+    setError(null)
+    setSaving(true)
+    setConsequences(null)
+    try {
+      const res = await apiFetch<any>(
+        `/api/wicschedule/opening-hours/${encodeURIComponent(locationCode)}/version`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            effectiveFrom,
+            changeNote: changeNote.trim() || null,
+            closeEntireCentre: false,
+            days: days.map(d => ({
+              dayOfWeek: d.dayOfWeek,
+              isClosed: d.isClosed,
+              openTime: d.isClosed ? null : (d.openTime || null),
+              closeTime: d.isClosed ? null : (d.closeTime || null),
+              openTime2: (d.isClosed || !d.hasSecondWindow) ? null : (d.openTime2 || null),
+              closeTime2: (d.isClosed || !d.hasSecondWindow) ? null : (d.closeTime2 || null),
+            })),
+          }),
+        }
+      )
+      setConsequences(res.consequences ?? [])
+      setSavedAt(effectiveFrom)
+      setChangeNote("")
+      qc.invalidateQueries({ queryKey: ["wic-opening-hours"] })
+      qc.invalidateQueries({ queryKey: ["wic-forecast"] })
+    } catch (e: any) {
+      setError(e?.message ?? "Save failed")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputBase: React.CSSProperties = {
+    background: "var(--card)", border: "1px solid var(--border)",
+    color: "var(--text)", borderRadius: 4, outline: "none",
+    fontFamily: "IBM Plex Mono", fontSize: 11, padding: "3px 5px",
+  }
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <SectionCard
+        title="Opening Hours / Öffnungszeiten"
+        icon={<Edit2 size={13} />}
+        action={
+          <button
+            onClick={() => { setOpen(o => !o); setConsequences(null) }}
+            style={{
+              background: open ? "var(--card2)" : "var(--accent)",
+              border: `1px solid ${open ? "var(--border)" : "var(--accent)"}`,
+              color: open ? "var(--text2)" : "#fff",
+              padding: "4px 10px", borderRadius: 5, fontSize: 10,
+              fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            {open ? "▲ Collapse" : "▼ Edit / Bearbeiten"}
+          </button>
+        }
+      >
+        {!open ? (
+          <div style={{ fontSize: 12, color: "var(--text3)" }}>
+            {weeklyHours.length > 0
+              ? weeklyHours.filter((h: any) => !h.isClosed)
+                  .map((h: any) => `${DOW_LABEL[h.dayOfWeek] ?? "?"} ${h.openTime}–${h.closeTime}${h.openTime2 ? ` / ${h.openTime2}–${h.closeTime2}` : ""}`)
+                  .join(" · ") || "All days closed"
+              : "Loading…"}
+          </div>
+        ) : (
+          <div>
+            {/* ── Controls row ── */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div>
+                <div style={{ fontSize: 10, color: "var(--text3)", marginBottom: 3 }}>
+                  Effective from / Gültig ab
+                </div>
+                <input
+                  type="date"
+                  value={effectiveFrom}
+                  onChange={e => { setEffectiveFrom(e.target.value); setConsequences(null) }}
+                  style={{ ...inputBase, padding: "5px 7px" }}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={{ fontSize: 10, color: "var(--text3)", marginBottom: 3 }}>
+                  Note / Anmerkung (optional)
+                </div>
+                <input
+                  value={changeNote}
+                  onChange={e => setChangeNote(e.target.value)}
+                  placeholder="Reason for change / Grund der Änderung"
+                  style={{ ...inputBase, width: "100%", boxSizing: "border-box", padding: "5px 7px" }}
+                />
+              </div>
+              <button
+                onClick={closeCentre}
+                style={{
+                  background: "rgba(255,59,92,.08)", border: "1px solid rgba(255,59,92,.25)",
+                  color: "var(--danger)", padding: "5px 12px", borderRadius: 5,
+                  fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
+                }}
+              >
+                Close entire centre / Standort schließen
+              </button>
+            </div>
+
+            {/* ── 7-day grid ── */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 12 }}>
+              {days.map(day => (
+                <div
+                  key={day.dayOfWeek}
+                  style={{
+                    background: day.isClosed ? "rgba(30,45,69,.35)" : "var(--card2)",
+                    border: `1px solid ${day.isClosed ? "var(--border)" : "var(--accent)44"}`,
+                    borderRadius: 6, padding: "8px 5px",
+                    display: "flex", flexDirection: "column", gap: 5, alignItems: "center",
+                  }}
+                >
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase" }}>
+                    {DOW_LABEL[day.dayOfWeek]}
+                  </div>
+
+                  <button
+                    onClick={() => patchDay(day.dayOfWeek, { isClosed: !day.isClosed })}
+                    style={{
+                      width: "100%", padding: "3px 0", borderRadius: 4, fontSize: 9,
+                      fontWeight: 700, cursor: "pointer",
+                      background: day.isClosed ? "rgba(255,59,92,.12)" : "rgba(34,208,122,.12)",
+                      border: `1px solid ${day.isClosed ? "rgba(255,59,92,.3)" : "rgba(34,208,122,.3)"}`,
+                      color: day.isClosed ? "var(--danger)" : "var(--green)",
+                    }}
+                  >
+                    {day.isClosed ? "Closed" : "Open"}
+                  </button>
+
+                  {!day.isClosed && (
+                    <>
+                      <input
+                        type="time"
+                        value={day.openTime}
+                        onChange={e => patchDay(day.dayOfWeek, { openTime: e.target.value })}
+                        style={{ ...inputBase, width: "100%", boxSizing: "border-box", textAlign: "center" }}
+                      />
+                      <input
+                        type="time"
+                        value={day.closeTime}
+                        onChange={e => patchDay(day.dayOfWeek, { closeTime: e.target.value })}
+                        style={{ ...inputBase, width: "100%", boxSizing: "border-box", textAlign: "center" }}
+                      />
+
+                      {day.hasSecondWindow ? (
+                        <>
+                          <div style={{ width: "100%", borderTop: "1px dashed var(--border)", paddingTop: 4 }}>
+                            <div style={{ fontSize: 8, color: "var(--text3)", textAlign: "center", marginBottom: 3 }}>
+                              2nd window
+                            </div>
+                            <input
+                              type="time"
+                              value={day.openTime2}
+                              onChange={e => patchDay(day.dayOfWeek, { openTime2: e.target.value })}
+                              style={{ ...inputBase, width: "100%", boxSizing: "border-box", textAlign: "center", marginBottom: 4 }}
+                            />
+                            <input
+                              type="time"
+                              value={day.closeTime2}
+                              onChange={e => patchDay(day.dayOfWeek, { closeTime2: e.target.value })}
+                              style={{ ...inputBase, width: "100%", boxSizing: "border-box", textAlign: "center" }}
+                            />
+                          </div>
+                          <button
+                            onClick={() => patchDay(day.dayOfWeek, { hasSecondWindow: false, openTime2: "", closeTime2: "" })}
+                            style={{ fontSize: 8, color: "var(--text3)", background: "none", border: "none", cursor: "pointer" }}
+                          >
+                            − remove 2nd
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => patchDay(day.dayOfWeek, { hasSecondWindow: true })}
+                          style={{ fontSize: 8, color: "var(--text3)", background: "none", border: "none", cursor: "pointer" }}
+                        >
+                          + split shift
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {error && (
+              <div style={{
+                background: "rgba(255,59,92,.08)", border: "1px solid rgba(255,59,92,.25)",
+                borderRadius: 6, padding: "8px 12px", fontSize: 11, color: "var(--danger)", marginBottom: 10,
+              }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={save}
+              disabled={saving}
+              style={{
+                background: "var(--accent)", border: "none", color: "#fff",
+                padding: "8px 22px", borderRadius: 6, fontSize: 12,
+                fontWeight: 700, cursor: saving ? "not-allowed" : "pointer",
+                opacity: saving ? 0.6 : 1,
+              }}
+            >
+              {saving ? "Saving… / Speichere…" : "Save / Speichern"}
+            </button>
+
+            {/* ── Consequence list ── */}
+            {consequences !== null && (
+              <div style={{ marginTop: 14 }}>
+                {consequences.length === 0 ? (
+                  <div style={{
+                    background: "rgba(34,208,122,.08)", border: "1px solid rgba(34,208,122,.25)",
+                    borderRadius: 6, padding: "8px 12px", fontSize: 11, color: "var(--green)",
+                  }}>
+                    ✓ Saved (effective {savedAt}). No conflicting assignments found on/after that date.
+                    / Gespeichert (gültig ab {savedAt}). Keine betroffenen Einsätze gefunden.
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{
+                      background: "rgba(255,124,59,.08)", border: "1px solid rgba(255,124,59,.25)",
+                      borderRadius: 6, padding: "10px 12px", fontSize: 11, color: "var(--warn)",
+                      fontWeight: 600, marginBottom: 8,
+                    }}>
+                      ⚠ Saved (effective {savedAt}). {consequences.length} existing assignment(s) now conflict with the new schedule:
+                      / Gespeichert (gültig ab {savedAt}). {consequences.length} bestehende Einsatz/Einsätze kollidieren mit dem neuen Plan:
+                    </div>
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                        <thead>
+                          <tr style={{ background: "var(--card2)" }}>
+                            {["Date / Datum", "Day / Tag", "Agent", "Shift / Schicht", "Issue / Problem"].map(h => (
+                              <th key={h} style={{ padding: "5px 8px", textAlign: "left", fontSize: 9,
+                                fontWeight: 700, color: "var(--text3)", textTransform: "uppercase",
+                                borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {consequences.map((c, i) => (
+                            <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                              <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{c.date}</td>
+                              <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{c.weekday}</td>
+                              <td style={{ padding: "5px 8px", fontSize: 11 }}>{c.fullName}</td>
+                              <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{c.workingShift ?? "—"}</td>
+                              <td style={{ padding: "5px 8px", fontSize: 11, fontWeight: 600,
+                                color: c.issue === "CLOSED_DAY" ? "var(--danger)" : "var(--warn)" }}>
+                                {c.issue === "CLOSED_DAY"
+                                  ? "Day now closed / Tag jetzt geschlossen"
+                                  : "Outside new window / Außerhalb Öffnungszeit"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ marginTop: 8, fontSize: 10, color: "var(--text3)" }}>
+                      These assignments were NOT changed automatically. Please review and update them manually in the Shifts planner.
+                      / Diese Einsätze wurden NICHT automatisch geändert. Bitte manuell im Schichtplan prüfen und anpassen.
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </SectionCard>
+    </div>
+  )
+}
+
 function MinRequiredEditor({ locationCode }: { locationCode: string }) {
   const qc = useQueryClient()
   const { data: hoursData } = useQuery({
     queryKey: ["wic-opening-hours"],
-    queryFn: () => fetch("/api/wicschedule/opening-hours").then(r => r.json()),
+    queryFn: () => apiFetch<any[]>("/api/wicschedule/opening-hours"),
     staleTime: 60000,
   })
 
@@ -218,12 +589,14 @@ function MinRequiredEditor({ locationCode }: { locationCode: string }) {
     if (value !== "" && isNaN(parsed!)) return
     setSaving(dow)
     try {
-      const res = await fetch(`/api/wicschedule/opening-hours/${encodeURIComponent(locationCode)}/${dow}/min-required`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ value: parsed }),
-      })
-      if (!res.ok) throw new Error("Save failed")
+      await apiFetch(
+        `/api/wicschedule/opening-hours/${encodeURIComponent(locationCode)}/${dow}/min-required`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ value: parsed }),
+        }
+      )
       qc.invalidateQueries({ queryKey: ["wic-opening-hours"] })
       qc.invalidateQueries({ queryKey: ["wic-forecast"] })
       setEditing(prev => { const n = { ...prev }; delete n[dow]; return n })
@@ -905,6 +1278,9 @@ export default function WicAttendance() {
                 </div>
               )}
             </SectionCard>
+
+            {/* Opening-hours schedule editor */}
+            {selectedLocationCode && <WicScheduleEditor locationCode={selectedLocationCode} />}
 
             {/* Per-weekday required headcount editor */}
             {selectedLocationCode && <MinRequiredEditor locationCode={selectedLocationCode} />}
