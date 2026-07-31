@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Users } from "lucide-react"
 import { NppBadge } from "../components/NppBadge"
+import { apiFetch } from "../api/client"
 
 interface Employee {
   employeeId: string
@@ -63,6 +64,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
   const [success, setSuccess]             = useState<string | null>(null)
   const [nppWarn, setNppWarn]             = useState<string | null>(null)
   const [error, setError]                 = useState<string | null>(null)
+  const [closedDay, setClosedDay]         = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -77,6 +79,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
       setNppWarn(null)
       setError(null)
       setProgress(null)
+      setClosedDay(false)
     }
   }, [isOpen, defaultLocationCode, defaultDate])
 
@@ -98,6 +101,31 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
     staleTime: 10 * 60 * 1000,
     enabled: isOpen,
   })
+
+  const { data: openingHours = [] } = useQuery<any[]>({
+    queryKey: ["wic-opening-hours"],
+    queryFn: () => apiFetch<any[]>("/api/wicschedule/opening-hours"),
+    staleTime: 60 * 1000,
+    enabled: isOpen,
+  })
+
+  // Auto-populate times and detect closed day whenever location or from-date changes
+  useEffect(() => {
+    if (!locationCode || !dateFrom || openingHours.length === 0) { setClosedDay(false); return }
+    const dow = new Date(dateFrom + "T00:00:00").getDay() // 0=Sun..6=Sat, same as .NET DayOfWeek
+    const locHours = openingHours.find((l: any) => l.locationCode === locationCode)
+    const dayHours = locHours?.weeklyHours?.find((d: any) => d.dayOfWeek === dow)
+    if (!dayHours || dayHours.isClosed) {
+      setClosedDay(true)
+      setShiftStart("")
+      setShiftEnd("")
+    } else {
+      setClosedDay(false)
+      setShiftStart(dayHours.openTime ?? "")
+      setShiftEnd(dayHours.closeTime ?? "")
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationCode, dateFrom, openingHours])
 
   const dates = buildDateRange(dateFrom, dateTo, skipWeekends)
   const isRange = dateFrom !== dateTo
@@ -270,10 +298,20 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
             </div>
           )}
 
+          {closedDay && (
+            <div style={{
+              background: "rgba(255,59,92,.08)", border: "1px solid rgba(255,59,92,.25)",
+              borderRadius: 6, padding: "7px 11px", fontSize: 11, color: "var(--danger)",
+            }}>
+              ⚠ WIC centre is closed on this weekday — assignment will be skipped.
+              / Standort an diesem Wochentag geschlossen — Einsatz wird übersprungen.
+            </div>
+          )}
+
           {/* Date range */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
-              From
+              Von / From
               <input
                 type="date"
                 value={dateFrom}
@@ -286,7 +324,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
               />
             </label>
             <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
-              To
+              Bis / To
               <input
                 type="date"
                 value={dateTo}
@@ -302,8 +340,8 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: 11, color: "var(--text3)" }}>
               {dates.length === 0
-                ? <span style={{ color: "var(--danger)" }}>No working days in range</span>
-                : <span><span style={{ fontWeight: 600, color: "var(--accent)" }}>{dates.length}</span> day{dates.length !== 1 ? "s" : ""} selected</span>}
+                ? <span style={{ color: "var(--danger)" }}>Keine Arbeitstage / No working days in range</span>
+                : <span><span style={{ fontWeight: 600, color: "var(--accent)" }}>{dates.length}</span> Tag{dates.length !== 1 ? "e" : ""} / day{dates.length !== 1 ? "s" : ""} ausgewählt / selected</span>}
             </span>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text3)", cursor: "pointer" }}>
               <input
@@ -312,20 +350,25 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
                 onChange={e => setSkipWeekends(e.target.checked)}
                 style={{ accentColor: "var(--accent)" }}
               />
-              Skip weekends
+              Wochenenden überspringen / Skip weekends
             </label>
           </div>
 
-          {/* Shift times */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
-              {p("startTime")}
-              <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} style={inputStyle} />
-            </label>
-            <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
-              {p("endTime")}
-              <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} style={inputStyle} />
-            </label>
+          {/* Shift times — pre-filled from WIC opening hours; editable */}
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+                Beginn / {p("startTime")}
+                <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} style={inputStyle} />
+              </label>
+              <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+                Ende / {p("endTime")}
+                <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} style={inputStyle} />
+              </label>
+            </div>
+            <div style={{ fontSize: 9, color: "var(--text3)", marginTop: 4 }}>
+              Aus Öffnungszeiten vorausgefüllt / Pre-filled from opening hours — änderbar / editable
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
@@ -353,7 +396,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
               {submitting
                 ? p("saving")
                 : isRange
-                  ? `Assign ${dates.length} days`
+                  ? `${dates.length} Tage zuweisen / Assign ${dates.length} days`
                   : p("save")}
             </button>
           </div>
