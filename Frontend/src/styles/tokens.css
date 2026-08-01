@@ -1,0 +1,146 @@
+/* src/styles/tokens.css — single source of truth for colour.
+   Values are space-separated RGB channels so Tailwind opacity modifiers work:
+   bg-surface-raised/60 → rgb(var(--surface-raised) / 0.60) */
+
+:root {
+  /* ---------- SURFACES ---------- */
+  --surface-page:     247 248 250;  /* #F7F8FA  app background */
+  --surface-raised:   255 255 255;  /* #FFFFFF  cards, tables, sidebar */
+  --surface-sunken:   238 240 244;  /* #EEF0F4  table headers, wells, inset */
+  --surface-overlay:  255 255 255;  /* #FFFFFF  modals, popovers, drawers */
+  --surface-hover:    244 245 248;  /* #F4F5F8  row/nav hover */
+  --surface-active:   235 238 243;  /* #EBEEF3  row/nav pressed + selected */
+  --surface-scrim:     16  24  40;  /* #101828  modal backdrop, used at /50 */
+
+  /* ---------- BORDERS ---------- */
+  --border-subtle:    228 231 236;  /* #E4E7EC  hairlines, table grid */
+  --border-default:   208 213 221;  /* #D0D5DD  inputs, card outlines */
+  --border-strong:    152 162 179;  /* #98A2B3  emphasis, drag targets */
+
+  /* ---------- TEXT ---------- */
+  --text-primary:      16  24  40;  /* #101828 */
+  --text-secondary:    71  84 103;  /* #475467 */
+  --text-tertiary:    102 112 133;  /* #667085 */
+  --text-disabled:    152 162 179;  /* #98A2B3 */
+  --text-inverse:     255 255 255;  /* #FFFFFF */
+
+  /* ---------- INTERACTIVE (hueless — see design spec §2.0) ---------- */
+  --action-solid:      22  24  29;  /* #16181D  primary button fill */
+  --action-solid-hover:47  51  60;  /* #2F333C */
+  --action-fg:        255 255 255;  /* on --action-solid */
+  --focus-ring:        91 141 239;  /* #5B8DEF  focus only, never status */
+
+  /* ---------- BRAND ---------- */
+  --brand-eon:        227   0  15;  /* #E3000F  logo chip ONLY */
+  --brand-eon-ink:    255 255 255;
+
+  /* ---------- STATUS FAMILIES ---------- */
+  /* each family = fg / bg / bd / solid */
+
+  --st-good-fg:         6 118  71;  /* #067647 */
+  --st-good-bg:       236 253 243;  /* #ECFDF3 */
+  --st-good-bd:       171 239 198;  /* #ABEFC6 */
+  --st-good-solid:     18 158  99;  /* #129E63 */
+
+  --st-warn-fg:       181  71   8;  /* #B54708 */
+  --st-warn-bg:       255 250 235;  /* #FFFAEB */
+  --st-warn-bd:       254 223 137;  /* #FEDF89 */
+  --st-warn-solid:    247 144   9;  /* #F79009 */
+
+  --st-crit-fg:       180  35  24;  /* #B42318 */
+  --st-crit-bg:       254 243 242;  /* #FEF3F2 */
+  --st-crit-bd:       254 205 202;  /* #FECDCA */
+  --st-crit-solid:    240  68  56;  /* #F04438 */
+
+  --st-info-fg:        23  92 211;  /* #175CD3 */
+  --st-info-bg:       239 248 255;  /* #EFF8FF */
+  --st-info-bd:       178 221 255;  /* #B2DDFF */
+  --st-info-solid:     46 144 250;  /* #2E90FA */
+
+  --st-wic-fg:         14 112 144;  /* #0E7090 */
+  --st-wic-bg:        236 253 255;  /* #ECFDFF */
+  --st-wic-bd:        165 240 252;  /* #A5F0FC */
+  --st-wic-solid:       6 174 212;  /* #06AED4 */
+
+  --st-learn-fg:      105  65 198;  /* #6941C6 */
+  --st-learn-bg:      244 243 255;  /* #F4F3FF */
+  --st-learn-bd:      217 214 254;  /* #D9D6FE */
+  --st-learn-solid:   127  86 217;  /* #7F56D9 */
+
+  --st-holiday-fg:    133  74  14;  /* #854A0E */
+  --st-holiday-bg:    254 251 232;  /* #FEFBE8 */
+  --st-holiday-bd:    254 238 149;  /* #FEEE95 */
+  --st-holiday-solid: 234 170   0;  /* #EAAA00 */
+
+  --st-neutral-fg:     71  84 103;  /* #475467 */
+  --st-neutral-bg:    242 244 247;  /* #F2F4F7 */
+  --st-neutral-bd:    208 213 221;  /* #D0D5DD */
+  --st-neutral-solid: 152 162 179;  /* #98A2B3 */
+
+  --st-muted-fg:      152 162 179;  /* #98A2B3  resigned / inactive */
+  --st-muted-bg:      248 249 251;  /* #F8F9FB */
+  --st-muted-bd:      228 231 236;  /* #E4E7EC */
+  --st-muted-solid:   208 213 221;  /* #D0D5DD */
+
+  /* ---------- ELEVATION ---------- */
+  --shadow-xs: 0 1px 2px rgb(16 24 40 / .05);
+  --shadow-sm: 0 1px 3px rgb(16 24 40 / .10), 0 1px 2px rgb(16 24 40 / .06);
+  --shadow-md: 0 4px 8px -2px rgb(16 24 40 / .10), 0 2px 4px -2px rgb(16 24 40 / .06);
+  --shadow-lg: 0 12px 16px -4px rgb(16 24 40 / .08), 0 4px 6px -2px rgb(16 24 40 / .03);
+  --shadow-xl: 0 20px 24px -4px rgb(16 24 40 / .10), 0 8px 8px -4px rgb(16 24 40 / .04);
+
+  /* ---------- MOTION ---------- */
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 240ms;
+
+  /* ---------- SIGNALS ---------- */
+  /* #22d07a — live kiosk presence heartbeat.
+     NOT a status colour. Prominence is a hard constraint;
+     do not align this to --st-good-solid. */
+  --signal-live: 34 208 122;
+}
+
+.dark {
+  --surface-page:      11  14  20;  /* #0B0E14 */
+  --surface-raised:    19  24  34;  /* #131822 */
+  --surface-sunken:    15  19  27;  /* #0F131B */
+  --surface-overlay:   26  33  48;  /* #1A2130 */
+  --surface-hover:     26  33  48;  /* #1A2130 */
+  --surface-active:    34  42  60;  /* #222A3C */
+  --surface-scrim:      0   0   0;
+
+  --border-subtle:     32  40  57;  /* #202839 */
+  --border-default:    44  53  71;  /* #2C3547 */
+  --border-strong:     71  84 103;  /* #475467 */
+
+  --text-primary:     232 236 243;  /* #E8ECF3 */
+  --text-secondary:   152 162 179;  /* #98A2B3 */
+  --text-tertiary:    102 112 133;  /* #667085 */
+  --text-disabled:     71  84 103;  /* #475467 */
+  --text-inverse:      11  14  20;
+
+  --action-solid:     232 236 243;
+  --action-solid-hover:255 255 255;
+  --action-fg:         11  14  20;
+  --focus-ring:       132 202 255;  /* #84CAFF */
+
+  --st-good-fg:       117 224 167;  --st-good-bg:    5  51  33;  --st-good-bd:   8  93  58;  --st-good-solid:  71 205 137;
+  --st-warn-fg:       254 200  75;  --st-warn-bg:   78  29   9;  --st-warn-bd: 147  55  13;  --st-warn-solid: 253 176  34;
+  --st-crit-fg:       253 162 155;  --st-crit-bg:   85  22  12;  --st-crit-bd: 145  32  24;  --st-crit-solid: 249 112 102;
+  --st-info-fg:       132 202 255;  --st-info-bg:   16  42  86;  --st-info-bd:  24  73 169;  --st-info-solid:  83 162 253;
+  --st-wic-fg:        103 227 249;  --st-wic-bg:    11  59  72;  --st-wic-bd:   14 112 144;  --st-wic-solid:   34 204 238;
+  --st-learn-fg:      195 181 253;  --st-learn-bg:  38  20  90;  --st-learn-bd: 89  37 220;  --st-learn-solid:158 119 237;
+  --st-holiday-fg:    253 226 114;  --st-holiday-bg:66  42   0;  --st-holiday-bd:133  74  14; --st-holiday-solid:234 170   0;
+  --st-neutral-fg:    152 162 179;  --st-neutral-bg:26  33  48;  --st-neutral-bd:44  53  71;  --st-neutral-solid:102 112 133;
+  --st-muted-fg:      102 112 133;  --st-muted-bg:  15  19  27;  --st-muted-bd: 32  40  57;  --st-muted-solid:  71  84 103;
+
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / .40);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / .50), 0 1px 2px rgb(0 0 0 / .40);
+  --shadow-md: 0 4px 8px -2px rgb(0 0 0 / .55), 0 2px 4px -2px rgb(0 0 0 / .40);
+  --shadow-lg: 0 12px 16px -4px rgb(0 0 0 / .55), 0 4px 6px -2px rgb(0 0 0 / .35);
+  --shadow-xl: 0 20px 24px -4px rgb(0 0 0 / .60), 0 8px 8px -4px rgb(0 0 0 / .40);
+
+  --signal-live: 34 208 122;
+}

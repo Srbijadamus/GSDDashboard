@@ -1,79 +1,28 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+@import "./styles/tokens.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Light theme (default) ─────────────────────────────────────────────────── */
-:root {
-  --bg:      hsl(220, 20%, 97%);
-  --sidebar: hsl(220, 20%, 100%);
-  --card:    hsl(0, 0%, 100%);
-  --card2:   hsl(220, 18%, 94%);
-  --border:  hsl(220, 18%, 88%);
-
-  --accent:  hsl(215, 100%, 50%);
-  --accent2: hsl(166, 100%, 33%);
-  --warn:    hsl(22, 100%, 50%);
-  --danger:  hsl(350, 100%, 50%);
-  --green:   hsl(147, 70%, 40%);
-
-  --text:    hsl(220, 20%, 10%);
-  --text2:   hsl(220, 15%, 40%);
-  --text3:   hsl(220, 10%, 58%);
-
-  --purple:     hsl(262, 70%, 45%);
-  --yellow:     hsl(43, 90%, 40%);
-  --blue-light: hsl(207, 80%, 50%);
-
-  --status-covered:   hsl(147, 70%, 40%);
-  --status-partial:   hsl(22, 100%, 50%);
-  --status-uncovered: hsl(350, 100%, 50%);
-  --status-closed:    hsl(220, 15%, 40%);
+@layer base {
+  html { -webkit-font-smoothing: antialiased; }
+  body { @apply bg-page text-ink font-sans text-base; }
+  .tnum, table, input[type="number"], time { font-variant-numeric: tabular-nums; }
+  :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid rgb(var(--focus-ring));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection { background: rgb(var(--focus-ring) / .25); }
 }
 
-/* ── Dark theme ────────────────────────────────────────────────────────────── */
-.dark {
-  --bg:      hsl(225, 39%, 8%);
-  --sidebar: hsl(222, 38%, 9%);
-  --card:    hsl(222, 38%, 11%);
-  --card2:   hsl(222, 40%, 15%);
-  --border:  hsl(218, 38%, 19%);
-
-  --accent:  hsl(215, 100%, 61%);
-  --accent2: hsl(166, 100%, 41%);
-  --warn:    hsl(22, 100%, 61%);
-  --danger:  hsl(350, 100%, 61%);
-  --green:   hsl(147, 70%, 47%);
-
-  --text:    hsl(214, 32%, 91%);
-  --text2:   hsl(210, 18%, 57%);
-  --text3:   hsl(212, 25%, 38%);
-
-  --purple:     hsl(262, 75%, 73%);
-  --yellow:     hsl(43, 96%, 56%);
-  --blue-light: hsl(207, 100%, 74%);
-
-  --status-covered:   hsl(147, 70%, 47%);
-  --status-partial:   hsl(22, 100%, 61%);
-  --status-uncovered: hsl(350, 100%, 61%);
-  --status-closed:    hsl(210, 18%, 57%);
-}
-
-/* ── Base ─────────────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'IBM Plex Sans', sans-serif;
-}
 
 /* ── Scrollbar ────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar        { width: 6px; height: 6px; }
-::-webkit-scrollbar-track  { background: var(--bg); }
-::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+::-webkit-scrollbar-track  { background: rgb(var(--surface-page)); }
+::-webkit-scrollbar-thumb  { background: rgb(var(--border-subtle)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--border-default)); }
 
 /* ── Skeleton loading ─────────────────────────────────────────────────────── */
 @keyframes skeleton-pulse {
@@ -81,21 +30,56 @@ body {
   50%       { opacity: 0.4; }
 }
 .skeleton {
-  background: var(--card2);
+  background: var(--card2);  /* deprecated alias — still works during migration */
   animation: skeleton-pulse 1.5s ease-in-out infinite;
   border-radius: 4px;
 }
 
-/* ── Spin animation (refresh button) ────────────────────────────────────── */
+/* ── Spin animation ─────────────────────────────────────────────────────── */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
 .spin { animation: spin 0.8s linear infinite; }
 
-/* ── Pulse dot animation ─────────────────────────────────────────────────── */
+/* ── Live kiosk presence heartbeat ──────────────────────────────────────── */
+@keyframes pulse-live {
+  0%   { box-shadow: 0 0 0 0   rgb(var(--signal-live) / .60); }
+  70%  { box-shadow: 0 0 0 8px rgb(var(--signal-live) / 0); }
+  100% { box-shadow: 0 0 0 0   rgb(var(--signal-live) / 0); }
+}
+/* Alias — WicAttendance.tsx callers use this name. Remove in cleanup piece. */
 @keyframes pulse-green {
-  0%   { box-shadow: 0 0 0 0 rgba(34, 208, 122, 0.6); }
-  70%  { box-shadow: 0 0 0 8px rgba(34, 208, 122, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 208, 122, 0); }
+  0%   { box-shadow: 0 0 0 0   rgb(var(--signal-live) / .60); }
+  70%  { box-shadow: 0 0 0 8px rgb(var(--signal-live) / 0); }
+  100% { box-shadow: 0 0 0 0   rgb(var(--signal-live) / 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse-live { animation: none; box-shadow: 0 0 0 3px rgb(var(--signal-live) / .35); }
+}
+
+/* ── DEPRECATED CSS vars ────────────────────────────────────────────────────── */
+/* Aliased to new tokens so existing inline styles keep working during migration. */
+/* DO NOT USE IN NEW CODE. Remove each entry once all callers are updated.        */
+:root {
+  --bg:               rgb(var(--surface-page));
+  --sidebar:          rgb(var(--surface-raised));
+  --card:             rgb(var(--surface-raised));
+  --card2:            rgb(var(--surface-sunken));
+  --border:           rgb(var(--border-default));
+  --accent:           rgb(var(--st-info-solid));
+  --accent2:          rgb(var(--st-wic-solid));
+  --warn:             rgb(var(--st-warn-solid));
+  --danger:           rgb(var(--st-crit-solid));
+  --green:            rgb(var(--st-good-solid));
+  --text:             rgb(var(--text-primary));
+  --text2:            rgb(var(--text-secondary));
+  --text3:            rgb(var(--text-tertiary));
+  --purple:           rgb(var(--st-learn-solid));
+  --yellow:           rgb(var(--st-holiday-solid));
+  --blue-light:       rgb(var(--st-info-solid));
+  --status-covered:   rgb(var(--st-good-solid));
+  --status-partial:   rgb(var(--st-warn-solid));
+  --status-uncovered: rgb(var(--st-crit-solid));
+  --status-closed:    rgb(var(--st-neutral-solid));
 }
