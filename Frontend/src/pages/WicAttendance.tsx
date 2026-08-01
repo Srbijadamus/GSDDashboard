@@ -845,7 +845,7 @@ export default function WicAttendance() {
   }
 
   return (
-    <div style={{ display: "flex", margin: -20, height: "calc(100vh - 45px)", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "calc(100vh - 45px)", overflow: "hidden" }}>
 
       {/* ── LEFT SIDEBAR ──────────────────────────────────────────────────────── */}
       <aside style={{
