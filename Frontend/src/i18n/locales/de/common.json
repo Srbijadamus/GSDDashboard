@@ -14,7 +14,26 @@
     "cmdNoResults": "Keine Standorte gefunden",
     "cmdNav": "navigieren",
     "cmdOpen": "öffnen",
-    "cmdClose": "schließen"
+    "cmdClose": "schließen",
+    "vwic": "VWIC",
+    "breaks": "Pausenplaner",
+    "wicAttendance": "WIC-Anwesenheit",
+    "wicSchedule": "WIC-Öffnungszeiten",
+    "pipeline": "Pipeline",
+    "training": "Schulungen",
+    "alCalendar": "Urlaubskalender",
+    "wicCoverage": "WIC-Abdeckung",
+    "wicAnnualLeave": "WIC-Urlaub",
+    "assistant": "GSD-Assistent",
+    "boList": "BO-Liste",
+    "bulkRtm": "RTM-Sammeleingabe",
+    "group": {
+      "planning": "Planung",
+      "wicOps": "WIC-Betrieb",
+      "absence": "Abwesenheit",
+      "people": "Personal",
+      "tools": "Werkzeuge"
+    }
   },
   "status": {
     "working": "Arbeitet",

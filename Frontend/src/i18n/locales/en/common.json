@@ -14,7 +14,26 @@
     "cmdNoResults": "No locations found",
     "cmdNav": "navigate",
     "cmdOpen": "open",
-    "cmdClose": "close"
+    "cmdClose": "close",
+    "vwic": "VWIC",
+    "breaks": "Break Planner",
+    "wicAttendance": "WIC Attendance",
+    "wicSchedule": "WIC Schedule",
+    "pipeline": "Pipeline",
+    "training": "Training",
+    "alCalendar": "AL Calendar",
+    "wicCoverage": "WIC Coverage",
+    "wicAnnualLeave": "WIC Annual Leave",
+    "assistant": "GSD Assistant",
+    "boList": "BO List",
+    "bulkRtm": "Bulk RTM Entry",
+    "group": {
+      "planning": "Planning",
+      "wicOps": "WIC Operations",
+      "absence": "Absence",
+      "people": "People",
+      "tools": "Tools"
+    }
   },
   "status": {
     "working": "Working",
