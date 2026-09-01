@@ -5,7 +5,7 @@ namespace GSDDashboard.API.Modules.ALBalance;
 
 public record ALBalanceDto(
     int Id, string? EmployeeId, string? EmployeeName,
-    int EligibleDays, int PlannedTakenAL, int RemainingAL,
+    int EligibleDays, decimal PlannedTakenAL, decimal RemainingAL,
     int CountSL, int CountUL, int CountWorkingSundays, int CountFreeSundays
 );
 

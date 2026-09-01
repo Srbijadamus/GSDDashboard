@@ -1,16 +1,6 @@
 export function NppBadge() {
   return (
-    <span style={{
-      fontSize: 9,
-      fontFamily: "IBM Plex Mono",
-      fontWeight: 600,
-      background: "rgba(239,68,68,.15)",
-      color: "#ef4444",
-      border: "1px solid rgba(239,68,68,.3)",
-      borderRadius: 3,
-      padding: "1px 4px",
-      flexShrink: 0,
-    }}>
+    <span className="font-mono text-2xs font-semibold px-1.5 py-0.5 rounded-xs bg-transparent border border-info-bd text-info-fg leading-none shrink-0 uppercase">
       npp
     </span>
   )

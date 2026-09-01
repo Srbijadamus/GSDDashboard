@@ -22,84 +22,77 @@ export default function WicLocations() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 600, color: "var(--text)" }}>{t("nav.wicLocations")}</h1>
+      <h1 className="text-ink" style={{ fontSize: 22, fontWeight: 600 }}>{t("nav.wicLocations")}</h1>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
         {[
-          { label: "Total",     value: data?.length ?? 0,                                color: "var(--accent)" },
-          { label: "DE",        value: data?.filter((l: any) => l.country === "DE").length ?? 0, color: "var(--text)" },
-          { label: "NL",        value: data?.filter((l: any) => l.country === "NL").length ?? 0, color: "var(--warn)" },
+          { label: "Total", value: data?.length ?? 0,                                         color: "rgb(var(--st-info-fg))" },
+          { label: "DE",    value: data?.filter((l: any) => l.country === "DE").length ?? 0,  color: "rgb(var(--text-primary))" },
+          { label: "NL",    value: data?.filter((l: any) => l.country === "NL").length ?? 0,  color: "rgb(var(--st-warn-fg))" },
         ].map(s => (
-          <div key={s.label} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "16px 20px" }}>
-            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>{s.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 600, fontFamily: "IBM Plex Mono", color: s.color }}>{s.value}</div>
+          <div key={s.label} className="bg-raised border border-line-subtle" style={{ borderRadius: 8, padding: "16px 20px" }}>
+            <div className="text-ink-soft" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>{s.label}</div>
+            <div className="font-mono" style={{ fontSize: 28, fontWeight: 600, color: s.color }}>{s.value}</div>
           </div>
         ))}
       </div>
 
       <div style={{ display: "flex", gap: 10 }}>
         <input placeholder="Search location or city..." value={search} onChange={e => setSearch(e.target.value)}
-          style={{ flex: 1, background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
-            padding: "7px 12px", borderRadius: 6, fontSize: 12, outline: "none" }} />
+          className="bg-raised border border-line-subtle text-ink"
+          style={{ flex: 1, padding: "7px 12px", borderRadius: 6, fontSize: 12, outline: "none" }} />
         <select value={country} onChange={e => setCountry(e.target.value)}
-          style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text2)", padding: "7px 12px", borderRadius: 6, fontSize: 12 }}>
+          className="bg-raised border border-line-subtle text-ink-muted"
+          style={{ padding: "7px 12px", borderRadius: 6, fontSize: 12 }}>
           <option value="">All Countries</option>
           <option value="DE">DE</option>
           <option value="NL">NL</option>
         </select>
       </div>
 
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+      <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
-            <tr style={{ background: "var(--card2)" }}>
+            <tr className="bg-sunken">
               {["Location", "City", "Country", "Address", "Opening Schedule", "Status"].map(h => (
-                <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontSize: 10,
-                  fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em",
-                  color: "var(--text3)", borderBottom: "1px solid var(--border)" }}>{h}</th>
+                <th key={h} className="text-ink-soft border-b border-line-subtle" style={{ padding: "10px 12px", textAlign: "left", fontSize: 10,
+                  fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {isLoading && Array.from({length: 5}).map((_, i) => (
-              <tr key={`sk-${i}`} style={{ borderBottom: "1px solid var(--border)" }}>
+              <tr key={`sk-${i}`} className="border-b border-line-subtle">
                 {Array.from({length: 6}).map((_, j) => (
                   <td key={j} style={{ padding: "10px 12px" }}><div className="skeleton" style={{ height: 11 }} /></td>
                 ))}
               </tr>
             ))}
             {!isLoading && filtered.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>No locations found</td></tr>
+              <tr><td colSpan={6} className="text-ink-soft" style={{ padding: 24, textAlign: "center" }}>No locations found</td></tr>
             )}
             {filtered.map((l: any) => (
-              <tr key={l.id} style={{ borderBottom: "1px solid var(--border)" }}
-                onMouseEnter={ev => (ev.currentTarget.style.background = "var(--card2)")}
-                onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}>
+              <tr key={l.id} className="border-b border-line-subtle transition-colors hover:bg-hovered">
                 <td style={{ padding: "9px 12px", fontWeight: 500, display: "flex", alignItems: "center", gap: 5 }}>
                   {l.displayName}
                   {l.isNpp && <NppBadge />}
                 </td>
-                <td style={{ padding: "9px 12px", color: "var(--text2)" }}>{l.city}</td>
+                <td className="text-ink-muted" style={{ padding: "9px 12px" }}>{l.city}</td>
                 <td style={{ padding: "9px 12px" }}>
-                  <span style={{
-                    background: l.country === "NL" ? "rgba(255,124,59,.15)" : "rgba(59,126,255,.15)",
-                    color: l.country === "NL" ? "var(--warn)" : "var(--accent)",
-                    padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono"
-                  }}>{l.country}</span>
+                  <span className={`font-mono ${l.country === "NL" ? "bg-warn-bg text-warn-fg" : "bg-info-bg text-info-fg"}`}
+                    style={{ padding: "2px 7px", borderRadius: 4, fontSize: 10 }}>{l.country}</span>
                 </td>
-                <td style={{ padding: "9px 12px", color: "var(--text3)", fontSize: 11 }}>{l.fullAddress}</td>
-                <td style={{ padding: "9px 12px", color: "var(--text2)", fontSize: 11 }}>{l.openingSchedule || "—"}</td>
+                <td className="text-ink-soft" style={{ padding: "9px 12px", fontSize: 11 }}>{l.fullAddress}</td>
+                <td className="text-ink-muted" style={{ padding: "9px 12px", fontSize: 11 }}>{l.openingSchedule || "—"}</td>
                 <td style={{ padding: "9px 12px" }}>
-                  <span style={{
-                    background: "rgba(34,208,122,.15)", color: "var(--green)",
-                    padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono"
-                  }}>Active</span>
+                  <span className="font-mono bg-good-bg text-good-fg"
+                    style={{ padding: "2px 7px", borderRadius: 4, fontSize: 10 }}>Active</span>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+        <div className="border-t border-line-subtle text-ink-soft font-mono" style={{ padding: "8px 12px", fontSize: 11 }}>
           {filtered.length} locations
         </div>
       </div>

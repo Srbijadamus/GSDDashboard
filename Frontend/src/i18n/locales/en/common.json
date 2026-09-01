@@ -27,6 +27,10 @@
     "assistant": "GSD Assistant",
     "boList": "BO List",
     "bulkRtm": "Bulk RTM Entry",
+    "collapseSidebar": "Collapse",
+    "expandSidebar": "Expand",
+    "navThemeToLight": "Switch to light sidebar",
+    "navThemeToDark": "Switch to dark sidebar",
     "group": {
       "planning": "Planning",
       "wicOps": "WIC Operations",
@@ -43,6 +47,13 @@
     "training": "Training",
     "publicHoliday": "Public Holiday",
     "offWeekend": "Off Weekend",
+    "wicDuty": "WIC Duty",
+    "halfAl": "Half-Day AL",
+    "off": "Off",
+    "lph": "Local PH",
+    "cd": "Comp. Day",
+    "co": "Comp. Off",
+    "ol": "Other Leave",
     "occupied": "Occupied",
     "unoccupied": "Unoccupied",
     "closed": "Closed"
@@ -83,12 +94,41 @@
     "wicUnoccupied": "WIC Unoccupied",
     "teamLeads": "Team Lead Summary",
     "detailGrid": "WIC Detail Grid",
+    "tlCard": {
+      "allOff": "All off"
+    },
+    "tlSummary": {
+      "allOff": "All off",
+      "notAvailable": "Not available"
+    },
+    "coverageRisk": {
+      "title": "Coverage Risk"
+    },
+    "grid": {
+      "title": "Full coverage grid"
+    },
+    "dayStrip": {
+      "clearFilter": "Clear day filter"
+    },
+    "exceptionList": {
+      "allCovered": "All locations covered for the next {{n}} days",
+      "showAll": "Show all ({{n}})",
+      "collapse": "Show less",
+      "bestSub": "Sub: {{name}}",
+      "columns": {
+        "date": "Date",
+        "code": "Code",
+        "presentMin": "Present / Min",
+        "status": "Status"
+      }
+    },
     "kpi": {
       "openToday": "Open Today",
       "atRiskToday": "At-Risk Today",
       "closureRisk": "Closure Risk",
       "absentToday": "Absent Today",
-      "coveragePct": "Coverage %"
+      "coveragePct": "Coverage %",
+      "noLocationsOpen": "No locations open"
     },
     "heatmap": {
       "title": "Coverage Heatmap",
@@ -201,6 +241,41 @@
       "saving": "Processing...",
       "cancel": "Cancel",
       "success": "{{name}} — {{action}} recorded"
+    },
+    "kiosk": {
+      "offline": "Kiosk offline"
+    },
+    "kioskDrawer": {
+      "checkedIn": "Checked in ({{n}})",
+      "expected": "Expected ({{n}})",
+      "notYetIn": "Not yet in ({{n}})",
+      "status": {
+        "active": "Active",
+        "done": "Done",
+        "notIn": "Not in"
+      },
+      "empty": {
+        "checkedIn": "No agents checked in",
+        "expected": "No agents scheduled today",
+        "notYetIn": "All agents have checked in"
+      }
+    },
+    "zoneB": {
+      "title": "Not Checked In",
+      "allCheckedIn": "Everyone expected has checked in",
+      "upcoming": "Upcoming today",
+      "noKiosk": "No kiosk data",
+      "delay": "Delay",
+      "manualCheckin": "Manual check-in",
+      "findSub": "Find substitute",
+      "name": "Name",
+      "location": "Location",
+      "shiftStart": "Shift Start",
+      "actions": "Actions",
+      "status": "Status",
+      "statusNotIn": "Not Checked In",
+      "statusNoRecord": "No Record",
+      "statusUnknown": "Unknown"
     }
   },
   "wicCoverage": {
@@ -248,6 +323,60 @@
       "saving": "Creating...",
       "cancel": "Cancel",
       "success": "Shift created for {{name}}"
+    }
+  },
+  "topbar": {
+    "themeToLight": "Switch to light mode",
+    "themeToDark": "Switch to dark mode",
+    "switchLanguage": "Switch language",
+    "search": "Search (Ctrl+K)",
+    "horizon7": "7-day horizon",
+    "horizon14": "14-day horizon",
+    "horizon28": "28-day horizon"
+  },
+  "common": {
+    "notAvailable": "Not available"
+  },
+  "vacations": {
+    "fullDay": "Full day",
+    "halfDay": "Half day",
+    "addAl": "+ Add AL",
+    "alHistory": "AL History",
+    "alHistoryEmpty": "No AL records found",
+    "alHistoryDate": "Date",
+    "alHistoryDays": "Days",
+    "alHistoryStatus": "Status",
+    "alHistoryNote": "Note"
+  },
+  "assistant": {
+    "search": "Search suggestions…",
+    "showSuggestions": "Show suggestions",
+    "suggestions": {
+      "coverage": "Coverage & WIC",
+      "shifts": "Shifts & staffing",
+      "absence": "Absence",
+      "balance": "Leave balance",
+      "planning": "Planning"
+    },
+    "chips": {
+      "uncoveredToday": "Uncovered today",
+      "atRisk7Days": "At risk (7 days)",
+      "coverHamburg": "Cover Hamburg?",
+      "nppAttention": "NPP locations",
+      "workingToday": "Working today",
+      "wicDutyWeek": "WIC duty this week",
+      "availableTomorrow": "Available tomorrow",
+      "vwicClock": "VWIC 24/7?",
+      "absentToday": "Absent today",
+      "openSickLeave": "Open sick leaves",
+      "longSick": "Sick > 21 days",
+      "alNextWeek": "AL next week",
+      "lowLeave": "Low leave balance",
+      "mostLeaveBooked": "Most leave booked",
+      "overlappingLeave": "Overlapping requests",
+      "pipelineEvents": "Pipeline events",
+      "eventsNeedAgents": "Events need agents",
+      "trainingSlot": "Next training slot"
     }
   }
 }

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useMutation } from "@tanstack/react-query"
-import { MessageCircle, X, Send, Bot, RefreshCw, HelpCircle } from "lucide-react"
+import { useTranslation } from "react-i18next"
+import { MessageCircle, X, Send, Bot, RefreshCw, ChevronDown } from "lucide-react"
 import { apiFetch } from "../api/client"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -21,9 +22,10 @@ interface AssistantResponse {
   table?: TableRow[]
   error?: string
   hint?: string
+  follow_up?: string | null
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: number
   role: "user" | "assistant"
   text: string
@@ -31,6 +33,7 @@ interface ChatMessage {
   dateRange?: string
   hint?: string
   isError?: boolean
+  follow_up?: string | null
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -40,43 +43,49 @@ const nextId = () => ++_id
 
 const GROUPED_ACTIONS = [
   {
-    domain: "WIC Leave",
-    actions: [
-      { label: "Leave next 2 weeks", q: "Who is on WIC leave in the next two weeks?" },
-      { label: "Lowest coverage",    q: "Which day has the lowest WIC coverage?" },
+    key: "coverage",
+    dotClass: "bg-wic-solid",
+    chips: [
+      { chipKey: "assistant.chips.uncoveredToday", q: "WIC forecast today" },
+      { chipKey: "assistant.chips.atRisk7Days",    q: "Which locations are at risk in the next 7 days?" },
+      { chipKey: "assistant.chips.coverHamburg",   q: "Who covers Hamburg?" },
     ],
   },
   {
-    domain: "Sick Leave",
-    actions: [
-      { label: "Sick today", q: "Who is sick today?" },
+    key: "shifts",
+    dotClass: "bg-good-solid",
+    chips: [
+      { chipKey: "assistant.chips.workingToday", q: "Who is working today?" },
+      { chipKey: "assistant.chips.wicDutyWeek",  q: "Who is on WIC duty this week?" },
     ],
   },
   {
-    domain: "All Employees",
-    actions: [
-      { label: "All vacation", q: "Show all employee vacation next week" },
-      { label: "AL balance",   q: "Show AL balance" },
+    key: "absence",
+    dotClass: "bg-warn-solid",
+    chips: [
+      { chipKey: "assistant.chips.absentToday",   q: "Who is absent today and why?" },
+      { chipKey: "assistant.chips.openSickLeave", q: "Which sick leaves are still open?" },
+      { chipKey: "assistant.chips.longSick",      q: "Who has been sick longer than 21 days?" },
+      { chipKey: "assistant.chips.alNextWeek",    q: "Who is on annual leave next week?" },
     ],
   },
   {
-    domain: "Ops",
-    actions: [
-      { label: "Dashboard today", q: "Show dashboard summary today" },
-      { label: "Pipeline",        q: "Show pipeline events" },
-      { label: "Training",        q: "What training sessions are scheduled?" },
+    key: "balance",
+    dotClass: "bg-info-solid",
+    chips: [
+      { chipKey: "assistant.chips.lowLeave", q: "Who has the lowest AL balance?" },
     ],
   },
   {
-    domain: "WIC Coverage",
-    actions: [
-      { label: "WIC forecast",  q: "WIC coverage forecast" },
-      { label: "Employee list", q: "Show employee list" },
+    key: "planning",
+    dotClass: "bg-learn-solid",
+    chips: [
+      { chipKey: "assistant.chips.pipelineEvents",   q: "What pipeline events are coming up?" },
+      { chipKey: "assistant.chips.eventsNeedAgents", q: "Which pipeline events still need agents assigned?" },
+      { chipKey: "assistant.chips.trainingSlot",     q: "When is the next good slot for a training session?" },
     ],
   },
 ]
-
-const WHAT_CAN_I_ASK = "What can you help me with?"
 
 const WELCOME: ChatMessage = {
   id: nextId(),
@@ -88,12 +97,12 @@ const WELCOME: ChatMessage = {
 
 function ResultTable({ rows }: { rows: TableRow[] }) {
   return (
-    <div style={{ marginTop: 8, overflowX: "auto", borderRadius: 6, border: "1px solid var(--border)" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: "IBM Plex Mono" }}>
+    <div className="border border-line-subtle mt-2" style={{ overflowX: "auto", borderRadius: 6 }}>
+      <table className="font-mono w-full" style={{ borderCollapse: "collapse", fontSize: 11 }}>
         <thead>
-          <tr style={{ background: "var(--card2)" }}>
+          <tr className="bg-sunken">
             {["Employee", "ID", "Start", "End", "Days", "Location", "Role"].map(h => (
-              <th key={h} style={{ padding: "5px 7px", textAlign: "left", fontWeight: 600, color: "var(--text2)", whiteSpace: "nowrap", fontSize: 10 }}>
+              <th key={h} className="text-ink-muted" style={{ padding: "5px 7px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap", fontSize: 10 }}>
                 {h}
               </th>
             ))}
@@ -101,14 +110,14 @@ function ResultTable({ rows }: { rows: TableRow[] }) {
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
-              <td style={{ padding: "4px 7px", whiteSpace: "nowrap", color: "var(--text)" }}>{row.employee}</td>
-              <td style={{ padding: "4px 7px", color: "var(--text3)" }}>{row.employeeId}</td>
-              <td style={{ padding: "4px 7px", color: "var(--text)" }}>{row.start}</td>
-              <td style={{ padding: "4px 7px", color: "var(--text)" }}>{row.end}</td>
-              <td style={{ padding: "4px 7px", textAlign: "center", color: "var(--text2)" }}>{row.workDays ?? "–"}</td>
-              <td style={{ padding: "4px 7px", color: "var(--text)" }}>{row.wicLocation}</td>
-              <td style={{ padding: "4px 7px", color: "var(--text3)" }}>{row.role}</td>
+            <tr key={i} className="border-t border-line-subtle">
+              <td className="text-ink"      style={{ padding: "4px 7px", whiteSpace: "nowrap" }}>{row.employee}</td>
+              <td className="text-ink-soft" style={{ padding: "4px 7px" }}>{row.employeeId}</td>
+              <td className="text-ink"      style={{ padding: "4px 7px" }}>{row.start}</td>
+              <td className="text-ink"      style={{ padding: "4px 7px" }}>{row.end}</td>
+              <td className="text-ink-muted" style={{ padding: "4px 7px", textAlign: "center" }}>{row.workDays ?? "–"}</td>
+              <td className="text-ink"      style={{ padding: "4px 7px" }}>{row.wicLocation}</td>
+              <td className="text-ink-soft" style={{ padding: "4px 7px" }}>{row.role}</td>
             </tr>
           ))}
         </tbody>
@@ -129,141 +138,180 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ messages, isPending, input, onInput, onSend, bottomRef }: ChatPanelProps) {
-  const [showAllGroups, setShowAllGroups] = useState(false)
-  const visibleGroups = showAllGroups ? GROUPED_ACTIONS : GROUPED_ACTIONS.slice(0, 2)
+  const { t } = useTranslation()
+  const [search, setSearch] = useState("")
+  const [suggestionsVisible, setSuggestionsVisible] = useState(true)
+  const [lastQuestion, setLastQuestion] = useState("")
+  const autoCollapsed = useRef(false)
+
+  // Auto-collapse suggestions after the first user message arrives
+  useEffect(() => {
+    if (!autoCollapsed.current && messages.length > 1) {
+      setSuggestionsVisible(false)
+      autoCollapsed.current = true
+    }
+  }, [messages.length])
+
+  const handleSend = (q: string) => {
+    const trimmed = q.trim()
+    if (trimmed) setLastQuestion(trimmed)
+    onSend(q)
+  }
+
+  // Filter groups by search term (matches chip label or question text)
+  const filteredGroups = GROUPED_ACTIONS.map(group => ({
+    ...group,
+    chips: search.trim()
+      ? group.chips.filter(c =>
+          t(c.chipKey).toLowerCase().includes(search.toLowerCase()) ||
+          c.q.toLowerCase().includes(search.toLowerCase())
+        )
+      : group.chips,
+  })).filter(g => g.chips.length > 0)
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Messages */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-        {messages.map(msg => (
-          <div key={msg.id} style={{ alignSelf: msg.role === "user" ? "flex-end" : "flex-start", maxWidth: "94%" }}>
-            <div style={{
-              padding: "8px 12px",
-              background: msg.role === "user"
-                ? "var(--accent)"
-                : msg.isError ? "hsla(350,100%,50%,.1)" : "var(--card2)",
-              color: msg.role === "user" ? "#fff"
-                : msg.isError ? "var(--danger)" : "var(--text)",
-              borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px",
-              fontSize: 13, lineHeight: 1.5,
-            }}>
-              {msg.text}
-              {msg.hint && (
-                <div style={{
-                  marginTop: 6, fontSize: 11, fontStyle: "italic",
-                  color: msg.role === "user" ? "rgba(255,255,255,.75)" : "var(--text3)",
-                  borderTop: "1px solid var(--border)", paddingTop: 5,
-                }}>
-                  {msg.hint}
+    <div className="flex flex-col h-full">
+
+      {/* ── Messages ── */}
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        <div className="max-w-[860px] mx-auto flex flex-col gap-3">
+
+          {messages.map(msg => (
+            <div key={msg.id}>
+              {msg.isError ? (
+                /* Error bubble */
+                <div className="text-crit-fg text-sm flex items-center gap-2">
+                  <span>{msg.text}</span>
+                  {lastQuestion && (
+                    <button
+                      onClick={() => handleSend(lastQuestion)}
+                      disabled={isPending}
+                      className="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity"
+                      title="Retry"
+                    >
+                      <RefreshCw size={12} />
+                    </button>
+                  )}
                 </div>
-              )}
-              {msg.dateRange && (
-                <div style={{
-                  marginTop: 4, fontSize: 10, fontFamily: "IBM Plex Mono",
-                  color: msg.role === "user" ? "rgba(255,255,255,.7)" : "var(--text3)",
-                }}>
-                  {msg.dateRange}
+              ) : msg.role === "user" ? (
+                /* User bubble */
+                <div className="bg-action text-action-fg rounded-lg rounded-br-sm px-3.5 py-2.5 max-w-[75%] ml-auto text-sm">
+                  {msg.text}
+                </div>
+              ) : (
+                /* Assistant bubble */
+                <div className="max-w-[85%]">
+                  <div className="bg-raised border border-line-subtle rounded-lg rounded-bl-sm px-3.5 py-2.5 text-sm">
+                    {msg.text}
+                    {msg.hint && (
+                      <div className="mt-1.5 text-xs italic text-ink-soft border-t border-line-subtle pt-1">
+                        {msg.hint}
+                      </div>
+                    )}
+                    {msg.dateRange && (
+                      <div className="font-mono mt-1 text-[10px] text-ink-soft">
+                        {msg.dateRange}
+                      </div>
+                    )}
+                  </div>
+                  {msg.table && msg.table.length > 0 && <ResultTable rows={msg.table} />}
+                  {msg.follow_up && (
+                    <div className="mt-2">
+                      <button
+                        onClick={() => handleSend(msg.follow_up!)}
+                        disabled={isPending}
+                        className="px-3 h-8 rounded-full border border-line-default bg-raised text-sm text-ink-muted hover:border-line-strong hover:text-ink hover:bg-hovered transition-colors duration-fast text-left disabled:opacity-50"
+                      >
+                        {msg.follow_up}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-            {msg.table && msg.table.length > 0 && <ResultTable rows={msg.table} />}
-          </div>
-        ))}
+          ))}
 
-        {isPending && (
-          <div style={{ alignSelf: "flex-start" }}>
-            <div style={{ padding: "8px 12px", background: "var(--card2)", borderRadius: "12px 12px 12px 4px", fontSize: 13, color: "var(--text3)", display: "flex", alignItems: "center", gap: 6 }}>
-              <RefreshCw size={12} className="spin" />
-              Checking live data…
+          {/* Loading — three bouncing dots */}
+          {isPending && (
+            <div className="max-w-[85%]">
+              <div className="bg-raised border border-line-subtle rounded-lg rounded-bl-sm px-3.5 py-2.5">
+                <div className="flex gap-1 items-center py-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-ink-soft animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-ink-soft animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-ink-soft animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+              </div>
             </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
+          )}
 
-      {/* Quick actions — grouped */}
-      <div style={{ padding: "6px 12px 4px", borderTop: "1px solid var(--border)" }}>
-        {/* "What can I ask?" + toggle */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 4, alignItems: "center" }}>
-          <button
-            onClick={() => onSend(WHAT_CAN_I_ASK)}
-            disabled={isPending}
-            style={{
-              background: "var(--accent)", color: "#fff", border: "none",
-              borderRadius: 6, padding: "3px 9px",
-              fontSize: 11, cursor: "pointer", fontFamily: "IBM Plex Mono",
-              display: "flex", alignItems: "center", gap: 4,
-              opacity: isPending ? 0.5 : 1,
-            }}
-          >
-            <HelpCircle size={10} /> What can I ask?
-          </button>
-          <button
-            onClick={() => setShowAllGroups(v => !v)}
-            style={{
-              background: "none", border: "1px solid var(--border)",
-              color: "var(--text3)", borderRadius: 6, padding: "3px 9px",
-              fontSize: 10, cursor: "pointer", fontFamily: "IBM Plex Mono",
-            }}
-          >
-            {showAllGroups ? "Less" : "More…"}
-          </button>
+          <div ref={bottomRef} />
         </div>
-
-        {visibleGroups.map(group => (
-          <div key={group.domain} style={{ marginBottom: 4 }}>
-            <div style={{ fontSize: 9, color: "var(--text3)", fontFamily: "IBM Plex Mono", marginBottom: 3, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              {group.domain}
-            </div>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-              {group.actions.map(a => (
-                <button
-                  key={a.label}
-                  onClick={() => onSend(a.q)}
-                  disabled={isPending}
-                  style={{
-                    background: "var(--card2)", border: "1px solid var(--border)",
-                    color: "var(--text2)", borderRadius: 6, padding: "3px 8px",
-                    fontSize: 11, cursor: "pointer", fontFamily: "IBM Plex Mono",
-                    opacity: isPending ? 0.5 : 1,
-                  }}
-                >
-                  {a.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
       </div>
 
-      {/* Input */}
-      <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border)", display: "flex", gap: 8 }}>
+      {/* ── Suggestions panel ── */}
+      <div className="border-t border-line-subtle px-3 pt-3 pb-2">
+        {!suggestionsVisible ? (
+          <button
+            onClick={() => setSuggestionsVisible(true)}
+            className="text-2xs font-semibold uppercase tracking-[0.06em] text-ink-soft hover:text-ink transition-colors duration-fast flex items-center gap-1.5"
+          >
+            <ChevronDown size={10} />
+            {t("assistant.showSuggestions")}
+          </button>
+        ) : (
+          <>
+            {/* Search */}
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={t("assistant.search")}
+              className="w-full bg-sunken border border-line-subtle text-ink text-sm rounded-lg px-3 py-1.5 mb-3 outline-none"
+            />
+
+            {/* Groups */}
+            {filteredGroups.map(group => (
+              <div key={group.key}>
+                <div className="text-2xs font-semibold uppercase tracking-[0.06em] text-ink-soft mb-2 flex items-center gap-1.5">
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${group.dotClass}`} />
+                  {t(`assistant.suggestions.${group.key}`)}
+                </div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {group.chips.map(chip => (
+                    <button
+                      key={chip.chipKey}
+                      onClick={() => handleSend(chip.q)}
+                      disabled={isPending}
+                      className="px-3 h-8 rounded-full border border-line-default bg-raised text-sm text-ink-muted hover:border-line-strong hover:text-ink hover:bg-hovered transition-colors duration-fast text-left disabled:opacity-50"
+                    >
+                      {t(chip.chipKey)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* ── Input ── */}
+      <div className="px-3 pb-3 pt-2 border-t border-line-subtle flex gap-2">
         <input
           value={input}
           onChange={e => onInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(input) } }}
+          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(input) } }}
           placeholder="Ask about leave, sick, pipeline, training…"
           disabled={isPending}
-          style={{
-            flex: 1, background: "var(--card2)", border: "1px solid var(--border)",
-            borderRadius: 8, padding: "7px 11px", fontSize: 13,
-            color: "var(--text)", outline: "none", fontFamily: "IBM Plex Sans",
-          }}
+          className="flex-1 bg-sunken border border-line-subtle text-ink text-sm rounded-lg px-3 py-1.5 outline-none"
         />
         <button
-          onClick={() => onSend(input)}
+          onClick={() => handleSend(input)}
           disabled={isPending || !input.trim()}
-          style={{
-            background: "var(--accent)", color: "#fff", border: "none",
-            borderRadius: 8, width: 36, height: 36, cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            opacity: isPending || !input.trim() ? 0.5 : 1, flexShrink: 0,
-          }}
+          className="bg-action text-action-fg rounded-lg w-9 h-9 flex items-center justify-center flex-shrink-0 disabled:opacity-50"
         >
           <Send size={14} />
         </button>
       </div>
+
     </div>
   )
 }
@@ -319,6 +367,7 @@ export function WicChatWidget() {
       dateRange: data.dateRangeChecked,
       hint:      data.error ? undefined : data.hint,
       isError:   !!data.error,
+      follow_up: data.follow_up,
     }),
     err => push({
       id: nextId(), role: "assistant",
@@ -344,9 +393,10 @@ export function WicChatWidget() {
         <button
           onClick={() => setOpen(true)}
           title="GSD Assistant"
+          className="bg-info-solid"
           style={{
             position: "fixed", bottom: 24, right: 24, zIndex: 1000,
-            background: "var(--accent)", color: "#fff",
+            color: "#fff",
             border: "none", borderRadius: "50%",
             width: 52, height: 52, cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -359,27 +409,27 @@ export function WicChatWidget() {
 
       {/* Chat window */}
       {open && (
-        <div style={{
+        <div className="bg-raised border border-line-subtle" style={{
           position: "fixed", bottom: 24, right: 24, zIndex: 1000,
           width: 460, height: 620,
-          background: "var(--card)", border: "1px solid var(--border)",
           borderRadius: 12, display: "flex", flexDirection: "column",
           boxShadow: "0 8px 32px rgba(0,0,0,.20)",
           overflow: "hidden",
         }}>
           {/* Header */}
           <div style={{
-            padding: "12px 16px", borderBottom: "1px solid var(--border)",
+            padding: "12px 16px", borderBottom: "1px solid rgb(var(--border-subtle))",
             background: "var(--sidebar)",
             display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
           }}>
-            <Bot size={15} style={{ color: "var(--accent)" }} />
-            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+            <Bot size={15} className="text-info-fg" />
+            <span className="text-ink" style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
               GSD Assistant
             </span>
             <button
               onClick={() => setOpen(false)}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", display: "flex", padding: 4 }}
+              className="text-ink-soft"
+              style={{ background: "none", border: "none", cursor: "pointer", display: "flex", padding: 4 }}
             >
               <X size={16} />
             </button>

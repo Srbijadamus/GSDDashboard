@@ -78,37 +78,37 @@ export function CommandPalette({ isOpen, onClose }: Props) {
         onClick={onClose}
         style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 100 }}
       />
-      <div style={{
+      <div className="bg-page border border-line-subtle" style={{
         position: "fixed", top: "18%", left: "50%", transform: "translateX(-50%)",
         width: 520, zIndex: 101,
-        background: "var(--sidebar)", border: "1px solid var(--border)", borderRadius: 12,
+        borderRadius: 12,
         overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.4)"
       }}>
-        <div style={{
+        <div className="border-b border-line-subtle" style={{
           display: "flex", alignItems: "center", gap: 10,
-          padding: "12px 16px", borderBottom: "1px solid var(--border)"
+          padding: "12px 16px"
         }}>
-          <Search size={15} style={{ color: "var(--text3)", flexShrink: 0 }} />
+          <Search size={15} className="text-ink-soft shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder={t("nav.cmdPlaceholder")}
+            className="text-ink"
             style={{
               flex: 1, background: "none", border: "none", outline: "none",
-              fontSize: 14, color: "var(--text)", fontFamily: "IBM Plex Sans",
+              fontSize: 14, fontFamily: "IBM Plex Sans",
             }}
           />
-          <kbd style={{
-            fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono",
-            background: "var(--card2)", border: "1px solid var(--border)",
+          <kbd className="text-ink-soft bg-sunken border border-line-subtle font-mono" style={{
+            fontSize: 10,
             borderRadius: 4, padding: "2px 5px"
           }}>Esc</kbd>
         </div>
 
         <div style={{ maxHeight: 340, overflowY: "auto" }}>
           {filtered.length === 0 ? (
-            <div style={{ padding: "20px 16px", textAlign: "center", fontSize: 12, color: "var(--text3)" }}>
+            <div className="text-ink-soft" style={{ padding: "20px 16px", textAlign: "center", fontSize: 12 }}>
               {t("nav.cmdNoResults")}
             </div>
           ) : filtered.map((loc, i) => (
@@ -116,27 +116,27 @@ export function CommandPalette({ isOpen, onClose }: Props) {
               key={loc.locationCode}
               onClick={() => goTo(loc.locationCode)}
               onMouseEnter={() => setCursor(i)}
+              className="border-b border-line-subtle"
               style={{
                 padding: "10px 16px", cursor: "pointer",
-                background: i === cursor ? "rgba(59,126,255,0.1)" : "transparent",
-                borderBottom: "1px solid var(--border)",
+                background: i === cursor ? "rgb(var(--st-info-bg))" : "transparent",
                 display: "flex", justifyContent: "space-between", alignItems: "center",
               }}
             >
               <div>
                 <div style={{
                   fontSize: 13, fontWeight: i === cursor ? 600 : 400,
-                  color: i === cursor ? "var(--accent)" : "var(--text)"
+                  color: i === cursor ? "rgb(var(--info-fg))" : "rgb(var(--ink))"
                 }}>
                   {loc.displayName}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>
+                <div className="text-ink-soft" style={{ fontSize: 11, marginTop: 2 }}>
                   {loc.city} · {loc.country}
                 </div>
               </div>
-              <span style={{
-                fontSize: 9, color: "var(--text3)", fontFamily: "IBM Plex Mono",
-                padding: "2px 6px", border: "1px solid var(--border)", borderRadius: 3
+              <span className="text-ink-soft font-mono border border-line-subtle" style={{
+                fontSize: 9,
+                padding: "2px 6px", borderRadius: 3
               }}>
                 {loc.locationCode.split("~")[0]}
               </span>
@@ -144,14 +144,14 @@ export function CommandPalette({ isOpen, onClose }: Props) {
           ))}
         </div>
 
-        <div style={{
-          padding: "7px 16px", borderTop: "1px solid var(--border)",
-          fontSize: 10, color: "var(--text3)",
+        <div className="border-t border-line-subtle text-ink-soft" style={{
+          padding: "7px 16px",
+          fontSize: 10,
           display: "flex", gap: 14
         }}>
-          <span><kbd style={{ fontFamily: "IBM Plex Mono" }}>↑↓</kbd> {t("nav.cmdNav")}</span>
-          <span><kbd style={{ fontFamily: "IBM Plex Mono" }}>↵</kbd> {t("nav.cmdOpen")}</span>
-          <span><kbd style={{ fontFamily: "IBM Plex Mono" }}>Esc</kbd> {t("nav.cmdClose")}</span>
+          <span><kbd className="font-mono">↑↓</kbd> {t("nav.cmdNav")}</span>
+          <span><kbd className="font-mono">↵</kbd> {t("nav.cmdOpen")}</span>
+          <span><kbd className="font-mono">Esc</kbd> {t("nav.cmdClose")}</span>
         </div>
       </div>
     </>

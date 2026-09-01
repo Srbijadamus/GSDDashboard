@@ -117,8 +117,16 @@ public class WicCardsService
                 var shiftEntry = shiftEntries.FirstOrDefault(s => s.EmployeeId == x.e.EmployeeId);
                 var isSick = sickToday.Contains(x.e.EmployeeId);
                 var isAL = !isSick && alToday.Contains(x.e.EmployeeId);
-                var shiftStart = isSick ? "SICK" : isAL ? "AL" : (shiftEntry?.ShiftStart ?? x.w.WorkingShift?.Split('-').FirstOrDefault()?.Trim());
-                var shiftEnd   = isSick ? "SICK" : isAL ? "AL" : (shiftEntry?.ShiftEnd   ?? x.w.WorkingShift?.Split('-').LastOrDefault()?.Trim());
+                // Non-WIC work: agent has a ShiftEntry that is neither absence nor WIC_DUTY/HALF_AL
+                // (e.g. WORKING with IsWicDuty=false → doing GSD work, not WIC duty)
+                var isNonWic = !isSick && !isAL && shiftEntry != null
+                    && !AvailabilityResolver.FullAbsenceTypes.Contains(shiftEntry.ShiftType)
+                    && !string.Equals(shiftEntry.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(shiftEntry.ShiftType, "WIC_DUTY", StringComparison.OrdinalIgnoreCase);
+                var shiftStart = isSick ? "SICK" : isAL ? "AL" : isNonWic ? "GSD"
+                    : (shiftEntry?.ShiftStart ?? x.w.WorkingShift?.Split('-').FirstOrDefault()?.Trim());
+                var shiftEnd   = isSick ? "SICK" : isAL ? "AL" : isNonWic ? "GSD"
+                    : (shiftEntry?.ShiftEnd   ?? x.w.WorkingShift?.Split('-').LastOrDefault()?.Trim());
                 var isMain = mainAgentNames.Contains(x.e.FullName ?? "");
 
                 var covered = todaySchedule.IsClosed ? 0 :

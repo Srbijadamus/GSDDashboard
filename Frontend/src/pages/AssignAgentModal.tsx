@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Users } from "lucide-react"
+import { Users, AlertTriangle } from "lucide-react"
 import { NppBadge } from "../components/NppBadge"
 import { apiFetch } from "../api/client"
 
@@ -130,15 +130,12 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
   const dates = buildDateRange(dateFrom, dateTo, skipWeekends)
   const isRange = dateFrom !== dateTo
 
+  const inputCls = "bg-sunken border border-line-subtle text-ink"
   const inputStyle: React.CSSProperties = {
     width: "100%",
-    background: "var(--card2)",
-    border: "1px solid var(--border)",
-    color: "var(--text)",
     padding: "6px 10px",
     borderRadius: 6,
     fontSize: 12,
-    fontFamily: "IBM Plex Sans",
     outline: "none",
     boxSizing: "border-box",
     marginTop: 4,
@@ -217,57 +214,61 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
       onClick={onClose}
     >
       <div
+        className="bg-raised border border-line-subtle"
         style={{
-          background: "var(--card)", border: "1px solid var(--border)",
           borderRadius: 12, padding: 24, width: 420, maxWidth: "90vw",
           boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
         }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-          <Users size={16} color="var(--accent)" />
-          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>{p("title")}</span>
+          <Users size={16} className="text-info-fg" />
+          <span className="text-ink" style={{ fontSize: 15, fontWeight: 600 }}>{p("title")}</span>
         </div>
 
         {success && (
           <div style={{
-            background: "rgba(34,208,122,.12)", border: "1px solid rgba(34,208,122,.3)",
-            borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--green)", marginBottom: 14,
-          }}>
+            background: "rgb(var(--st-good-bg) / 0.12)",
+            border: "1px solid rgb(var(--st-good-bd) / 0.3)",
+            borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14,
+          }} className="text-good-fg">
             {success}
           </div>
         )}
         {nppWarn && (
           <div style={{
-            background: "rgba(239,68,68,.12)", border: "1px solid rgba(239,68,68,.4)",
-            borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444", marginBottom: 14,
+            background: "rgb(var(--st-crit-bg) / 0.12)",
+            border: "1px solid rgb(var(--st-crit-bd) / 0.4)",
+            borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14,
             display: "flex", alignItems: "flex-start", gap: 8,
-          }}>
-            <span style={{ fontWeight: 700, flexShrink: 0 }}>⚠ NPP Warning:</span>
+          }} className="text-crit-fg">
+            <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span style={{ fontWeight: 700, flexShrink: 0 }}>NPP Warning:</span>
             <span>{nppWarn}</span>
           </div>
         )}
         {error && (
-          <div style={{
-            background: "rgba(255,59,92,.12)", border: "1px solid rgba(255,59,92,.3)",
-            borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--danger)", marginBottom: 14,
-          }}>
+          <div
+            className="bg-crit-bg border border-crit-bd text-crit-fg"
+            style={{ borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14 }}
+          >
             {error}
           </div>
         )}
         {progress && (
           <div style={{
-            background: "rgba(99,102,241,.08)", border: "1px solid rgba(99,102,241,.25)",
-            borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--accent)", marginBottom: 14,
-          }}>
+            background: "rgb(var(--st-info-bg) / 0.08)",
+            border: "1px solid rgb(var(--st-info-bd) / 0.25)",
+            borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14,
+          }} className="text-info-fg">
             {progress}
           </div>
         )}
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+          <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
             {p("employee")}
-            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} required style={inputStyle}>
+            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} required className={inputCls} style={inputStyle}>
               <option value="">{p("selectEmployee")}</option>
               {employees.map(e => (
                 <option key={e.employeeId} value={e.employeeId}>{e.fullName ?? e.employeeId}</option>
@@ -275,9 +276,9 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
             </select>
           </label>
 
-          <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+          <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
             {p("location")}
-            <select value={locationCode} onChange={e => setLocationCode(e.target.value)} required style={inputStyle}>
+            <select value={locationCode} onChange={e => setLocationCode(e.target.value)} required className={inputCls} style={inputStyle}>
               <option value="">{p("selectLocation")}</option>
               {locations.map(l => (
                 <option key={l.locationCode} value={l.locationCode}>
@@ -289,28 +290,30 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
 
           {locations.find(l => l.locationCode === locationCode)?.isNpp && (
             <div style={{
-              background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)",
-              borderRadius: 6, padding: "7px 11px", fontSize: 11, color: "#ef4444",
+              background: "rgb(var(--st-crit-bg) / 0.08)",
+              border: "1px solid rgb(var(--st-crit-bd) / 0.3)",
+              borderRadius: 6, padding: "7px 11px", fontSize: 11,
               display: "flex", alignItems: "center", gap: 6,
-            }}>
+            }} className="text-crit-fg">
               <NppBadge />
               NPP site — only NPP-qualified agents may be assigned here.
             </div>
           )}
 
           {closedDay && (
-            <div style={{
-              background: "rgba(255,59,92,.08)", border: "1px solid rgba(255,59,92,.25)",
-              borderRadius: 6, padding: "7px 11px", fontSize: 11, color: "var(--danger)",
-            }}>
-              ⚠ WIC centre is closed on this weekday — assignment will be skipped.
-              / Standort an diesem Wochentag geschlossen — Einsatz wird übersprungen.
+            <div
+              className="bg-crit-bg border border-crit-bd text-crit-fg"
+              style={{ borderRadius: 6, padding: "7px 11px", fontSize: 11, display: "flex", alignItems: "flex-start", gap: 6 }}
+            >
+              <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>WIC centre is closed on this weekday — assignment will be skipped.
+              / Standort an diesem Wochentag geschlossen — Einsatz wird übersprungen.</span>
             </div>
           )}
 
           {/* Date range */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+            <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
               Von / From
               <input
                 type="date"
@@ -320,10 +323,11 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
                   if (e.target.value > dateTo) setDateTo(e.target.value)
                 }}
                 required
+                className={inputCls}
                 style={inputStyle}
               />
             </label>
-            <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+            <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
               Bis / To
               <input
                 type="date"
@@ -331,6 +335,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
                 min={dateFrom}
                 onChange={e => setDateTo(e.target.value)}
                 required
+                className={inputCls}
                 style={inputStyle}
               />
             </label>
@@ -338,17 +343,17 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
 
           {/* Day count badge + skip weekends */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 11, color: "var(--text3)" }}>
+            <span className="text-ink-soft" style={{ fontSize: 11 }}>
               {dates.length === 0
-                ? <span style={{ color: "var(--danger)" }}>Keine Arbeitstage / No working days in range</span>
-                : <span><span style={{ fontWeight: 600, color: "var(--accent)" }}>{dates.length}</span> Tag{dates.length !== 1 ? "e" : ""} / day{dates.length !== 1 ? "s" : ""} ausgewählt / selected</span>}
+                ? <span className="text-crit-fg">Keine Arbeitstage / No working days in range</span>
+                : <span><span className="text-info-fg" style={{ fontWeight: 600 }}>{dates.length}</span> Tag{dates.length !== 1 ? "e" : ""} / day{dates.length !== 1 ? "s" : ""} ausgewählt / selected</span>}
             </span>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text3)", cursor: "pointer" }}>
+            <label className="text-ink-soft" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={skipWeekends}
                 onChange={e => setSkipWeekends(e.target.checked)}
-                style={{ accentColor: "var(--accent)" }}
+                className="accent-info-solid"
               />
               Wochenenden überspringen / Skip weekends
             </label>
@@ -357,16 +362,16 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
           {/* Shift times — pre-filled from WIC opening hours; editable */}
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+              <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
                 Beginn / {p("startTime")}
-                <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} style={inputStyle} />
+                <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} className={inputCls} style={inputStyle} />
               </label>
-              <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+              <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
                 Ende / {p("endTime")}
-                <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} style={inputStyle} />
+                <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} className={inputCls} style={inputStyle} />
               </label>
             </div>
-            <div style={{ fontSize: 9, color: "var(--text3)", marginTop: 4 }}>
+            <div className="text-ink-soft" style={{ fontSize: 9, marginTop: 4 }}>
               Aus Öffnungszeiten vorausgefüllt / Pre-filled from opening hours — änderbar / editable
             </div>
           </div>
@@ -375,19 +380,17 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
             <button
               type="button"
               onClick={onClose}
-              style={{
-                flex: 1, background: "var(--card2)", border: "1px solid var(--border)",
-                color: "var(--text)", borderRadius: 6, padding: "8px 0",
-                fontSize: 12, cursor: "pointer",
-              }}
+              className="bg-sunken border border-line-subtle text-ink"
+              style={{ flex: 1, borderRadius: 6, padding: "8px 0", fontSize: 12, cursor: "pointer" }}
             >
               {p("cancel")}
             </button>
             <button
               type="submit"
               disabled={submitting || !employeeId || !locationCode || dates.length === 0}
+              className="bg-info-solid"
               style={{
-                flex: 2, background: "var(--accent)", border: "none", color: "#fff",
+                flex: 2, border: "none", color: "#fff",
                 borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 600,
                 cursor: submitting || !employeeId || !locationCode || dates.length === 0 ? "not-allowed" : "pointer",
                 opacity: submitting || !employeeId || !locationCode || dates.length === 0 ? 0.6 : 1,

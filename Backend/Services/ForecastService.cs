@@ -42,8 +42,7 @@ public class ForecastService
 {
     private readonly GSDContext _db;
 
-    private static readonly HashSet<string> _fullAbsenceTypes =
-        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "OL", "PH", "LPH", "RESIGNED" };
+    // Absent/non-WIC logic is centralised in AvailabilityResolver.GetWicContribution.
 
     public ForecastService(GSDContext db) => _db = db;
 
@@ -118,19 +117,13 @@ public class ForecastService
                                 WicLocationMatcher.MatchesSupportLocation(w.SupportLocation, loc))
                     .ToList();
 
-                int fullAbsentCount = 0;
                 double presentDouble = 0;
                 foreach (var w in dayWic)
                 {
                     shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
                     bool isSick = sickLeaves.Any(sl =>
                         sl.EmployeeId == w.EmployeeId && sl.FirstDay <= date && sl.LastDay >= date);
-                    if (isSick || (sh != null && _fullAbsenceTypes.Contains(sh.ShiftType)))
-                        fullAbsentCount++;
-                    else if (sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
-                        presentDouble += 0.5;
-                    else
-                        presentDouble += 1.0;
+                    presentDouble += AvailabilityResolver.GetWicContribution(isSick, sh);
                 }
 
                 int effectiveCoverage = (int)Math.Floor(presentDouble);

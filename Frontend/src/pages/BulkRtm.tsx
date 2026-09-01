@@ -52,13 +52,13 @@ const HEADER_LABELS: Record<ParsedHeader, string> = {
 }
 
 const HEADER_COLORS: Record<ParsedHeader, string> = {
-  AL:    "#f59e0b",
-  SL:    "#b91c1c",
-  OFF:   "#6b7280",
-  CD:    "#8b5cf6",
-  NIGHT: "#1d4ed8",
-  BO:    "#0891b2",
-  WIC:   "#059669",
+  AL:    "rgb(var(--st-info-fg))",
+  SL:    "rgb(var(--st-crit-fg))",
+  OFF:   "rgb(var(--st-neutral-fg))",
+  CD:    "rgb(var(--st-learn-fg))",
+  NIGHT: "rgb(var(--st-wic-fg))",
+  BO:    "rgb(var(--st-info-fg))",
+  WIC:   "rgb(var(--st-good-fg))",
 }
 
 type RowStatus = BaseRowStatus | "night-no-time"
@@ -110,45 +110,15 @@ function parseSlLine(line: string): { rawName: string; tag: string | null } {
   return { rawName: stripped || line.trim(), tag: null }
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
+// ── Style tokens ──────────────────────────────────────────────────────────────
 
-const card: React.CSSProperties = {
-  background: "var(--card)", border: "1px solid var(--border)",
-  borderRadius: 10, padding: "18px 20px", marginBottom: 16,
-}
-
-const inputStyle: React.CSSProperties = {
-  background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 6,
-  padding: "7px 10px", color: "var(--text)", fontSize: 12, boxSizing: "border-box",
-  fontFamily: "IBM Plex Sans", outline: "none",
-}
-
-const monoInput: React.CSSProperties = { ...inputStyle, fontFamily: "IBM Plex Mono", width: 90 }
-
-const btnPrimary: React.CSSProperties = {
-  background: "var(--accent)", border: "none", color: "#fff",
-  padding: "7px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
-}
-
-const btnSecondary: React.CSSProperties = {
-  background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text2)",
-  padding: "7px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer",
-}
-
-const btnDanger: React.CSSProperties = {
-  background: "rgba(239,68,68,.12)", border: "1px solid rgba(239,68,68,.3)",
-  color: "#ef4444", padding: "5px 10px", borderRadius: 5, fontSize: 11, cursor: "pointer",
-}
-
-const thStyle: React.CSSProperties = {
-  padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 600,
-  color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.06em",
-  borderBottom: "1px solid var(--border)",
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: "8px 12px", fontSize: 12, color: "var(--text)", borderBottom: "1px solid var(--border)",
-}
+const card = "bg-raised border border-line-subtle rounded-[10px] py-[18px] px-5 mb-4"
+const inputCls = "bg-sunken border border-line-subtle rounded-sm py-[7px] px-[10px] text-ink text-xs box-border outline-none"
+const monoInputCls = "bg-sunken border border-line-subtle rounded-sm py-[7px] px-[10px] text-ink text-xs box-border outline-none font-mono"
+const btnPrimary = "bg-info-solid border-none text-white py-[7px] px-4 rounded-sm text-xs font-semibold cursor-pointer"
+const btnSecondary = "bg-sunken border border-line-subtle text-ink-muted py-[7px] px-[14px] rounded-sm text-xs cursor-pointer"
+const thCls = "py-2 px-3 text-left text-[10px] font-semibold text-ink-soft uppercase tracking-[0.06em] border-b border-line-subtle"
+const tdCls = "py-2 px-3 text-xs text-ink border-b border-line-subtle"
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -180,25 +150,15 @@ export default function BulkRtm() {
     <div style={{ maxWidth: 960 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-        <FileText size={18} color="var(--accent)" />
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--text)" }}>Bulk RTM Entry</h1>
-        <span style={{
-          fontSize: 11, fontFamily: "IBM Plex Mono", color: "var(--text3)",
-          background: "var(--card2)", border: "1px solid var(--border)",
-          padding: "3px 9px", borderRadius: 5,
-        }}>{todayLabel}</span>
+        <FileText size={18} className="text-info-fg" />
+        <h1 className="m-0 text-xl font-bold text-ink">Bulk RTM Entry</h1>
+        <span className="text-[11px] font-mono text-ink-soft bg-sunken border border-line-subtle px-[9px] py-[3px] rounded-[5px]">{todayLabel}</span>
       </div>
 
       {/* Tab selector */}
       <div style={{ display: "flex", gap: 2, marginBottom: 18 }}>
         {(["paste", "manual"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            background: tab === t ? "var(--accent)" : "var(--card2)",
-            border: `1px solid ${tab === t ? "var(--accent)" : "var(--border)"}`,
-            color: tab === t ? "#fff" : "var(--text2)",
-            padding: "7px 18px", borderRadius: 6, fontSize: 12, fontWeight: 600,
-            cursor: "pointer", textTransform: "capitalize",
-          }}>
+          <button key={t} onClick={() => setTab(t)} className={`${tab === t ? "bg-info-solid border border-info-bd text-white" : "bg-sunken border border-line-subtle text-ink-muted"} py-[7px] px-[18px] rounded-sm text-xs font-semibold cursor-pointer capitalize`}>
             {t === "paste" ? "Paste & Parse" : "Manual Entry"}
           </button>
         ))}
@@ -433,8 +393,8 @@ function PastePanel({
 
       {/* Save results */}
       {saveResults && (
-        <div style={{ ...card, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 10 }}>
+        <div className={card}>
+          <div className="text-[13px] font-semibold text-ink mb-[10px]">
             Save complete — {saveResults.filter(r => r.status === "saved").length} saved
             {saveResults.some(r => r.status === "skipped") && `, ${saveResults.filter(r => r.status === "skipped").length} skipped`}
             {saveResults.some(r => r.status === "error") && `, ${saveResults.filter(r => r.status === "error").length} errors`}
@@ -443,14 +403,14 @@ function PastePanel({
             {saveResults.map((r, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
                 {r.status === "saved"
-                  ? <CheckCircle2 size={13} color="var(--green)" />
+                  ? <CheckCircle2 size={13} className="text-good-fg" />
                   : r.status === "skipped"
-                    ? <AlertCircle size={13} color="#f97316" />
-                    : <XCircle size={13} color="#ef4444" />
+                    ? <AlertCircle size={13} className="text-warn-fg" />
+                    : <XCircle size={13} className="text-crit-fg" />
                 }
-                <span style={{ color: "var(--text)", fontWeight: r.status === "saved" ? 500 : 400 }}>{r.name}</span>
-                {r.locationUsed && <span style={{ color: "var(--text3)", fontSize: 11 }}>→ {r.locationUsed}</span>}
-                {r.reason && <span style={{ color: r.status === "error" ? "#ef4444" : "#f97316", fontSize: 11 }}>— {r.reason}</span>}
+                <span className={`text-ink ${r.status === "saved" ? "font-medium" : ""}`}>{r.name}</span>
+                {r.locationUsed && <span className="text-ink-soft text-[11px]">→ {r.locationUsed}</span>}
+                {r.reason && <span className={`text-[11px] ${r.status === "error" ? "text-crit-fg" : "text-warn-fg"}`}>— {r.reason}</span>}
               </div>
             ))}
           </div>
@@ -459,17 +419,17 @@ function PastePanel({
 
       {/* Error */}
       {error && (
-        <div style={{ ...card, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)", marginBottom: 16, fontSize: 12, color: "#ef4444" }}>
+        <div className="rounded-[10px] py-[18px] px-5 mb-4 text-xs text-crit-fg bg-crit-bg border border-crit-bd">
           {error}
         </div>
       )}
 
       {/* Input card: category selector + optional WIC center + textarea */}
-      <div style={card}>
+      <div className={card}>
 
         {/* Category + WIC center selectors */}
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text2)", fontWeight: 600 }}>
+          <label className="flex items-center gap-2 text-xs text-ink-muted font-semibold">
             Category
             <select
               value={category}
@@ -477,7 +437,7 @@ function PastePanel({
                 setCategory(e.target.value as ParsedHeader)
                 setRows(null); setSaveResults(null); setError(null)
               }}
-              style={{ ...inputStyle, minWidth: 230 }}
+              className={`${inputCls} min-w-[230px]`}
             >
               {VALID_HEADERS.map(h => (
                 <option key={h} value={h}>{HEADER_LABELS[h]}</option>
@@ -486,12 +446,12 @@ function PastePanel({
           </label>
 
           {category === "WIC" && (
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text2)", fontWeight: 600 }}>
+            <label className="flex items-center gap-2 text-xs text-ink-muted font-semibold">
               WIC Center
               <select
                 value={wicCenterDefault ?? ""}
                 onChange={e => setWicCenterDefault(e.target.value || null)}
-                style={{ ...inputStyle, minWidth: 230 }}
+                className={`${inputCls} min-w-[230px]`}
               >
                 <option value="">— Home WIC —</option>
                 {wicLocations.map(l => (
@@ -503,7 +463,7 @@ function PastePanel({
         </div>
 
         {/* Format hint */}
-        <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 10, fontFamily: "IBM Plex Mono" }}>
+        <div className="text-[11px] text-ink-soft mb-[10px] font-mono">
           {category === "SL"
             ? "One agent per line: Agent Name  [optional tag]"
             : category === "NIGHT"
@@ -520,16 +480,15 @@ function PastePanel({
             : "Tim Nguyen 08:00 - 17:00\nEva-Liane Schliwa 07:00 - 16:00"
           }
           rows={10}
-          style={{ ...inputStyle, width: "100%", resize: "vertical", fontFamily: "IBM Plex Mono", fontSize: 12, lineHeight: 1.6 }}
+          className={`${inputCls} font-mono w-full`}
+          style={{ resize: "vertical", lineHeight: 1.6 }}
         />
         <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-          <button onClick={handleParse} disabled={!text.trim()} style={{
-            ...btnPrimary, opacity: text.trim() ? 1 : 0.5, cursor: text.trim() ? "pointer" : "not-allowed",
-          }}>
+          <button onClick={handleParse} disabled={!text.trim()} className={`${btnPrimary}${!text.trim() ? " opacity-50 cursor-not-allowed" : ""}`}>
             Parse Preview
           </button>
           {text.trim() && (
-            <button onClick={() => { setText(""); setRows(null); setSaveResults(null); setError(null); setRowOverrides([]); setHomeWicMap({}) }} style={btnSecondary}>
+            <button onClick={() => { setText(""); setRows(null); setSaveResults(null); setError(null); setRowOverrides([]); setHomeWicMap({}) }} className={btnSecondary}>
               Clear
             </button>
           )}
@@ -538,33 +497,31 @@ function PastePanel({
 
       {/* Preview */}
       {rows && (
-        <div style={card}>
+        <div className={card}>
           {/* Category badge + stats */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{
+              <span className="font-mono text-[11px] font-bold px-[10px] py-[3px] rounded-[5px]" style={{
                 background: HEADER_COLORS[category] + "22",
                 border: `1px solid ${HEADER_COLORS[category]}55`,
                 color: HEADER_COLORS[category],
-                fontFamily: "IBM Plex Mono", fontSize: 11, fontWeight: 700,
-                padding: "3px 10px", borderRadius: 5,
               }}>
                 {category}
               </span>
-              <span style={{ fontSize: 12, color: "var(--text2)" }}>
+              <span className="text-xs text-ink-muted">
                 {HEADER_LABELS[category]}
               </span>
-              <span style={{ fontSize: 12, color: "var(--text3)" }}>
+              <span className="text-xs text-ink-soft">
                 · {rows.length} line{rows.length !== 1 ? "s" : ""}
-                {" "}<span style={{ color: "var(--green)" }}>{resolvedCount} resolved</span>
-                {unresolvedCount > 0 && <span style={{ color: "#f97316" }}>, {unresolvedCount} not resolved</span>}
-                {homeWicLoading && <span style={{ color: "var(--text3)" }}> · loading home WIC…</span>}
+                {" "}<span className="text-good-fg">{resolvedCount} resolved</span>
+                {unresolvedCount > 0 && <span className="text-warn-fg">, {unresolvedCount} not resolved</span>}
+                {homeWicLoading && <span className="text-ink-soft"> · loading home WIC…</span>}
               </span>
             </div>
             <button
               onClick={handleSave}
               disabled={saveDisabled}
-              style={{ ...btnPrimary, opacity: saveDisabled ? 0.5 : 1, cursor: saveDisabled ? "not-allowed" : "pointer" }}
+              className={`${btnPrimary}${saveDisabled ? " opacity-50 cursor-not-allowed" : ""}`}
             >
               {saveBtnLabel}
             </button>
@@ -572,11 +529,7 @@ function PastePanel({
 
           {/* Unresolved warning */}
           {unresolvedCount > 0 && (
-            <div style={{
-              fontSize: 11, color: "#f97316",
-              background: "rgba(249,115,22,.08)", border: "1px solid rgba(249,115,22,.3)",
-              borderRadius: 6, padding: "7px 12px", marginBottom: 12,
-            }}>
+            <div className="text-[11px] text-warn-fg bg-warn-bg border border-warn-bd rounded-md py-[7px] px-3 mb-3">
               <strong>Not saved (skipped):</strong>{" "}
               {rows.filter(r => r.status !== "resolved" && r.status !== "resolved-corrected").map(r => r.rawName).join(", ")}
             </div>
@@ -584,11 +537,7 @@ function PastePanel({
 
           {/* WIC no-home warning (suppressed when a center default is chosen) */}
           {category === "WIC" && !homeWicLoading && noLocCount > 0 && (
-            <div style={{
-              fontSize: 11, color: "#ef4444",
-              background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)",
-              borderRadius: 6, padding: "7px 12px", marginBottom: 12,
-            }}>
+            <div className="text-[11px] text-crit-fg bg-crit-bg border border-crit-bd rounded-md py-[7px] px-3 mb-3">
               <strong>{noLocCount} row{noLocCount !== 1 ? "s have" : " has"} no home WIC</strong> — select a location from the per-row dropdown or choose a WIC center above.
             </div>
           )}
@@ -597,13 +546,13 @@ function PastePanel({
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={thStyle}>#</th>
-                  <th style={thStyle}>Raw Input Name</th>
-                  <th style={thStyle}>Resolved</th>
-                  {category !== "SL" && <th style={thStyle}>Hours</th>}
-                  {category !== "AL" && category !== "OFF" && category !== "CD" && <th style={thStyle}>Tag / Notes</th>}
-                  {category === "WIC" && <th style={{ ...thStyle, minWidth: 200 }}>WIC Location</th>}
-                  <th style={thStyle}>Status</th>
+                  <th className={thCls}>#</th>
+                  <th className={thCls}>Raw Input Name</th>
+                  <th className={thCls}>Resolved</th>
+                  {category !== "SL" && <th className={thCls}>Hours</th>}
+                  {category !== "AL" && category !== "OFF" && category !== "CD" && <th className={thCls}>Tag / Notes</th>}
+                  {category === "WIC" && <th className={`${thCls} min-w-[200px]`}>WIC Location</th>}
+                  <th className={thCls}>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -614,22 +563,22 @@ function PastePanel({
                   const hasNoLoc = category === "WIC" && (row.status === "resolved" || row.status === "resolved-corrected") && !override && !wicCenterDefault && !homeWic?.locationCode
 
                   return (
-                    <tr key={i} style={{ opacity: (row.status === "resolved" || row.status === "resolved-corrected") ? 1 : 0.7, background: hasNoLoc ? "rgba(239,68,68,.04)" : undefined }}>
-                      <td style={{ ...tdStyle, color: "var(--text3)", fontFamily: "IBM Plex Mono", width: 32 }}>{i + 1}</td>
-                      <td style={{ ...tdStyle, fontFamily: "IBM Plex Mono", fontSize: 11 }}>{row.rawName || <em style={{ color: "var(--text3)" }}>no name</em>}</td>
-                      <td style={{ ...tdStyle }}>
+                    <tr key={i} className={`border-b border-line-subtle transition-colors ${hasNoLoc ? "bg-crit-bg/50" : "hover:bg-hovered"}`} style={{ opacity: (row.status === "resolved" || row.status === "resolved-corrected") ? 1 : 0.7 }}>
+                      <td className={`${tdCls} text-ink-soft font-mono`} style={{ width: 32 }}>{i + 1}</td>
+                      <td className={`${tdCls} font-mono text-[11px]`}>{row.rawName || <em className="text-ink-soft">no name</em>}</td>
+                      <td className={tdCls}>
                         {(row.status === "resolved" || row.status === "resolved-corrected" || row.status === "night-no-time") && row.resolved ? (
                           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                            <span style={{ color: "var(--green)", fontWeight: 500 }}>{row.resolved.fullName}</span>
+                            <span className="text-good-fg font-medium">{row.resolved.fullName}</span>
                             {row.status === "resolved-corrected" && (
-                              <span style={{ fontSize: 10, color: "#d97706", background: "rgba(217,119,6,.1)", border: "1px solid rgba(217,119,6,.3)", borderRadius: 3, padding: "1px 5px" }}>corrected</span>
+                              <span className="text-[10px] text-warn-fg bg-warn-bg border border-warn-bd rounded-[3px] px-[5px] py-[1px]">corrected</span>
                             )}
                           </div>
                         ) : row.status === "suggest" ? (
                           <select
                             defaultValue=""
                             onChange={e => { if (e.target.value) handleSuggestionPick(i, e.target.value) }}
-                            style={{ ...inputStyle, fontSize: 11, padding: "4px 8px", minWidth: 200 }}
+                            className={`${inputCls} text-[11px] py-1 px-2 min-w-[200px]`}
                           >
                             <option value="">— select —</option>
                             {row.suggestions?.map(s => (
@@ -637,25 +586,25 @@ function PastePanel({
                             ))}
                           </select>
                         ) : row.status === "ambiguous" ? (
-                          <span style={{ color: "#f97316" }}>Ambiguous ({row.ambiguous.length})</span>
+                          <span className="text-warn-fg">Ambiguous ({row.ambiguous.length})</span>
                         ) : (
-                          <span style={{ color: "#ef4444" }}>—</span>
+                          <span className="text-crit-fg">—</span>
                         )}
                       </td>
                       {category !== "SL" && (
-                        <td style={{ ...tdStyle, fontFamily: "IBM Plex Mono", fontSize: 11 }}>
-                          {row.shiftStart && row.shiftEnd ? `${row.shiftStart} – ${row.shiftEnd}` : <span style={{ color: "var(--text3)" }}>—</span>}
+                        <td className={`${tdCls} font-mono text-[11px]`}>
+                          {row.shiftStart && row.shiftEnd ? `${row.shiftStart} – ${row.shiftEnd}` : <span className="text-ink-soft">—</span>}
                         </td>
                       )}
                       {category !== "AL" && category !== "OFF" && category !== "CD" && (
-                        <td style={{ ...tdStyle }}>
+                        <td className={tdCls}>
                           {row.tag
-                            ? <span style={{ background: "rgba(99,102,241,.12)", color: "var(--accent)", border: "1px solid rgba(99,102,241,.25)", borderRadius: 4, padding: "2px 7px", fontSize: 10, fontWeight: 600 }}>{row.tag}</span>
-                            : <span style={{ color: "var(--text3)", fontSize: 11 }}>—</span>}
+                            ? <span className="bg-info-bg text-info-fg border border-info-bd rounded-xs px-[7px] py-[2px] text-[10px] font-semibold">{row.tag}</span>
+                            : <span className="text-ink-soft text-[11px]">—</span>}
                         </td>
                       )}
                       {category === "WIC" && (
-                        <td style={{ ...tdStyle }}>
+                        <td className={tdCls}>
                           {(row.status === "resolved" || row.status === "resolved-corrected") ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                               <select
@@ -665,7 +614,7 @@ function PastePanel({
                                   next[i] = e.target.value || null
                                   setRowOverrides(next)
                                 }}
-                                style={{ ...inputStyle, fontSize: 11, padding: "4px 8px", maxWidth: 220 }}
+                                className={`${inputCls} text-[11px] py-1 px-2 max-w-[220px]`}
                               >
                                 <option value="">— Home WIC —</option>
                                 {wicLocations.map(l => (
@@ -675,37 +624,37 @@ function PastePanel({
                               {/* Effective location hint: per-row wins, then center default, then home WIC */}
                               {!override && (
                                 homeWicLoading
-                                  ? <span style={{ fontSize: 10, color: "var(--text3)", fontStyle: "italic" }}>Loading…</span>
+                                  ? <span className="text-[10px] text-ink-soft italic">Loading…</span>
                                   : wicCenterDefault
-                                    ? <span style={{ fontSize: 10, color: "#0891b2", display: "flex", alignItems: "center", gap: 3 }}>
+                                    ? <span className="text-[10px] text-wic-fg flex items-center gap-[3px]">
                                         <MapPin size={9} /> {wicCenterName}
                                       </span>
                                     : homeWic?.displayName
-                                      ? <span style={{ fontSize: 10, color: "#059669", display: "flex", alignItems: "center", gap: 3 }}>
+                                      ? <span className="text-[10px] text-good-fg flex items-center gap-[3px]">
                                           <MapPin size={9} /> {homeWic.displayName}
                                         </span>
-                                      : <span style={{ fontSize: 10, color: "#ef4444" }}>No home WIC — select one</span>
+                                      : <span className="text-[10px] text-crit-fg">No home WIC — select one</span>
                               )}
                             </div>
                           ) : (
-                            <span style={{ color: "var(--text3)", fontSize: 11 }}>—</span>
+                            <span className="text-ink-soft text-[11px]">—</span>
                           )}
                         </td>
                       )}
-                      <td style={{ ...tdStyle }}>
+                      <td className={tdCls}>
                         {row.status === "resolved"
-                          ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--green)", fontSize: 11 }}><CheckCircle2 size={13} /> Resolved</span>
+                          ? <span className="flex items-center gap-1 text-good-fg text-[11px]"><CheckCircle2 size={13} /> Resolved</span>
                           : row.status === "resolved-corrected"
-                            ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#d97706", fontSize: 11 }}><CheckCircle2 size={13} /> Resolved (corrected)</span>
+                            ? <span className="flex items-center gap-1 text-warn-fg text-[11px]"><CheckCircle2 size={13} /> Resolved (corrected)</span>
                             : row.status === "suggest"
-                              ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#f97316", fontSize: 11 }}><AlertCircle size={13} /> Did you mean?</span>
+                              ? <span className="flex items-center gap-1 text-warn-fg text-[11px]"><AlertCircle size={13} /> Did you mean?</span>
                               : row.status === "ambiguous"
-                                ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#f97316", fontSize: 11 }}><AlertCircle size={13} /> Ambiguous</span>
+                                ? <span className="flex items-center gap-1 text-warn-fg text-[11px]"><AlertCircle size={13} /> Ambiguous</span>
                                 : row.status === "night-no-time"
-                                  ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#f97316", fontSize: 11 }}><AlertCircle size={13} /> Night requires shift hours, e.g. 22:00 - 07:00</span>
+                                  ? <span className="flex items-center gap-1 text-warn-fg text-[11px]"><AlertCircle size={13} /> Night requires shift hours, e.g. 22:00 - 07:00</span>
                                   : (row.shiftStart || (category === "SL" && row.rawName))
-                                    ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#ef4444", fontSize: 11 }}><XCircle size={13} /> Name not in system</span>
-                                    : <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#8892a4", fontSize: 11 }}><XCircle size={13} /> Parse error</span>
+                                    ? <span className="flex items-center gap-1 text-crit-fg text-[11px]"><XCircle size={13} /> Name not in system</span>
+                                    : <span className="flex items-center gap-1 text-ink-soft text-[11px]"><XCircle size={13} /> Parse error</span>
                         }
                       </td>
                     </tr>
@@ -718,7 +667,7 @@ function PastePanel({
       )}
 
       {rows && rows.length === 0 && (
-        <div style={{ ...card, color: "var(--text3)", fontSize: 13, textAlign: "center" }}>
+        <div className={`${card} text-ink-soft text-[13px] text-center`}>
           No agent rows found. Each line must include: Name HH:MM - HH:MM
         </div>
       )}
@@ -819,63 +768,58 @@ function ManualPanel({
   return (
     <div>
       {notice && (
-        <div style={{
-          position: "fixed", bottom: 24, right: 24, zIndex: 9999,
-          background: notice.startsWith("Error") ? "#ef4444" : "#22c55e",
-          color: "#fff", padding: "10px 18px", borderRadius: 8, fontSize: 12,
-        }}>{notice}</div>
+        <div className={`fixed bottom-6 right-6 z-toast ${notice.startsWith("Error") ? "bg-crit-solid" : "bg-good-solid"} text-white px-[18px] py-[10px] rounded-lg text-xs`}>
+          {notice}
+        </div>
       )}
 
-      <div style={card}>
+      <div className={card}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+          <span className="text-[13px] font-semibold text-ink">
             Today's RTM List
-            <span style={{ fontSize: 11, color: "var(--text3)", fontWeight: 400, marginLeft: 8, fontFamily: "IBM Plex Mono" }}>{today}</span>
+            <span className="text-[11px] text-ink-soft font-normal ml-2 font-mono">{today}</span>
           </span>
-          <button onClick={() => setAddOpen(!addOpen)} style={{ ...btnPrimary, display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => setAddOpen(!addOpen)} className={`${btnPrimary} flex items-center gap-1.5`}>
             <Plus size={13} /> Add Row
           </button>
         </div>
 
         {/* Add row form */}
         {addOpen && (
-          <div style={{
-            background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 8,
-            padding: "14px 16px", marginBottom: 16,
-          }}>
+          <div className="bg-sunken border border-line-subtle rounded-lg py-[14px] px-4 mb-4">
             <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 90px 160px auto", gap: 10, alignItems: "end" }}>
-              <label style={{ fontSize: 11, color: "var(--text3)" }}>
+              <label className="text-[11px] text-ink-soft">
                 Agent
                 <select value={addEmp} onChange={e => setAddEmp(e.target.value)}
-                  style={{ ...inputStyle, display: "block", marginTop: 4, width: "100%" }}>
+                  className={`${inputCls} block mt-1 w-full`}>
                   <option value="">— select —</option>
                   {employees.map(e => (
                     <option key={e.employeeId} value={e.employeeId}>{e.fullName ?? e.employeeId}</option>
                   ))}
                 </select>
               </label>
-              <label style={{ fontSize: 11, color: "var(--text3)" }}>
+              <label className="text-[11px] text-ink-soft">
                 Start
                 <input type="time" value={addStart} onChange={e => setAddStart(e.target.value)}
-                  style={{ ...monoInput, display: "block", marginTop: 4, width: "100%" }} />
+                  className={`${monoInputCls} block mt-1 w-full`} />
               </label>
-              <label style={{ fontSize: 11, color: "var(--text3)" }}>
+              <label className="text-[11px] text-ink-soft">
                 End
                 <input type="time" value={addEnd} onChange={e => setAddEnd(e.target.value)}
-                  style={{ ...monoInput, display: "block", marginTop: 4, width: "100%" }} />
+                  className={`${monoInputCls} block mt-1 w-full`} />
               </label>
-              <label style={{ fontSize: 11, color: "var(--text3)" }}>
+              <label className="text-[11px] text-ink-soft">
                 Tag (optional)
                 <input type="text" value={addTag} onChange={e => setAddTag(e.target.value)}
                   placeholder="e.g. Newjoiner, ENVIAM"
-                  style={{ ...inputStyle, display: "block", marginTop: 4, width: "100%" }} />
+                  className={`${inputCls} block mt-1 w-full`} />
               </label>
               <div style={{ display: "flex", gap: 8, paddingBottom: 1 }}>
                 <button onClick={handleAdd} disabled={!addEmp || addBusy}
-                  style={{ ...btnPrimary, opacity: !addEmp || addBusy ? 0.5 : 1, cursor: !addEmp || addBusy ? "not-allowed" : "pointer" }}>
+                  className={`${btnPrimary}${!addEmp || addBusy ? " opacity-50 cursor-not-allowed" : ""}`}>
                   {addBusy ? "…" : "Add"}
                 </button>
-                <button onClick={() => { setAddOpen(false); setAddEmp(""); setAddTag("") }} style={btnSecondary}>
+                <button onClick={() => { setAddOpen(false); setAddEmp(""); setAddTag("") }} className={btnSecondary}>
                   Cancel
                 </button>
               </div>
@@ -885,9 +829,9 @@ function ManualPanel({
 
         {/* Entries table */}
         {loading ? (
-          <div style={{ padding: "24px 0", textAlign: "center", color: "var(--text3)", fontSize: 13 }}>Loading…</div>
+          <div className="py-6 text-center text-ink-soft text-[13px]">Loading…</div>
         ) : entries.length === 0 ? (
-          <div style={{ padding: "32px 0", textAlign: "center", color: "var(--text3)", fontSize: 13 }}>
+          <div className="py-8 text-center text-ink-soft text-[13px]">
             No entries for today. Use the Paste tab to bulk-import, or click Add Row above.
           </div>
         ) : (
@@ -895,68 +839,69 @@ function ManualPanel({
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={thStyle}>#</th>
-                  <th style={thStyle}>Employee</th>
-                  <th style={thStyle}>ID</th>
-                  <th style={thStyle}>Hours</th>
-                  <th style={thStyle}>Tag</th>
-                  <th style={thStyle}>Source</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>Actions</th>
+                  <th className={thCls}>#</th>
+                  <th className={thCls}>Employee</th>
+                  <th className={thCls}>ID</th>
+                  <th className={thCls}>Hours</th>
+                  <th className={thCls}>Tag</th>
+                  <th className={thCls}>Source</th>
+                  <th className={`${thCls} text-right`}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {entries.map((e, i) => (
                   editId === e.id ? (
-                    <tr key={e.id} style={{ background: "rgba(99,102,241,.05)" }}>
-                      <td style={{ ...tdStyle, color: "var(--text3)", fontFamily: "IBM Plex Mono", width: 32 }}>{i + 1}</td>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{e.fullName ?? e.employeeId}</td>
-                      <td style={{ ...tdStyle, fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>{e.employeeId}</td>
-                      <td style={{ ...tdStyle }}>
+                    <tr key={e.id} className="bg-info-bg/30">
+                      <td className={`${tdCls} text-ink-soft font-mono`} style={{ width: 32 }}>{i + 1}</td>
+                      <td className={`${tdCls} font-semibold`}>{e.fullName ?? e.employeeId}</td>
+                      <td className={`${tdCls} font-mono text-[11px] text-ink-soft`}>{e.employeeId}</td>
+                      <td className={tdCls}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <input type="time" value={editStart} onChange={ev => setEditStart(ev.target.value)}
-                            style={{ ...monoInput, width: 80 }} />
-                          <span style={{ color: "var(--text3)" }}>–</span>
+                            className={monoInputCls} style={{ width: 80 }} />
+                          <span className="text-ink-soft">–</span>
                           <input type="time" value={editEnd} onChange={ev => setEditEnd(ev.target.value)}
-                            style={{ ...monoInput, width: 80 }} />
+                            className={monoInputCls} style={{ width: 80 }} />
                         </div>
                       </td>
-                      <td style={{ ...tdStyle }}>
+                      <td className={tdCls}>
                         <input type="text" value={editTag} onChange={ev => setEditTag(ev.target.value)}
-                          placeholder="tag" style={{ ...inputStyle, width: 140 }} />
+                          placeholder="tag" className={inputCls} style={{ width: 140 }} />
                       </td>
-                      <td style={{ ...tdStyle, color: "var(--text3)", fontSize: 11 }}>—</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <td className={`${tdCls} text-ink-soft text-[11px]`}>—</td>
+                      <td className={`${tdCls} text-right`}>
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                          <button onClick={handleEdit} disabled={editBusy} style={{ ...btnPrimary, padding: "4px 12px", fontSize: 11 }}>
+                          <button onClick={handleEdit} disabled={editBusy} className="bg-info-solid border-none text-white py-1 px-3 rounded-sm text-[11px] font-semibold cursor-pointer">
                             {editBusy ? "…" : "Save"}
                           </button>
-                          <button onClick={() => setEditId(null)} style={{ ...btnSecondary, padding: "4px 10px", fontSize: 11 }}>
+                          <button onClick={() => setEditId(null)} className="bg-sunken border border-line-subtle text-ink-muted py-1 px-[10px] rounded-sm text-[11px] cursor-pointer">
                             Cancel
                           </button>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    <tr key={e.id}>
-                      <td style={{ ...tdStyle, color: "var(--text3)", fontFamily: "IBM Plex Mono", width: 32 }}>{i + 1}</td>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{e.fullName ?? e.employeeId}</td>
-                      <td style={{ ...tdStyle, fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>{e.employeeId}</td>
-                      <td style={{ ...tdStyle, fontFamily: "IBM Plex Mono", fontSize: 11 }}>{e.shiftStart} – {e.shiftEnd}</td>
-                      <td style={{ ...tdStyle }}>
+                    <tr key={e.id} className="border-b border-line-subtle transition-colors hover:bg-hovered">
+                      <td className={`${tdCls} text-ink-soft font-mono`} style={{ width: 32 }}>{i + 1}</td>
+                      <td className={`${tdCls} font-semibold`}>{e.fullName ?? e.employeeId}</td>
+                      <td className={`${tdCls} font-mono text-[11px] text-ink-soft`}>{e.employeeId}</td>
+                      <td className={`${tdCls} font-mono text-[11px]`}>{e.shiftStart} – {e.shiftEnd}</td>
+                      <td className={tdCls}>
                         {e.tag
-                          ? <span style={{ background: "rgba(99,102,241,.12)", color: "var(--accent)", border: "1px solid rgba(99,102,241,.25)", borderRadius: 4, padding: "2px 7px", fontSize: 10, fontWeight: 600 }}>{e.tag}</span>
-                          : <span style={{ color: "var(--text3)", fontSize: 11 }}>—</span>}
+                          ? <span className="bg-info-bg text-info-fg border border-info-bd rounded-xs px-[7px] py-[2px] text-[10px] font-semibold">{e.tag}</span>
+                          : <span className="text-ink-soft text-[11px]">—</span>}
                       </td>
-                      <td style={{ ...tdStyle, color: "var(--text3)", fontSize: 11, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <td className={`${tdCls} text-ink-soft text-[11px]`} style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {e.sourceLine ?? "manual"}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <td className={`${tdCls} text-right`}>
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
                           <button onClick={() => openEdit(e)} title="Edit"
-                            style={{ background: "rgba(99,102,241,.1)", border: "1px solid rgba(99,102,241,.25)", color: "var(--accent)", padding: "4px 8px", borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center" }}>
+                            className="bg-info-bg border border-info-bd text-info-fg p-1 rounded-[5px] cursor-pointer flex items-center">
                             <Pencil size={12} />
                           </button>
-                          <button onClick={() => handleDelete(e.id)} title="Delete" style={{ ...btnDanger, padding: "4px 8px", display: "flex", alignItems: "center" }}>
+                          <button onClick={() => handleDelete(e.id)} title="Delete"
+                            className="bg-crit-bg border border-crit-bd text-crit-fg py-[5px] px-[10px] rounded-[5px] text-[11px] cursor-pointer flex items-center">
                             <Trash2 size={12} />
                           </button>
                         </div>

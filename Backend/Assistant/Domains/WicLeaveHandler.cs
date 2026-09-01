@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using WicAssistantService = GSDDashboard.API.Modules.WicAssistant.WicAssistantService;
 
 namespace GSDDashboard.API.Modules.Assistant;
@@ -6,6 +7,9 @@ public sealed class WicLeaveHandler(WicAssistantService wicSvc) : IDomainHandler
 {
     public string DomainKey   => "wic-leave";
     public string DomainLabel => "WIC annual leave";
+
+    // Whole-word match: "vwic", "rwic" etc. must NOT trigger WIC leave routing
+    private static bool HasWholeWordWic(string q) => Regex.IsMatch(q, @"\bwic\b");
 
     public int Score(string q)
     {
@@ -17,14 +21,26 @@ public sealed class WicLeaveHandler(WicAssistantService wicSvc) : IDomainHandler
         if (q.Contains("forecast") || q.Contains("prognose")  ||
             q.Contains("vorhersage") || q.Contains("at risk"))       return 0;
         if (q.Contains("employee list") || q.Contains("mitarbeiterliste")) return 0;
+        // Yield for WIC duty queries — those belong to DashboardHandler
+        if (q.Contains("wic duty") || q.Contains("wic dienst") || q.Contains("wic-dienst")) return 0;
+
+        bool hasWic = HasWholeWordWic(q);
 
         int score = 0;
-        if (q.Contains("wic"))
+        if (hasWic)
             score += 90;
+
+        // Leave-specific keywords score regardless of WIC presence
         if (q.Contains("leave") || q.Contains("urlaub") || q.Contains("annual") ||
-            q.Contains("absent") || q.Contains("absence") || q.Contains("away") ||
-            q.Contains("frei")   || q.Contains("abwesend") || q.Contains("off"))
+            q.Contains("frei") || q.Contains("off"))
             score += 60;
+
+        // General absence keywords only score when WIC is explicitly present;
+        // without WIC they route to DashboardHandler / VacationsHandler instead
+        if (hasWic && (q.Contains("absent") || q.Contains("absence") ||
+                       q.Contains("away")   || q.Contains("abwesend")))
+            score += 60;
+
         if (q.Contains("vacation") || q.Contains("holiday"))
             score += 55;
         if (q.Contains("who is") || q.Contains("wer ist") || q.Contains("wer hat"))

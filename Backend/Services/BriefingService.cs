@@ -55,8 +55,7 @@ public class BriefingService
     private readonly SubstitutionService _substitution;
     private const int AtRiskLookahead = 14;
 
-    private static readonly HashSet<string> _fullAbsenceTypes =
-        new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "OL", "PH", "LPH", "RESIGNED" };
+    // Absent/non-WIC logic is centralised in AvailabilityResolver.GetWicContribution.
 
     public BriefingService(GSDContext db, SubstitutionService substitution)
     {
@@ -92,7 +91,7 @@ public class BriefingService
         // ── Absences today ────────────────────────────────────────────────────
         var todayShifts = shiftEntries.Where(s => s.ShiftDate == date).ToList();
         var absenceShifts = todayShifts
-            .Where(s => _fullAbsenceTypes.Contains(s.ShiftType) ||
+            .Where(s => AvailabilityResolver.FullAbsenceTypes.Contains(s.ShiftType) ||
                         string.Equals(s.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
@@ -100,6 +99,10 @@ public class BriefingService
 
         var sickToday = await _db.SickLeaves
             .Where(s => s.FirstDay <= date && s.LastDay >= date && s.EmployeeId != null)
+            .ToListAsync();
+        // Broader sick leave window for the lookahead gap scan
+        var sickLeavesAll = await _db.SickLeaves
+            .Where(s => s.FirstDay <= lookaheadEnd && s.LastDay >= date && s.EmployeeId != null)
             .ToListAsync();
         var vacToday = await _db.Vacations
             .Where(v => v.FirstDay <= date && v.LastDay >= date && v.EmployeeId != null)
@@ -172,10 +175,9 @@ public class BriefingService
             foreach (var w in dayWic)
             {
                 shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
-                bool isSick = sickToday.Any(sl => sl.EmployeeId == w.EmployeeId);
-                if (isSick || (sh != null && _fullAbsenceTypes.Contains(sh.ShiftType))) continue;
-                presentDouble += (sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
-                    ? 0.5 : 1.0;
+                bool isSick = sickLeavesAll.Any(sl =>
+                    sl.EmployeeId == w.EmployeeId && sl.FirstDay <= date && sl.LastDay >= date);
+                presentDouble += AvailabilityResolver.GetWicContribution(isSick, sh);
             }
 
             int effectiveCoverage = (int)Math.Floor(presentDouble);
@@ -235,9 +237,9 @@ public class BriefingService
                 foreach (var w in dayWic)
                 {
                     shiftByEmpDate.TryGetValue((w.EmployeeId, scanDate), out var sh);
-                    if (sh != null && _fullAbsenceTypes.Contains(sh.ShiftType)) continue;
-                    presentDouble += (sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
-                        ? 0.5 : 1.0;
+                    bool isSick = sickLeavesAll.Any(sl =>
+                        sl.EmployeeId == w.EmployeeId && sl.FirstDay <= scanDate && sl.LastDay >= scanDate);
+                    presentDouble += AvailabilityResolver.GetWicContribution(isSick, sh);
                 }
 
                 int effectiveCoverage = (int)Math.Floor(presentDouble);

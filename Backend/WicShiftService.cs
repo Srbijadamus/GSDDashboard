@@ -270,20 +270,20 @@ public class WicShiftService
                     .Where(w => w.ShiftDate == date && w.IsOnSite && WicLocationMatcher.MatchesSupportLocation(w.SupportLocation, loc))
                     .ToList();
 
-                // HALF_AL = 0.5 coverage (consistent with SubstitutionService)
                 int fullAbsentCount = 0;
                 double presentDouble = 0;
                 foreach (var w in dayWic)
                 {
                     if (absentToday.Contains(w.EmployeeId))
+                    {
                         fullAbsentCount++;
+                    }
                     else
                     {
                         shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
-                        if (sh != null && string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
-                            presentDouble += 0.5;
-                        else
-                            presentDouble += 1.0;
+                        double contrib = AvailabilityResolver.GetWicContribution(false, sh);
+                        if (contrib <= 0.0) fullAbsentCount++; // non-WIC work also reduces effective count
+                        else presentDouble += contrib;
                     }
                 }
 

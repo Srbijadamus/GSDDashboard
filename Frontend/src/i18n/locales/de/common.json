@@ -27,6 +27,10 @@
     "assistant": "GSD-Assistent",
     "boList": "BO-Liste",
     "bulkRtm": "RTM-Sammeleingabe",
+    "collapseSidebar": "Einklappen",
+    "expandSidebar": "Ausklappen",
+    "navThemeToLight": "Zu heller Seitenleiste wechseln",
+    "navThemeToDark": "Zu dunkler Seitenleiste wechseln",
     "group": {
       "planning": "Planung",
       "wicOps": "WIC-Betrieb",
@@ -43,6 +47,13 @@
     "training": "Schulung",
     "publicHoliday": "Feiertag",
     "offWeekend": "Wochenende",
+    "wicDuty": "WIC-Dienst",
+    "halfAl": "Halber Urlaub",
+    "off": "Frei",
+    "lph": "Lokaler FT",
+    "cd": "Freizeitausgleich",
+    "co": "Ausgleichstag",
+    "ol": "Sonstige Freistellung",
     "occupied": "Besetzt",
     "unoccupied": "Unbesetzt",
     "closed": "Geschlossen"
@@ -83,12 +94,41 @@
     "wicUnoccupied": "WIC Unbesetzt",
     "teamLeads": "Teamleiter-Übersicht",
     "detailGrid": "WIC Detailansicht",
+    "tlCard": {
+      "allOff": "Alle frei"
+    },
+    "tlSummary": {
+      "allOff": "Alle frei",
+      "notAvailable": "Nicht verfügbar"
+    },
+    "coverageRisk": {
+      "title": "Abdeckungsrisiko"
+    },
+    "grid": {
+      "title": "Vollständiges Abdeckungsraster"
+    },
+    "dayStrip": {
+      "clearFilter": "Tagesfilter zurücksetzen"
+    },
+    "exceptionList": {
+      "allCovered": "Alle Standorte für die nächsten {{n}} Tage abgedeckt",
+      "showAll": "Alle anzeigen ({{n}})",
+      "collapse": "Weniger anzeigen",
+      "bestSub": "Vertr.: {{name}}",
+      "columns": {
+        "date": "Datum",
+        "code": "Code",
+        "presentMin": "Anwesend / Min",
+        "status": "Status"
+      }
+    },
     "kpi": {
       "openToday": "Heute offen",
       "atRiskToday": "Heute gefährdet",
       "closureRisk": "Schließrisiko",
       "absentToday": "Heute abwesend",
-      "coveragePct": "Belegung %"
+      "coveragePct": "Belegung %",
+      "noLocationsOpen": "Keine Standorte geöffnet"
     },
     "heatmap": {
       "title": "Belegungsübersicht",
@@ -201,6 +241,41 @@
       "saving": "Wird verarbeitet...",
       "cancel": "Abbrechen",
       "success": "{{name}} — {{action}} erfasst"
+    },
+    "kiosk": {
+      "offline": "Kiosk offline"
+    },
+    "kioskDrawer": {
+      "checkedIn": "Angemeldet ({{n}})",
+      "expected": "Erwartet ({{n}})",
+      "notYetIn": "Noch nicht angemeldet ({{n}})",
+      "status": {
+        "active": "Aktiv",
+        "done": "Fertig",
+        "notIn": "Nicht eingest."
+      },
+      "empty": {
+        "checkedIn": "Keine Agenten angemeldet",
+        "expected": "Keine Agenten heute eingeplant",
+        "notYetIn": "Alle Agenten sind angemeldet"
+      }
+    },
+    "zoneB": {
+      "title": "Nicht angemeldet",
+      "allCheckedIn": "Alle Erwarteten haben sich angemeldet",
+      "upcoming": "Heute noch erwartet",
+      "noKiosk": "Keine Kiosk-Daten",
+      "delay": "Verspätung",
+      "manualCheckin": "Manuell anmelden",
+      "findSub": "Ersatz finden",
+      "name": "Name",
+      "location": "Standort",
+      "shiftStart": "Schichtbeginn",
+      "actions": "Aktionen",
+      "status": "Status",
+      "statusNotIn": "Nicht angemeldet",
+      "statusNoRecord": "Kein Eintrag",
+      "statusUnknown": "Unbekannt"
     }
   },
   "wicCoverage": {
@@ -248,6 +323,60 @@
       "saving": "Wird erstellt...",
       "cancel": "Abbrechen",
       "success": "Schicht für {{name}} erstellt"
+    }
+  },
+  "topbar": {
+    "themeToLight": "Zu hellem Design wechseln",
+    "themeToDark": "Zu dunklem Design wechseln",
+    "switchLanguage": "Sprache wechseln",
+    "search": "Suchen (Strg+K)",
+    "horizon7": "7-Tage-Zeitraum",
+    "horizon14": "14-Tage-Zeitraum",
+    "horizon28": "28-Tage-Zeitraum"
+  },
+  "common": {
+    "notAvailable": "Nicht verfügbar"
+  },
+  "vacations": {
+    "fullDay": "Ganzer Tag",
+    "halfDay": "Halber Tag",
+    "addAl": "+ AL eintragen",
+    "alHistory": "AL-Verlauf",
+    "alHistoryEmpty": "Keine AL-Einträge gefunden",
+    "alHistoryDate": "Datum",
+    "alHistoryDays": "Tage",
+    "alHistoryStatus": "Status",
+    "alHistoryNote": "Notiz"
+  },
+  "assistant": {
+    "search": "Vorschläge suchen…",
+    "showSuggestions": "Vorschläge anzeigen",
+    "suggestions": {
+      "coverage": "Abdeckung & WIC",
+      "shifts": "Schichten & Besetzung",
+      "absence": "Abwesenheit",
+      "balance": "Urlaubssaldo",
+      "planning": "Planung"
+    },
+    "chips": {
+      "uncoveredToday": "Heute unabgedeckt",
+      "atRisk7Days": "Risiko (7 Tage)",
+      "coverHamburg": "Hamburg abdecken?",
+      "nppAttention": "NPP-Standorte",
+      "workingToday": "Heute arbeitend",
+      "wicDutyWeek": "WIC-Dienst diese Woche",
+      "availableTomorrow": "Morgen verfügbar",
+      "vwicClock": "VWIC 24/7?",
+      "absentToday": "Heute abwesend",
+      "openSickLeave": "Offene Krankmeldungen",
+      "longSick": "Krank > 21 Tage",
+      "alNextWeek": "Urlaub nächste Woche",
+      "lowLeave": "Niedriger Urlaubssaldo",
+      "mostLeaveBooked": "Meistgebuchter Urlaub",
+      "overlappingLeave": "Überschneidende Anträge",
+      "pipelineEvents": "Pipeline-Ereignisse",
+      "eventsNeedAgents": "Ereignisse ohne Agent",
+      "trainingSlot": "Nächster Schulungsslot"
     }
   }
 }

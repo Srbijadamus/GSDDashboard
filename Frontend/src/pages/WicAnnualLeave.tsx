@@ -49,8 +49,6 @@ function displayDate(iso: string): string {
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 function cleanLocation(name: string): string {
-  // Prefer names that are already clean ("Helmstedt", "Neu-Isenburg")
-  // Strip legacy prefixes like "DE_Helmstedt" or "NL_Denbosch"
   if (/^(DE|NL)_/.test(name)) {
     return name.replace(/^(DE|NL)_/, "").replace(/_/g, " ")
   }
@@ -61,7 +59,6 @@ function buildLocMap(agents: WicAgent[]): Map<string, string> {
   const map = new Map<string, string>()
   for (const a of agents) {
     const mains = (a.wicRoles ?? []).filter(r => r.assignmentType === "MAIN")
-    // Prefer a clean displayName (not a legacy DE_/NL_ code)
     const best =
       mains.find(r => !/^(DE|NL)_/.test(r.displayName)) ?? mains[0]
     if (best) map.set(a.employeeId, cleanLocation(best.displayName))
@@ -77,18 +74,18 @@ function KpiCard({
   label: string; value: React.ReactNode; sub?: string; color: string; isLoading?: boolean
 }) {
   return (
-    <div style={{
-      background: "var(--card)", border: "1px solid var(--border)",
-      borderTop: `3px solid ${color}`, borderRadius: 8, padding: "14px 18px",
+    <div className="bg-raised border border-line-subtle" style={{
+      borderTop: `3px solid ${color}`,
+      borderRadius: 8, padding: "14px 18px",
     }}>
-      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>
+      <div className="text-ink-soft" style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>
         {label}
       </div>
       {isLoading
         ? <div className="skeleton" style={{ height: 36, width: 80 }} />
-        : <div style={{ fontSize: 30, fontWeight: 700, fontFamily: "IBM Plex Mono", color }}>{value}</div>}
+        : <div className="font-mono" style={{ fontSize: 30, fontWeight: 700, color }}>{value}</div>}
       {sub && !isLoading && (
-        <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>{sub}</div>
+        <div className="text-ink-soft" style={{ fontSize: 11, marginTop: 4 }}>{sub}</div>
       )}
     </div>
   )
@@ -99,7 +96,6 @@ function KpiCard({
 export default function WicAnnualLeave() {
   const [refreshKey, setRefreshKey] = useState(0)
 
-  // Dates computed once per mount / refresh — uses local time to avoid UTC offset issues
   const dates = useMemo(() => {
     const now = new Date()
     const end = new Date(now)
@@ -164,13 +160,12 @@ export default function WicAnnualLeave() {
   const { uniqueAgents, lowestDays, maxAbsences } = useMemo(() => {
     if (wicVacs.length === 0) return { uniqueAgents: 0, lowestDays: [] as string[], maxAbsences: 0 }
 
-    // Count absences per working day in the range
     const absPerDay = new Map<string, number>()
     const cur = new Date(dates.from)
     const end = new Date(dates.to)
     while (cur <= end) {
       const dow = cur.getDay()
-      if (dow !== 0 && dow !== 6) {      // weekdays only
+      if (dow !== 0 && dow !== 6) {
         const d = fmtDate(cur)
         const n = wicVacs.filter(v => v.firstDay <= d && v.lastDay >= d).length
         absPerDay.set(d, n)
@@ -198,24 +193,23 @@ export default function WicAnnualLeave() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, color: "var(--text)", margin: 0 }}>
+          <h1 className="text-ink" style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>
             WIC Annual Leave
           </h1>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4, fontFamily: "IBM Plex Mono" }}>
+          <div className="text-ink-soft font-mono" style={{ fontSize: 12, marginTop: 4 }}>
             Checked:&nbsp;
-            <span style={{ color: "var(--text2)" }}>{dates.from}</span>
+            <span className="text-ink-muted">{dates.from}</span>
             &nbsp;→&nbsp;
-            <span style={{ color: "var(--text2)" }}>{dates.to}</span>
+            <span className="text-ink-muted">{dates.to}</span>
             &nbsp;(14 calendar days)
           </div>
         </div>
         <button
           onClick={() => setRefreshKey(k => k + 1)}
           disabled={isFetching}
+          className={`bg-raised border border-line-subtle ${isFetching ? "text-ink-soft" : "text-ink-muted"}`}
           style={{
             display: "flex", alignItems: "center", gap: 6,
-            background: "var(--card)", border: "1px solid var(--border)",
-            color: isFetching ? "var(--text3)" : "var(--text2)",
             padding: "8px 14px", borderRadius: 6, fontSize: 12,
             cursor: isFetching ? "not-allowed" : "pointer",
           }}
@@ -230,10 +224,9 @@ export default function WicAnnualLeave() {
 
       {/* Error banner */}
       {isError && (
-        <div style={{
+        <div className="bg-crit-bg border border-crit-bd text-crit-fg" style={{
           display: "flex", alignItems: "center", gap: 10,
-          background: "rgba(255,59,92,.08)", border: "1px solid rgba(255,59,92,.3)",
-          borderRadius: 8, padding: "12px 16px", color: "var(--danger)", fontSize: 13,
+          borderRadius: 8, padding: "12px 16px", fontSize: 13,
         }}>
           <AlertTriangle size={16} style={{ flexShrink: 0 }} />
           <span>
@@ -261,57 +254,55 @@ export default function WicAnnualLeave() {
               label="WIC Agents on Leave"
               value={uniqueAgents}
               sub={`${wicVacs.length} leave record${wicVacs.length !== 1 ? "s" : ""}`}
-              color="var(--accent)"
+              color="rgb(var(--st-info-fg))"
             />
-            <div style={{
-              background: "var(--card)", border: "1px solid var(--border)",
-              borderTop: `3px solid ${maxAbsences > 0 ? "var(--danger)" : "var(--green)"}`,
+            <div className="bg-raised border border-line-subtle" style={{
+              borderTop: `3px solid ${maxAbsences > 0 ? "rgb(var(--st-crit-fg))" : "rgb(var(--st-good-fg))"}`,
               borderRadius: 8, padding: "14px 18px",
             }}>
-              <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 8 }}>
+              <div className="text-ink-soft" style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>
                 Lowest Coverage Days
               </div>
               {lowestDays.length === 0 ? (
-                <div style={{ fontSize: 13, color: "var(--green)", fontWeight: 600 }}>
+                <div className="text-good-fg" style={{ fontSize: 13, fontWeight: 600 }}>
                   No absences in range
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {lowestDays.slice(0, 4).map(d => (
                     <div key={d} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{
-                        fontSize: 10, fontFamily: "IBM Plex Mono", fontWeight: 700,
-                        background: "rgba(255,59,92,.12)", color: "var(--danger)",
+                      <span className="font-mono bg-crit-bg text-crit-fg" style={{
+                        fontSize: 10, fontWeight: 700,
                         padding: "1px 6px", borderRadius: 4, minWidth: 30, textAlign: "center",
                       }}>
                         {DOW[new Date(d).getDay()]}
                       </span>
-                      <span style={{ fontSize: 12, fontFamily: "IBM Plex Mono", color: "var(--text2)" }}>
+                      <span className="font-mono text-ink-muted" style={{ fontSize: 12 }}>
                         {displayDate(d)}
                       </span>
-                      <span style={{ fontSize: 11, color: "var(--text3)" }}>
+                      <span className="text-ink-soft" style={{ fontSize: 11 }}>
                         {maxAbsences} absent
                       </span>
                     </div>
                   ))}
                   {lowestDays.length > 4 && (
-                    <div style={{ fontSize: 11, color: "var(--text3)" }}>
+                    <div className="text-ink-soft" style={{ fontSize: 11 }}>
                       +{lowestDays.length - 4} more days
                     </div>
                   )}
                 </div>
               )}
             </div>
-            <div style={{
-              background: "var(--card)", border: "1px solid var(--border)",
-              borderTop: "3px solid var(--green)", borderRadius: 8, padding: "14px 18px",
+            <div className="bg-raised border border-line-subtle" style={{
+              borderTop: "3px solid rgb(var(--st-good-fg))",
+              borderRadius: 8, padding: "14px 18px",
             }}>
-              <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 8 }}>
+              <div className="text-ink-soft" style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 8 }}>
                 Period
               </div>
-              <div style={{ fontFamily: "IBM Plex Mono", fontSize: 12, lineHeight: 2, color: "var(--text2)" }}>
+              <div className="font-mono text-ink-muted" style={{ fontSize: 12, lineHeight: 2 }}>
                 <div>{displayDate(dates.from)}</div>
-                <div style={{ color: "var(--text3)", fontSize: 11 }}>↓ 14 calendar days</div>
+                <div className="text-ink-soft" style={{ fontSize: 11 }}>↓ 14 calendar days</div>
                 <div>{displayDate(dates.to)}</div>
               </div>
             </div>
@@ -319,36 +310,36 @@ export default function WicAnnualLeave() {
 
           {/* Table */}
           {wicVacs.length === 0 ? (
-            <div style={{
-              background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
+            <div className="bg-raised border border-line-subtle" style={{
+              borderRadius: 8,
               padding: "48px 20px", textAlign: "center",
             }}>
-              <CalendarOff size={32} style={{ color: "var(--text3)", marginBottom: 12 }} />
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text2)" }}>
+              <CalendarOff size={32} className="text-ink-soft" style={{ marginBottom: 12 }} />
+              <div className="text-ink-muted" style={{ fontSize: 14, fontWeight: 600 }}>
                 No annual leave found for WIC agents
               </div>
-              <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4, fontFamily: "IBM Plex Mono" }}>
+              <div className="text-ink-soft font-mono" style={{ fontSize: 12, marginTop: 4 }}>
                 {dates.from} → {dates.to}
               </div>
             </div>
           ) : (
-            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text2)", textTransform: "uppercase", letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, overflow: "hidden" }}>
+              <div className="border-b border-line-subtle" style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="text-ink-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em", display: "flex", alignItems: "center", gap: 8 }}>
                   <Users size={13} />
                   Leave Records
-                  <span style={{ fontSize: 10, background: "rgba(59,126,255,.12)", color: "var(--accent)", padding: "1px 7px", borderRadius: 10, fontFamily: "IBM Plex Mono" }}>
+                  <span className="font-mono bg-info-bg text-info-fg" style={{ fontSize: 10, padding: "1px 7px", borderRadius: 10 }}>
                     {wicVacs.length}
                   </span>
                 </div>
-                <div style={{ fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                <div className="text-ink-soft font-mono" style={{ fontSize: 11 }}>
                   sorted by start date
                 </div>
               </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ borderCollapse: "collapse", fontSize: 12, width: "100%", minWidth: 620 }}>
                   <thead>
-                    <tr style={{ background: "var(--card2)" }}>
+                    <tr className="bg-sunken">
                       {[
                         { label: "Employee",    width: "auto" },
                         { label: "Employee ID", width: 110 },
@@ -357,11 +348,10 @@ export default function WicAnnualLeave() {
                         { label: "Work Days",   width: 90 },
                         { label: "WIC Location",width: "auto" },
                       ].map(({ label, width }) => (
-                        <th key={label} style={{
+                        <th key={label} className="text-ink-soft border-b border-line-subtle" style={{
                           padding: "10px 14px", textAlign: "left",
-                          fontSize: 10, fontWeight: 600, color: "var(--text3)",
+                          fontSize: 10, fontWeight: 600,
                           textTransform: "uppercase", letterSpacing: ".06em",
-                          borderBottom: "1px solid var(--border)",
                           whiteSpace: "nowrap",
                           width: width === "auto" ? undefined : width,
                         }}>
@@ -374,41 +364,37 @@ export default function WicAnnualLeave() {
                     {wicVacs.map((row, i) => (
                       <tr
                         key={row.id}
+                        className="border-b border-line-subtle transition-colors hover:bg-hovered"
                         style={{
-                          borderBottom: "1px solid var(--border)",
                           background: i % 2 === 0 ? "transparent" : "rgba(0,0,0,.018)",
                         }}
                       >
-                        <td style={{ padding: "10px 14px", fontWeight: 500, color: "var(--text)" }}>
+                        <td className="text-ink" style={{ padding: "10px 14px", fontWeight: 500 }}>
                           {row.fullName}
                         </td>
-                        <td style={{ padding: "10px 14px", fontFamily: "IBM Plex Mono", color: "var(--text3)", fontSize: 11 }}>
+                        <td className="font-mono text-ink-soft" style={{ padding: "10px 14px", fontSize: 11 }}>
                           {row.employeeId}
                         </td>
-                        <td style={{ padding: "10px 14px", fontFamily: "IBM Plex Mono", color: "var(--text2)", whiteSpace: "nowrap" }}>
+                        <td className="font-mono text-ink-muted" style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
                           {displayDate(row.firstDay)}
                         </td>
-                        <td style={{ padding: "10px 14px", fontFamily: "IBM Plex Mono", color: "var(--text2)", whiteSpace: "nowrap" }}>
+                        <td className="font-mono text-ink-muted" style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
                           {displayDate(row.lastDay)}
                         </td>
-                        <td style={{ padding: "10px 14px", fontFamily: "IBM Plex Mono", textAlign: "center", fontWeight: 600 }}>
-                          <span style={{
-                            background: "rgba(59,126,255,.1)", color: "var(--accent)",
-                            padding: "2px 9px", borderRadius: 4,
-                          }}>
+                        <td className="font-mono" style={{ padding: "10px 14px", textAlign: "center", fontWeight: 600 }}>
+                          <span className="bg-info-bg text-info-fg" style={{ padding: "2px 9px", borderRadius: 4 }}>
                             {row.workDaysNet}
                           </span>
                         </td>
                         <td style={{ padding: "10px 14px" }}>
                           {row.wicLocation !== "—" ? (
-                            <span style={{
-                              background: "rgba(34,208,122,.1)", color: "var(--green)",
+                            <span className="bg-good-bg text-good-fg" style={{
                               padding: "2px 9px", borderRadius: 4, fontSize: 11, fontWeight: 500,
                             }}>
                               {row.wicLocation}
                             </span>
                           ) : (
-                            <span style={{ color: "var(--text3)" }}>—</span>
+                            <span className="text-ink-soft">—</span>
                           )}
                         </td>
                       </tr>

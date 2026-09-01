@@ -1,29 +1,25 @@
-import { useTheme } from "next-themes"
-import { Sun, Moon } from "lucide-react"
+import { useTheme } from 'next-themes'
+import { Sun, Moon } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
-  const isDark = resolvedTheme === "dark"
+  const { t } = useTranslation()
+  const [mounted, setMounted] = useState(false)
 
+  useEffect(() => setMounted(true), [])
+
+  if (!mounted) return <div className="h-8 w-8" aria-hidden />
+
+  const isDark = resolvedTheme === 'dark'
   return (
     <button
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      style={{
-        background: "var(--card2)",
-        border: "1px solid var(--border)",
-        color: "var(--text2)",
-        padding: "4px 8px",
-        borderRadius: 6,
-        fontSize: 11,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 4,
-        transition: "color 0.15s, background 0.15s",
-      }}
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      aria-label={isDark ? t('topbar.themeToLight') : t('topbar.themeToDark')}
+      className="h-8 w-8 rounded-md flex items-center justify-center text-ink-muted hover:bg-hovered transition-colors duration-fast"
     >
-      {isDark ? <Sun size={13} /> : <Moon size={13} />}
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </button>
   )
 }

@@ -3,6 +3,7 @@ import LeaveAvailabilityBar from './LeaveAvailabilityBar'
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { apiFetch } from "../api/client"
+import { AlertTriangle } from "lucide-react"
 
 function getDateRange(startDate: Date, days: number): string[] {
   return Array.from({ length: days }, (_, i) => {
@@ -12,10 +13,10 @@ function getDateRange(startDate: Date, days: number): string[] {
   })
 }
 
-function headerColor(count: number) {
-  if (count <= 2)  return "var(--green)"
-  if (count <= 5)  return "#facc15"
-  return "var(--danger)"
+function headerColor(count: number): string {
+  if (count <= 2)  return "text-good-fg"
+  if (count <= 5)  return "text-warn-fg"
+  return "text-crit-fg"
 }
 
 function dayLabel(dateStr: string) {
@@ -38,7 +39,6 @@ const MONTH_NAMES = [
   "July","August","September","October","November","December"
 ]
 
-// Convert JS getDay() (0=Sun) to Mon-based index (0=Mon, 6=Sun)
 function monBasedDow(date: Date): number {
   const d = date.getDay()
   return d === 0 ? 6 : d - 1
@@ -55,7 +55,6 @@ export default function ALCalendar() {
     new Date(today.getFullYear(), today.getMonth(), 1)
   )
 
-  // ── date range ────────────────────────────────────────────────────────────
   const calYear     = calMonth.getFullYear()
   const calMon      = calMonth.getMonth()
   const calLastDay  = new Date(calYear, calMon + 1, 0)
@@ -74,20 +73,17 @@ export default function ALCalendar() {
     to = td.toISOString().split("T")[0]
   }
 
-  // ── AL calendar query ─────────────────────────────────────────────────────
   const { data, isLoading } = useQuery({
     queryKey: ["alcalendar", from, to, teamLead],
     queryFn:  () => apiFetch<any>(`/api/alcalendar?from=${from}&to=${to}${teamLead ? "&teamLead=" + teamLead : ""}`)
   })
 
-  // ── WIC forecast query (month view only) ──────────────────────────────────
   const { data: wicData } = useQuery({
     queryKey: ["wic-forecast-month", from, daysInMonth],
     queryFn:  () => apiFetch<any>(`/api/wic/forecast?startDate=${from}&horizon=${daysInMonth}`),
     enabled:  view === "3m"
   })
 
-  // ── derived data ──────────────────────────────────────────────────────────
   const dates = view !== "3m" ? getDateRange(today, rollingDays) : []
 
   const dayMap: Record<string, any> = {}
@@ -111,7 +107,6 @@ export default function ALCalendar() {
     byTL[tl].push(a)
   })
 
-  // Per-date WIC risk summary
   const wicByDate: Record<string, { isAtRisk: boolean; allClosed: boolean }> = {}
   if (wicData?.locations) {
     const acc: Record<string, { atRisk: boolean; anyOpen: boolean }> = {}
@@ -127,8 +122,7 @@ export default function ALCalendar() {
     })
   }
 
-  // Month calendar grid
-  const firstDayIdx  = monBasedDow(calMonth)                       // 0=Mon .. 6=Sun
+  const firstDayIdx  = monBasedDow(calMonth)
   const totalCells   = Math.ceil((firstDayIdx + daysInMonth) / 7) * 7
   const calCells     = Array.from({ length: totalCells }, (_, i) => {
     const n = i - firstDayIdx + 1
@@ -152,24 +146,21 @@ export default function ALCalendar() {
 
       {/* HEADER */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, color: "var(--text)" }}>AL Calendar</h1>
+        <h1 className="text-ink" style={{ fontSize: 22, fontWeight: 600 }}>AL Calendar</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <select value={teamLead} onChange={e => setTeamLead(e.target.value)}
-            style={{ background: "var(--card)", border: "1px solid var(--border)",
-              color: "var(--text2)", padding: "6px 10px", borderRadius: 6, fontSize: 12 }}>
+            className="bg-raised border border-line-subtle text-ink-muted"
+            style={{ padding: "6px 10px", borderRadius: 6, fontSize: 12 }}>
             <option value="">All Team Leads</option>
             {data?.teamLeads?.map((tl: string) => (
               <option key={tl} value={tl}>{tl}</option>
             ))}
           </select>
           {(["7d","14d","3m"] as const).map(v => (
-            <button key={v} onClick={() => { setView(v); setExpandedDay(null) }} style={{
-              background: view === v ? "var(--accent)" : "var(--card)",
-              border: `1px solid ${view === v ? "var(--accent)" : "var(--border)"}`,
-              color: view === v ? "#fff" : "var(--text2)",
-              padding: "6px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer",
-              fontFamily: "IBM Plex Mono"
-            }}>
+            <button key={v} onClick={() => { setView(v); setExpandedDay(null) }}
+              className={`font-mono ${view === v ? "bg-info-solid text-white" : "bg-raised border border-line-subtle text-ink-muted"}`}
+              style={{ padding: "6px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer",
+                border: view === v ? "none" : undefined }}>
               {v === "7d" ? "7 Days" : v === "14d" ? "14 Days" : "Month"}
             </button>
           ))}
@@ -178,78 +169,69 @@ export default function ALCalendar() {
 
       {/* SUMMARY CARDS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 18px" }}>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>
+        <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, padding: "14px 18px" }}>
+          <div className="text-ink-soft" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>
             {view === "3m" ? "1st of Month" : "On AL Today"}
           </div>
-          <div style={{ fontSize: 26, fontWeight: 600, fontFamily: "IBM Plex Mono", color: "var(--accent)" }}>
+          <div className="text-info-fg font-mono" style={{ fontSize: 26, fontWeight: 600 }}>
             {view === "3m"
               ? (dayMap[from]?.totalOnAL ?? 0)
               : (dayMap[todayStr]?.totalOnAL ?? 0)}
           </div>
         </div>
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 18px" }}>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>Peak Day</div>
-          <div style={{ fontSize: 26, fontWeight: 600, fontFamily: "IBM Plex Mono", color: "var(--warn)" }}>
+        <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, padding: "14px 18px" }}>
+          <div className="text-ink-soft" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Peak Day</div>
+          <div className="text-warn-fg font-mono" style={{ fontSize: 26, fontWeight: 600 }}>
             {data?.days ? Math.max(...data.days.map((d: any) => d.totalOnAL)) : 0}
           </div>
         </div>
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 18px" }}>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>Warning Days</div>
-          <div style={{ fontSize: 26, fontWeight: 600, fontFamily: "IBM Plex Mono", color: "var(--danger)" }}>
+        <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, padding: "14px 18px" }}>
+          <div className="text-ink-soft" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Warning Days</div>
+          <div className="text-crit-fg font-mono" style={{ fontSize: 26, fontWeight: 600 }}>
             {data?.days?.filter((d: any) => d.hasWarning).length ?? 0}
           </div>
         </div>
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 18px" }}>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>Agents Tracked</div>
-          <div style={{ fontSize: 26, fontWeight: 600, fontFamily: "IBM Plex Mono", color: "var(--text)" }}>
+        <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, padding: "14px 18px" }}>
+          <div className="text-ink-soft" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Agents Tracked</div>
+          <div className="text-ink font-mono" style={{ fontSize: 26, fontWeight: 600 }}>
             {agents.length}
           </div>
         </div>
       </div>
 
       {isLoading && (
-        <div style={{ padding: 40, textAlign: "center", color: "var(--text3)" }}>Loading...</div>
+        <div className="text-ink-soft" style={{ padding: 40, textAlign: "center" }}>Loading...</div>
       )}
 
       {/* ── MONTH VIEW ───────────────────────────────────────────────────── */}
       {view === "3m" && !isLoading && (
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+        <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, overflow: "hidden" }}>
 
           {/* Month navigation */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
-            <button onClick={prevMonth} style={{
-              background: "var(--card2)", border: "1px solid var(--border)",
-              color: "var(--text2)", borderRadius: 6, padding: "4px 12px",
-              cursor: "pointer", fontSize: 14, fontFamily: "IBM Plex Mono"
-            }}>‹</button>
-            <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", fontFamily: "IBM Plex Mono" }}>
+          <div className="border-b border-line-subtle" style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "10px 16px" }}>
+            <button onClick={prevMonth} className="bg-sunken border border-line-subtle text-ink-muted font-mono"
+              style={{ borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontSize: 14 }}>‹</button>
+            <span className="text-ink font-mono" style={{ fontSize: 15, fontWeight: 600 }}>
               {MONTH_NAMES[calMon]} {calYear}
             </span>
-            <button onClick={nextMonth} style={{
-              background: "var(--card2)", border: "1px solid var(--border)",
-              color: "var(--text2)", borderRadius: 6, padding: "4px 12px",
-              cursor: "pointer", fontSize: 14, fontFamily: "IBM Plex Mono"
-            }}>›</button>
+            <button onClick={nextMonth} className="bg-sunken border border-line-subtle text-ink-muted font-mono"
+              style={{ borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontSize: 14 }}>›</button>
           </div>
 
           {/* Day-of-week headers */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)",
-            borderBottom: "1px solid var(--border)", background: "var(--card2)" }}>
+          <div className="bg-sunken border-b border-line-subtle" style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
             {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => (
-              <div key={d} style={{ textAlign: "center", padding: "8px 0",
-                fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono",
-                letterSpacing: ".05em", textTransform: "uppercase" }}>{d}</div>
+              <div key={d} className="text-ink-soft font-mono" style={{ textAlign: "center", padding: "8px 0",
+                fontSize: 10, letterSpacing: ".05em", textTransform: "uppercase" }}>{d}</div>
             ))}
           </div>
 
           {/* Calendar grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 1,
-            background: "var(--border)", padding: 1 }}>
+          <div className="bg-line-subtle" style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 1, padding: 1 }}>
             {calCells.map((dayNum, i) => {
               if (dayNum === null) {
-                return <div key={`blank-${i}`} style={{ background: "var(--card)", minHeight: 72 }} />
+                return <div key={`blank-${i}`} className="bg-raised" style={{ minHeight: 72 }} />
               }
               const dateStr  = calDateStr(dayNum)
               const dayData  = dayMap[dateStr]
@@ -259,49 +241,45 @@ export default function ALCalendar() {
               const isToday  = dateStr === todayStr
               const wic      = wicByDate[dateStr]
               const wicDot   = we || wic?.allClosed ? null
-                : wic?.isAtRisk ? "var(--danger)"
-                : wicData ? "var(--green)"
+                : wic?.isAtRisk ? "rgb(var(--st-crit-fg))"
+                : wicData ? "rgb(var(--st-good-fg))"
                 : null
 
-              const bg = isToday  ? "rgba(59,126,255,.15)"
-                : we              ? "rgba(30,45,69,.35)"
-                : count === 0     ? "var(--card)"
-                : count <= 2      ? "rgba(34,208,122,.06)"
-                : count <= 5      ? "rgba(250,204,21,.08)"
-                :                   "rgba(255,59,92,.10)"
-
-              const countColor = count <= 2 ? "var(--green)"
-                : count <= 5    ? "#facc15"
-                :                 "var(--danger)"
+              const cellBgClass = expandedDay === dateStr ? "bg-info-bg"
+                : isToday  ? "bg-info-bg"
+                : we       ? "bg-sunken"
+                : count === 0 ? "bg-sunken"
+                : count <= 2  ? "bg-good-bg"
+                : count <= 5  ? "bg-warn-bg"
+                :               "bg-crit-bg"
+              const countClass = headerColor(count)
 
               return (
                 <div key={dateStr}
                   onClick={() => setExpandedDay(expandedDay === dateStr ? null : dateStr)}
+                  className={`${cellBgClass} ${expandedDay === dateStr ? "border border-info-solid" : ""}`}
                   style={{
-                    background: expandedDay === dateStr ? "rgba(59,126,255,.18)" : bg,
                     minHeight: 72, padding: "6px 8px",
                     cursor: "pointer", display: "flex", flexDirection: "column",
-                    border: expandedDay === dateStr ? "1px solid var(--accent)" : "none",
                     transition: "background .12s",
                     position: "relative"
                   }}>
                   {/* Day number */}
-                  <div style={{
-                    fontSize: 11, fontFamily: "IBM Plex Mono",
+                  <div className="font-mono" style={{
+                    fontSize: 11,
                     fontWeight: isToday ? 700 : 400,
-                    color: isToday ? "var(--accent)" : we ? "var(--text3)" : "var(--text2)"
+                    color: isToday ? "rgb(var(--st-info-fg))" : we ? "rgb(var(--text-tertiary))" : "rgb(var(--text-secondary))"
                   }}>{dayNum}</div>
 
                   {/* AL count */}
                   {!we && count > 0 && (
-                    <div style={{
+                    <div className={`font-mono ${countClass}`} style={{
                       marginTop: 4, fontSize: 13, fontWeight: 700,
-                      fontFamily: "IBM Plex Mono", color: countColor,
                       display: "flex", alignItems: "center", gap: 3
                     }}>
                       {count}
-                      <span style={{ fontSize: 9, color: countColor, fontWeight: 400 }}>AL</span>
-                      {hasWarn && <span style={{ fontSize: 10 }}>⚠</span>}
+                      <span className={countClass} style={{ fontSize: 9, fontWeight: 400 }}>AL</span>
+                      {hasWarn && <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" />}
                     </div>
                   )}
 
@@ -319,26 +297,26 @@ export default function ALCalendar() {
           </div>
 
           {/* Legend */}
-          <div style={{ padding: "8px 16px", borderTop: "1px solid var(--border)",
+          <div className="border-t border-line-subtle" style={{ padding: "8px 16px",
             display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 10, color: "var(--text3)", letterSpacing: ".06em", textTransform: "uppercase" }}>Legend:</span>
+            <span className="text-ink-soft" style={{ fontSize: 10, letterSpacing: ".06em", textTransform: "uppercase" }}>Legend:</span>
             {[
-              { color: "rgba(34,208,122,.25)", label: "1–2 on AL" },
-              { color: "rgba(250,204,21,.25)", label: "3–5 on AL" },
-              { color: "rgba(255,59,92,.25)",  label: "6+ on AL"  },
-            ].map(({ color, label }) => (
+              { cls: "bg-good-bg border border-good-bd", label: "1–2 on AL" },
+              { cls: "bg-warn-bg border border-warn-bd", label: "3–5 on AL" },
+              { cls: "bg-crit-bg border border-crit-bd", label: "6+ on AL"  },
+            ].map(({ cls, label }) => (
               <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 12, height: 12, borderRadius: 2, background: color }} />
-                <span style={{ fontSize: 10, color: "var(--text3)" }}>{label}</span>
+                <div className={cls} style={{ width: 12, height: 12, borderRadius: 2 }} />
+                <span className="text-ink-soft" style={{ fontSize: 10 }}>{label}</span>
               </div>
             ))}
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)" }} />
-              <span style={{ fontSize: 10, color: "var(--text3)" }}>WIC covered</span>
+              <div className="bg-good-solid" style={{ width: 7, height: 7, borderRadius: "50%" }} />
+              <span className="text-ink-soft" style={{ fontSize: 10 }}>WIC covered</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--danger)" }} />
-              <span style={{ fontSize: 10, color: "var(--text3)" }}>WIC at risk</span>
+              <div className="bg-crit-solid" style={{ width: 7, height: 7, borderRadius: "50%" }} />
+              <span className="text-ink-soft" style={{ fontSize: 10 }}>WIC at risk</span>
             </div>
           </div>
         </div>
@@ -346,18 +324,17 @@ export default function ALCalendar() {
 
       {/* EXPANDED DAY DETAIL (month view) */}
       {view === "3m" && expandedDay && (
-        <div style={{ background: "var(--card)", border: "1px solid var(--accent)44",
-          borderRadius: 8, padding: "16px" }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>
+        <div className="bg-raised border border-info-bd" style={{ borderRadius: 8, padding: "16px" }}>
+          <div className="text-ink" style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
             {expandedDay}
             {dayMap[expandedDay] && (
-              <span style={{ marginLeft: 8, color: "var(--text2)", fontWeight: 400 }}>
+              <span className="text-ink-muted" style={{ marginLeft: 8, fontWeight: 400 }}>
                 — {dayMap[expandedDay].totalOnAL} agents on AL
               </span>
             )}
             {dayMap[expandedDay]?.hasWarning && (
-              <span style={{ marginLeft: 8, fontSize: 11, color: "var(--danger)" }}>
-                ⚠ {dayMap[expandedDay].warningTeams?.join(", ")}
+              <span className="text-crit-fg" style={{ marginLeft: 8, fontSize: 11 }}>
+                <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> {dayMap[expandedDay].warningTeams?.join(", ")}
               </span>
             )}
           </div>
@@ -367,42 +344,41 @@ export default function ALCalendar() {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
               {dayMap[expandedDay].agents.map((a: any) => (
                 <div key={a.employeeId} style={{
-                  background: `${TL_COLORS[a.teamLeadName] ?? "var(--accent)"}18`,
-                  border: `1px solid ${TL_COLORS[a.teamLeadName] ?? "var(--accent)"}33`,
+                  background: `${TL_COLORS[a.teamLeadName] ?? "rgb(var(--st-info-solid))"}18`,
+                  border: `1px solid ${TL_COLORS[a.teamLeadName] ?? "rgb(var(--st-info-solid))"}33`,
                   borderRadius: 6, padding: "5px 10px", fontSize: 11
                 }}>
-                  <div style={{ fontWeight: 500, color: "var(--text)" }}>{a.fullName}</div>
-                  <div style={{ fontSize: 10, color: TL_COLORS[a.teamLeadName] ?? "var(--text3)" }}>
+                  <div className="text-ink" style={{ fontWeight: 500 }}>{a.fullName}</div>
+                  <div style={{ fontSize: 10, color: TL_COLORS[a.teamLeadName] ?? "rgb(var(--text-tertiary))" }}>
                     {a.teamLeadName?.split(" ")[0]}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 14 }}>No agents on AL this day.</div>
+            <div className="text-ink-soft" style={{ fontSize: 11, marginBottom: 14 }}>No agents on AL this day.</div>
           )}
 
           {/* WIC coverage per location */}
           {wicData?.locations && (
             <>
-              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".07em",
-                color: "var(--text3)", marginBottom: 8 }}>WIC Coverage</div>
+              <div className="text-ink-soft" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>WIC Coverage</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {wicData.locations.map((loc: any) => {
                   const df = loc.forecast?.find((d: any) => d.date === expandedDay)
                   if (!df) return null
-                  const riskColor = !df.isOpen ? "var(--text3)"
-                    : df.isAtRisk ? "var(--danger)"
-                    : "var(--green)"
+                  const riskColor = !df.isOpen ? "rgb(var(--text-tertiary))"
+                    : df.isAtRisk ? "rgb(var(--st-crit-fg))"
+                    : "rgb(var(--st-good-fg))"
                   return (
-                    <div key={loc.locationCode} style={{
-                      background: "var(--card2)", border: `1px solid ${riskColor}44`,
+                    <div key={loc.locationCode} className="bg-sunken" style={{
+                      border: `1px solid ${riskColor}44`,
                       borderRadius: 6, padding: "6px 10px", fontSize: 11, minWidth: 120
                     }}>
-                      <div style={{ fontWeight: 500, color: "var(--text)", marginBottom: 2 }}>
+                      <div className="text-ink" style={{ fontWeight: 500, marginBottom: 2 }}>
                         {loc.displayName}
                       </div>
-                      <div style={{ fontSize: 10, color: riskColor, fontFamily: "IBM Plex Mono" }}>
+                      <div className="font-mono" style={{ fontSize: 10, color: riskColor }}>
                         {!df.isOpen
                           ? df.closedReason ?? "Closed"
                           : `${df.effectiveCoverage}/${df.minRequired} · ${df.status}`}
@@ -418,18 +394,18 @@ export default function ALCalendar() {
 
       {/* ── 14 DAY / 7 DAY GRID ─────────────────────────────────────────── */}
       {(view === "14d" || view === "7d") && !isLoading && (
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+        <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, overflow: "hidden" }}>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead>
-                <tr style={{ background: "var(--card2)" }}>
-                  <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 10, fontWeight: 500,
-                    textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)",
-                    borderBottom: "1px solid var(--border)", minWidth: 160, position: "sticky", left: 0,
-                    background: "var(--card2)", zIndex: 2 }}>Agent</th>
-                  <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 10, fontWeight: 500,
-                    textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)",
-                    borderBottom: "1px solid var(--border)", minWidth: 120 }}>Team Lead</th>
+                <tr className="bg-sunken">
+                  <th className="text-ink-soft border-b border-line-subtle bg-sunken" style={{ padding: "10px 12px", textAlign: "left", fontSize: 10, fontWeight: 500,
+                    textTransform: "uppercase", letterSpacing: ".07em",
+                    minWidth: 160, position: "sticky", left: 0,
+                    zIndex: 2 }}>Agent</th>
+                  <th className="text-ink-soft border-b border-line-subtle" style={{ padding: "10px 8px", textAlign: "left", fontSize: 10, fontWeight: 500,
+                    textTransform: "uppercase", letterSpacing: ".07em",
+                    minWidth: 120 }}>Team Lead</th>
                   {dates.map(d => {
                     const { dow, day, month } = dayLabel(d)
                     const dayData = dayMap[d]
@@ -438,27 +414,26 @@ export default function ALCalendar() {
                     const we = isWeekend(d)
                     const isToday = d === todayStr
                     return (
-                      <th key={d} style={{
+                      <th key={d} className="border-b border-line-subtle" style={{
                         padding: "6px 4px", textAlign: "center", fontSize: 10,
-                        borderBottom: "1px solid var(--border)",
-                        borderLeft: "1px solid rgba(30,45,69,.5)",
+                        borderLeft: "1px solid rgb(var(--line-subtle))",
                         minWidth: 52, maxWidth: 52,
-                        background: isToday ? "rgba(59,126,255,.08)" : we ? "rgba(30,45,69,.3)" : "transparent"
+                        background: isToday ? "rgb(var(--st-info-bg))" : we ? "rgb(var(--surface-sunken))" : "transparent"
                       }}>
-                        <div style={{ color: isToday ? "var(--accent)" : we ? "var(--text3)" : "var(--text2)", fontWeight: isToday ? 700 : 400 }}>
+                        <div style={{ color: isToday ? "rgb(var(--st-info-fg))" : we ? "rgb(var(--text-tertiary))" : "rgb(var(--text-secondary))", fontWeight: isToday ? 700 : 400 }}>
                           {dow}
                         </div>
-                        <div style={{ color: isToday ? "var(--accent)" : we ? "var(--text3)" : "var(--text2)", fontFamily: "IBM Plex Mono", fontSize: 9 }}>
+                        <div className="font-mono" style={{ color: isToday ? "rgb(var(--st-info-fg))" : we ? "rgb(var(--text-tertiary))" : "rgb(var(--text-secondary))", fontSize: 9 }}>
                           {day}.{month}
                         </div>
-                        <div style={{
-                          marginTop: 3, fontFamily: "IBM Plex Mono", fontWeight: 700,
-                          color: we ? "var(--text3)" : headerColor(count),
+                        <div className={`font-mono ${we ? "" : headerColor(count)}`} style={{
+                          marginTop: 3, fontWeight: 700,
+                          color: we ? "rgb(var(--text-tertiary))" : undefined,
                           fontSize: 12
                         }}>
                           {we ? "—" : count}
                         </div>
-                        {hasWarn && <div style={{ fontSize: 9, color: "var(--danger)" }}>⚠</div>}
+                        {hasWarn && <div className="text-crit-fg" style={{ fontSize: 9 }}><AlertTriangle size={9} className="inline align-text-bottom" /></div>}
                       </th>
                     )
                   })}
@@ -471,27 +446,25 @@ export default function ALCalendar() {
                       <td colSpan={2 + dates.length} style={{
                         padding: "6px 12px", fontSize: 10, fontWeight: 600,
                         textTransform: "uppercase", letterSpacing: ".08em",
-                        color: TL_COLORS[tl] ?? "var(--text2)",
-                        background: "rgba(30,45,69,.3)",
-                        borderBottom: "1px solid var(--border)",
-                        borderTop: "1px solid var(--border)"
+                        color: TL_COLORS[tl] ?? "rgb(var(--text-secondary))",
+                        background: "rgb(var(--surface-sunken))",
+                        borderBottom: "1px solid rgb(var(--line-subtle))",
+                        borderTop: "1px solid rgb(var(--line-subtle))"
                       }}>
                         {tl} ({tlAgents.length})
                       </td>
                     </tr>
                     {(tlAgents as any[]).map((agent: any) => (
                       <tr key={agent.employeeId}
-                        style={{ borderBottom: "1px solid rgba(30,45,69,.4)" }}
-                        onMouseEnter={ev => (ev.currentTarget.style.background = "var(--card2)")}
-                        onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}>
-                        <td style={{ padding: "6px 12px", position: "sticky", left: 0,
-                          background: "var(--card)", zIndex: 1,
-                          borderRight: "1px solid rgba(30,45,69,.4)" }}>
-                          <div style={{ fontWeight: 500, color: "var(--text)", fontSize: 11 }}>{agent.fullName}</div>
-                          <div style={{ fontFamily: "IBM Plex Mono", fontSize: 9, color: "var(--text3)" }}>{agent.employeeId}</div>
+                        className="hover:bg-hovered transition-colors border-b border-line-subtle">
+                        <td className="bg-raised" style={{ padding: "6px 12px", position: "sticky", left: 0,
+                          zIndex: 1,
+                          borderRight: "1px solid rgb(var(--line-subtle))" }}>
+                          <div className="text-ink" style={{ fontWeight: 500, fontSize: 11 }}>{agent.fullName}</div>
+                          <div className="font-mono text-ink-soft" style={{ fontSize: 9 }}>{agent.employeeId}</div>
                         </td>
-                        <td style={{ padding: "6px 8px", fontSize: 10, color: "var(--text3)" }}>
-                          <span style={{ color: TL_COLORS[agent.teamLeadName] ?? "var(--text2)", fontSize: 10 }}>
+                        <td style={{ padding: "6px 8px", fontSize: 10 }}>
+                          <span style={{ color: TL_COLORS[agent.teamLeadName] ?? "rgb(var(--text-secondary))", fontSize: 10 }}>
                             {agent.teamLeadName?.split(" ")[0]}
                           </span>
                         </td>
@@ -501,23 +474,22 @@ export default function ALCalendar() {
                           const we = isWeekend(d)
                           const isToday = d === todayStr
                           if (we) return (
-                            <td key={d} style={{ borderLeft: "1px solid rgba(30,45,69,.3)",
-                              background: "rgba(30,45,69,.2)" }} />
+                            <td key={d} className="bg-sunken" style={{ borderLeft: "1px solid rgb(var(--line-subtle))" }} />
                           )
                           if (!onAL) return (
                             <td key={d} style={{
-                              borderLeft: "1px solid rgba(30,45,69,.3)",
-                              background: isToday ? "rgba(59,126,255,.04)" : "transparent"
+                              borderLeft: "1px solid rgb(var(--line-subtle))",
+                              background: isToday ? "rgb(var(--st-info-bg))" : "transparent"
                             }} />
                           )
-                          const tlColor = TL_COLORS[agent.teamLeadName] ?? "var(--accent)"
+                          const tlColor = TL_COLORS[agent.teamLeadName] ?? "rgb(var(--st-info-solid))"
                           return (
-                            <td key={d} style={{ borderLeft: "1px solid rgba(30,45,69,.3)", padding: "2px" }}>
-                              <div style={{
+                            <td key={d} style={{ borderLeft: "1px solid rgb(var(--line-subtle))", padding: "2px" }}>
+                              <div className="font-mono" style={{
                                 background: `${tlColor}22`, border: `1px solid ${tlColor}44`,
                                 borderRadius: 3, padding: "2px 0",
                                 textAlign: "center", fontSize: 9,
-                                color: tlColor, fontFamily: "IBM Plex Mono", fontWeight: 600
+                                color: tlColor, fontWeight: 600
                               }}>AL</div>
                             </td>
                           )
@@ -534,9 +506,9 @@ export default function ALCalendar() {
 
       {/* ── 7-DAY LIST (supplemental) ────────────────────────────────────── */}
       {view === "7d" && !isLoading && (
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden", marginTop: 8 }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", fontSize: 11,
-            textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)" }}>
+        <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, overflow: "hidden", marginTop: 8 }}>
+          <div className="border-b border-line-subtle text-ink-soft" style={{ padding: "12px 16px", fontSize: 11,
+            textTransform: "uppercase", letterSpacing: ".07em" }}>
             Upcoming 7 Days — Who is on AL
           </div>
           {dates.filter(d => !isWeekend(d)).map(d => {
@@ -544,30 +516,29 @@ export default function ALCalendar() {
             if (!dayData || dayData.totalOnAL === 0) return null
             const { dow, day, month } = dayLabel(d)
             return (
-              <div key={d} style={{ padding: "10px 16px", borderBottom: "1px solid rgba(30,45,69,.4)" }}>
+              <div key={d} className="border-b border-line-subtle" style={{ padding: "10px 16px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span style={{ fontFamily: "IBM Plex Mono", fontSize: 12,
-                    color: d === todayStr ? "var(--accent)" : "var(--text2)",
+                  <span className="font-mono" style={{ fontSize: 12,
+                    color: d === todayStr ? "rgb(var(--st-info-fg))" : "rgb(var(--text-secondary))",
                     fontWeight: d === todayStr ? 700 : 400 }}>
                     {dow} {day}.{month}
                   </span>
-                  <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11,
-                    color: headerColor(dayData.totalOnAL), fontWeight: 700 }}>
+                  <span className={`font-mono font-bold ${headerColor(dayData.totalOnAL)}`} style={{ fontSize: 11 }}>
                     {dayData.totalOnAL} on AL
                   </span>
                   {dayData.hasWarning && (
-                    <span style={{ fontSize: 10, color: "var(--danger)" }}>
-                      ⚠ {dayData.warningTeams.join(", ")}
+                    <span className="text-crit-fg" style={{ fontSize: 10 }}>
+                      <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> {dayData.warningTeams.join(", ")}
                     </span>
                   )}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {dayData.agents.map((a: any) => (
-                    <span key={a.employeeId} style={{
-                      background: `${TL_COLORS[a.teamLeadName] ?? "var(--accent)"}18`,
-                      color: TL_COLORS[a.teamLeadName] ?? "var(--accent)",
-                      border: `1px solid ${TL_COLORS[a.teamLeadName] ?? "var(--accent)"}33`,
-                      padding: "2px 8px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono"
+                    <span key={a.employeeId} className="font-mono" style={{
+                      background: `${TL_COLORS[a.teamLeadName] ?? "rgb(var(--st-info-solid))"}18`,
+                      color: TL_COLORS[a.teamLeadName] ?? "rgb(var(--st-info-solid))",
+                      border: `1px solid ${TL_COLORS[a.teamLeadName] ?? "rgb(var(--st-info-solid))"}33`,
+                      padding: "2px 8px", borderRadius: 4, fontSize: 10
                     }}>{a.fullName}</span>
                   ))}
                 </div>

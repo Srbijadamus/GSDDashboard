@@ -17,22 +17,23 @@ export default function LeaveAvailabilityBar({ from, to, maxLeave = 8 }) {
 
   const barColor = d => {
     const pct = d.totalOff / d.maxLeave
-    if (d.isFull) return '#ef4444'
-    if (pct > 0.8) return '#f97316'
-    return '#22c55e'
+    if (d.isFull) return 'rgb(var(--st-crit-solid))'
+    if (pct > 0.8) return 'rgb(var(--st-warn-solid))'
+    return 'rgb(var(--st-good-solid))'
   }
 
   return (
-    <div style={{ background:'#181e2e', border:'1px solid rgba(255,255,255,0.07)', borderRadius:10, padding:'14px 16px', marginBottom:16 }}>
+    <div className="bg-raised border border-line-subtle" style={{ borderRadius:10, padding:'14px 16px', marginBottom:16 }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-        <span style={{ fontSize:11, fontWeight:700, color:'#8892a4', letterSpacing:'0.08em', textTransform:'uppercase' }}>Leave Availability</span>
+        <span className="text-ink-soft" style={{ fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase' }}>Leave Availability</span>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontSize:11, color:'#8892a4' }}>Max per day:</span>
+          <span className="text-ink-soft" style={{ fontSize:11 }}>Max per day:</span>
           <input type="number" min={1} max={30} value={max} onChange={e => setMax(Number(e.target.value))}
-            style={{ width:48, background:'#0f1117', border:'1px solid rgba(255,255,255,0.1)', color:'#e2e8f0', borderRadius:6, padding:'2px 6px', fontSize:12, textAlign:'center' }} />
+            className="bg-sunken border border-line-subtle text-ink"
+            style={{ width:48, borderRadius:6, padding:'2px 6px', fontSize:12, textAlign:'center' }} />
         </div>
       </div>
-      {loading && <div style={{ color:'#8892a4', fontSize:12, textAlign:'center', padding:'12px 0' }}>Loading...</div>}
+      {loading && <div className="text-ink-soft" style={{ fontSize:12, textAlign:'center', padding:'12px 0' }}>Loading...</div>}
       {!loading && (
         <>
           <div style={{ display:'flex', gap:3, alignItems:'flex-end', flexWrap:'wrap' }}>
@@ -44,25 +45,25 @@ export default function LeaveAvailabilityBar({ from, to, maxLeave = 8 }) {
               return (
                 <div key={d.date} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', minWidth:44 }}
                   onMouseEnter={() => setTooltip(d)} onMouseLeave={() => setTooltip(null)}>
-                  <span style={{ fontSize:9, color: d.isFull ? '#ef4444' : '#8892a4', fontWeight: d.isFull ? 700 : 400 }}>{d.totalOff}/{d.maxLeave}</span>
-                  <div style={{ width:36, height:40, background:'rgba(255,255,255,0.03)', border: d.isFull ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(255,255,255,0.07)', borderRadius:4, display:'flex', flexDirection:'column', justifyContent:'flex-end', overflow:'hidden' }}>
+                  <span style={{ fontSize:9, color: d.isFull ? 'rgb(var(--st-crit-fg))' : 'rgb(var(--text-secondary))', fontWeight: d.isFull ? 700 : 400 }}>{d.totalOff}/{d.maxLeave}</span>
+                  <div className="bg-sunken" style={{ width:36, height:40, border: d.isFull ? '1px solid rgb(var(--st-crit-bd))' : '1px solid rgb(var(--line-subtle))', borderRadius:4, display:'flex', flexDirection:'column', justifyContent:'flex-end', overflow:'hidden' }}>
                     <div style={{ width:'100%', height:`${pct*100}%`, background:color, opacity:0.8, transition:'height 0.2s' }}/>
                   </div>
-                  <span style={{ fontSize:9, color:'#8892a4', textAlign:'center', whiteSpace:'nowrap' }}>{label}</span>
+                  <span className="text-ink-soft" style={{ fontSize:9, textAlign:'center', whiteSpace:'nowrap' }}>{label}</span>
                 </div>
               )
             })}
           </div>
           {tooltip && (
-            <div style={{ marginTop:10, padding:'8px 12px', background:'rgba(255,255,255,0.05)', borderRadius:6, fontSize:11, color:'#e2e8f0' }}>
-              <strong>{tooltip.date}</strong> — <span style={{ color:barColor(tooltip) }}>{tooltip.totalOff} off</span> of max <strong>{tooltip.maxLeave}</strong> — <span style={{ color:'#22c55e' }}>{tooltip.remaining} slots remaining</span>
-              {tooltip.alCount > 0 && <span style={{ marginLeft:10, color:'#f97316' }}>AL: {tooltip.alCount}</span>}
-              {tooltip.slCount > 0 && <span style={{ marginLeft:8, color:'#ef4444' }}>SL: {tooltip.slCount}</span>}
-              {tooltip.isFull && <span style={{ marginLeft:10, color:'#ef4444', fontWeight:700 }}>⛔ FULL</span>}
+            <div className="bg-sunken text-ink" style={{ marginTop:10, padding:'8px 12px', borderRadius:6, fontSize:11 }}>
+              <strong>{tooltip.date}</strong> — <span style={{ color:barColor(tooltip) }}>{tooltip.totalOff} off</span> of max <strong>{tooltip.maxLeave}</strong> — <span className="text-good-fg">{tooltip.remaining} slots remaining</span>
+              {tooltip.alCount > 0 && <span className="text-info-fg" style={{ marginLeft:10 }}>AL: {tooltip.alCount}</span>}
+              {tooltip.slCount > 0 && <span className="text-crit-fg" style={{ marginLeft:8 }}>SL: {tooltip.slCount}</span>}
+              {tooltip.isFull && <span className="text-crit-fg font-bold" style={{ marginLeft:10 }}>⛔ FULL</span>}
             </div>
           )}
           {data.some(d => d.isFull) && (
-            <div style={{ marginTop:8, padding:'6px 10px', background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:6, fontSize:11, color:'#ef4444' }}>
+            <div className="bg-crit-bg border border-crit-bd text-crit-fg" style={{ marginTop:8, padding:'6px 10px', borderRadius:6, fontSize:11 }}>
               ⛔ Leave limit reached on: {data.filter(d => d.isFull).map(d => d.date).join(', ')}
             </div>
           )}

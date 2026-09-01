@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState, useRef, useEffect, Fragment } from "react"
 import { useTranslation } from "react-i18next"
+import { AlertTriangle } from "lucide-react"
 import { api } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
 import { maxFutureDateStr } from "../constants"
@@ -16,47 +17,52 @@ function CommentCell({ id, initial, onSaved }: { id: number; initial: string | n
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(initial ?? "")
   const [saving, setSaving] = useState(false)
+  const [saveErr, setSaveErr] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
 
   const save = async () => {
     if (saving) return
+    setSaveErr(false)
     setSaving(true)
     try {
       await api.sickLeave.patch(id, { notes: value })
       onSaved(value)
+      setEditing(false)
     } catch (err) {
       console.error("Failed to save comment:", err)
-      alert("Failed to save — please try again.")
-    } finally { setSaving(false); setEditing(false) }
+      setSaveErr(true)
+    } finally { setSaving(false) }
   }
 
   const cancel = () => { setValue(initial ?? ""); setEditing(false) }
 
   if (editing) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <input ref={inputRef} value={value} onChange={e => setValue(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel() }}
-          style={{ background: "var(--card2)", border: "1px solid var(--accent)", color: "var(--text)", padding: "3px 7px", borderRadius: 4, fontSize: 11, outline: "none", width: 180 }} />
-        <button onClick={save} disabled={saving}
-          style={{ background: "var(--accent)", border: "none", color: "#fff", borderRadius: 4, padding: "3px 7px", fontSize: 10, cursor: "pointer", opacity: saving ? .6 : 1 }}>
-          {saving ? "…" : "✓"}
-        </button>
-        <button onClick={cancel}
-          style={{ background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text2)", borderRadius: 4, padding: "3px 7px", fontSize: 10, cursor: "pointer" }}>
-          ✕
-        </button>
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <input ref={inputRef} value={value} onChange={e => { setValue(e.target.value); setSaveErr(false) }}
+            onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel() }}
+            className={`bg-sunken border text-ink rounded py-0.5 px-[7px] text-[11px] outline-none w-[180px] ${saveErr ? "border-crit-bd" : "border-info-bd"}`} />
+          <button onClick={save} disabled={saving}
+            className="bg-info-solid border-none text-white rounded py-0.5 px-[7px] text-[10px] cursor-pointer"
+            style={{ opacity: saving ? .6 : 1 }}>
+            {saving ? "…" : "✓"}
+          </button>
+          <button onClick={cancel}
+            className="bg-sunken border border-line-subtle text-ink-muted rounded py-0.5 px-[7px] text-[10px] cursor-pointer">
+            ✕
+          </button>
+        </div>
+        {saveErr && <span className="text-crit-fg" style={{ fontSize: 9 }}>Save failed</span>}
       </div>
     )
   }
 
   return (
     <div onClick={() => setEditing(true)} title="Klicken zum Bearbeiten"
-      style={{ cursor: "pointer", color: value ? "var(--text2)" : "var(--text3)", fontSize: 11, padding: "2px 6px", borderRadius: 4, minWidth: 80, border: "1px solid transparent", transition: "border-color .15s, background .15s" }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)"; (e.currentTarget as HTMLElement).style.background = "var(--card2)" }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "transparent"; (e.currentTarget as HTMLElement).style.background = "transparent" }}>
+      className={`cursor-pointer text-[11px] py-0.5 px-[6px] rounded border border-transparent hover:border-line-subtle hover:bg-hovered transition-[border-color,background] duration-150 min-w-[80px] ${value ? "text-ink-muted" : "text-ink-soft"}`}>
       {value || <span style={{ fontStyle: "italic", fontSize: 10 }}>— bearbeiten</span>}
     </div>
   )
@@ -89,18 +95,18 @@ function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved:
     } catch (err: any) { setError(err?.message || "Fehler beim Speichern") }
     finally { setSaving(false) }
   }
-  const inp: React.CSSProperties = { background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", padding: "8px 12px", borderRadius: 6, fontSize: 13, outline: "none", width: "100%" }
+  const inpCls = "bg-sunken border border-line-subtle text-ink py-2 px-3 rounded-md text-[13px] outline-none w-full"
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, width: 480, overflow: "hidden" }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ borderRadius: 10, width: 480, overflow: "hidden" }} className="bg-raised border border-line-subtle" onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px" }} className="border-b border-line-subtle">
           <span style={{ fontWeight: 600, fontSize: 15 }}>Krankmeldung erfassen</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer" }}>✕</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer" }} className="text-ink-muted">✕</button>
         </div>
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <label style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }}>Agent</label>
-            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} style={inp}>
+            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }} className="text-ink-soft">Agent</label>
+            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} className={inpCls}>
               <option value="">Agent auswaehlen</option>
               {(employees ?? []).filter((e: any) => e.isActive !== false).sort((a: any, b: any) => (a.fullName ?? "").localeCompare(b.fullName ?? "")).map((e: any) => (
                 <option key={e.employeeId} value={e.employeeId}>{e.fullName} ({e.employeeId})</option>
@@ -108,35 +114,35 @@ function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved:
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }}>Typ</label>
+            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }} className="text-ink-soft">Typ</label>
             <div style={{ display: "flex", gap: 8 }}>
               {["Self", "Child"].map(t => (
-                <button key={t} onClick={() => setType(t)} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "1px solid var(--border)", background: type === t ? "var(--accent)" : "var(--card2)", color: type === t ? "#fff" : "var(--text2)", cursor: "pointer", fontSize: 13 }}>{t}</button>
+                <button key={t} onClick={() => setType(t)} className={`flex-1 py-2 rounded-md border border-line-subtle text-[13px] cursor-pointer ${type === t ? "bg-info-solid text-white" : "bg-sunken text-ink-muted"}`}>{t}</button>
               ))}
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
-              <label style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }}>Start</label>
-              <input type="date" value={startDate} max={maxFutureDateStr()} onChange={e => setStartDate(e.target.value)} style={inp} />
+              <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }} className="text-ink-soft">Start</label>
+              <input type="date" value={startDate} max={maxFutureDateStr()} onChange={e => setStartDate(e.target.value)} className={inpCls} />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }}>Ende</label>
-              <input type="date" value={endDate} max={maxFutureDateStr()} onChange={e => setEndDate(e.target.value)} style={inp} />
+              <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }} className="text-ink-soft">Ende</label>
+              <input type="date" value={endDate} max={maxFutureDateStr()} onChange={e => setEndDate(e.target.value)} className={inpCls} />
             </div>
           </div>
           <div>
-            <label style={{ fontSize: 11, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }}>Notizen</label>
-            <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="optional..." style={inp} />
+            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }} className="text-ink-soft">Notizen</label>
+            <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="optional..." className={inpCls} />
           </div>
-          <div style={{ background: "var(--card2)", borderRadius: 6, padding: "10px 14px", fontSize: 12, color: "var(--text2)" }}>
-            Arbeitstage: <strong style={{ color: "var(--text)", fontFamily: "IBM Plex Mono" }}>{workDays()}</strong>
+          <div style={{ borderRadius: 6, padding: "10px 14px", fontSize: 12 }} className="bg-sunken text-ink-muted">
+            Arbeitstage: <strong className="text-ink font-mono">{workDays()}</strong>
           </div>
-          {error && <div style={{ color: "var(--danger)", fontSize: 12 }}>{error}</div>}
+          {error && <div style={{ fontSize: 12 }} className="text-warn-fg">{error}</div>}
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "14px 20px", borderTop: "1px solid var(--border)" }}>
-          <button onClick={onClose} style={{ padding: "8px 18px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text2)", cursor: "pointer", fontSize: 13 }}>Abbrechen</button>
-          <button onClick={save} disabled={saving} style={{ padding: "8px 18px", borderRadius: 6, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, opacity: saving ? .6 : 1 }}>{saving ? "Speichern..." : "Speichern"}</button>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "14px 20px" }} className="border-t border-line-subtle">
+          <button onClick={onClose} style={{ padding: "8px 18px", fontSize: 13 }} className="rounded-md border border-line-subtle bg-transparent text-ink-muted cursor-pointer">Abbrechen</button>
+          <button onClick={save} disabled={saving} style={{ padding: "8px 18px", fontSize: 13, fontWeight: 600, opacity: saving ? .6 : 1 }} className="rounded-md border-none bg-info-solid text-white cursor-pointer">{saving ? "Speichern..." : "Speichern"}</button>
         </div>
       </div>
     </div>
@@ -159,28 +165,28 @@ function DrillDownModal({ title, entries, onClose, onEnd }: { title: string; ent
       await api.sickLeave.endActive(String(empId))
       onEnd?.()
       onClose()
-    } catch { alert("Fehler beim Beenden.") }
+    } catch (err) { console.error("Fehler beim Beenden:", err) }
     finally { setEndingEmpId(null) }
   }
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, width: 860, maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ borderRadius: 10, width: 860, maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column" }} className="bg-raised border border-line-subtle" onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px" }} className="border-b border-line-subtle">
           <span style={{ fontWeight: 600, fontSize: 15 }}>{title}</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer" }}>✕</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer" }} className="text-ink-muted">✕</button>
         </div>
         <div style={{ overflowY: "auto", padding: 16 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
-              <tr style={{ background: "var(--card2)" }}>
+              <tr className="bg-sunken">
                 {["ID", "Name", "Team Lead", "Sick Since", "Expected Return", "Days So Far", ""].map(h => (
-                  <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", borderBottom: "1px solid var(--border)" }}>{h}</th>
+                  <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em" }} className="text-ink-soft border-b border-line-subtle">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {entries.length === 0 && <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>No entries</td></tr>}
+              {entries.length === 0 && <tr><td colSpan={7} style={{ padding: 24, textAlign: "center" }} className="text-ink-soft">No entries</td></tr>}
               {entries.map((s: any, i: number) => {
                 const since = new Date(s.firstDay)
                 const todayD = new Date(today)
@@ -192,22 +198,23 @@ function DrillDownModal({ title, entries, onClose, onEnd }: { title: string; ent
                 const empId = String(s.employeeId)
                 const isEnding = endingEmpId === empId
                 return (
-                  <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "8px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>{s.employeeId}</td>
+                  <tr key={i} className="border-b border-line-subtle">
+                    <td style={{ padding: "8px 12px", fontSize: 11 }} className="font-mono text-ink-soft">{s.employeeId}</td>
                     <td style={{ padding: "8px 12px", fontWeight: 500 }}>{resolveName(s)}</td>
-                    <td style={{ padding: "8px 12px", color: "var(--text2)", fontSize: 11 }}>{s.teamLeadName}</td>
-                    <td style={{ padding: "8px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{s.firstDay}</td>
-                    <td style={{ padding: "8px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{expectedReturn}</td>
+                    <td style={{ padding: "8px 12px", fontSize: 11 }} className="text-ink-muted">{s.teamLeadName}</td>
+                    <td style={{ padding: "8px 12px", fontSize: 11 }} className="font-mono">{s.firstDay}</td>
+                    <td style={{ padding: "8px 12px", fontSize: 11 }} className="font-mono">{expectedReturn}</td>
                     <td style={{ padding: "8px 12px" }}>
-                      <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, fontWeight: 600, color: isCritical ? "var(--danger)" : isWarn ? "var(--warn)" : "var(--text2)" }}>
-                        {isCritical ? "🔴 " : isWarn ? "⚠️ " : ""}{daysSoFar}d
+                      <span className={`font-mono font-semibold ${isCritical ? "text-warn-fg" : isWarn ? "text-warn-fg" : "text-ink-muted"}`} style={{ fontSize: 11 }}>
+                        {isCritical ? <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> : isWarn ? <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> : ""}{daysSoFar}d
                       </span>
                     </td>
                     <td style={{ padding: "8px 8px" }}>
                       <button
                         onClick={e => { e.stopPropagation(); endAgent(empId) }}
                         disabled={isEnding}
-                        style={{ background: "rgba(185,28,28,.15)", border: "1px solid rgba(185,28,28,.4)", color: "var(--danger)", borderRadius: 4, padding: "3px 10px", fontSize: 11, cursor: "pointer", fontWeight: 600, opacity: isEnding ? .5 : 1, whiteSpace: "nowrap" }}>
+                        className="bg-warn-bg border border-warn-bd text-warn-fg rounded font-semibold cursor-pointer whitespace-nowrap"
+                        style={{ padding: "3px 10px", fontSize: 11, opacity: isEnding ? .5 : 1 }}>
                         {isEnding ? "…" : "End"}
                       </button>
                     </td>
@@ -231,7 +238,7 @@ function DayGrid({ days }: { days: number }) {
     queryKey: ["sl-range", from, to],
     queryFn: () => api.sickLeave.get(`from=${from}&to=${to}`)
   })
-  if (isLoading) return <div style={{ padding: 24, color: "var(--text3)", textAlign: "center" }}>Loading...</div>
+  if (isLoading) return <div style={{ padding: 24, textAlign: "center" }} className="text-ink-soft">Loading...</div>
   const entries: any[] = data ?? []
   const sickDates: Record<string, Set<string>> = {}
   const agentInfo: Record<string, any> = {}
@@ -246,42 +253,42 @@ function DayGrid({ days }: { days: number }) {
   })
   const agentIds = Object.keys(sickDates)
   const dayCount = dates.map(d => { const ds = d.toISOString().split("T")[0]; return agentIds.filter(id => sickDates[id].has(ds)).length })
-  const dayHeaderColor = (count: number) => count >= 6 ? "var(--danger)" : count >= 3 ? "var(--yellow)" : "var(--green)"
+  const dayHeaderColor = (count: number) => count >= 6 ? "text-warn-fg" : count >= 3 ? "[color:var(--yellow)]" : "text-good-fg"
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+    <div style={{ borderRadius: 8, overflow: "hidden" }} className="bg-raised border border-line-subtle">
       <div style={{ overflowX: "auto" }}>
         <table style={{ borderCollapse: "collapse", fontSize: 11, minWidth: "100%" }}>
           <thead>
-            <tr style={{ background: "var(--card2)" }}>
-              <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", borderBottom: "1px solid var(--border)", minWidth: 160, position: "sticky", left: 0, background: "var(--card2)", zIndex: 2 }}>Agent</th>
+            <tr className="bg-sunken">
+              <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", minWidth: 160, position: "sticky", left: 0, zIndex: 2 }} className="text-ink-soft border-b border-line-subtle bg-sunken">Agent</th>
               {dates.map((d, i) => {
                 const ds = d.toISOString().split("T")[0]
                 const label = dayNames[d.getDay()] + " " + String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0")
                 return (
-                  <th key={ds} style={{ padding: "10px 8px", textAlign: "center", borderBottom: "1px solid var(--border)", minWidth: 72 }}>
-                    <div style={{ fontSize: 10, color: "var(--text3)", fontWeight: 400 }}>{label}</div>
-                    <div style={{ fontFamily: "IBM Plex Mono", fontWeight: 600, color: dayHeaderColor(dayCount[i]), fontSize: 12 }}>{dayCount[i]} sick</div>
+                  <th key={ds} style={{ padding: "10px 8px", textAlign: "center", minWidth: 72 }} className="border-b border-line-subtle">
+                    <div style={{ fontSize: 10, fontWeight: 400 }} className="text-ink-soft">{label}</div>
+                    <div className={`font-mono font-semibold ${dayHeaderColor(dayCount[i])}`} style={{ fontSize: 12 }}>{dayCount[i]} sick</div>
                   </th>
                 )
               })}
             </tr>
           </thead>
           <tbody>
-            {agentIds.length === 0 && <tr><td colSpan={dates.length + 1} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>No sick leave in this period</td></tr>}
+            {agentIds.length === 0 && <tr><td colSpan={dates.length + 1} style={{ padding: 24, textAlign: "center" }} className="text-ink-soft">No sick leave in this period</td></tr>}
             {agentIds.map(id => {
               const info = agentInfo[id]
               return (
-                <tr key={id} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "8px 14px", position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>
+                <tr key={id} className="border-b border-line-subtle">
+                  <td style={{ padding: "8px 14px", position: "sticky", left: 0, zIndex: 1 }} className="bg-raised">
                     <div style={{ fontWeight: 500, fontSize: 12 }}>{resolveName(info)}</div>
-                    <div style={{ fontSize: 10, color: "var(--text3)" }}>{info.teamLeadName}</div>
+                    <div style={{ fontSize: 10 }} className="text-ink-soft">{info.teamLeadName}</div>
                   </td>
                   {dates.map(d => {
                     const ds = d.toISOString().split("T")[0]; const sick = sickDates[id].has(ds)
                     return (
                       <td key={ds} style={{ padding: "8px 4px", textAlign: "center" }}>
-                        {sick && <div style={{ background: "rgba(255,59,92,.2)", border: "1px solid rgba(255,59,92,.4)", borderRadius: 4, padding: "3px 0", color: "var(--danger)", fontSize: 10, fontWeight: 600 }}>sick</div>}
+                        {sick && <div className="bg-warn-mid border border-warn-solid/25 rounded-[3px] h-6 w-full" />}
                       </td>
                     )
                   })}
@@ -291,7 +298,7 @@ function DayGrid({ days }: { days: number }) {
           </tbody>
         </table>
       </div>
-      <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+      <div style={{ padding: "8px 12px", fontSize: 11 }} className="border-t border-line-subtle text-ink-soft font-mono">
         {agentIds.length} agents / {days}-day view
       </div>
     </div>
@@ -313,7 +320,7 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
     try {
       await api.sickLeave.endActive(empId)
       onEnd()
-    } catch { alert("Fehler beim Beenden der Krankmeldung.") }
+    } catch (err) { console.error("Fehler beim Beenden der Krankmeldung:", err) }
     finally { setEndingEmpId(null) }
   }
 
@@ -332,22 +339,22 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
     groups[id].push(s)
   })
 
-  const dayColor = (d: number) => d > 30 ? "var(--danger)" : d >= 14 ? "var(--warn)" : d >= 7 ? "var(--yellow)" : "var(--text2)"
+  const dayColor = (d: number) => d > 30 ? "text-crit-fg" : d >= 14 ? "text-warn-fg" : d >= 7 ? "[color:var(--yellow)]" : "text-ink-muted"
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+    <div style={{ borderRadius: 8, overflow: "hidden" }} className="bg-raised border border-line-subtle">
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
-            <tr style={{ background: "var(--card2)" }}>
+            <tr className="bg-sunken">
               {["Name", "Team Lead", "Total Days", "Periods", "Last Sick Leave", "Notes"].map(h => (
-                <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", whiteSpace: "nowrap" }} className="text-ink-soft border-b border-line-subtle">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {order.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>No sick leave records found</td></tr>
+              <tr><td colSpan={6} style={{ padding: 24, textAlign: "center" }} className="text-ink-soft">No sick leave records found</td></tr>
             )}
             {order.map(empId => {
               const first = groups[empId][0]
@@ -370,34 +377,33 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
                 <Fragment key={empId}>
                   <tr
                     onClick={() => multi && toggle(empId)}
-                    style={{ borderBottom: isExp ? "none" : "1px solid var(--border)", cursor: multi ? "pointer" : "default" }}
-                    onMouseEnter={ev => (ev.currentTarget.style.background = "rgba(255,255,255,.03)")}
-                    onMouseLeave={ev => (ev.currentTarget.style.background = "")}>
+                    className={`hover:bg-hovered ${isExp ? "" : "border-b border-line-subtle"}`}
+                    style={{ cursor: multi ? "pointer" : "default" }}>
 
                     {/* Name + expand arrow */}
                     <td style={{ padding: "10px 12px", fontWeight: 600, whiteSpace: "nowrap" }}>
-                      <span style={{ marginRight: 6, fontSize: 10, color: "var(--text3)", display: "inline-block", opacity: multi ? 1 : 0, transform: isExp ? "rotate(90deg)" : "rotate(0deg)", transition: "transform .15s" }}>▶</span>
+                      <span style={{ marginRight: 6, fontSize: 10, display: "inline-block", opacity: multi ? 1 : 0, transform: isExp ? "rotate(90deg)" : "rotate(0deg)", transition: "transform .15s" }} className="text-ink-soft">▶</span>
                       {resolveName(first)}
-                      <span style={{ fontSize: 10, color: "var(--text3)", marginLeft: 6, fontFamily: "IBM Plex Mono" }}>{first.employeeId}</span>
+                      <span style={{ fontSize: 10, marginLeft: 6 }} className="text-ink-soft font-mono">{first.employeeId}</span>
                     </td>
 
                     {/* Team Lead */}
-                    <td style={{ padding: "10px 12px", color: "var(--text2)", fontSize: 11, whiteSpace: "nowrap" }}>{first.teamLeadName ?? "—"}</td>
+                    <td style={{ padding: "10px 12px", fontSize: 11, whiteSpace: "nowrap" }} className="text-ink-muted">{first.teamLeadName ?? "—"}</td>
 
                     {/* Total Days */}
                     <td style={{ padding: "10px 12px" }}>
-                      <span style={{ fontFamily: "IBM Plex Mono", fontSize: 12, fontWeight: 600, color: dayColor(totalDays) }}>{totalDays}d</span>
+                      <span className={`font-mono font-semibold ${dayColor(totalDays)}`} style={{ fontSize: 12 }}>{totalDays}d</span>
                     </td>
 
                     {/* Periods badge */}
                     <td style={{ padding: "10px 12px" }}>
                       {multi
-                        ? <span style={{ background: "rgba(99,102,241,.2)", color: "#818cf8", padding: "2px 8px", borderRadius: 12, fontSize: 10, fontFamily: "IBM Plex Mono" }}>{periods.length}×</span>
-                        : <span style={{ color: "var(--text3)", fontSize: 10 }}>1×</span>}
+                        ? <span className="font-mono bg-learn-bg text-learn-fg" style={{ padding: "2px 8px", borderRadius: 12, fontSize: 10 }}>{periods.length}×</span>
+                        : <span style={{ fontSize: 10 }} className="text-ink-soft">1×</span>}
                     </td>
 
                     {/* Last Sick Leave + End button inline */}
-                    <td style={{ padding: "10px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>
+                    <td style={{ padding: "10px 12px", fontSize: 11 }} className="font-mono">
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span>{lastSick}</span>
                         {(() => {
@@ -408,7 +414,8 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
                             <button
                               onClick={e => { e.stopPropagation(); endAgent(empId, activeCount) }}
                               disabled={isEnding}
-                              style={{ background: "rgba(185,28,28,.15)", border: "1px solid rgba(185,28,28,.4)", color: "var(--danger)", borderRadius: 4, padding: "2px 8px", fontSize: 10, cursor: "pointer", fontWeight: 600, opacity: isEnding ? .5 : 1, fontFamily: "sans-serif" }}>
+                              className="bg-warn-bg border border-warn-bd text-warn-fg rounded font-semibold cursor-pointer"
+                              style={{ padding: "2px 8px", fontSize: 10, opacity: isEnding ? .5 : 1, fontFamily: "sans-serif" }}>
                               {isEnding ? "…" : "End"}
                             </button>
                           )
@@ -428,11 +435,11 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
 
                   {/* Expanded detail rows — one per deduplicated period */}
                   {multi && isExp && periods.map((p: any, i: number) => (
-                    <tr key={p.id ?? i} style={{ borderBottom: i === periods.length - 1 ? "1px solid var(--border)" : "none", background: "rgba(99,102,241,.03)" }}>
-                      <td style={{ padding: "7px 12px 7px 32px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text2)" }}>
+                    <tr key={p.id ?? i} style={{ borderBottom: i === periods.length - 1 ? undefined : "none" }} className={`bg-sunken ${i === periods.length - 1 ? "border-b border-line-subtle" : ""}`}>
+                      <td style={{ padding: "7px 12px 7px 32px", fontSize: 11 }} className="font-mono text-ink-muted">
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span>
-                            <span style={{ color: "rgba(99,102,241,.4)", marginRight: 6 }}>└</span>
+                            <span className="text-learn-fg" style={{ opacity: 0.5, marginRight: 6 }}>└</span>
                             {p.firstDay} – {p.lastDay >= "2099-01-01" ? "aktiv" : p.lastDay}
                           </span>
                         </div>
@@ -440,11 +447,11 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
                       <td />
                       <td style={{ padding: "7px 12px" }}>
                         {p.lastDay >= "2099-01-01"
-                          ? <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--warn)" }}>open</span>
-                          : <span style={{ fontFamily: "IBM Plex Mono", fontSize: 11, color: dayColor(p.durationDays ?? 0) }}>{p.durationDays ?? "?"}d</span>}
+                          ? <span style={{ fontSize: 11 }} className="font-mono text-warn-fg">open</span>
+                          : <span className={`font-mono ${dayColor(p.durationDays ?? 0)}`} style={{ fontSize: 11 }}>{p.durationDays ?? "?"}d</span>}
                       </td>
                       <td style={{ padding: "7px 12px" }}>
-                        <span style={{ background: p.leaveType === "Self" ? "rgba(255,124,59,.15)" : "rgba(250,204,21,.15)", color: p.leaveType === "Self" ? "var(--warn)" : "var(--yellow)", padding: "2px 7px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono" }}>{p.leaveType}</span>
+                        <span className={`font-mono ${p.leaveType === "Self" ? "bg-warn-bg text-warn-fg" : "bg-holiday-bg text-holiday-fg"}`} style={{ padding: "2px 7px", borderRadius: 4, fontSize: 10 }}>{p.leaveType}</span>
                       </td>
                       <td />
                       <td style={{ padding: "5px 8px", minWidth: 160 }}>
@@ -460,7 +467,7 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
           </tbody>
         </table>
       </div>
-      <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+      <div style={{ padding: "8px 12px", fontSize: 11 }} className="border-t border-line-subtle text-ink-soft font-mono">
         {order.length} agents / {data.length} records
       </div>
     </div>
@@ -487,10 +494,10 @@ export default function SickLeave() {
   })
 
   const cards = [
-    { label: "Currently Sick", value: stats?.totalActive, color: "var(--danger)", onClick: () => setModal({ title: "Currently Sick Agents", entries: activeToday ?? [] }) },
-    { label: "Self", value: stats?.selfCount, color: "var(--warn)", onClick: () => setModal({ title: "Self Active", entries: (activeToday ?? []).filter((e: any) => e.leaveType === "Self") }) },
-    { label: "Child", value: stats?.childCount, color: "var(--yellow)", onClick: () => setModal({ title: "Child Active", entries: (activeToday ?? []).filter((e: any) => e.leaveType === "Child") }) },
-    { label: "Avg Duration", value: stats?.averageDuration ? stats.averageDuration + "d" : "0d", color: "var(--text2)", onClick: null },
+    { label: "Currently Sick", value: stats?.totalActive, cls: "text-warn-fg", onClick: () => setModal({ title: "Currently Sick Agents", entries: activeToday ?? [] }) },
+    { label: "Self", value: stats?.selfCount, cls: "text-warn-fg", onClick: () => setModal({ title: "Self Active", entries: (activeToday ?? []).filter((e: any) => e.leaveType === "Self") }) },
+    { label: "Child", value: stats?.childCount, cls: "[color:var(--yellow)]", onClick: () => setModal({ title: "Child Active", entries: (activeToday ?? []).filter((e: any) => e.leaveType === "Child") }) },
+    { label: "Avg Duration", value: stats?.averageDuration ? stats.averageDuration + "d" : "0d", cls: "text-ink-muted", onClick: null },
   ]
 
   return (
@@ -499,9 +506,9 @@ export default function SickLeave() {
       {showAdd && <AddSickLeaveModal onClose={() => setShowAdd(false)} onSaved={() => queryClient.invalidateQueries()} />}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, color: "var(--text)" }}>{t("nav.sickLeave")}</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 600 }} className="text-ink">{t("nav.sickLeave")}</h1>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button onClick={() => setShowAdd(true)} style={{ background: "var(--accent)", color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>+ Krankmeldung</button>
+          <button onClick={() => setShowAdd(true)} style={{ border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer" }} className="bg-info-solid text-white">+ Krankmeldung</button>
           <DownloadButtons onToday={api.sickLeave.downloadToday} on7Days={api.sickLeave.download7} on30Days={api.sickLeave.download30} />
         </div>
       </div>
@@ -509,23 +516,23 @@ export default function SickLeave() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {cards.map(s => (
           <div key={s.label} onClick={s.onClick ?? undefined}
-            style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "16px 20px", cursor: s.onClick ? "pointer" : "default" }}
-            onMouseEnter={e => { if (s.onClick) (e.currentTarget as HTMLElement).style.borderColor = "var(--accent)" }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border)" }}>
-            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>{s.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 600, fontFamily: "IBM Plex Mono", color: s.color }}>{s.value ?? 0}</div>
-            {s.onClick && <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 4 }}>Click for details</div>}
+            style={{ borderRadius: 8, padding: "16px 20px", cursor: s.onClick ? "pointer" : "default" }}
+            className={`bg-raised border border-line-subtle ${s.onClick ? "hover:border-info-bd" : ""}`}>
+            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }} className="text-ink-soft">{s.label}</div>
+            <div className={`font-mono font-semibold ${s.cls}`} style={{ fontSize: 28 }}>{s.value ?? 0}</div>
+            {s.onClick && <div style={{ fontSize: 10, marginTop: 4 }} className="text-ink-soft">Click for details</div>}
           </div>
         ))}
       </div>
 
       {stats?.byTeamLead?.length > 0 && (
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px" }}>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", marginBottom: 10 }}>By Team Lead (active)</div>
+        <div style={{ borderRadius: 8, padding: "14px 16px" }} className="bg-raised border border-line-subtle">
+          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 10 }} className="text-ink-soft">By Team Lead (active)</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {stats.byTeamLead.map((tl: any) => (
               <span key={tl.teamLead} onClick={() => setTeamLead(tl.teamLead === teamLead ? "" : tl.teamLead)}
-                style={{ background: tl.teamLead === teamLead ? "rgba(255,124,59,.3)" : "rgba(255,124,59,.12)", color: "var(--warn)", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontFamily: "IBM Plex Mono", cursor: "pointer" }}>
+                className={`text-warn-fg font-mono ${tl.teamLead === teamLead ? "bg-warn-mid" : "bg-warn-bg"}`}
+                style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, cursor: "pointer" }}>
                 {tl.teamLead}: {tl.count}
               </span>
             ))}
@@ -533,10 +540,11 @@ export default function SickLeave() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 4, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 4, alignSelf: "flex-start" }}>
+      <div style={{ display: "flex", gap: 4, padding: 4, alignSelf: "flex-start", borderRadius: 8 }} className="bg-raised border border-line-subtle">
         {[{ key: "today", label: "Heute" }, { key: "7d", label: "Naechste 7 Tage" }, { key: "14d", label: "Naechste 14 Tage" }].map(tab => (
           <button key={tab.key} onClick={() => setView(tab.key as any)}
-            style={{ background: view === tab.key ? "var(--accent)" : "transparent", color: view === tab.key ? "#fff" : "var(--text2)", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>
+            style={{ border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 12, fontWeight: 500, cursor: "pointer" }}
+            className={view === tab.key ? "bg-info-solid text-white" : "bg-transparent text-ink-muted"}>
             {tab.label}
           </button>
         ))}
@@ -546,21 +554,23 @@ export default function SickLeave() {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", gap: 10 }}>
             <input placeholder="Team Lead..." value={teamLead} onChange={e => setTeamLead(e.target.value)}
-              style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)", padding: "7px 12px", borderRadius: 6, fontSize: 12, outline: "none", width: 200 }} />
+              style={{ padding: "7px 12px", borderRadius: 6, fontSize: 12, outline: "none", width: 200 }}
+              className="bg-raised border border-line-subtle text-ink" />
             <select value={type} onChange={e => setType(e.target.value)}
-              style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--text2)", padding: "7px 12px", borderRadius: 6, fontSize: 12 }}>
+              style={{ padding: "7px 12px", borderRadius: 6, fontSize: 12 }}
+              className="bg-raised border border-line-subtle text-ink-muted">
               <option value="">All Types</option>
               <option value="Self">Self</option>
               <option value="Child">Child</option>
             </select>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text2)", cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "pointer" }} className="text-ink-muted">
               <input type="checkbox" checked={activeOnly} onChange={e => setActiveOnly(e.target.checked)} />
               Active only
             </label>
           </div>
 
           {isLoading
-            ? <div style={{ padding: 24, textAlign: "center", color: "var(--text3)" }}>Loading...</div>
+            ? <div style={{ padding: 24, textAlign: "center" }} className="text-ink-soft">Loading...</div>
             : <GroupedSickTable data={data ?? []} commentCache={commentCache} setCommentCache={setCommentCache} onEnd={() => queryClient.invalidateQueries()} />
           }
         </div>

@@ -11,13 +11,15 @@ public sealed class DashboardHandler(
 
     public int Score(string q)
     {
-        if (q.Contains("dashboard")      || q.Contains("summary")        ||
-            q.Contains("overview")       || q.Contains("uebersicht")     ||
-            q.Contains("headcount")      || q.Contains("kopfzahl")       ||
-            q.Contains("working today")  || q.Contains("heute im dienst")||
+        if (q.Contains("dashboard")      || q.Contains("summary")          ||
+            q.Contains("overview")       || q.Contains("uebersicht")       ||
+            q.Contains("headcount")      || q.Contains("kopfzahl")         ||
+            q.Contains("working today")  || q.Contains("heute im dienst")  ||
             q.Contains("how many agents")|| q.Contains("wie viele agenten")||
-            q.Contains("agents today")   || q.Contains("agenten heute")  ||
-            q.Contains("on duty")        || q.Contains("im dienst"))
+            q.Contains("agents today")   || q.Contains("agenten heute")    ||
+            q.Contains("on duty")        || q.Contains("im dienst")        ||
+            q.Contains("wic duty")       || q.Contains("wic dienst")       ||
+            q.Contains("absent today")   || q.Contains("wer fehlt"))
             return 80;
         return 0;
     }

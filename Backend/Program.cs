@@ -64,6 +64,7 @@ builder.Services.AddScoped<WicCoverageService>();
 builder.Services.AddScoped<BoListService>();
 builder.Services.AddScoped<BulkRtmService>();
 builder.Services.AddScoped<WicAssistantService>();
+builder.Services.AddScoped<WicMigrationDryRunService>();
 
 // Full-dashboard assistant — domain handlers + router
 builder.Services.AddScoped<IDomainHandler, WicLeaveHandler>();
@@ -247,6 +248,73 @@ app.UseDefaultFiles();
     await WicCoverageImport.RunAsync(db);
 }
 
+// Schema migrations (idempotent — safe on every startup)
+{
+    using var scope = app.Services.CreateScope();
+    var db     = scope.ServiceProvider.GetRequiredService<GSDContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    // Vacations.WorkDaysNet: INT → DECIMAL(10,1)
+    db.Database.ExecuteSqlRaw("""
+        IF EXISTS (
+            SELECT 1 FROM sys.columns
+            WHERE object_id = OBJECT_ID('Vacations') AND name = 'WorkDaysNet'
+              AND system_type_id = TYPE_ID('int')
+        )
+            ALTER TABLE Vacations ALTER COLUMN WorkDaysNet DECIMAL(10,1) NULL
+    """);
+
+    // ALBalance.PlannedTakenAL: INT → DECIMAL(10,1)
+    // DEFAULT constraint must be dropped first — auto-named, so look it up dynamically.
+    db.Database.ExecuteSqlRaw("""
+        IF EXISTS (
+            SELECT 1 FROM sys.columns
+            WHERE object_id = OBJECT_ID('ALBalance') AND name = 'PlannedTakenAL'
+              AND system_type_id = TYPE_ID('int')
+        )
+        BEGIN
+            DECLARE @cn1 NVARCHAR(200)
+            SELECT @cn1 = dc.name FROM sys.default_constraints dc
+            JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
+            WHERE dc.parent_object_id = OBJECT_ID('ALBalance') AND c.name = 'PlannedTakenAL'
+            IF @cn1 IS NOT NULL EXEC('ALTER TABLE ALBalance DROP CONSTRAINT ' + @cn1)
+            ALTER TABLE ALBalance ALTER COLUMN PlannedTakenAL DECIMAL(10,1) NOT NULL
+            ALTER TABLE ALBalance ADD DEFAULT 0 FOR PlannedTakenAL
+        END
+    """);
+
+    // ALBalance.RemainingAL: INT → DECIMAL(10,1)
+    db.Database.ExecuteSqlRaw("""
+        IF EXISTS (
+            SELECT 1 FROM sys.columns
+            WHERE object_id = OBJECT_ID('ALBalance') AND name = 'RemainingAL'
+              AND system_type_id = TYPE_ID('int')
+        )
+        BEGIN
+            DECLARE @cn2 NVARCHAR(200)
+            SELECT @cn2 = dc.name FROM sys.default_constraints dc
+            JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
+            WHERE dc.parent_object_id = OBJECT_ID('ALBalance') AND c.name = 'RemainingAL'
+            IF @cn2 IS NOT NULL EXEC('ALTER TABLE ALBalance DROP CONSTRAINT ' + @cn2)
+            ALTER TABLE ALBalance ALTER COLUMN RemainingAL DECIMAL(10,1) NOT NULL
+            ALTER TABLE ALBalance ADD DEFAULT 0 FOR RemainingAL
+        END
+    """);
+
+    // Clear IsWicDuty on any non-WIC_DUTY row (safe: sets corrupt 1→0, never removes rows)
+    var wicDutyFixed = db.Database.ExecuteSqlRaw("""
+        UPDATE ShiftEntries
+        SET IsWicDuty = 0
+        WHERE IsWicDuty = 1
+          AND ShiftType != 'WIC_DUTY'
+    """);
+    if (wicDutyFixed > 0)
+        logger.LogWarning("Startup cleanup: cleared IsWicDuty=1 on {Count} non-WIC_DUTY ShiftEntries", wicDutyFixed);
+
+    // NOTE: orphan WicShiftEntries cleanup (NULL SupportLocation) is intentionally NOT here.
+    // Run POST /api/admin/cleanup-wic-orphans manually after reviewing the count.
+}
+
 // index.html is the SPA shell that points at the current content-hashed bundle —
 // it must never be cached, or browsers keep loading a stale bundle reference after
 // a redeploy. The /assets/*.js|css files ARE content-hashed (filename changes when
@@ -300,6 +368,29 @@ app.MapBoListEndpoints();
 app.MapBulkRtmEndpoints();
 app.MapWicAssistantEndpoints();
 app.MapAssistantEndpoints();
+app.MapWicMigrationEndpoints();
+
+// Manual one-shot cleanup: removes WicShiftEntries rows where SupportLocation IS NULL
+// and a non-NULL sibling exists for the same (EmployeeId, ShiftDate).
+// These are ghost rows from partial writes caused by the B1 transaction bug (pre-fix).
+// Run once after deployment, verify the count, then it becomes a no-op.
+app.MapPost("/api/admin/cleanup-wic-orphans", (GSDContext db, ILoggerFactory loggerFactory) =>
+{
+    var logger = loggerFactory.CreateLogger("AdminCleanup");
+    var deleted = db.Database.ExecuteSqlRaw("""
+        DELETE w
+        FROM WicShiftEntries w
+        WHERE w.SupportLocation IS NULL
+          AND EXISTS (
+              SELECT 1 FROM WicShiftEntries w2
+              WHERE w2.EmployeeId = w.EmployeeId
+                AND w2.ShiftDate  = w.ShiftDate
+                AND w2.SupportLocation IS NOT NULL
+          )
+    """);
+    logger.LogInformation("cleanup-wic-orphans: deleted {Count} rows", deleted);
+    return Results.Ok(new { deleted, message = $"Deleted {deleted} orphan WicShiftEntry rows" });
+}).WithTags("Admin");
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.MapFallbackToFile("index.html", staticFileOptions);

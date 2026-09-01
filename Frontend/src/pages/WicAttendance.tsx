@@ -1,14 +1,18 @@
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Search, AlertTriangle, UserCheck, Users, Clock, Calendar, Settings, Edit2 } from "lucide-react"
+import { Search, AlertTriangle, UserCheck, Users, Clock, Calendar, Settings, Edit2, RefreshCw, CheckCircle2 } from "lucide-react"
 import { apiFetch } from "../api/client"
 import { CoverageBadge } from "../components/CoverageBadge"
 import { NppBadge } from "../components/NppBadge"
 import { Sheet } from "../components/Sheet"
+import { StatusBadge } from "../components/StatusBadge"
+import { EmptyState } from "../components/EmptyState"
 import { ALPlanningModal } from "./ALPlanningModal"
 import { AssignAgentModal } from "./AssignAgentModal"
 import { ManualCheckinModal } from "./ManualCheckinModal"
+import { Panel } from "../components/Panel"
+import { DataTable, type DataColumn } from "../components/DataTable"
 
 // ── API types ──────────────────────────────────────────────────────────────────
 
@@ -73,7 +77,7 @@ interface LocationCard {
 interface SubstituteCandidate {
   employeeId: string
   fullName: string
-  sourceType: "BACKUP" | "SSP" | "WIC_DONOR" | "CALL_IN"
+  sourceType: "BACKUP" | "SSP" | "WIC_DONOR" | "CALL_IN" | "REGIONAL"
   tier: string
   homeLocationName: string
   distanceKm: number
@@ -115,16 +119,17 @@ const STATUS_RANK: Record<string, number> = {
 }
 
 const SOURCE_COLORS: Record<string, { bg: string; color: string }> = {
-  BACKUP:    { bg: "rgba(124,58,237,0.15)",  color: "#a78bfa" },
-  SSP:       { bg: "rgba(59,126,255,0.15)",  color: "#60a5fa" },
-  WIC_DONOR: { bg: "rgba(0,210,160,0.15)",   color: "#34d399" },
-  CALL_IN:   { bg: "rgba(255,124,59,0.15)",  color: "#fb923c" },
+  BACKUP:    { bg: "rgb(var(--st-learn-bg) / 0.15)",  color: "rgb(var(--st-learn-fg))" },
+  SSP:       { bg: "rgb(var(--st-info-bg) / 0.15)",   color: "rgb(var(--st-info-fg))"  },
+  WIC_DONOR: { bg: "rgb(var(--st-good-bg) / 0.15)",   color: "rgb(var(--st-good-fg))" },
+  CALL_IN:   { bg: "rgb(var(--st-warn-bg) / 0.15)",   color: "rgb(var(--st-warn-fg))" },
+  REGIONAL:  { bg: "rgb(var(--st-wic-solid) / 0.15)", color: "rgb(var(--st-wic-fg))" },
 }
 
 const AGENT_MATCH_COLORS: Record<string, { bg: string; color: string }> = {
-  FULL:    { bg: "rgba(34,208,122,0.12)",  color: "#22d07a" },
-  PARTIAL: { bg: "rgba(255,124,59,0.12)",  color: "#ff7c3b" },
-  NONE:    { bg: "rgba(255,59,92,0.12)",   color: "#ff3b5c" },
+  FULL:    { bg: "rgb(var(--st-good-bg) / 0.12)",  color: "rgb(var(--st-good-fg))" },
+  PARTIAL: { bg: "rgb(var(--st-warn-bg) / 0.12)",  color: "rgb(var(--st-warn-fg))" },
+  NONE:    { bg: "rgb(var(--st-crit-bg) / 0.12)",  color: "rgb(var(--st-crit-fg))" },
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -133,6 +138,17 @@ function chunkWeeks(days: ForecastDay[]): ForecastDay[][] {
   const weeks: ForecastDay[][] = []
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7))
   return weeks
+}
+
+function checkinDuration(checkinTime: string | null): string {
+  if (!checkinTime) return ""
+  const normalized = checkinTime.replace(/\.(\d{3})\d*/, '.$1')
+  const ms = Date.now() - new Date(normalized).getTime()
+  if (ms < 0) return "0m"
+  const totalMin = Math.floor(ms / 60_000)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
 }
 
 function kioskActiveAt(records: KioskRecord[], displayName: string): KioskRecord[] {
@@ -157,13 +173,12 @@ function Skeleton({ width, height = 14 }: { width?: string | number; height?: nu
 
 function StatCard({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{
-      background: "var(--card)", border: "1px solid var(--border)",
+    <div className="bg-raised border border-line-subtle" style={{
       borderRadius: 8, padding: "12px 16px",
     }}>
-      <div style={{
+      <div className="text-ink-soft" style={{
         fontSize: 10, textTransform: "uppercase" as const, letterSpacing: ".07em",
-        color: "var(--text3)", marginBottom: 8,
+        marginBottom: 8,
       }}>
         {label}
       </div>
@@ -179,17 +194,17 @@ function SectionCard({
   children: React.ReactNode; style?: React.CSSProperties; action?: React.ReactNode
 }) {
   return (
-    <div style={{
-      background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
+    <div className="bg-raised border border-line-subtle" style={{
+      borderRadius: 8,
       ...style,
     }}>
-      <div style={{
-        padding: "10px 16px", borderBottom: "1px solid var(--border)",
+      <div className="border-b border-line-subtle" style={{
+        padding: "10px 16px",
         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ color: "var(--text3)" }}>{icon}</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{title}</span>
+          <span className="text-ink-soft">{icon}</span>
+          <span className="text-ink" style={{ fontSize: 12, fontWeight: 600 }}>{title}</span>
         </div>
         {action}
       </div>
@@ -326,10 +341,10 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
   }
 
   const inputBase: React.CSSProperties = {
-    background: "var(--card)", border: "1px solid var(--border)",
-    color: "var(--text)", borderRadius: 4, outline: "none",
-    fontFamily: "IBM Plex Mono", fontSize: 11, padding: "3px 5px",
+    borderRadius: 4, outline: "none",
+    fontSize: 11, padding: "3px 5px",
   }
+  const inputBaseClass = "bg-raised border border-line-subtle text-ink font-mono"
 
   return (
     <div style={{ marginTop: 14 }}>
@@ -339,20 +354,17 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
         action={
           <button
             onClick={() => { setOpen(o => !o); setConsequences(null) }}
-            style={{
-              background: open ? "var(--card2)" : "var(--accent)",
-              border: `1px solid ${open ? "var(--border)" : "var(--accent)"}`,
-              color: open ? "var(--text2)" : "#fff",
-              padding: "4px 10px", borderRadius: 5, fontSize: 10,
-              fontWeight: 600, cursor: "pointer",
-            }}
+            className={open
+              ? "bg-sunken border border-line-subtle text-ink-muted"
+              : "bg-info-solid border border-info-bd text-white"}
+            style={{ padding: "4px 10px", borderRadius: 5, fontSize: 10, fontWeight: 600, cursor: "pointer" }}
           >
             {open ? "▲ Collapse" : "▼ Edit / Bearbeiten"}
           </button>
         }
       >
         {!open ? (
-          <div style={{ fontSize: 12, color: "var(--text3)" }}>
+          <div className="text-ink-soft" style={{ fontSize: 12 }}>
             {weeklyHours.length > 0
               ? weeklyHours.filter((h: any) => !h.isClosed)
                   .map((h: any) => `${DOW_LABEL[h.dayOfWeek] ?? "?"} ${h.openTime}–${h.closeTime}${h.openTime2 ? ` / ${h.openTime2}–${h.closeTime2}` : ""}`)
@@ -364,34 +376,33 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
             {/* ── Controls row ── */}
             <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
               <div>
-                <div style={{ fontSize: 10, color: "var(--text3)", marginBottom: 3 }}>
+                <div className="text-ink-soft" style={{ fontSize: 10, marginBottom: 3 }}>
                   Effective from / Gültig ab
                 </div>
                 <input
                   type="date"
                   value={effectiveFrom}
                   onChange={e => { setEffectiveFrom(e.target.value); setConsequences(null) }}
+                  className={inputBaseClass}
                   style={{ ...inputBase, padding: "5px 7px" }}
                 />
               </div>
               <div style={{ flex: 1, minWidth: 180 }}>
-                <div style={{ fontSize: 10, color: "var(--text3)", marginBottom: 3 }}>
+                <div className="text-ink-soft" style={{ fontSize: 10, marginBottom: 3 }}>
                   Note / Anmerkung (optional)
                 </div>
                 <input
                   value={changeNote}
                   onChange={e => setChangeNote(e.target.value)}
                   placeholder="Reason for change / Grund der Änderung"
+                  className={inputBaseClass}
                   style={{ ...inputBase, width: "100%", boxSizing: "border-box", padding: "5px 7px" }}
                 />
               </div>
               <button
                 onClick={closeCentre}
-                style={{
-                  background: "rgba(255,59,92,.08)", border: "1px solid rgba(255,59,92,.25)",
-                  color: "var(--danger)", padding: "5px 12px", borderRadius: 5,
-                  fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
-                }}
+                className="bg-crit-bg border border-crit-bd text-crit-fg"
+                style={{ padding: "5px 12px", borderRadius: 5, fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
               >
                 Close entire centre / Standort schließen
               </button>
@@ -402,26 +413,17 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
               {days.map(day => (
                 <div
                   key={day.dayOfWeek}
-                  style={{
-                    background: day.isClosed ? "rgba(30,45,69,.35)" : "var(--card2)",
-                    border: `1px solid ${day.isClosed ? "var(--border)" : "var(--accent)44"}`,
-                    borderRadius: 6, padding: "8px 5px",
-                    display: "flex", flexDirection: "column", gap: 5, alignItems: "center",
-                  }}
+                  className={day.isClosed ? "bg-sunken border border-line-subtle" : "bg-sunken border border-info-bd/25"}
+                  style={{ borderRadius: 6, padding: "8px 5px", display: "flex", flexDirection: "column", gap: 5, alignItems: "center" }}
                 >
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase" }}>
+                  <div className="text-ink-soft" style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>
                     {DOW_LABEL[day.dayOfWeek]}
                   </div>
 
                   <button
                     onClick={() => patchDay(day.dayOfWeek, { isClosed: !day.isClosed })}
-                    style={{
-                      width: "100%", padding: "3px 0", borderRadius: 4, fontSize: 9,
-                      fontWeight: 700, cursor: "pointer",
-                      background: day.isClosed ? "rgba(255,59,92,.12)" : "rgba(34,208,122,.12)",
-                      border: `1px solid ${day.isClosed ? "rgba(255,59,92,.3)" : "rgba(34,208,122,.3)"}`,
-                      color: day.isClosed ? "var(--danger)" : "var(--green)",
-                    }}
+                    className={day.isClosed ? "bg-crit-bg border border-crit-bd text-crit-fg" : "bg-good-bg border border-good-bd text-good-fg"}
+                    style={{ width: "100%", padding: "3px 0", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: "pointer" }}
                   >
                     {day.isClosed ? "Closed" : "Open"}
                   </button>
@@ -432,37 +434,42 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
                         type="time"
                         value={day.openTime}
                         onChange={e => patchDay(day.dayOfWeek, { openTime: e.target.value })}
+                        className={inputBaseClass}
                         style={{ ...inputBase, width: "100%", boxSizing: "border-box", textAlign: "center" }}
                       />
                       <input
                         type="time"
                         value={day.closeTime}
                         onChange={e => patchDay(day.dayOfWeek, { closeTime: e.target.value })}
+                        className={inputBaseClass}
                         style={{ ...inputBase, width: "100%", boxSizing: "border-box", textAlign: "center" }}
                       />
 
                       {day.hasSecondWindow ? (
                         <>
-                          <div style={{ width: "100%", borderTop: "1px dashed var(--border)", paddingTop: 4 }}>
-                            <div style={{ fontSize: 8, color: "var(--text3)", textAlign: "center", marginBottom: 3 }}>
+                          <div className="border-t border-line-subtle border-dashed" style={{ width: "100%", paddingTop: 4 }}>
+                            <div className="text-ink-soft" style={{ fontSize: 8, textAlign: "center", marginBottom: 3 }}>
                               2nd window
                             </div>
                             <input
                               type="time"
                               value={day.openTime2}
                               onChange={e => patchDay(day.dayOfWeek, { openTime2: e.target.value })}
+                              className={inputBaseClass}
                               style={{ ...inputBase, width: "100%", boxSizing: "border-box", textAlign: "center", marginBottom: 4 }}
                             />
                             <input
                               type="time"
                               value={day.closeTime2}
                               onChange={e => patchDay(day.dayOfWeek, { closeTime2: e.target.value })}
-                              style={{ ...inputBase, width: "100%", boxSizing: "border-box", textAlign: "center" }}
+                              className={inputBaseClass}
+                        style={{ ...inputBase, width: "100%", boxSizing: "border-box", textAlign: "center" }}
                             />
                           </div>
                           <button
                             onClick={() => patchDay(day.dayOfWeek, { hasSecondWindow: false, openTime2: "", closeTime2: "" })}
-                            style={{ fontSize: 8, color: "var(--text3)", background: "none", border: "none", cursor: "pointer" }}
+                            className="text-ink-soft"
+                            style={{ fontSize: 8, background: "none", border: "none", cursor: "pointer" }}
                           >
                             − remove 2nd
                           </button>
@@ -470,7 +477,8 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
                       ) : (
                         <button
                           onClick={() => patchDay(day.dayOfWeek, { hasSecondWindow: true })}
-                          style={{ fontSize: 8, color: "var(--text3)", background: "none", border: "none", cursor: "pointer" }}
+                          className="text-ink-soft"
+                          style={{ fontSize: 8, background: "none", border: "none", cursor: "pointer" }}
                         >
                           + split shift
                         </button>
@@ -482,10 +490,7 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
             </div>
 
             {error && (
-              <div style={{
-                background: "rgba(255,59,92,.08)", border: "1px solid rgba(255,59,92,.25)",
-                borderRadius: 6, padding: "8px 12px", fontSize: 11, color: "var(--danger)", marginBottom: 10,
-              }}>
+              <div className="bg-crit-bg border border-crit-bd text-crit-fg" style={{ borderRadius: 6, padding: "8px 12px", fontSize: 11, marginBottom: 10 }}>
                 {error}
               </div>
             )}
@@ -493,8 +498,9 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
             <button
               onClick={save}
               disabled={saving}
+              className="bg-info-solid text-white"
               style={{
-                background: "var(--accent)", border: "none", color: "#fff",
+                border: "none",
                 padding: "8px 22px", borderRadius: 6, fontSize: 12,
                 fontWeight: 700, cursor: saving ? "not-allowed" : "pointer",
                 opacity: saving ? 0.6 : 1,
@@ -507,31 +513,24 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
             {consequences !== null && (
               <div style={{ marginTop: 14 }}>
                 {consequences.length === 0 ? (
-                  <div style={{
-                    background: "rgba(34,208,122,.08)", border: "1px solid rgba(34,208,122,.25)",
-                    borderRadius: 6, padding: "8px 12px", fontSize: 11, color: "var(--green)",
-                  }}>
+                  <div className="bg-good-bg border border-good-bd text-good-fg" style={{ borderRadius: 6, padding: "8px 12px", fontSize: 11 }}>
                     ✓ Saved (effective {savedAt}). No conflicting assignments found on/after that date.
                     / Gespeichert (gültig ab {savedAt}). Keine betroffenen Einsätze gefunden.
                   </div>
                 ) : (
                   <div>
-                    <div style={{
-                      background: "rgba(255,124,59,.08)", border: "1px solid rgba(255,124,59,.25)",
-                      borderRadius: 6, padding: "10px 12px", fontSize: 11, color: "var(--warn)",
-                      fontWeight: 600, marginBottom: 8,
-                    }}>
-                      ⚠ Saved (effective {savedAt}). {consequences.length} existing assignment(s) now conflict with the new schedule:
+                    <div className="bg-warn-bg border border-warn-bd text-warn-fg" style={{ borderRadius: 6, padding: "10px 12px", fontSize: 11, fontWeight: 600, marginBottom: 8 }}>
+                      <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> Saved (effective {savedAt}). {consequences.length} existing assignment(s) now conflict with the new schedule:
                       / Gespeichert (gültig ab {savedAt}). {consequences.length} bestehende Einsatz/Einsätze kollidieren mit dem neuen Plan:
                     </div>
                     <div style={{ overflowX: "auto" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                         <thead>
-                          <tr style={{ background: "var(--card2)" }}>
+                          <tr className="bg-sunken">
                             {["Date / Datum", "Day / Tag", "Agent", "Shift / Schicht", "Issue / Problem"].map(h => (
-                              <th key={h} style={{ padding: "5px 8px", textAlign: "left", fontSize: 9,
-                                fontWeight: 700, color: "var(--text3)", textTransform: "uppercase",
-                                borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>
+                              <th key={h} className="text-ink-soft border-b border-line-subtle" style={{ padding: "5px 8px", textAlign: "left", fontSize: 9,
+                                fontWeight: 700, textTransform: "uppercase",
+                                whiteSpace: "nowrap" }}>
                                 {h}
                               </th>
                             ))}
@@ -539,13 +538,12 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
                         </thead>
                         <tbody>
                           {consequences.map((c, i) => (
-                            <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
-                              <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{c.date}</td>
-                              <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{c.weekday}</td>
+                            <tr key={i} className="border-b border-line-subtle">
+                              <td className="font-mono" style={{ padding: "5px 8px", fontSize: 11 }}>{c.date}</td>
+                              <td className="font-mono" style={{ padding: "5px 8px", fontSize: 11 }}>{c.weekday}</td>
                               <td style={{ padding: "5px 8px", fontSize: 11 }}>{c.fullName}</td>
-                              <td style={{ padding: "5px 8px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>{c.workingShift ?? "—"}</td>
-                              <td style={{ padding: "5px 8px", fontSize: 11, fontWeight: 600,
-                                color: c.issue === "CLOSED_DAY" ? "var(--danger)" : "var(--warn)" }}>
+                              <td className="font-mono" style={{ padding: "5px 8px", fontSize: 11 }}>{c.workingShift ?? "—"}</td>
+                              <td className={c.issue === "CLOSED_DAY" ? "text-crit-fg" : "text-warn-fg"} style={{ padding: "5px 8px", fontSize: 11, fontWeight: 600 }}>
                                 {c.issue === "CLOSED_DAY"
                                   ? "Day now closed / Tag jetzt geschlossen"
                                   : "Outside new window / Außerhalb Öffnungszeit"}
@@ -555,7 +553,7 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
                         </tbody>
                       </table>
                     </div>
-                    <div style={{ marginTop: 8, fontSize: 10, color: "var(--text3)" }}>
+                    <div className="text-ink-soft" style={{ marginTop: 8, fontSize: 10 }}>
                       These assignments were NOT changed automatically. Please review and update them manually in the Shifts planner.
                       / Diese Einsätze wurden NICHT automatisch geändert. Bitte manuell im Schichtplan prüfen und anpassen.
                     </div>
@@ -583,11 +581,13 @@ function MinRequiredEditor({ locationCode }: { locationCode: string }) {
 
   const [editing, setEditing] = useState<Record<number, string>>({})
   const [saving, setSaving] = useState<number | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const saveMin = async (dow: number, value: string) => {
     const parsed = value === "" ? null : parseInt(value, 10)
     if (value !== "" && isNaN(parsed!)) return
     setSaving(dow)
+    setSaveError(null)
     try {
       await apiFetch(
         `/api/wicschedule/opening-hours/${encodeURIComponent(locationCode)}/${dow}/min-required`,
@@ -601,7 +601,7 @@ function MinRequiredEditor({ locationCode }: { locationCode: string }) {
       qc.invalidateQueries({ queryKey: ["wic-forecast"] })
       setEditing(prev => { const n = { ...prev }; delete n[dow]; return n })
     } catch (e: any) {
-      alert(e?.message ?? "Save failed")
+      setSaveError(e?.message ?? "Save failed")
     } finally { setSaving(null) }
   }
 
@@ -614,16 +614,12 @@ function MinRequiredEditor({ locationCode }: { locationCode: string }) {
           {weeklyHours.map((h: any) => {
             const val = editing[h.dayOfWeek] !== undefined ? editing[h.dayOfWeek] : (h.minRequired ?? "")
             return (
-              <div key={h.dayOfWeek} style={{
-                background: h.isClosed ? "rgba(30,45,69,.3)" : "var(--card2)",
-                border: "1px solid var(--border)", borderRadius: 6,
-                padding: "8px 6px", textAlign: "center", opacity: h.isClosed ? 0.5 : 1,
-              }}>
-                <div style={{ fontSize: 9, color: "var(--text3)", textTransform: "uppercase", marginBottom: 4 }}>
+              <div key={h.dayOfWeek} className={`border border-line-subtle ${h.isClosed ? "bg-sunken" : "bg-sunken"}`} style={{ borderRadius: 6, padding: "8px 6px", textAlign: "center", opacity: h.isClosed ? 0.5 : 1 }}>
+                <div className="text-ink-soft" style={{ fontSize: 9, textTransform: "uppercase", marginBottom: 4 }}>
                   {DOW_NAMES[h.dayOfWeek]}
                 </div>
                 {h.isClosed ? (
-                  <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>—</div>
+                  <div className="text-ink-soft font-mono" style={{ fontSize: 10 }}>—</div>
                 ) : (
                   <>
                     <input
@@ -632,11 +628,11 @@ function MinRequiredEditor({ locationCode }: { locationCode: string }) {
                       onChange={e => setEditing(prev => ({ ...prev, [h.dayOfWeek]: e.target.value }))}
                       onKeyDown={e => { if (e.key === "Enter") saveMin(h.dayOfWeek, String(val)) }}
                       disabled={saving === h.dayOfWeek}
+                      className="bg-raised border border-line-subtle text-ink font-mono"
                       style={{
                         width: "100%", boxSizing: "border-box" as const,
-                        background: "var(--card)", border: "1px solid var(--border)",
-                        color: "var(--text)", padding: "3px 4px", borderRadius: 4,
-                        fontSize: 12, fontFamily: "IBM Plex Mono", textAlign: "center",
+                        padding: "3px 4px", borderRadius: 4,
+                        fontSize: 12, textAlign: "center",
                         outline: "none",
                       }}
                     />
@@ -644,9 +640,10 @@ function MinRequiredEditor({ locationCode }: { locationCode: string }) {
                       <button
                         onClick={() => saveMin(h.dayOfWeek, String(val))}
                         disabled={saving === h.dayOfWeek}
+                        className="bg-info-solid text-white"
                         style={{
-                          marginTop: 4, width: "100%", background: "var(--accent)",
-                          border: "none", color: "#fff", padding: "2px 0",
+                          marginTop: 4, width: "100%",
+                          border: "none", padding: "2px 0",
                           borderRadius: 3, fontSize: 9, cursor: "pointer",
                         }}
                       >
@@ -654,7 +651,7 @@ function MinRequiredEditor({ locationCode }: { locationCode: string }) {
                       </button>
                     )}
                     {editing[h.dayOfWeek] === undefined && h.minRequired == null && (
-                      <div style={{ fontSize: 9, color: "var(--text3)", marginTop: 2 }}>default</div>
+                      <div className="text-ink-soft" style={{ fontSize: 9, marginTop: 2 }}>default</div>
                     )}
                   </>
                 )}
@@ -662,9 +659,19 @@ function MinRequiredEditor({ locationCode }: { locationCode: string }) {
             )
           })}
         </div>
-        <div style={{ marginTop: 8, fontSize: 10, color: "var(--text3)" }}>
+        <div className="text-ink-soft" style={{ marginTop: 8, fontSize: 10 }}>
           Blank = inherit from location default. Press Enter or Save after editing.
         </div>
+        {saveError && (
+          <div style={{
+            marginTop: 8, background: "rgb(var(--st-crit-bg))", border: "1px solid rgb(var(--st-crit-solid))",
+            borderRadius: 6, padding: "6px 10px", fontSize: 11, color: "rgb(var(--st-crit-solid))",
+            display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
+          }}>
+            <span>{saveError}</span>
+            <button onClick={() => setSaveError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 13, lineHeight: 1 }}>✕</button>
+          </div>
+        )}
       </SectionCard>
     </div>
   )
@@ -691,6 +698,7 @@ export default function WicAttendance() {
   const [alPlanningOpen, setAlPlanningOpen] = useState(false)
   const [assignAgentOpen, setAssignAgentOpen] = useState(false)
   const [manualCheckinOpen, setManualCheckinOpen] = useState(false)
+  const [kioskDrawerFilter, setKioskDrawerFilter] = useState<"checkedIn" | "expected" | "notYetIn" | null>(null)
   const [search, setSearch] = useState("")
   const [countryFilter, setCountryFilter] = useState("")
 
@@ -728,15 +736,20 @@ export default function WicAttendance() {
     staleTime: 60 * 1000,
   })
 
-  const { data: kioskData = [] } = useQuery<KioskRecord[]>({
+  const { data: kioskData = [], isError: kioskError } = useQuery<KioskRecord[]>({
     queryKey: ["kiosk-attendance"],
-    queryFn: (): Promise<KioskRecord[]> =>
-      fetch(`${import.meta.env.VITE_KIOSK_API_URL ?? "https://ssr7tm2l-8000.euw.devtunnels.ms"}/api/attendance`).then(r => {
+    queryFn: (): Promise<KioskRecord[]> => {
+      const url = import.meta.env.VITE_KIOSK_API_URL
+      if (!url) throw new Error("VITE_KIOSK_API_URL not configured")
+      return fetch(`${url}/api/attendance`).then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
-      }),
+      })
+    },
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   })
 
   const locations = forecast?.locations ?? []
@@ -773,7 +786,6 @@ export default function WicAttendance() {
   const subsDay          = subs?.days[0]
 
   const kioskMap  = new Map(kioskData.map(r => [r.employee_id, r]))
-  const liveCount = kioskData.filter(r => r.attendance_status === "ACTIVE").length
   const locationDisplayName = selectedForecast?.displayName ?? selectedCard?.displayName ?? ""
   const presentAgents = kioskActiveAt(kioskData, locationDisplayName)
 
@@ -796,9 +808,90 @@ export default function WicAttendance() {
   const notYetInList   = workingAgents.filter(a => !checkedInIds.has(a.employeeId))
   const notYetInCount  = notYetInList.length
 
+  type KioskDrawerRow = { key: string; name: string; location: string | null; checkinTime: string | null; status: KioskRecord["attendance_status"]; shiftStart?: string | null }
+  const kioskDrawerRows: KioskDrawerRow[] = (() => {
+    if (kioskDrawerFilter === "checkedIn") {
+      return [...kioskData]
+        .filter(r => r.attendance_status === "ACTIVE" || r.attendance_status === "DONE")
+        .sort((a, b) => (a.checkin_time ?? "").localeCompare(b.checkin_time ?? ""))
+        .map(r => ({ key: r.employee_id, name: r.full_name, location: r.location, checkinTime: r.checkin_time, status: r.attendance_status }))
+    }
+    if (kioskDrawerFilter === "expected") {
+      return workingAgents.map(a => {
+        const k = kioskMap.get(a.employeeId)
+        return { key: a.employeeId, name: a.name, location: k?.location ?? null, checkinTime: k?.checkin_time ?? null, status: (k?.attendance_status ?? "NOT_CHECKED_IN") as KioskRecord["attendance_status"], shiftStart: a.shiftStart }
+      })
+    }
+    if (kioskDrawerFilter === "notYetIn") {
+      return notYetInList.map(a => {
+        const k = kioskMap.get(a.employeeId)
+        return { key: a.employeeId, name: a.name, location: k?.location ?? null, checkinTime: null, status: "NOT_CHECKED_IN" as KioskRecord["attendance_status"], shiftStart: a.shiftStart }
+      })
+    }
+    return []
+  })()
+
+  // ── Zone B — Not Checked In ───────────────────────────────────────────────────
+
+  type ZoneBRow = {
+    employeeId: string
+    name: string
+    locationCode: string
+    locationCity: string
+    shiftStart: string
+    delayMinutes: number
+    kioskStatus: "NOT_CHECKED_IN" | "NO_RECORD" | "UNKNOWN_STATUS"
+    rawKioskStatus?: string
+    shiftStarted: boolean
+  }
+
+  const zoneBRows = (() => {
+    if (!cards) return [] as ZoneBRow[]
+    const now = new Date()
+    const nowMin = now.getHours() * 60 + now.getMinutes()
+    const seen = new Set<string>()
+    const rows: ZoneBRow[] = []
+    for (const loc of cards) {
+      for (const agent of loc.assignedAgents) {
+        if (seen.has(agent.employeeId)) continue
+        if (!agent.shiftStart || !/^\d{2}:\d{2}$/.test(agent.shiftStart)) continue
+        const kiosk = kioskMap.get(agent.employeeId)
+        if (kiosk?.attendance_status === "ACTIVE" || kiosk?.attendance_status === "DONE") {
+          seen.add(agent.employeeId)
+          continue
+        }
+        seen.add(agent.employeeId)
+        const [hStr, mStr] = agent.shiftStart.split(":")
+        const shiftMin = parseInt(hStr) * 60 + parseInt(mStr)
+        const shiftStarted = nowMin >= shiftMin
+        const delayMinutes = shiftStarted ? nowMin - shiftMin : 0
+        let kioskStatus: ZoneBRow["kioskStatus"]
+        let rawKioskStatus: string | undefined
+        if (!kiosk) {
+          kioskStatus = "NO_RECORD"
+        } else if (kiosk.attendance_status === "NOT_CHECKED_IN") {
+          kioskStatus = "NOT_CHECKED_IN"
+        } else {
+          kioskStatus = "UNKNOWN_STATUS"
+          rawKioskStatus = kiosk.attendance_status
+          console.warn("[ZoneB] Unexpected kiosk status:", kiosk.attendance_status, "for agent", agent.name, agent.employeeId)
+        }
+        rows.push({ employeeId: agent.employeeId, name: agent.name, locationCode: loc.locationCode, locationCity: loc.city, shiftStart: agent.shiftStart, delayMinutes, kioskStatus, rawKioskStatus, shiftStarted })
+      }
+    }
+    return rows
+  })()
+
+  const zoneBMain = zoneBRows
+    .filter(r => r.shiftStarted && r.kioskStatus !== "NO_RECORD")
+    .sort((a, b) => b.delayMinutes - a.delayMinutes)
+  const zoneBNoRecord = zoneBRows.filter(r => r.shiftStarted && r.kioskStatus === "NO_RECORD")
+  const zoneBUpcoming = [...zoneBRows.filter(r => !r.shiftStarted)].sort((a, b) => a.shiftStart.localeCompare(b.shiftStart))
+  const zoneBEmergency = zoneBRows.filter(r => r.rawKioskStatus === "EMERGENCY")
+
+  const inputStyleClass = "bg-sunken border border-line-subtle text-ink"
   const inputStyle: React.CSSProperties = {
-    width: "100%", background: "var(--card2)", border: "1px solid var(--border)",
-    color: "var(--text)", padding: "6px 10px", borderRadius: 6,
+    width: "100%", padding: "6px 10px", borderRadius: 6,
     fontSize: 11, fontFamily: "IBM Plex Sans", outline: "none",
   }
 
@@ -844,105 +937,161 @@ export default function WicAttendance() {
     }
   }
 
+  const zoneBColumns: DataColumn<ZoneBRow>[] = [
+    {
+      key: "name",
+      header: t("attendance.zoneB.name"),
+      render: row => <span className="text-ink font-medium text-sm">{row.name}</span>,
+    },
+    {
+      key: "location",
+      header: t("attendance.zoneB.location"),
+      render: row => <span className="text-ink-soft text-xs font-mono">{row.locationCode} · {row.locationCity}</span>,
+    },
+    {
+      key: "shiftStart",
+      header: t("attendance.zoneB.shiftStart"),
+      render: row => <span className="font-mono text-sm text-ink">{row.shiftStart}</span>,
+    },
+    {
+      key: "delay",
+      header: t("attendance.zoneB.delay"),
+      render: row => {
+        if (!row.shiftStarted) return <span className="font-mono text-sm text-ink-soft">—</span>
+        const cls = row.delayMinutes > 30
+          ? "text-crit-fg font-semibold"
+          : row.delayMinutes > 10
+          ? "text-warn-fg"
+          : "text-neutralst-fg"
+        return <span className={`font-mono text-sm ${cls}`}>{row.delayMinutes}m</span>
+      },
+    },
+    {
+      key: "status",
+      header: t("attendance.zoneB.status"),
+      render: row => (
+        <StatusBadge tone={row.kioskStatus === "NOT_CHECKED_IN" ? "warn" : "mutedst"}>
+          {row.kioskStatus === "NOT_CHECKED_IN"
+            ? t("attendance.zoneB.statusNotIn")
+            : row.kioskStatus === "NO_RECORD"
+            ? t("attendance.zoneB.statusNoRecord")
+            : t("attendance.zoneB.statusUnknown")}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: "actions",
+      header: t("attendance.zoneB.actions"),
+      render: row => (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setManualCheckinOpen(true)}
+            className="bg-raised border border-line-subtle text-ink"
+            style={{ padding: "3px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" as const }}
+          >
+            {t("attendance.zoneB.manualCheckin")}
+          </button>
+          <button
+            onClick={() => { setSelectedLocationCode(row.locationCode); openSub(selectedDate) }}
+            className="bg-raised border border-line-subtle text-ink"
+            style={{ padding: "3px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" as const }}
+          >
+            {t("attendance.zoneB.findSub")}
+          </button>
+        </div>
+      ),
+    },
+  ]
+
   return (
     <div style={{ display: "flex", height: "calc(100vh - 45px)", overflow: "hidden" }}>
 
       {/* ── LEFT SIDEBAR ──────────────────────────────────────────────────────── */}
-      <aside style={{
+      <aside className="border-r border-line-subtle" style={{
         width: 260, flexShrink: 0,
-        borderRight: "1px solid var(--border)",
         background: "var(--sidebar)",
         display: "flex", flexDirection: "column",
         overflow: "hidden",
       }}>
-        <div style={{ padding: "14px 12px 10px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 10 }}>
+        <div className="border-b border-line-subtle" style={{ padding: "14px 12px 10px", flexShrink: 0 }}>
+          <div className="text-ink" style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
             {t("attendance.title")}
           </div>
           <div style={{ position: "relative", marginBottom: 8 }}>
-            <Search size={12} style={{
+            <Search size={12} className="text-ink-soft" style={{
               position: "absolute", left: 8, top: "50%",
-              transform: "translateY(-50%)", color: "var(--text3)",
+              transform: "translateY(-50%)",
             }} />
             <input
               placeholder={t("attendance.filter.search")}
               value={search}
               onChange={e => setSearch(e.target.value)}
+              className={inputStyleClass}
               style={{ ...inputStyle, paddingLeft: 26 }}
             />
           </div>
-          <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} style={inputStyle}>
+          <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} className={inputStyleClass} style={inputStyle}>
             <option value="">{t("attendance.filter.allCountries")}</option>
             {countries.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
-        <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+        <div className="border-b border-line-subtle" style={{ padding: "8px 12px", flexShrink: 0 }}>
           <input
             type="date"
             value={selectedDate}
             onChange={e => setSelectedDate(e.target.value)}
+            className={inputStyleClass}
             style={inputStyle}
           />
         </div>
 
         {/* ── CHECK-IN STATUS PANEL ────────────────────────────────────── */}
         {cards && (
-          <div style={{ borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+          <div className="border-b border-line-subtle" style={{ flexShrink: 0 }}>
             <div style={{ padding: "7px 12px 5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".07em" }}>
+              <span className="text-ink-soft" style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>
                 Check-in Status
               </span>
-              <span style={{ fontSize: 9, color: "var(--text3)" }}>Anmeldungsstatus</span>
+              <span className="text-ink-soft" style={{ fontSize: 9 }}>Anmeldungsstatus</span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderTop: "1px solid var(--border)" }}>
-              <div style={{ padding: "7px 6px", textAlign: "center" }}>
-                <div style={{ fontSize: 17, fontWeight: 700, fontFamily: "IBM Plex Mono", color: "var(--text)" }}>{expectedCount}</div>
-                <div style={{ fontSize: 8, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Expected</div>
+            <div className="border-t border-line-subtle" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
+              <div
+                onClick={expectedCount > 0 ? () => setKioskDrawerFilter("expected") : undefined}
+                style={{ padding: "7px 6px", textAlign: "center", cursor: expectedCount > 0 ? "pointer" : "default" }}
+              >
+                <div className={`font-mono ${expectedCount > 0 ? "text-ink" : ""}`} style={{ fontSize: 17, fontWeight: 700, color: expectedCount > 0 ? undefined : "rgb(var(--text-disabled))" }}>{expectedCount}</div>
+                <div className="text-ink-soft" style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Expected</div>
               </div>
-              <div style={{ padding: "7px 6px", textAlign: "center", borderLeft: "1px solid var(--border)", borderRight: "1px solid var(--border)" }}>
-                <div style={{ fontSize: 17, fontWeight: 700, fontFamily: "IBM Plex Mono", color: "#22d07a" }}>{checkedInCount}</div>
-                <div style={{ fontSize: 8, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Checked In</div>
+              <div
+                onClick={checkedInCount > 0 ? () => setKioskDrawerFilter("checkedIn") : undefined}
+                className="border-x border-line-subtle"
+                style={{ padding: "7px 6px", textAlign: "center", cursor: checkedInCount > 0 ? "pointer" : "default" }}
+              >
+                <div className="font-mono" style={{ fontSize: 17, fontWeight: 700, color: checkedInCount > 0 ? "rgb(var(--signal-live))" : "rgb(var(--text-disabled))" }}>{checkedInCount}</div>
+                <div className="text-ink-soft" style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Checked In</div>
               </div>
-              <div style={{ padding: "7px 6px", textAlign: "center" }}>
-                <div style={{ fontSize: 17, fontWeight: 700, fontFamily: "IBM Plex Mono", color: notYetInCount > 0 ? "var(--warn)" : "var(--text3)" }}>{notYetInCount}</div>
-                <div style={{ fontSize: 8, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Not Yet In</div>
+              <div
+                onClick={notYetInCount > 0 ? () => setKioskDrawerFilter("notYetIn") : undefined}
+                style={{ padding: "7px 6px", textAlign: "center", cursor: notYetInCount > 0 ? "pointer" : "default" }}
+              >
+                <div className={`font-mono ${notYetInCount > 0 ? "text-warn-fg" : ""}`} style={{ fontSize: 17, fontWeight: 700, color: notYetInCount > 0 ? undefined : "rgb(var(--text-disabled))" }}>{notYetInCount}</div>
+                <div className="text-ink-soft" style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Not Yet In</div>
               </div>
             </div>
-            {notYetInList.length > 0 && (
-              <div style={{ maxHeight: 130, overflowY: "auto", borderTop: "1px solid var(--border)" }}>
-                {notYetInList.map(agent => (
-                  <div key={agent.employeeId} style={{
-                    padding: "5px 12px",
-                    borderBottom: "1px solid rgba(30,45,69,0.3)",
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                  }}>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 500, color: "var(--text)" }}>{agent.name}</div>
-                      {agent.teamLead && (
-                        <div style={{ fontSize: 8, color: "var(--text3)" }}>{agent.teamLead}</div>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 9, color: "var(--text3)", fontFamily: "IBM Plex Mono", flexShrink: 0 }}>
-                      {agent.shiftStart}–{agent.shiftEnd}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
         <div style={{ flex: 1, overflowY: "auto" }}>
           {forecastLoading
             ? Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} style={{ padding: "10px 12px", borderBottom: "1px solid rgba(30,45,69,0.4)" }}>
+                <div key={i} style={{ padding: "10px 12px", borderBottom: "1px solid rgb(var(--line-subtle))" }}>
                   <Skeleton height={13} width="75%" />
                   <div style={{ marginTop: 5 }}><Skeleton height={9} width="45%" /></div>
                 </div>
               ))
             : filteredLocations.length === 0
-            ? <div style={{ padding: 20, textAlign: "center", fontSize: 12, color: "var(--text3)" }}>
+            ? <div className="text-ink-soft" style={{ padding: 20, textAlign: "center", fontSize: 12 }}>
                 {t("attendance.noLocations")}
               </div>
             : filteredLocations.map(loc => {
@@ -956,17 +1105,16 @@ export default function WicAttendance() {
                     onClick={() => setSelectedLocationCode(loc.locationCode)}
                     style={{
                       padding: "9px 12px", cursor: "pointer",
-                      background: isSelected ? "rgba(59,126,255,0.1)" : "transparent",
-                      borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent",
-                      borderBottom: "1px solid rgba(30,45,69,0.3)",
+                      background: isSelected ? "rgb(var(--st-info-bg))" : "transparent",
+                      borderLeft: isSelected ? "2px solid rgb(var(--st-info-solid))" : "2px solid transparent",
+                      borderBottom: "1px solid rgb(var(--line-subtle))",
                       transition: "background 0.1s",
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                       <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
-                        <span style={{
+                        <span className={isSelected ? "text-info-fg" : "text-ink"} style={{
                           fontSize: 12, fontWeight: isSelected ? 600 : 400,
-                          color: isSelected ? "var(--accent)" : "var(--text)",
                           overflow: "hidden", textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
                         }}>
@@ -979,9 +1127,9 @@ export default function WicAttendance() {
                           <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
                             <span style={{
                               width: 6, height: 6, borderRadius: "50%",
-                              background: "#22d07a", display: "inline-block",
+                              background: "rgb(var(--signal-live))", display: "inline-block",
                             }} />
-                            <span style={{ fontSize: 9, color: "#22d07a", fontFamily: "IBM Plex Mono" }}>
+                            <span className="font-mono" style={{ fontSize: 9, color: "rgb(var(--signal-live))" }}>
                               {locActiveCount}
                             </span>
                           </span>
@@ -990,11 +1138,10 @@ export default function WicAttendance() {
                       </div>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3 }}>
-                      <span style={{ fontSize: 10, color: "var(--text3)" }}>{loc.city}</span>
+                      <span className="text-ink-soft" style={{ fontSize: 10 }}>{loc.city}</span>
                       {loc.atRiskDays > 0 && (
-                        <span style={{
-                          fontSize: 9, color: "var(--danger)",
-                          fontFamily: "IBM Plex Mono",
+                        <span className="text-crit-fg font-mono" style={{
+                          fontSize: 9,
                           display: "flex", alignItems: "center", gap: 2,
                         }}>
                           <AlertTriangle size={8} />
@@ -1009,10 +1156,7 @@ export default function WicAttendance() {
         </div>
 
         {forecast && (
-          <div style={{
-            padding: "7px 12px", borderTop: "1px solid var(--border)",
-            fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono", flexShrink: 0,
-          }}>
+          <div className="border-t border-line-subtle text-ink-soft font-mono" style={{ padding: "7px 12px", flexShrink: 0, fontSize: 10 }}>
             {forecast.locationCount} loc · {forecast.totalAtRiskDays} at-risk
           </div>
         )}
@@ -1023,8 +1167,8 @@ export default function WicAttendance() {
         {!selectedLocationCode ? (
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "center",
-            height: 200, color: "var(--text3)", fontSize: 13,
-          }}>
+            height: 200, fontSize: 13,
+          }} className="text-ink-soft">
             {t("attendance.selectLocation")}
           </div>
         ) : (
@@ -1035,35 +1179,46 @@ export default function WicAttendance() {
               alignItems: "flex-start", marginBottom: 16, gap: 12,
             }}>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: "var(--text)", display: "flex", alignItems: "center", gap: 8 }}>
+                <div className="text-ink" style={{ fontSize: 20, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                   {selectedForecast?.displayName ?? selectedCard?.displayName ?? "—"}
                   {selectedForecast?.isNpp && <NppBadge />}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 2 }}>
+                <div className="text-ink-soft" style={{ fontSize: 12, marginTop: 2 }}>
                   {selectedForecast?.city} · {selectedForecast?.country}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                {liveCount > 0 && (
+                {kioskError ? (
                   <span style={{
                     display: "flex", alignItems: "center", gap: 5,
-                    background: "rgba(34,208,122,0.15)", color: "#22d07a",
-                    border: "1px solid rgba(34,208,122,0.35)",
+                    background: "rgb(var(--st-warn-bg))", color: "rgb(var(--st-warn-fg))",
+                    border: "1px solid rgb(var(--st-warn-bd))",
+                    padding: "4px 10px", borderRadius: 20,
+                    fontSize: 11, fontWeight: 600,
+                  }}>
+                    <AlertTriangle size={11} />
+                    {t("attendance.kiosk.offline")}
+                  </span>
+                ) : presentAgents.length > 0 && (
+                  <span style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    background: "rgb(var(--signal-live) / 0.15)", color: "rgb(var(--signal-live))",
+                    border: "1px solid rgb(var(--signal-live) / 0.35)",
                     padding: "4px 10px", borderRadius: 20,
                     fontSize: 11, fontWeight: 600,
                   }}>
                     <span style={{
                       width: 7, height: 7, borderRadius: "50%",
-                      background: "#22d07a", display: "inline-block",
+                      background: "rgb(var(--signal-live))", display: "inline-block",
                       animation: "pulse-green 1.5s ease-in-out infinite",
                     }} />
-                    Live {liveCount}
+                    Live {presentAgents.length}
                   </span>
                 )}
                 <button
                   onClick={() => setAlPlanningOpen(true)}
+                  className="bg-raised border border-line-subtle text-ink"
                   style={{
-                    background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
                     padding: "8px 14px", borderRadius: 6, fontSize: 12,
                     cursor: "pointer", display: "flex", alignItems: "center",
                     gap: 6, fontWeight: 500,
@@ -1074,8 +1229,8 @@ export default function WicAttendance() {
                 </button>
                 <button
                   onClick={() => setAssignAgentOpen(true)}
+                  className="bg-raised border border-line-subtle text-ink"
                   style={{
-                    background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
                     padding: "8px 14px", borderRadius: 6, fontSize: 12,
                     cursor: "pointer", display: "flex", alignItems: "center",
                     gap: 6, fontWeight: 500,
@@ -1086,8 +1241,8 @@ export default function WicAttendance() {
                 </button>
                 <button
                   onClick={() => setManualCheckinOpen(true)}
+                  className="bg-raised border border-line-subtle text-ink"
                   style={{
-                    background: "var(--card)", border: "1px solid var(--border)", color: "var(--text)",
                     padding: "8px 14px", borderRadius: 6, fontSize: 12,
                     cursor: "pointer", display: "flex", alignItems: "center",
                     gap: 6, fontWeight: 500,
@@ -1098,8 +1253,9 @@ export default function WicAttendance() {
                 </button>
                 <button
                   onClick={() => openSub(selectedDate)}
+                  className="bg-info-solid text-white"
                   style={{
-                    background: "var(--accent)", border: "none", color: "#fff",
+                    border: "none",
                     padding: "8px 14px", borderRadius: 6, fontSize: 12,
                     cursor: "pointer", display: "flex", alignItems: "center",
                     gap: 6, fontWeight: 600,
@@ -1114,17 +1270,17 @@ export default function WicAttendance() {
             {/* Currently Present */}
             {presentAgents.length > 0 && (
               <div style={{
-                background: "rgba(34,208,122,0.07)",
-                border: "1px solid rgba(34,208,122,0.25)",
+                background: "rgb(var(--signal-live) / 0.07)",
+                border: "1px solid rgb(var(--signal-live) / 0.25)",
                 borderRadius: 8, padding: "12px 16px", marginBottom: 14,
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
                   <span style={{
                     width: 8, height: 8, borderRadius: "50%",
-                    background: "#22d07a", display: "inline-block",
+                    background: "rgb(var(--signal-live))", display: "inline-block",
                     animation: "pulse-green 1.5s ease-in-out infinite",
                   }} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#22d07a" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "rgb(var(--signal-live))" }}>
                     Currently Present · {presentAgents.length}
                   </span>
                 </div>
@@ -1132,22 +1288,22 @@ export default function WicAttendance() {
                   {presentAgents.map(r => (
                     <div key={r.employee_id} style={{
                       display: "flex", alignItems: "center", gap: 6,
-                      background: "rgba(34,208,122,0.1)", border: "1px solid rgba(34,208,122,0.2)",
+                      background: "rgb(var(--signal-live) / 0.1)", border: "1px solid rgb(var(--signal-live) / 0.2)",
                       borderRadius: 6, padding: "5px 10px",
                     }}>
                       <span style={{
                         width: 6, height: 6, borderRadius: "50%",
-                        background: "#22d07a", display: "inline-block",
+                        background: "rgb(var(--signal-live))", display: "inline-block",
                         animation: "pulse-green 1.5s ease-in-out infinite",
                       }} />
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{r.full_name}</span>
+                      <span className="text-ink" style={{ fontSize: 12, fontWeight: 600 }}>{r.full_name}</span>
                       {r.checkin_time && (
-                        <span style={{ fontSize: 10, color: "#22d07a", fontFamily: "IBM Plex Mono" }}>
+                        <span className="font-mono" style={{ fontSize: 10, color: "rgb(var(--signal-live))" }}>
                           {r.checkin_time.slice(11, 16)}
                         </span>
                       )}
                       {r.minutes_on_shift > 0 && (
-                        <span style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                        <span className="text-ink-soft font-mono" style={{ fontSize: 10 }}>
                           {r.minutes_on_shift}m
                         </span>
                       )}
@@ -1161,10 +1317,7 @@ export default function WicAttendance() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 14 }}>
               {(cardsLoading || forecastLoading)
                 ? Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} style={{
-                      background: "var(--card)", border: "1px solid var(--border)",
-                      borderRadius: 8, padding: "12px 16px",
-                    }}>
+                    <div key={i} className="bg-raised border border-line-subtle" style={{ borderRadius: 8, padding: "12px 16px" }}>
                       <Skeleton height={10} width="55%" />
                       <div style={{ marginTop: 8 }}><Skeleton height={22} width="40%" /></div>
                     </div>
@@ -1174,20 +1327,17 @@ export default function WicAttendance() {
                       <CoverageBadge status={selectedCard?.coverageStatus ?? selectedDay?.status ?? "CLOSED"} />
                     </StatCard>
                     <StatCard label={t("attendance.agents.title")}>
-                      <div style={{
-                        fontSize: 26, fontWeight: 600, fontFamily: "IBM Plex Mono",
-                        color: selectedDay?.isAtRisk ? "var(--danger)" : "var(--green)",
-                      }}>
+                      <div className={`font-mono ${selectedDay?.isAtRisk ? "text-crit-fg" : "text-good-fg"}`} style={{ fontSize: 26, fontWeight: 600 }}>
                         {selectedDay?.effectiveCoverage ?? "—"}
                       </div>
                     </StatCard>
                     <StatCard label={t("attendance.risk.minRequired", { n: selectedDay?.minRequired ?? "?" })}>
-                      <div style={{ fontSize: 26, fontWeight: 600, fontFamily: "IBM Plex Mono", color: "var(--text2)" }}>
+                      <div className="font-mono text-ink-muted" style={{ fontSize: 26, fontWeight: 600 }}>
                         {selectedDay?.minRequired ?? "—"}
                       </div>
                     </StatCard>
                     <StatCard label={selectedCard?.todaySchedule.isClosed ? t("status.closed") : t("attendance.today")}>
-                      <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "IBM Plex Mono", color: "var(--text2)", marginTop: 4 }}>
+                      <div className="font-mono text-ink-muted" style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>
                         {selectedCard?.todaySchedule.isClosed
                           ? t("status.closed")
                           : selectedCard?.todaySchedule.openTime && selectedCard?.todaySchedule.closeTime
@@ -1199,6 +1349,54 @@ export default function WicAttendance() {
               }
             </div>
 
+            {/* Zone B — Not Checked In */}
+            {cards && (
+              <div style={{ marginBottom: 14 }}>
+                {zoneBEmergency.map(r => (
+                  <div key={r.employeeId} className="rounded-lg border border-crit-bd bg-crit-bg px-4 py-3 flex items-center gap-3 mb-3">
+                    <AlertTriangle size={16} className="text-crit-solid" />
+                    <span className="text-crit-fg font-medium text-sm">
+                      {r.name} · {r.locationCode} · {r.locationCity} · {r.shiftStart}
+                    </span>
+                  </div>
+                ))}
+                <Panel title={t("attendance.zoneB.title")}>
+                  {zoneBMain.length === 0 ? (
+                    <div className="flex items-center gap-2 py-3 px-4 text-good-fg text-sm">
+                      <CheckCircle2 size={14} />
+                      {t("attendance.zoneB.allCheckedIn")}
+                    </div>
+                  ) : (
+                    <DataTable columns={zoneBColumns} data={zoneBMain} rowKey={r => r.employeeId} />
+                  )}
+                </Panel>
+                {zoneBUpcoming.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <Panel
+                      title={`${t("attendance.zoneB.upcoming")} (${zoneBUpcoming.length})`}
+                      collapsible
+                      storageKey="wic-zone-b-upcoming"
+                      defaultOpen={false}
+                    >
+                      <DataTable columns={zoneBColumns} data={zoneBUpcoming} rowKey={r => r.employeeId} />
+                    </Panel>
+                  </div>
+                )}
+                {zoneBNoRecord.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <Panel
+                      title={`${t("attendance.zoneB.noKiosk")} (${zoneBNoRecord.length})`}
+                      collapsible
+                      storageKey="wic-zone-b-no-kiosk"
+                      defaultOpen={false}
+                    >
+                      <DataTable columns={zoneBColumns} data={zoneBNoRecord} rowKey={r => r.employeeId} className="opacity-60" />
+                    </Panel>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Agent chips */}
             <SectionCard title={t("attendance.agents.title")} icon={<Users size={13} />}>
               {cardsLoading ? (
@@ -1206,7 +1404,7 @@ export default function WicAttendance() {
                   {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} width={130} height={64} />)}
                 </div>
               ) : !selectedCard || selectedCard.assignedAgents.length === 0 ? (
-                <div style={{ color: "var(--text3)", fontSize: 12 }}>
+                <div className="text-ink-soft" style={{ fontSize: 12 }}>
                   {t("attendance.agents.noAgents")}
                 </div>
               ) : (
@@ -1224,23 +1422,22 @@ export default function WicAttendance() {
                           {kiosk?.attendance_status === "ACTIVE" && (
                             <span style={{
                               width: 7, height: 7, borderRadius: "50%",
-                              background: "#22d07a", display: "inline-block", flexShrink: 0,
+                              background: "rgb(var(--signal-live))", display: "inline-block", flexShrink: 0,
                               animation: "pulse-green 1.5s ease-in-out infinite",
                             }} />
                           )}
                           {kiosk?.attendance_status === "DONE" && (
                             <span style={{
                               width: 7, height: 7, borderRadius: "50%",
-                              background: "var(--text3)", display: "inline-block", flexShrink: 0,
+                              background: "rgb(var(--st-ink-soft))", display: "inline-block", flexShrink: 0,
                             }} />
                           )}
-                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{agent.name}</span>
+                          <span className="text-ink" style={{ fontSize: 12, fontWeight: 600 }}>{agent.name}</span>
                         </div>
                         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                          <span style={{
+                          <span className={agent.isMain ? "text-info-fg" : "text-ink-soft"} style={{
                             fontSize: 9, fontWeight: 600, textTransform: "uppercase" as const,
-                            background: agent.isMain ? "rgba(59,126,255,0.2)" : "rgba(122,143,168,0.2)",
-                            color: agent.isMain ? "var(--accent)" : "var(--text3)",
+                            background: agent.isMain ? "rgb(var(--st-info-bg))" : "rgb(var(--st-neutral-bg))",
                             padding: "1px 5px", borderRadius: 3,
                           }}>
                             {agent.isMain ? t("attendance.agents.main") : t("attendance.agents.backup")}
@@ -1254,7 +1451,7 @@ export default function WicAttendance() {
                           </span>
                         </div>
                         {(agent.shiftStart || agent.shiftEnd) && (
-                          <div style={{ fontSize: 9, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                          <div className="text-ink-soft font-mono" style={{ fontSize: 9 }}>
                             {agent.shiftStart === "SICK" || agent.shiftEnd === "SICK"
                               ? "SL"
                               : agent.shiftStart === "AL" || agent.shiftEnd === "AL"
@@ -1263,12 +1460,12 @@ export default function WicAttendance() {
                           </div>
                         )}
                         {kiosk?.attendance_status === "ACTIVE" && (
-                          <div style={{ fontSize: 9, color: "#22d07a", fontFamily: "IBM Plex Mono" }}>
+                          <div className="font-mono" style={{ fontSize: 9, color: "rgb(var(--signal-live))" }}>
                             {kiosk.checkin_time ? kiosk.checkin_time.slice(11, 16) : "checked in"}
                           </div>
                         )}
                         {kiosk?.attendance_status === "DONE" && (
-                          <div style={{ fontSize: 9, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                          <div className="text-ink-soft font-mono" style={{ fontSize: 9 }}>
                             {kiosk.checkout_time ? kiosk.checkout_time.slice(11, 16) : "done"}
                           </div>
                         )}
@@ -1296,12 +1493,10 @@ export default function WicAttendance() {
                     <button
                       key={n}
                       onClick={() => setHorizonDays(n)}
-                      style={{
-                        background: horizonDays === n ? "var(--accent)" : "var(--card2)",
-                        border: `1px solid ${horizonDays === n ? "var(--accent)" : "var(--border)"}`,
-                        color: horizonDays === n ? "#fff" : "var(--text2)",
-                        borderRadius: 5, padding: "3px 9px", fontSize: 10, fontWeight: 600, cursor: "pointer",
-                      }}
+                      className={horizonDays === n
+                        ? "bg-info-solid border border-info-bd text-white"
+                        : "bg-sunken border border-line-subtle text-ink-muted"}
+                      style={{ borderRadius: 5, padding: "3px 9px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}
                     >
                       {n}d
                     </button>
@@ -1318,7 +1513,7 @@ export default function WicAttendance() {
                   ))}
                 </div>
               ) : !(selectedForecast?.forecast?.length) ? (
-                <div style={{ color: "var(--text3)", fontSize: 12 }}>—</div>
+                <div className="text-ink-soft" style={{ fontSize: 12 }}>—</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {chunkWeeks(selectedForecast.forecast ?? []).map((week, wi) => (
@@ -1327,23 +1522,28 @@ export default function WicAttendance() {
                         <div
                           key={day.date}
                           onClick={() => { setSelectedDate(day.date); if (day.isAtRisk) openSub(day.date) }}
+                          className={`${day.date === selectedDate ? "border border-info-bd" : "bg-sunken border border-line-subtle"}`}
                           style={{
-                            background: day.date === selectedDate ? "rgba(59,126,255,0.12)" : "var(--card2)",
-                            border: `1px solid ${day.date === selectedDate ? "var(--accent)" : "var(--border)"}`,
+                            background: day.date === selectedDate ? "rgb(var(--st-info-bg))" : undefined,
                             borderRadius: 8, padding: "8px 4px",
                             flex: "1 1 0", minWidth: 0, cursor: "pointer",
                             transition: "all 0.1s",
                             display: "flex", flexDirection: "column", gap: 4, alignItems: "center",
                           }}
                         >
-                          <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                          <div className="text-ink-soft font-mono" style={{ fontSize: 10 }}>
                             {new Date(day.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short" })}
                           </div>
-                          <div style={{ fontSize: 11, color: "var(--text2)", fontFamily: "IBM Plex Mono" }}>
+                          <div className="text-ink-muted font-mono" style={{ fontSize: 11 }}>
                             {day.date.slice(5)}
                           </div>
-                          <CoverageBadge status={day.status} compact />
-                          {day.isAtRisk && <AlertTriangle size={10} color="var(--danger)" />}
+                          <div className={`w-full h-6 rounded-[3px] border ${
+                            day.status === "COVERED"   ? "bg-good-mid border-good-solid/25" :
+                            day.status === "PARTIAL"   ? "bg-warn-mid border-warn-solid/25" :
+                            day.status === "UNCOVERED" ? "bg-crit-mid border-crit-solid/25" :
+                                                         "bg-neutralst-mid border-neutralst-solid/25"
+                          }`} />
+                          {day.isAtRisk && <AlertTriangle size={10} className="text-crit-fg" />}
                         </div>
                       ))}
                     </div>
@@ -1372,31 +1572,25 @@ export default function WicAttendance() {
             ))}
           </div>
         ) : !subsDay ? (
-          <div style={{ color: "var(--text3)", fontSize: 13, marginTop: 10 }}>
+          <div className="text-ink-soft" style={{ fontSize: 13, marginTop: 10 }}>
             {t("attendance.substitute.loading")}
           </div>
         ) : subsDay.candidates.length === 0 ? (
-          <div style={{ color: "var(--text3)", fontSize: 13, textAlign: "center", marginTop: 20 }}>
+          <div className="text-ink-soft" style={{ fontSize: 13, textAlign: "center", marginTop: 20 }}>
             {t("attendance.substitute.noCandidates")}
           </div>
         ) : (
           <>
-            <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 14, fontFamily: "IBM Plex Mono" }}>
+            <div className="text-ink-soft font-mono" style={{ fontSize: 11, marginBottom: 14 }}>
               {sheetDate} · {t("attendance.risk.effectiveCoverage", { n: subsDay.present })} · gap {subsDay.gap}
             </div>
             {acceptError && (
-              <div style={{
-                background: "rgba(255,59,92,.12)", border: "1px solid rgba(255,59,92,.3)",
-                borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--danger)", marginBottom: 8
-              }}>
+              <div className="bg-crit-bg border border-crit-bd text-crit-fg" style={{ borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 8 }}>
                 {acceptError}
               </div>
             )}
             {acceptedSubId && (
-              <div style={{
-                background: "rgba(34,208,122,.12)", border: "1px solid rgba(34,208,122,.3)",
-                borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--green)", marginBottom: 8
-              }}>
+              <div className="bg-good-bg border border-good-bd text-good-fg" style={{ borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 8 }}>
                 {t("attendance.substitute.confirmed", {
                   name: acceptedSubName,
                   wic: subs?.displayName ?? selectedForecast?.displayName ?? ""
@@ -1407,32 +1601,39 @@ export default function WicAttendance() {
               {subsDay.candidates.map((c, i) => {
                 const sc = SOURCE_COLORS[c.sourceType] ?? SOURCE_COLORS.CALL_IN
                 return (
-                  <div key={c.employeeId} style={{
-                    background: acceptedSubId === c.employeeId ? "rgba(34,208,122,.06)" : "var(--card)",
-                    border: `1px solid ${acceptedSubId === c.employeeId ? "rgba(34,208,122,.3)" : "var(--border)"}`,
-                    borderRadius: 8, padding: "12px 14px",
-                  }}>
+                  <div key={c.employeeId}
+                    className={acceptedSubId === c.employeeId
+                      ? "bg-good-bg border border-good-bd"
+                      : "bg-raised border border-line-subtle"}
+                    style={{ borderRadius: 8, padding: "12px 14px" }}
+                  >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono", minWidth: 18 }}>
+                        <span className="text-ink-soft font-mono" style={{ fontSize: 11, minWidth: 18 }}>
                           {i + 1}.
                         </span>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{c.fullName}</span>
+                        <span className="text-ink" style={{ fontSize: 13, fontWeight: 600 }}>{c.fullName}</span>
                       </div>
-                      <span style={{
-                        fontSize: 9, fontWeight: 700, textTransform: "uppercase" as const,
-                        background: sc.bg, color: sc.color, padding: "2px 7px", borderRadius: 4,
-                      }}>
-                        {c.sourceType}
-                      </span>
+                      {(c.sourceType === "BACKUP" || c.sourceType === "REGIONAL") ? (
+                        <StatusBadge tone={c.sourceType === "REGIONAL" ? "wic" : "learn"} variant="outline">
+                          {c.sourceType}
+                        </StatusBadge>
+                      ) : (
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, textTransform: "uppercase" as const,
+                          background: sc.bg, color: sc.color, padding: "2px 7px", borderRadius: 4,
+                        }}>
+                          {c.sourceType}
+                        </span>
+                      )}
                     </div>
-                    <div style={{ marginTop: 6, display: "flex", gap: 12, fontSize: 11, color: "var(--text3)", flexWrap: "wrap" }}>
+                    <div className="text-ink-soft" style={{ marginTop: 6, display: "flex", gap: 12, fontSize: 11, flexWrap: "wrap" }}>
                       <span>{c.homeLocationName}</span>
-                      <span style={{ fontFamily: "IBM Plex Mono" }}>
+                      <span className="font-mono">
                         {t("attendance.substitute.distance", { km: (c.distanceKm ?? 0).toFixed(0) })}
                       </span>
                       {c.loadScore > 0 && (
-                        <span style={{ color: "var(--warn)", fontFamily: "IBM Plex Mono" }}>
+                        <span className="text-warn-fg font-mono">
                           {t("attendance.substitute.lastUsed", { n: c.loadScore })}
                         </span>
                       )}
@@ -1442,8 +1643,9 @@ export default function WicAttendance() {
                         <button
                           onClick={() => handleAcceptSub(c)}
                           disabled={acceptingId === c.employeeId}
+                          className="bg-good-solid text-white"
                           style={{
-                            background: "var(--green)", border: "none", color: "#fff",
+                            border: "none",
                             borderRadius: 5, padding: "5px 14px", fontSize: 11, fontWeight: 600,
                             cursor: acceptingId === c.employeeId ? "not-allowed" : "pointer",
                             opacity: acceptingId === c.employeeId ? 0.6 : 1,
@@ -1458,6 +1660,72 @@ export default function WicAttendance() {
               })}
             </div>
           </>
+        )}
+      </Sheet>
+
+      {/* ── KIOSK STATUS DRAWER ──────────────────────────────────────────────── */}
+      <Sheet
+        isOpen={kioskDrawerFilter !== null}
+        onClose={() => setKioskDrawerFilter(null)}
+        title={
+          kioskDrawerFilter === "checkedIn" ? t("attendance.kioskDrawer.checkedIn", { n: checkedInCount }) :
+          kioskDrawerFilter === "expected"  ? t("attendance.kioskDrawer.expected",  { n: expectedCount })  :
+          kioskDrawerFilter === "notYetIn"  ? t("attendance.kioskDrawer.notYetIn",  { n: notYetInCount })  : ""
+        }
+      >
+        {kioskError ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "32px 0", textAlign: "center" }}>
+            <AlertTriangle size={28} style={{ color: "rgb(var(--st-warn-solid))" }} />
+            <p className="text-sm font-medium text-ink">{t("attendance.kiosk.offline")}</p>
+            <button
+              onClick={() => queryClient.refetchQueries({ queryKey: ["kiosk-attendance"] })}
+              className="bg-raised border border-line-subtle text-ink"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 12 }}
+            >
+              <RefreshCw size={12} />
+              Retry
+            </button>
+          </div>
+        ) : kioskDrawerRows.length === 0 ? (
+          <EmptyState title={
+            kioskDrawerFilter === "checkedIn" ? t("attendance.kioskDrawer.empty.checkedIn") :
+            kioskDrawerFilter === "expected"  ? t("attendance.kioskDrawer.empty.expected")  :
+                                                t("attendance.kioskDrawer.empty.notYetIn")
+          } />
+        ) : (
+          <div style={{ margin: "0 -20px" }}>
+            {kioskDrawerRows.map(row => (
+              <div key={row.key} className="border-b border-line-subtle" style={{ display: "flex", alignItems: "center", gap: 10, height: 44, padding: "0 20px" }}>
+                {/* live dot */}
+                <div style={{ width: 12, flexShrink: 0, display: "flex", justifyContent: "center" }}>
+                  {row.status === "ACTIVE" && (
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: "rgb(var(--signal-live))", display: "inline-block", animation: "pulse-green 1.5s ease-in-out infinite" }} />
+                  )}
+                </div>
+                {/* name + location */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="text-sm font-medium text-ink truncate">{row.name}</div>
+                  <div className="text-xs text-ink-soft truncate">{row.location || "—"}</div>
+                </div>
+                {/* since */}
+                <div className="font-mono text-sm text-ink" style={{ flexShrink: 0, minWidth: 36, textAlign: "right" }}>
+                  {row.checkinTime ? row.checkinTime.slice(11, 16) : row.shiftStart ?? "—"}
+                </div>
+                {/* duration */}
+                <div className="font-mono text-sm text-ink-muted" style={{ flexShrink: 0, minWidth: 48, textAlign: "right" }}>
+                  {checkinDuration(row.checkinTime)}
+                </div>
+                {/* status badge */}
+                <StatusBadge tone={row.status === "ACTIVE" ? "good" : "mutedst"}>
+                  {row.status === "ACTIVE"
+                    ? t("attendance.kioskDrawer.status.active")
+                    : row.status === "DONE"
+                    ? t("attendance.kioskDrawer.status.done")
+                    : t("attendance.kioskDrawer.status.notIn")}
+                </StatusBadge>
+              </div>
+            ))}
+          </div>
         )}
       </Sheet>
 

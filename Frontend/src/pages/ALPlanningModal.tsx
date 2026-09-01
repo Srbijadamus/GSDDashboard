@@ -64,25 +64,25 @@ interface EmployeeRow {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  COVERED:   { bg: "rgba(0,210,160,.15)",  color: "#34d399", label: "covered" },
-  PARTIAL:   { bg: "rgba(255,186,0,.15)",  color: "#fbbf24", label: "partial" },
-  UNCOVERED: { bg: "rgba(255,59,92,.15)",  color: "#f87171", label: "uncovered" },
-  CLOSED:    { bg: "rgba(120,120,140,.12)", color: "var(--text3)", label: "closed" },
+  COVERED:   { bg: "rgb(var(--st-good-bg))",    color: "rgb(var(--st-good-fg))",    label: "covered"   },
+  PARTIAL:   { bg: "rgb(var(--st-warn-bg))",    color: "rgb(var(--st-warn-fg))",    label: "partial"   },
+  UNCOVERED: { bg: "rgb(var(--st-crit-bg))",    color: "rgb(var(--st-crit-fg))",    label: "uncovered" },
+  CLOSED:    { bg: "rgb(var(--st-neutral-bg))", color: "rgb(var(--st-neutral-fg))", label: "closed"    },
 }
 
 const SOURCE_COLORS: Record<string, { bg: string; color: string }> = {
-  BACKUP:    { bg: "rgba(124,58,237,.15)", color: "#a78bfa" },
-  SSP:       { bg: "rgba(59,126,255,.15)", color: "#60a5fa" },
-  WIC_DONOR: { bg: "rgba(0,210,160,.15)", color: "#34d399" },
-  CALL_IN:   { bg: "rgba(255,124,59,.15)", color: "#fb923c" },
+  BACKUP:    { bg: "rgb(var(--st-learn-bg))",  color: "rgb(var(--st-learn-fg))" },
+  SSP:       { bg: "rgb(var(--st-info-bg))",   color: "rgb(var(--st-info-fg))"  },
+  WIC_DONOR: { bg: "rgb(var(--st-good-bg))",   color: "rgb(var(--st-good-fg))"  },
+  CALL_IN:   { bg: "rgb(var(--st-warn-bg))",   color: "rgb(var(--st-warn-fg))"  },
 }
 
 const ABSENCE_COLORS: Record<string, { bg: string; color: string }> = {
-  AL:       { bg: "rgba(59,126,255,.15)", color: "#60a5fa" },
-  HALF_AL:  { bg: "rgba(59,126,255,.15)", color: "#60a5fa" },
-  SL:       { bg: "rgba(255,59,92,.15)",  color: "#f87171" },
-  UL:       { bg: "rgba(120,120,140,.12)", color: "var(--text3)" },
-  TRAINING: { bg: "rgba(255,186,0,.15)",  color: "#fbbf24" },
+  AL:       { bg: "rgb(var(--st-info-bg))",    color: "rgb(var(--st-info-fg))"    },
+  HALF_AL:  { bg: "rgb(var(--st-info-bg))",    color: "rgb(var(--st-info-fg))"    },
+  SL:       { bg: "rgb(var(--st-crit-bg))",    color: "rgb(var(--st-crit-fg))"    },
+  UL:       { bg: "rgb(var(--st-neutral-bg))", color: "rgb(var(--st-neutral-fg))" },
+  TRAINING: { bg: "rgb(var(--st-learn-bg))",   color: "rgb(var(--st-learn-fg))"   },
 }
 
 function formatDate(iso: string) {
@@ -165,29 +165,32 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
       }}
       onClick={e => { if (e.target === e.currentTarget) handleClose() }}
     >
-      <div style={{
-        background: "var(--sidebar)", border: "1px solid var(--border)",
-        borderRadius: 14, width: "100%", maxWidth: 860,
-        maxHeight: "90vh", display: "flex", flexDirection: "column",
-        boxShadow: "0 24px 64px rgba(0,0,0,.5)",
-      }}>
+      <div
+        className="bg-page border border-line-subtle"
+        style={{
+          borderRadius: 14, width: "100%", maxWidth: 860,
+          maxHeight: "90vh", display: "flex", flexDirection: "column",
+          boxShadow: "0 24px 64px rgba(0,0,0,.5)",
+        }}
+      >
         {/* Header */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "18px 22px", borderBottom: "1px solid var(--border)", flexShrink: 0,
-        }}>
+        <div
+          className="border-b border-line-subtle"
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "18px 22px", flexShrink: 0,
+          }}
+        >
           <div>
-            <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>{p("title")}</div>
-            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>
+            <div className="text-ink" style={{ fontWeight: 600, fontSize: 15 }}>{p("title")}</div>
+            <div className="text-ink-soft" style={{ fontSize: 11, marginTop: 2 }}>
               Simulation only — no changes are made to the schedule
             </div>
           </div>
           <button
             onClick={handleClose}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              color: "var(--text3)", padding: 4, borderRadius: 6, lineHeight: 0,
-            }}
+            className="text-ink-soft"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, lineHeight: 0 }}
           >
             <X size={18} />
           </button>
@@ -197,23 +200,20 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
         <div style={{ overflowY: "auto", flex: 1, padding: "20px 22px" }}>
 
           {/* ── Form ── */}
-          <div style={{
-            background: "var(--card)", border: "1px solid var(--border)",
-            borderRadius: 10, padding: 16, marginBottom: 20,
-          }}>
+          <div
+            className="bg-raised border border-line-subtle"
+            style={{ borderRadius: 10, padding: 16, marginBottom: 20 }}
+          >
             {/* Employee selector */}
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 11, color: "var(--text3)", display: "block", marginBottom: 5 }}>
+              <label className="text-ink-soft" style={{ fontSize: 11, display: "block", marginBottom: 5 }}>
                 {p("employee")}
               </label>
               <select
                 value={selectedEmpId}
                 onChange={e => setSelectedEmpId(e.target.value)}
-                style={{
-                  width: "100%", background: "var(--sidebar)", border: "1px solid var(--border)",
-                  borderRadius: 7, color: "var(--text)", fontSize: 13, padding: "7px 10px",
-                  outline: "none",
-                }}
+                className="bg-page border border-line-subtle text-ink"
+                style={{ width: "100%", borderRadius: 7, fontSize: 13, padding: "7px 10px", outline: "none" }}
               >
                 <option value="">{p("selectEmployee")}</option>
                 {employees.map(e => (
@@ -226,28 +226,25 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
 
             {/* Date ranges */}
             <div>
-              <label style={{ fontSize: 11, color: "var(--text3)", display: "block", marginBottom: 8 }}>
+              <label className="text-ink-soft" style={{ fontSize: 11, display: "block", marginBottom: 8 }}>
                 {p("dateRanges")}
               </label>
               {ranges.map((r, i) => (
                 <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
                   <div style={{ flex: 1 }}>
-                    <span style={{ fontSize: 10, color: "var(--text3)", display: "block", marginBottom: 3 }}>
+                    <span className="text-ink-soft" style={{ fontSize: 10, display: "block", marginBottom: 3 }}>
                       {p("from")}
                     </span>
                     <input
                       type="date"
                       value={r.from}
                       onChange={e => updateRange(i, "from", e.target.value)}
-                      style={{
-                        width: "100%", background: "var(--sidebar)", border: "1px solid var(--border)",
-                        borderRadius: 7, color: "var(--text)", fontSize: 13, padding: "6px 10px",
-                        outline: "none",
-                      }}
+                      className="bg-page border border-line-subtle text-ink"
+                      style={{ width: "100%", borderRadius: 7, fontSize: 13, padding: "6px 10px", outline: "none" }}
                     />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <span style={{ fontSize: 10, color: "var(--text3)", display: "block", marginBottom: 3 }}>
+                    <span className="text-ink-soft" style={{ fontSize: 10, display: "block", marginBottom: 3 }}>
                       {p("to")}
                     </span>
                     <input
@@ -255,20 +252,15 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                       value={r.to}
                       min={r.from || undefined}
                       onChange={e => updateRange(i, "to", e.target.value)}
-                      style={{
-                        width: "100%", background: "var(--sidebar)", border: "1px solid var(--border)",
-                        borderRadius: 7, color: "var(--text)", fontSize: 13, padding: "6px 10px",
-                        outline: "none",
-                      }}
+                      className="bg-page border border-line-subtle text-ink"
+                      style={{ width: "100%", borderRadius: 7, fontSize: 13, padding: "6px 10px", outline: "none" }}
                     />
                   </div>
                   {ranges.length > 1 && (
                     <button
                       onClick={() => removeRange(i)}
-                      style={{
-                        marginTop: 18, background: "none", border: "none", cursor: "pointer",
-                        color: "var(--text3)", padding: 4, borderRadius: 6, lineHeight: 0,
-                      }}
+                      className="text-ink-soft"
+                      style={{ marginTop: 18, background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 6, lineHeight: 0 }}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -280,9 +272,10 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                 {ranges.length < 5 && (
                   <button
                     onClick={addRange}
+                    className="border border-dashed border-line-subtle text-ink-soft"
                     style={{
-                      background: "none", border: "1px dashed var(--border)", borderRadius: 7,
-                      color: "var(--text3)", fontSize: 12, padding: "5px 12px",
+                      background: "none", borderRadius: 7,
+                      fontSize: 12, padding: "5px 12px",
                       cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
                     }}
                   >
@@ -293,8 +286,8 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                 <button
                   onClick={handleSubmit}
                   disabled={loading}
+                  className={loading ? "bg-line-subtle" : "bg-info-solid"}
                   style={{
-                    background: loading ? "var(--border)" : "var(--accent)",
                     border: "none", borderRadius: 7, color: "#fff",
                     fontSize: 13, fontWeight: 600, padding: "6px 18px",
                     cursor: loading ? "not-allowed" : "pointer",
@@ -309,11 +302,10 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
 
           {/* Error */}
           {error && (
-            <div style={{
-              background: "rgba(255,59,92,.12)", border: "1px solid rgba(255,59,92,.3)",
-              borderRadius: 8, padding: "10px 14px", fontSize: 12,
-              color: "var(--danger)", marginBottom: 16,
-            }}>
+            <div
+              className="bg-crit-bg border border-crit-bd text-crit-fg"
+              style={{ borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 16 }}
+            >
               {error}
             </div>
           )}
@@ -327,10 +319,10 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                 marginBottom: 16, gap: 12,
               }}>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text)" }}>
+                  <div className="text-ink" style={{ fontWeight: 600, fontSize: 14 }}>
                     {result.fullName ?? result.employeeId}
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>
+                  <div className="text-ink-soft" style={{ fontSize: 11, marginTop: 2 }}>
                     {result.note}
                   </div>
                 </div>
@@ -340,28 +332,25 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
               {result.dateRanges.map((range, ri) => (
                 <div key={ri} style={{ marginBottom: 24 }}>
                   {/* Range header */}
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    marginBottom: 10,
-                  }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                    <span className="text-ink" style={{ fontSize: 13, fontWeight: 600 }}>
                       {formatDate(range.from)} – {formatDate(range.to)}
                     </span>
-                    <span style={{ fontSize: 11, color: "var(--text3)" }}>
+                    <span className="text-ink-soft" style={{ fontSize: 11 }}>
                       {range.totalDays} day(s)
                     </span>
                     {range.atRiskDays > 0 ? (
-                      <span style={{
-                        background: "rgba(255,59,92,.15)", color: "#f87171",
-                        fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: 600,
-                      }}>
+                      <span
+                        className="bg-crit-bg text-crit-fg"
+                        style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: 600 }}
+                      >
                         {p("atRisk", { n: range.atRiskDays })}
                       </span>
                     ) : (
-                      <span style={{
-                        background: "rgba(0,210,160,.12)", color: "#34d399",
-                        fontSize: 11, padding: "2px 8px", borderRadius: 20,
-                      }}>
+                      <span
+                        className="text-good-fg"
+                        style={{ background: "rgb(var(--st-good-bg) / 0.12)", fontSize: 11, padding: "2px 8px", borderRadius: 20 }}
+                      >
                         {p("noImpact")}
                       </span>
                     )}
@@ -369,18 +358,17 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
 
                   {/* Days table */}
                   {range.days.some(d => d.locations.length > 0) ? (
-                    <div style={{
-                      background: "var(--card)", border: "1px solid var(--border)",
-                      borderRadius: 10, overflow: "hidden",
-                    }}>
+                    <div
+                      className="bg-raised border border-line-subtle"
+                      style={{ borderRadius: 10, overflow: "hidden" }}
+                    >
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                         <thead>
-                          <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                          <tr className="border-b border-line-subtle">
                             {["Date", "Location", "Status", "Present/Min", p("bestSub"), p("conflicts")].map(h => (
-                              <th key={h} style={{
+                              <th key={h} className="text-ink-soft" style={{
                                 textAlign: "left", padding: "8px 12px",
-                                color: "var(--text3)", fontWeight: 500, fontSize: 11,
-                                whiteSpace: "nowrap",
+                                fontWeight: 500, fontSize: 11, whiteSpace: "nowrap",
                               }}>
                                 {h}
                               </th>
@@ -397,19 +385,17 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                               return (
                                 <tr
                                   key={`${di}-${li}`}
-                                  style={{
-                                    borderBottom: "1px solid var(--border)",
-                                    background: di % 2 === 0 ? "transparent" : "rgba(255,255,255,.02)",
-                                  }}
+                                  className="border-b border-line-subtle"
+                                  style={{ background: di % 2 === 0 ? "transparent" : "rgb(var(--surface-raised))" }}
                                 >
                                   {/* Date cell — only for first location of the day */}
                                   <td style={{ padding: "8px 12px", whiteSpace: "nowrap", verticalAlign: "top" }}>
                                     {li === 0 ? (
                                       <>
-                                        <span style={{ color: "var(--text)", fontWeight: 500 }}>
+                                        <span className="text-ink" style={{ fontWeight: 500 }}>
                                           {formatDate(day.date)}
                                         </span>
-                                        <span style={{ color: "var(--text3)", marginLeft: 5 }}>
+                                        <span className="text-ink-soft" style={{ marginLeft: 5 }}>
                                           {shortDay(day.dayOfWeek)}
                                         </span>
                                       </>
@@ -417,7 +403,7 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                                   </td>
 
                                   {/* Location */}
-                                  <td style={{ padding: "8px 12px", color: "var(--text)", maxWidth: 200 }}>
+                                  <td className="text-ink" style={{ padding: "8px 12px", maxWidth: 200 }}>
                                     <span style={{
                                       display: "block", overflow: "hidden",
                                       textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -438,10 +424,10 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                                   </td>
 
                                   {/* Present/Min */}
-                                  <td style={{
-                                    padding: "8px 12px", fontFamily: "IBM Plex Mono, monospace",
-                                    color: loc.gap > 0 ? "#f87171" : "var(--text3)",
-                                  }}>
+                                  <td
+                                    className={`font-mono ${loc.gap > 0 ? "text-crit-fg" : "text-ink-soft"}`}
+                                    style={{ padding: "8px 12px" }}
+                                  >
                                     {loc.present.toFixed(1)} / {loc.required}
                                   </td>
 
@@ -449,7 +435,7 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                                   <td style={{ padding: "8px 12px" }}>
                                     {loc.bestSubstitute ? (
                                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                        <span style={{ color: "var(--text)" }}>
+                                        <span className="text-ink">
                                           {loc.bestSubstitute.fullName}
                                         </span>
                                         <span style={{
@@ -460,13 +446,13 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                                           {loc.bestSubstitute.sourceType}
                                         </span>
                                         {loc.bestSubstitute.distanceKm != null && (
-                                          <span style={{ fontSize: 10, color: "var(--text3)" }}>
+                                          <span className="text-ink-soft" style={{ fontSize: 10 }}>
                                             {Math.round(loc.bestSubstitute.distanceKm)} km
                                           </span>
                                         )}
                                       </div>
                                     ) : (
-                                      <span style={{ color: "var(--text3)" }}>—</span>
+                                      <span className="text-ink-soft">—</span>
                                     )}
                                   </td>
 
@@ -488,7 +474,7 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                                         })}
                                       </div>
                                     ) : li === 0 ? (
-                                      <span style={{ color: "var(--text3)", fontSize: 11 }}>{p("noConflicts")}</span>
+                                      <span className="text-ink-soft" style={{ fontSize: 11 }}>{p("noConflicts")}</span>
                                     ) : null}
                                   </td>
                                 </tr>
@@ -499,11 +485,10 @@ export function ALPlanningModal({ isOpen, onClose }: { isOpen: boolean; onClose:
                       </table>
                     </div>
                   ) : (
-                    <div style={{
-                      background: "var(--card)", border: "1px solid var(--border)",
-                      borderRadius: 10, padding: "20px 16px",
-                      textAlign: "center", color: "var(--text3)", fontSize: 13,
-                    }}>
+                    <div
+                      className="bg-raised border border-line-subtle text-ink-soft"
+                      style={{ borderRadius: 10, padding: "20px 16px", textAlign: "center", fontSize: 13 }}
+                    >
                       {p("noImpact")}
                     </div>
                   )}

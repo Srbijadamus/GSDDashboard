@@ -154,15 +154,14 @@ public class BackupService
             foreach (var we in dayWic)
             {
                 shiftByEmpDate.TryGetValue((we.EmployeeId, date), out var shift);
-                if (shift != null && FullAbsenceTypes.Contains(shift.ShiftType))
+                double contrib = AvailabilityResolver.GetWicContribution(false, shift);
+                if (contrib <= 0.0)
                 {
                     absentIds.Add(we.EmployeeId);
                     absentNames.Add(empById.TryGetValue(we.EmployeeId, out var ae) ? (ae.FullName ?? we.EmployeeId) : we.EmployeeId);
                 }
-                else if (shift != null && string.Equals(shift.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
-                    presentDouble += 0.5;
                 else
-                    presentDouble += 1.0;
+                    presentDouble += contrib;
             }
 
             int effectiveCoverage = (int)Math.Floor(presentDouble);

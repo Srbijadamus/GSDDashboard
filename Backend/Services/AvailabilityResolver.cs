@@ -1,4 +1,5 @@
 using GSDDashboard.API.Data;
+using GSDDashboard.API.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Services;
@@ -32,6 +33,19 @@ public class AvailabilityResolver
     private static readonly List<string> FullAbsenceTypesList = FullAbsenceTypes.ToList();
 
     public AvailabilityResolver(GSDContext db) => _db = db;
+
+    // Returns the WIC coverage contribution for a scheduled agent.
+    // 1.0 = doing WIC duty or no ShiftEntry (WIC-only); 0.5 = HALF_AL; 0.0 = absent or doing non-WIC work.
+    // All callers use this instead of local if-else chains to keep coverage logic in one place.
+    public static double GetWicContribution(bool isSick, ShiftEntry? sh)
+    {
+        if (isSick) return 0.0;
+        if (sh == null) return 1.0; // no ShiftEntry → WIC-only agent, assume on duty
+        if (FullAbsenceTypes.Contains(sh.ShiftType)) return 0.0;
+        if (string.Equals(sh.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase)) return 0.5;
+        if (string.Equals(sh.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase)) return 1.0;
+        return 0.0; // WORKING or other non-WIC type → agent is doing other work, not WIC duty
+    }
 
     // Returns the absence status for a single employee on a given date.
     // SickLeave records take priority over ShiftEntries.

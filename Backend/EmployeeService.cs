@@ -15,7 +15,7 @@ public record EmployeeDto(
 
 public record ShiftTimelineItem(string Date, string ShiftType, string? ShiftStart, string? ShiftEnd, bool IsWicDuty);
 public record SickLeaveItem(string FirstDay, string LastDay, int? DurationDays, string? LeaveType);
-public record VacationItem(string FirstDay, string LastDay, int? WorkDaysNet, string? Comments);
+public record VacationItem(string FirstDay, string LastDay, decimal? WorkDaysNet, string? Comments);
 
 public record EmployeeTimelineDto(
     string EmployeeId, string? FullName, string? TeamLeadName,

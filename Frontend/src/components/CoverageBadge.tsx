@@ -6,14 +6,15 @@ interface BadgeConfig {
   bg: string
   color: string
   dot: string
+  border: string
   i18nKey: string
 }
 
 const CONFIG: Record<string, BadgeConfig> = {
-  COVERED:   { bg: "rgba(34, 208, 122, 0.14)", color: "#22d07a", dot: "#22d07a",  i18nKey: "attendance.status.covered"   },
-  PARTIAL:   { bg: "rgba(255, 124,  59, 0.14)", color: "#ff7c3b", dot: "#ff7c3b", i18nKey: "attendance.status.partial"   },
-  UNCOVERED: { bg: "rgba(255,  59,  92, 0.14)", color: "#ff3b5c", dot: "#ff3b5c", i18nKey: "attendance.status.uncovered" },
-  CLOSED:    { bg: "rgba(122, 143, 168, 0.10)", color: "#7a8fa8", dot: "#4a5f7a", i18nKey: "attendance.status.closed"    },
+  COVERED:   { bg: "rgb(var(--st-good-bg))",    color: "rgb(var(--st-good-fg))",    dot: "rgb(var(--st-good-solid))",    border: "rgb(var(--st-good-bd))",    i18nKey: "attendance.status.covered"   },
+  PARTIAL:   { bg: "rgb(var(--st-warn-bg))",    color: "rgb(var(--st-warn-fg))",    dot: "rgb(var(--st-warn-solid))",    border: "rgb(var(--st-warn-bd))",    i18nKey: "attendance.status.partial"   },
+  UNCOVERED: { bg: "rgb(var(--st-crit-bg))",    color: "rgb(var(--st-crit-fg))",    dot: "rgb(var(--st-crit-solid))",    border: "rgb(var(--st-crit-bd))",    i18nKey: "attendance.status.uncovered" },
+  CLOSED:    { bg: "rgb(var(--st-neutral-bg))", color: "rgb(var(--st-neutral-fg))", dot: "rgb(var(--st-neutral-solid))", border: "rgb(var(--st-neutral-bd))", i18nKey: "attendance.status.closed"    },
 }
 
 const FALLBACK: BadgeConfig = CONFIG.CLOSED
@@ -43,7 +44,7 @@ export function CoverageBadge({ status, compact = false }: Props) {
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 5,
       background: cfg.bg,
-      border: `1px solid ${cfg.color}44`,
+      border: `1px solid ${cfg.border}`,
       color: cfg.color,
       borderRadius: 5, padding: "3px 8px",
       fontSize: 10, fontWeight: 700, textTransform: "uppercase",

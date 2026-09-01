@@ -82,6 +82,18 @@
   --st-muted-bd:      228 231 236;  /* #E4E7EC */
   --st-muted-solid:   208 213 221;  /* #D0D5DD */
 
+  /* ---------- MID — dense data surfaces ----------------------------------- */
+  /* Usage rule: text on it → -bg; colour alone → -mid; dot / bar / marker → -solid */
+  --st-good-mid:     108 233 166;  /* #6CE9A6 */
+  --st-warn-mid:     254 200  75;  /* #FEC84B */
+  --st-crit-mid:     253 162 155;  /* #FDA29B */
+  --st-info-mid:     132 202 255;  /* #84CAFF */
+  --st-wic-mid:      103 227 249;  /* #67E3F9 */
+  --st-learn-mid:    182 164 253;  /* #B6A4FD */
+  --st-holiday-mid:  253 226 114;  /* #FDE272 */
+  --st-neutral-mid:  208 213 221;  /* #D0D5DD */
+  --st-muted-mid:    234 236 240;  /* #EAECF0 */
+
   /* ---------- ELEVATION ---------- */
   --shadow-xs: 0 1px 2px rgb(16 24 40 / .05);
   --shadow-sm: 0 1px 3px rgb(16 24 40 / .10), 0 1px 2px rgb(16 24 40 / .06);
@@ -136,6 +148,16 @@
   --st-neutral-fg:    152 162 179;  --st-neutral-bg:26  33  48;  --st-neutral-bd:44  53  71;  --st-neutral-solid:102 112 133;
   --st-muted-fg:      102 112 133;  --st-muted-bg:  15  19  27;  --st-muted-bd: 32  40  57;  --st-muted-solid:  71  84 103;
 
+  --st-good-mid:      12 118  74;  /* #0C764A */
+  --st-warn-mid:     147  85  13;  /* #93550D */
+  --st-crit-mid:     145  50  42;  /* #91322A */
+  --st-info-mid:      24  92 169;  /* #185CA9 */
+  --st-wic-mid:       12  95 118;  /* #0C5F76 */
+  --st-learn-mid:     77  47 165;  /* #4D2FA5 */
+  --st-holiday-mid:  140  95  10;  /* #8C5F0A */
+  --st-neutral-mid:   62  74  96;  /* #3E4A60 */
+  --st-muted-mid:     38  46  62;  /* #262E3E */
+
   --shadow-xs: 0 1px 2px rgb(0 0 0 / .40);
   --shadow-sm: 0 1px 3px rgb(0 0 0 / .50), 0 1px 2px rgb(0 0 0 / .40);
   --shadow-md: 0 4px 8px -2px rgb(0 0 0 / .55), 0 2px 4px -2px rgb(0 0 0 / .40);
@@ -143,4 +165,29 @@
   --shadow-xl: 0 20px 24px -4px rgb(0 0 0 / .60), 0 8px 8px -4px rgb(0 0 0 / .40);
 
   --signal-live: 34 208 122;
+}
+
+/* ---------- NAV CHROME — dark (default, independent of app theme) ---------- */
+:root,
+[data-nav-theme="dark"] {
+  --nav-surface:  14  17  26;  /* #0E111A  near-black chrome */
+  --nav-hover:    22  27  40;  /* #161B28  hover */
+  --nav-active:   28  33  48;  /* #1C2130  active fill */
+  --nav-border:   30  36  52;  /* #1E2434  hairlines */
+  --nav-rail:    255 255 255;  /* #FFFFFF  active indicator pill */
+  --nav-ink:     220 225 238;  /* #DCE1EE  primary text */
+  --nav-muted:   130 140 165;  /* #828CA5  secondary text */
+  --nav-soft:     80  88 110;  /* #50586E  group labels */
+}
+
+/* ---------- NAV CHROME — light ---------- */
+[data-nav-theme="light"] {
+  --nav-surface: 245 246 250;  /* #F5F6FA */
+  --nav-hover:   234 236 242;
+  --nav-active:  224 227 236;
+  --nav-border:  218 221 230;
+  --nav-rail:     22  24  29;  /* dark pill on light nav */
+  --nav-ink:      20  24  40;
+  --nav-muted:    95 105 130;
+  --nav-soft:    130 140 160;
 }

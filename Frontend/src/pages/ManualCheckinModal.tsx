@@ -55,9 +55,9 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
-    background: "var(--card2)",
-    border: "1px solid var(--border)",
-    color: "var(--text)",
+    background: "rgb(var(--surface-sunken))",
+    border: "1px solid rgb(var(--border-subtle))",
+    color: "rgb(var(--text-primary))",
     padding: "6px 10px",
     borderRadius: 6,
     fontSize: 12,
@@ -115,37 +115,35 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
       onClick={onClose}
     >
       <div
+        className="bg-raised border border-line-subtle"
         style={{
-          background: "var(--card)", border: "1px solid var(--border)",
           borderRadius: 12, padding: 24, width: 380, maxWidth: "90vw",
           boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
         }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-          <Clock size={16} color="var(--accent)" />
-          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>{p("title")}</span>
+          <Clock size={16} className="text-info-fg" />
+          <span className="text-ink" style={{ fontSize: 15, fontWeight: 600 }}>{p("title")}</span>
         </div>
 
         {success && (
-          <div style={{
-            background: "rgba(34,208,122,.12)", border: "1px solid rgba(34,208,122,.3)",
-            borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--green)", marginBottom: 14,
+          <div className="bg-good-bg border border-good-bd text-good-fg" style={{
+            borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14,
           }}>
             {success}
           </div>
         )}
         {error && (
-          <div style={{
-            background: "rgba(255,59,92,.12)", border: "1px solid rgba(255,59,92,.3)",
-            borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--danger)", marginBottom: 14,
+          <div className="bg-crit-bg border border-crit-bd text-crit-fg" style={{
+            borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14,
           }}>
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+          <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
             {p("agent")}
             <select
               value={agentId}
@@ -160,7 +158,7 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
             </select>
           </label>
 
-          <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+          <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
             {p("action")}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
               {(["checkin", "logout"] as const).map(act => (
@@ -168,21 +166,19 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
                   key={act}
                   type="button"
                   onClick={() => setAction(act)}
+                  className={
+                    action === act
+                      ? act === "checkin"
+                        ? "bg-good-bg border border-good-bd text-good-fg"
+                        : "bg-crit-bg border border-crit-bd text-crit-fg"
+                      : "bg-sunken border border-line-subtle text-ink-soft"
+                  }
                   style={{
                     padding: "7px 0",
                     borderRadius: 6,
                     fontSize: 12,
                     fontWeight: action === act ? 600 : 400,
                     cursor: "pointer",
-                    background: action === act
-                      ? act === "checkin" ? "rgba(34,208,122,.2)" : "rgba(255,59,92,.2)"
-                      : "var(--card2)",
-                    border: action === act
-                      ? act === "checkin" ? "1px solid rgba(34,208,122,.5)" : "1px solid rgba(255,59,92,.5)"
-                      : "1px solid var(--border)",
-                    color: action === act
-                      ? act === "checkin" ? "var(--green)" : "var(--danger)"
-                      : "var(--text3)",
                   }}
                 >
                   {p(act)}
@@ -191,7 +187,7 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
             </div>
           </label>
 
-          <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+          <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
             {p("performedBy")}
             <input
               type="text"
@@ -205,9 +201,9 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
             <button
               type="button"
               onClick={onClose}
+              className="bg-sunken border border-line-subtle text-ink"
               style={{
-                flex: 1, background: "var(--card2)", border: "1px solid var(--border)",
-                color: "var(--text)", borderRadius: 6, padding: "8px 0",
+                flex: 1, borderRadius: 6, padding: "8px 0",
                 fontSize: 12, cursor: "pointer",
               }}
             >
@@ -216,8 +212,9 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
             <button
               type="submit"
               disabled={submitting || agentId === ""}
+              className="bg-info-solid"
               style={{
-                flex: 2, background: "var(--accent)", border: "none", color: "#fff",
+                flex: 2, border: "none", color: "#fff",
                 borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 600,
                 cursor: submitting || agentId === "" ? "not-allowed" : "pointer",
                 opacity: submitting || agentId === "" ? 0.6 : 1,

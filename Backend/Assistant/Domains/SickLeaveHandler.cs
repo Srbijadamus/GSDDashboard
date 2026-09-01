@@ -56,6 +56,42 @@ public sealed class SickLeaveHandler(
             return new AssistantResponse(A.BackendError, dateLabel, null, A.BackendError);
         }
 
+        // Long-term sick filter — "longer than N days", "21 day", "langzeitkrank", "long-term"
+        bool isLongSick = q.Contains("longer than") || q.Contains("more than")     ||
+                          q.Contains("21 day")       || q.Contains("langzeitkrank") ||
+                          q.Contains("long-term")    || q.Contains("laenger als");
+        if (isLongSick)
+        {
+            int threshold = 21;
+            var numMatch = System.Text.RegularExpressions.Regex.Match(q, @"(\d+)\s*day");
+            if (numMatch.Success && int.TryParse(numMatch.Groups[1].Value, out var parsedDays))
+                threshold = parsedDays;
+
+            int today = date.DayNumber;
+            leaves = leaves
+                .Where(l => l.FirstDay != null &&
+                            DateOnly.TryParse(l.FirstDay, out var fd) &&
+                            (today - fd.DayNumber) >= threshold)
+                .ToList();
+
+            if (parsed.PersonHint is not null)
+                leaves = leaves
+                    .Where(l => (l.FullName ?? "").Contains(parsed.PersonHint, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+            var longRows = leaves.Select(l => new AssistantTableRow(
+                l.FullName ?? l.EmployeeId ?? "",
+                l.EmployeeId ?? "",
+                l.FirstDay, l.LastDay,
+                l.DurationDays, "", l.LeaveType ?? "SL")).ToArray();
+
+            var longText = longRows.Length == 0
+                ? $"No employees on sick leave for {threshold}+ days as of {dateLabel}."
+                : $"{longRows.Length} employee{(longRows.Length == 1 ? "" : "s")} sick for {threshold}+ days as of {dateLabel}.";
+
+            return new AssistantResponse(longText, dateLabel, longRows.Length > 0 ? longRows : null, null);
+        }
+
         if (parsed.PersonHint is not null)
             leaves = leaves
                 .Where(l => (l.FullName ?? "").Contains(parsed.PersonHint, StringComparison.OrdinalIgnoreCase))

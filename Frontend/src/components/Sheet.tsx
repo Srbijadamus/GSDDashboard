@@ -29,11 +29,10 @@ export function Sheet({ isOpen, onClose, title, children }: SheetProps) {
         }}
       />
       <div
+        className="bg-raised border-l border-line-subtle"
         style={{
           position: "fixed", top: 0, right: 0, bottom: 0,
           width: 440, maxWidth: "92vw",
-          background: "var(--card)",
-          borderLeft: "1px solid var(--border)",
           zIndex: 50,
           transform: isOpen ? "translateX(0)" : "translateX(100%)",
           transition: "transform 0.25s ease",
@@ -41,18 +40,18 @@ export function Sheet({ isOpen, onClose, title, children }: SheetProps) {
           overflowY: "hidden",
         }}
       >
-        <div style={{
+        <div className="border-b border-line-subtle" style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "14px 20px",
-          borderBottom: "1px solid var(--border)",
           flexShrink: 0,
         }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{title}</span>
+          <span className="text-ink" style={{ fontSize: 14, fontWeight: 600 }}>{title}</span>
           <button
             onClick={onClose}
+            className="text-ink-soft"
             style={{
               background: "none", border: "none", cursor: "pointer",
-              color: "var(--text3)", display: "flex", alignItems: "center",
+              display: "flex", alignItems: "center",
               padding: 4, borderRadius: 4,
             }}
           >

@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { api, apiFetch } from "../api/client"
-import { Plus, Pencil, Trash2, X, Check } from "lucide-react"
+import { Plus, Pencil, Trash2, X, Check, AlertTriangle, XCircle } from "lucide-react"
 
 // const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000"
 
@@ -22,40 +22,35 @@ const SHIFT_PATTERNS = [
 const shiftBadge = (pattern: string) => {
   if (!pattern) return null
   const colors: Record<string,string> = {
-    EARLY:"var(--warn)", MORNING:"var(--accent)", AFTERNOON:"var(--accent2)",
-    NIGHT:"var(--purple)", BACKUP:"var(--text2)",
+    EARLY:"text-warn-fg", MORNING:"text-info-fg", AFTERNOON:"text-wic-fg",
+    NIGHT:"text-learn-fg", BACKUP:"text-ink-muted",
   }
   const label = SHIFT_PATTERNS.find(s => s.value === pattern)?.label ?? pattern
-  return <span style={{ color: colors[pattern] ?? "var(--text2)", fontSize:11, fontFamily:"IBM Plex Mono" }}>{label}</span>
+  return <span className={`font-mono text-[11px] ${colors[pattern] ?? "text-ink-muted"}`}>{label}</span>
 }
 
 const badge = (type: string) => {
-  const styles: Record<string,any> = {
-    "Full Time": { background:"rgba(59,126,255,.15)", color:"var(--blue-light)" },
-    "Part-Time": { background:"rgba(255,124,59,.15)", color:"var(--warn)" },
-    "Student":   { background:"rgba(0,210,160,.15)",  color:"var(--accent2)" },
+  const cls: Record<string,string> = {
+    "Full Time": "bg-info-bg text-info-fg",
+    "Part-Time": "bg-warn-bg text-warn-fg",
+    "Student":   "bg-wic-bg text-wic-fg",
   }
-  const s = styles[type] ?? { background:"rgba(255,255,255,.08)", color:"var(--text2)" }
-  return <span style={{ ...s, padding:"2px 7px", borderRadius:4, fontSize:10, fontWeight:600, fontFamily:"IBM Plex Mono" }}>
+  const c = cls[type] ?? "bg-raised text-ink-muted"
+  return <span className={`font-mono text-[10px] font-semibold px-[7px] py-[2px] rounded ${c}`}>
     {type === "Full Time" ? "FT" : type === "Part-Time" ? "PT" : "STU"}
   </span>
 }
 
 const roleBadge = (role: string) => {
   const colors: Record<string,string> = {
-    "Voice":"var(--accent2)", "SSP":"var(--accent)", "Chat":"var(--purple)",
-    "Dispatcher":"var(--warn)", "WIC":"var(--blue-light)", "SME":"var(--accent2)",
+    "Voice":"text-wic-fg", "SSP":"text-info-fg", "Chat":"text-learn-fg",
+    "Dispatcher":"text-warn-fg", "WIC":"text-wic-fg", "SME":"text-wic-fg",
   }
-  return <span style={{ color: colors[role] ?? "var(--text2)", fontSize:11, fontFamily:"IBM Plex Mono" }}>{role}</span>
+  return <span className={`font-mono text-[11px] ${colors[role] ?? "text-ink-muted"}`}>{role}</span>
 }
 
-const inputStyle = {
-  background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text)",
-  padding:"7px 10px", borderRadius:6, fontSize:12, outline:"none",
-  fontFamily:"IBM Plex Sans", width:"100%"
-}
-
-const selectStyle = { ...inputStyle }
+const inputCls = "bg-sunken border border-line-subtle text-ink py-[7px] px-[10px] rounded-[6px] text-[12px] outline-none w-full"
+const selectCls = inputCls
 
 function EmployeeModal({ emp, onClose, onSave }: {
   emp?: any; onClose: () => void; onSave: (data: any) => void
@@ -93,99 +88,86 @@ function EmployeeModal({ emp, onClose, onSave }: {
   }
 
   return (
-    <div style={{
-      position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:1000,
-      display:"flex", alignItems:"center", justifyContent:"center"
-    }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{
-        background:"var(--card)", border:"1px solid var(--border)", borderRadius:10,
-        padding:24, width:460, maxHeight:"90vh", overflowY:"auto"
-      }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-          <h2 style={{ fontSize:16, fontWeight:600, color:"var(--text)" }}>
+    <div className="fixed inset-0 bg-[rgba(0,0,0,.7)] z-[1000] flex items-center justify-center" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-raised border border-line-subtle rounded-[10px] p-6 w-[460px] max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="text-base font-semibold text-ink">
             {emp ? "Edit Agent" : "Add New Agent"}
           </h2>
-          <button onClick={onClose} style={{ background:"none", border:"none", color:"var(--text3)", cursor:"pointer" }}>
+          <button onClick={onClose} className="bg-transparent border-none text-ink-soft cursor-pointer">
             <X size={18} />
           </button>
         </div>
 
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <div className="flex flex-col gap-[14px]">
           {/* Employee ID */}
           <div>
-            <label style={{ fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }}>Employee ID *</label>
+            <label className="text-[11px] text-ink-soft mb-1 block">Employee ID *</label>
             <input value={form.employeeId} onChange={e => handleChange("employeeId", e.target.value)}
-              disabled={!!emp} style={{ ...inputStyle, opacity: emp ? .5 : 1 }} placeholder="e.g. 9130648" />
-            {errors.employeeId && <div style={{ fontSize:10, color:"var(--danger)", marginTop:3 }}>{errors.employeeId}</div>}
+              disabled={!!emp} className={inputCls} style={{ opacity: emp ? .5 : 1 }} placeholder="e.g. 9130648" />
+            {errors.employeeId && <div className="text-[10px] text-crit-fg mt-[3px]">{errors.employeeId}</div>}
           </div>
 
           {/* Full Name */}
           <div>
-            <label style={{ fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }}>Full Name *</label>
+            <label className="text-[11px] text-ink-soft mb-1 block">Full Name *</label>
             <input value={form.fullName} onChange={e => handleChange("fullName", e.target.value)}
-              style={inputStyle} placeholder="First Last" />
-            {errors.fullName && <div style={{ fontSize:10, color:"var(--danger)", marginTop:3 }}>{errors.fullName}</div>}
+              className={inputCls} placeholder="First Last" />
+            {errors.fullName && <div className="text-[10px] text-crit-fg mt-[3px]">{errors.fullName}</div>}
           </div>
 
           {/* Engagement */}
           <div>
-            <label style={{ fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }}>Type</label>
-            <select value={form.engagement} onChange={e => handleChange("engagement", e.target.value)} style={selectStyle}>
+            <label className="text-[11px] text-ink-soft mb-1 block">Type</label>
+            <select value={form.engagement} onChange={e => handleChange("engagement", e.target.value)} className={selectCls}>
               {ENGAGEMENTS.map(t => <option key={t}>{t}</option>)}
             </select>
           </div>
 
           {/* Role */}
           <div>
-            <label style={{ fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }}>Primary Role</label>
-            <select value={form.primaryRole} onChange={e => handleChange("primaryRole", e.target.value)} style={selectStyle}>
+            <label className="text-[11px] text-ink-soft mb-1 block">Primary Role</label>
+            <select value={form.primaryRole} onChange={e => handleChange("primaryRole", e.target.value)} className={selectCls}>
               {ROLES.map(r => <option key={r}>{r}</option>)}
             </select>
           </div>
 
           {/* Team Lead */}
           <div>
-            <label style={{ fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }}>Team Lead</label>
-            <select value={form.teamLeadName} onChange={e => handleChange("teamLeadName", e.target.value)} style={selectStyle}>
+            <label className="text-[11px] text-ink-soft mb-1 block">Team Lead</label>
+            <select value={form.teamLeadName} onChange={e => handleChange("teamLeadName", e.target.value)} className={selectCls}>
               {TEAM_LEADS.map(tl => <option key={tl}>{tl}</option>)}
             </select>
           </div>
 
           {/* Source */}
           <div>
-            <label style={{ fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }}>Source Sheet</label>
-            <select value={form.sourceSheet} onChange={e => handleChange("sourceSheet", e.target.value)} style={selectStyle}>
+            <label className="text-[11px] text-ink-soft mb-1 block">Source Sheet</label>
+            <select value={form.sourceSheet} onChange={e => handleChange("sourceSheet", e.target.value)} className={selectCls}>
               {SOURCES.map(s => <option key={s}>{s}</option>)}
             </select>
           </div>
           {/* Bundesland */}
           <div>
-            <label style={{ fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }}>Bundesland</label>
-            <select value={(form as any).bundesland} onChange={e => handleChange("bundesland", e.target.value)} style={selectStyle}>
+            <label className="text-[11px] text-ink-soft mb-1 block">Bundesland</label>
+            <select value={(form as any).bundesland} onChange={e => handleChange("bundesland", e.target.value)} className={selectCls}>
               <option value="">-- Select Bundesland --</option>
               {BUNDESLAENDER.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
           {/* Shift Pattern */}
           <div>
-            <label style={{ fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }}>Shift</label>
-            <select value={(form as any).shiftPattern} onChange={e => handleChange("shiftPattern", e.target.value)} style={selectStyle}>
+            <label className="text-[11px] text-ink-soft mb-1 block">Shift</label>
+            <select value={(form as any).shiftPattern} onChange={e => handleChange("shiftPattern", e.target.value)} className={selectCls}>
               <option value="">-- Select Shift --</option>
               {SHIFT_PATTERNS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
         </div>
 
-        <div style={{ display:"flex", gap:8, marginTop:20, justifyContent:"flex-end" }}>
-          <button onClick={onClose} style={{
-            background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text2)",
-            padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer"
-          }}>Cancel</button>
-          <button onClick={handleSubmit} style={{
-            background:"var(--accent)", border:"none", color:"#fff",
-            padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer",
-            display:"flex", alignItems:"center", gap:4
-          }}>
+        <div className="flex gap-2 mt-5 justify-end">
+          <button onClick={onClose} className="bg-sunken border border-line-subtle text-ink-muted py-2 px-4 rounded-[6px] text-[12px] cursor-pointer">Cancel</button>
+          <button onClick={handleSubmit} className="bg-info-solid border-none text-white py-2 px-4 rounded-[6px] text-[12px] cursor-pointer flex items-center gap-1">
             <Check size={14} /> {emp ? "Save Changes" : "Add Agent"}
           </button>
         </div>
@@ -198,35 +180,20 @@ function DeleteModal({ emp, futureCount, onClose, onConfirm }: {
   emp: any; futureCount: number; onClose: () => void; onConfirm: () => void
 }) {
   return (
-    <div style={{
-      position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:1000,
-      display:"flex", alignItems:"center", justifyContent:"center"
-    }}>
-      <div style={{
-        background:"var(--card)", border:"1px solid rgba(255,59,92,.3)", borderRadius:10, padding:24, width:400
-      }}>
-        <h2 style={{ fontSize:16, fontWeight:600, color:"var(--danger)", marginBottom:12 }}>Delete Agent</h2>
-        <p style={{ fontSize:13, color:"var(--text2)", marginBottom:8 }}>
-          Are you sure you want to delete <strong style={{ color:"var(--text)" }}>{emp.fullName}</strong>?
+    <div className="fixed inset-0 bg-[rgba(0,0,0,.7)] z-[1000] flex items-center justify-center">
+      <div className="bg-raised border border-crit-bd rounded-[10px] p-6 w-[400px]">
+        <h2 className="text-base font-semibold text-crit-fg mb-3">Delete Agent</h2>
+        <p className="text-[13px] text-ink-muted mb-2">
+          Are you sure you want to delete <strong className="text-ink">{emp.fullName}</strong>?
         </p>
         {futureCount > 0 && (
-          <div style={{
-            background:"rgba(255,59,92,.08)", border:"1px solid rgba(255,59,92,.2)",
-            borderRadius:6, padding:"10px 12px", marginBottom:12, fontSize:12, color:"var(--danger)"
-          }}>
-            ⚠ This agent has <strong>{futureCount}</strong> scheduled future shifts that will be affected.
+          <div className="bg-crit-bg border border-crit-bd rounded-[6px] px-3 py-[10px] mb-3 text-[12px] text-crit-fg flex items-center gap-2">
+            <AlertTriangle size={12} /> This agent has <strong>{futureCount}</strong> scheduled future shifts that will be affected.
           </div>
         )}
-        <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-          <button onClick={onClose} style={{
-            background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text2)",
-            padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer"
-          }}>Cancel</button>
-          <button onClick={onConfirm} style={{
-            background:"var(--danger)", border:"none", color:"#fff",
-            padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer",
-            display:"flex", alignItems:"center", gap:4
-          }}>
+        <div className="flex gap-2 justify-end">
+          <button onClick={onClose} className="bg-sunken border border-line-subtle text-ink-muted py-2 px-4 rounded-[6px] text-[12px] cursor-pointer">Cancel</button>
+          <button onClick={onConfirm} className="bg-crit-solid border-none text-white py-2 px-4 rounded-[6px] text-[12px] cursor-pointer flex items-center gap-1">
             <Trash2 size={14} /> Delete
           </button>
         </div>
@@ -304,93 +271,71 @@ export default function Employees() {
   }
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-        <h1 style={{ fontSize:22, fontWeight:600, color:"var(--text)" }}>{t("nav.employees")}</h1>
-        <button onClick={() => setShowModal(true)} style={{
-          background:"var(--accent)", border:"none", color:"#fff",
-          padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer",
-          display:"flex", alignItems:"center", gap:6
-        }}>
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-[22px] font-semibold text-ink">{t("nav.employees")}</h1>
+        <button onClick={() => setShowModal(true)} className="bg-info-solid border-none text-white py-2 px-4 rounded-[6px] text-[12px] cursor-pointer flex items-center gap-[6px]">
           <Plus size={14} /> Add Agent
         </button>
       </div>
 
       {error && (
-        <div style={{ background:"rgba(255,59,92,.1)", border:"1px solid rgba(255,59,92,.3)",
-          borderRadius:6, padding:"10px 14px", fontSize:12, color:"var(--danger)" }}>
-          ❌ {error}
+        <div className="bg-crit-bg border border-crit-bd rounded-[6px] px-[14px] py-[10px] text-[12px] text-crit-fg flex items-center gap-2">
+          <XCircle size={14} /> {error}
         </div>
       )}
 
-      <div style={{ display:"flex", gap:10 }}>
+      <div className="flex gap-[10px]">
         <input placeholder="Search name, ID, team lead..." value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ flex:1, background:"var(--card)", border:"1px solid var(--border)",
-            color:"var(--text)", padding:"7px 12px", borderRadius:6, fontSize:12, outline:"none" }} />
+          className="flex-1 bg-raised border border-line-subtle text-ink py-[7px] px-3 rounded-[6px] text-[12px] outline-none" />
         <select value={source} onChange={e => setSource(e.target.value)}
-          style={{ background:"var(--card)", border:"1px solid var(--border)",
-            color:"var(--text2)", padding:"7px 12px", borderRadius:6, fontSize:12 }}>
+          className="bg-raised border border-line-subtle text-ink-muted py-[7px] px-3 rounded-[6px] text-[12px]">
           <option value="">All Teams</option>
           <option value="GSD_DE">GSD DE</option>
           <option value="GSD_NL">GSD NL</option>
           <option value="GSD_WIC">WIC</option>
         </select>
         <select value={engagement} onChange={e => setEngagement(e.target.value)}
-          style={{ background:"var(--card)", border:"1px solid var(--border)",
-            color:"var(--text2)", padding:"7px 12px", borderRadius:6, fontSize:12 }}>
+          className="bg-raised border border-line-subtle text-ink-muted py-[7px] px-3 rounded-[6px] text-[12px]">
           <option value="">All Types</option>
           <option value="Full Time">Full Time</option>
           <option value="Part-Time">Part-Time</option>
           <option value="Student">Student</option>
         </select>
         <select value={role} onChange={e => setRole(e.target.value)}
-          style={{ background:"var(--card)", border:"1px solid var(--border)",
-            color:"var(--text2)", padding:"7px 12px", borderRadius:6, fontSize:12 }}>
+          className="bg-raised border border-line-subtle text-ink-muted py-[7px] px-3 rounded-[6px] text-[12px]">
           <option value="">All Roles</option>
           {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
 
-      <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, overflow:"hidden" }}>
-        <div style={{ overflowX:"auto" }}>
+      <div className="bg-raised border border-line-subtle rounded-[8px] overflow-hidden">
+        <div className="overflow-x-auto">
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
             <thead>
-              <tr style={{ background:"var(--card2)" }}>
+              <tr className="bg-sunken">
                 {["ID","Full Name","Type","Primary Role","Team Lead","Source","Bundesland","Shift","Actions"].map(h => (
-                  <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontSize:10,
-                    fontWeight:500, textTransform:"uppercase", letterSpacing:".07em",
-                    color:"var(--text3)", borderBottom:"1px solid var(--border)" }}>{h}</th>
+                  <th key={h} className="px-3 py-[10px] text-left text-[10px] font-medium uppercase tracking-[.07em] text-ink-soft border-b border-line-subtle">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={9} style={{ padding:24, textAlign:"center", color:"var(--text3)" }}>Loading...</td></tr>}
+              {isLoading && <tr><td colSpan={9} className="p-6 text-center text-ink-soft">Loading...</td></tr>}
               {filtered.map((e: any) => (
-                <tr key={e.employeeId}
-                  style={{ borderBottom:"1px solid var(--border)" }}
-                  onMouseEnter={ev => (ev.currentTarget.style.background = "var(--card2)")}
-                  onMouseLeave={ev => (ev.currentTarget.style.background = "transparent")}>
-                  <td style={{ padding:"9px 12px", fontFamily:"IBM Plex Mono", fontSize:11, color:"var(--text3)" }}>{e.employeeId}</td>
-                  <td style={{ padding:"9px 12px", fontWeight:500 }}>{e.fullName}</td>
-                  <td style={{ padding:"9px 12px" }}>{badge(e.engagement)}</td>
-                  <td style={{ padding:"9px 12px" }}>{roleBadge(e.primaryRole)}</td>
-                  <td style={{ padding:"9px 12px", color:"var(--text2)", fontSize:11 }}>{e.teamLeadName}</td>
-                  <td style={{ padding:"9px 12px", fontSize:10, fontFamily:"IBM Plex Mono", color:"var(--text3)" }}>{e.sourceSheet}</td>
-                  <td style={{ padding:"9px 12px" }}>{(e as any).bundesland && <span style={{ background:"rgba(250,204,21,0.1)", border:"1px solid rgba(250,204,21,0.3)", color:"var(--yellow)", borderRadius:4, fontSize:9, padding:"2px 6px", fontWeight:600 }}>{(e as any).bundesland}</span>}</td>
-                  <td style={{ padding:"9px 12px" }}>{shiftBadge((e as any).shiftPattern)}</td>
-                  <td style={{ padding:"9px 12px" }}>
-                    <div style={{ display:"flex", gap:6 }}>
-                      <button onClick={() => setEditEmp(e)} style={{
-                        background:"rgba(59,126,255,.12)", border:"1px solid rgba(59,126,255,.2)",
-                        color:"var(--accent)", padding:"4px 8px", borderRadius:4,
-                        fontSize:10, cursor:"pointer", display:"flex", alignItems:"center", gap:3
-                      }}><Pencil size={11} /> Edit</button>
-                      <button onClick={() => openDelete(e)} style={{
-                        background:"rgba(255,59,92,.12)", border:"1px solid rgba(255,59,92,.2)",
-                        color:"var(--danger)", padding:"4px 8px", borderRadius:4,
-                        fontSize:10, cursor:"pointer", display:"flex", alignItems:"center", gap:3
-                      }}><Trash2 size={11} /> Delete</button>
+                <tr key={e.employeeId} className="border-b border-line-subtle hover:bg-hovered">
+                  <td className="px-3 py-[9px] font-mono text-[11px] text-ink-soft">{e.employeeId}</td>
+                  <td className="px-3 py-[9px] font-medium">{e.fullName}</td>
+                  <td className="px-3 py-[9px]">{badge(e.engagement)}</td>
+                  <td className="px-3 py-[9px]">{roleBadge(e.primaryRole)}</td>
+                  <td className="px-3 py-[9px] text-ink-muted text-[11px]">{e.teamLeadName}</td>
+                  <td className="px-3 py-[9px] text-[10px] font-mono text-ink-soft">{e.sourceSheet}</td>
+                  <td className="px-3 py-[9px]">{(e as any).bundesland && <span className="bg-holiday-bg border border-holiday-bd text-holiday-fg" style={{ borderRadius:4, fontSize:9, padding:"2px 6px", fontWeight:600 }}>{(e as any).bundesland}</span>}</td>
+                  <td className="px-3 py-[9px]">{shiftBadge((e as any).shiftPattern)}</td>
+                  <td className="px-3 py-[9px]">
+                    <div className="flex gap-[6px]">
+                      <button onClick={() => setEditEmp(e)} className="bg-info-bg border border-info-bd text-info-fg px-2 py-1 rounded text-[10px] cursor-pointer flex items-center gap-[3px]"><Pencil size={11} /> Edit</button>
+                      <button onClick={() => openDelete(e)} className="bg-crit-bg border border-crit-bd text-crit-fg px-2 py-1 rounded text-[10px] cursor-pointer flex items-center gap-[3px]"><Trash2 size={11} /> Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -398,8 +343,7 @@ export default function Employees() {
             </tbody>
           </table>
         </div>
-        <div style={{ padding:"8px 12px", borderTop:"1px solid var(--border)",
-          fontSize:11, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>
+        <div className="px-3 py-2 border-t border-line-subtle text-[11px] text-ink-soft font-mono">
           {filtered.length} employees
         </div>
       </div>

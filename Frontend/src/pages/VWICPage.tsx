@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { AlertTriangle, X, Check } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -184,39 +185,41 @@ function AssignSlotModal({
 
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}
+      className="fixed inset-0 bg-black/55 z-[2000] flex items-center justify-center"
       onClick={onClose}
     >
       <div
-        style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, width: 460, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
+        className="bg-raised border border-line-subtle rounded-lg w-[460px] max-h-[80vh] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div className="px-5 py-4 border-b border-line-subtle flex justify-between items-start">
           <div>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Assign Agent</div>
-            <div style={{ fontSize: 12, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>{slotLabel}</div>
+            <div className="text-xs text-ink-soft font-mono">{slotLabel}</div>
             {isOrange && (
-              <div style={{ marginTop: 6, fontSize: 11, color: "#f97316", background: "rgba(249,115,22,.1)", border: "1px solid rgba(249,115,22,.3)", borderRadius: 4, padding: "3px 8px", display: "inline-block" }}>
+              <div className="mt-1.5 text-[11px] text-warn-fg bg-warn-bg border border-warn-bd rounded px-2 py-0.5 inline-block">
                 Understaffed — below minimum
               </div>
             )}
             {!slot.hasAnyAgent && (
-              <div style={{ marginTop: 6, fontSize: 11, color: "#ef4444", background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 4, padding: "3px 8px", display: "inline-block" }}>
+              <div className="mt-1.5 text-[11px] text-crit-fg bg-crit-bg border border-crit-bd rounded px-2 py-0.5 inline-block">
                 No coverage — gap
               </div>
             )}
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
+          <button onClick={onClose} className="bg-transparent border-none text-ink-muted cursor-pointer leading-none p-0">
+            <X size={16} />
+          </button>
         </div>
 
         {/* Agent list */}
         <div style={{ overflowY: "auto", flex: 1 }}>
           {isLoading && (
-            <div style={{ padding: 24, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>Loading agents…</div>
+            <div className="p-6 text-center text-ink-soft text-sm">Loading agents…</div>
           )}
           {!isLoading && sorted.length === 0 && (
-            <div style={{ padding: 24, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>
+            <div className="p-6 text-center text-ink-soft text-sm">
               No available agents for this slot
             </div>
           )}
@@ -226,42 +229,34 @@ function AssignSlotModal({
             return (
               <div
                 key={c.employeeId}
-                style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 20px", borderBottom: "1px solid var(--border)" }}
+                className="flex items-center gap-3 px-5 py-[11px] border-b border-line-subtle"
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div className="flex items-center gap-1.5">
                     <span style={{ fontWeight: 600, fontSize: 13 }}>{c.fullName ?? c.employeeId}</span>
                     {c.isWorkingToday && (
-                      <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 10, background: "rgba(34,197,94,.15)", color: "#22c55e", fontFamily: "IBM Plex Mono" }}>
+                      <span className="text-[9px] px-1.5 py-px rounded-full font-mono bg-good-bg text-good-fg">
                         WORKING
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 2, fontFamily: "IBM Plex Mono" }}>
+                  <div className="text-[10px] text-ink-soft mt-0.5 font-mono">
                     {c.employeeId}
                     {c.shiftStart && c.shiftEnd
-                      ? <span style={{ marginLeft: 8, color: covers ? "#22c55e" : "var(--text3)" }}>
+                      ? <span className={`ml-2 ${covers ? "text-good-fg" : "text-ink-soft"}`}>
                           {c.shiftStart}–{c.shiftEnd}
                           {covers ? " ✓ in shift" : " outside shift"}
                         </span>
                       : c.isWorkingToday
-                        ? <span style={{ marginLeft: 8, color: "var(--text3)" }}>working · no times set</span>
-                        : <span style={{ marginLeft: 8, color: "var(--text3)" }}>no shift today</span>
+                        ? <span className="ml-2 text-ink-soft">working · no times set</span>
+                        : <span className="ml-2 text-ink-soft">no shift today</span>
                     }
                   </div>
                 </div>
                 <button
                   onClick={() => assign(c)}
                   disabled={isSaving}
-                  style={{
-                    background: covers ? "var(--accent)" : "var(--card2)",
-                    border: `1px solid ${covers ? "var(--accent)" : "var(--border)"}`,
-                    color:  covers ? "#fff" : "var(--text2)",
-                    padding: "6px 14px", borderRadius: 6, fontSize: 12,
-                    cursor: isSaving ? "wait" : "pointer",
-                    fontWeight: 600, whiteSpace: "nowrap",
-                    opacity: isSaving ? 0.6 : 1,
-                  }}
+                  className={`px-3.5 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-opacity ${covers ? "bg-info-solid text-white border-none" : "bg-sunken border border-line-subtle text-ink-muted"} ${isSaving ? "opacity-60 cursor-wait" : "cursor-pointer"}`}
                 >
                   {isSaving ? "Assigning…" : "Assign"}
                 </button>
@@ -271,7 +266,7 @@ function AssignSlotModal({
         </div>
 
         {error && (
-          <div style={{ padding: "10px 20px", borderTop: "1px solid var(--border)", fontSize: 12, color: "#ef4444" }}>
+          <div className="px-5 py-2.5 border-t border-line-subtle text-xs text-crit-fg">
             {error}
           </div>
         )}
@@ -308,29 +303,31 @@ function AddAgentModal({ onClose, onAdded }: { onClose: () => void; onAdded: () 
 
   return (
     <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }}
+      className="fixed inset-0 bg-black/55 z-[2000] flex items-center justify-center"
       onClick={onClose}
     >
       <div
-        style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, width: 420, padding: 24, display: "flex", flexDirection: "column", gap: 16 }}
+        className="bg-raised border border-line-subtle rounded-lg w-[420px] p-6 flex flex-col gap-4"
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="flex justify-between items-center">
           <span style={{ fontWeight: 700, fontSize: 15 }}>Add Agent to VWIC</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text2)", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
+          <button onClick={onClose} className="bg-transparent border-none text-ink-muted cursor-pointer leading-none p-0">
+            <X size={16} />
+          </button>
         </div>
 
-        <div style={{ fontSize: 12, color: "var(--text3)" }}>
+        <div className="text-xs text-ink-soft">
           Sets SecondaryRole = VWIC so the agent appears in the Backup Pool.
         </div>
 
         {isLoading ? (
-          <div style={{ color: "var(--text3)", fontSize: 13 }}>Loading employees…</div>
+          <div className="text-ink-soft text-sm">Loading employees…</div>
         ) : (
           <select
             value={selected}
             onChange={e => setSelected(e.target.value)}
-            style={{ background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", padding: "8px 12px", borderRadius: 6, fontSize: 13, width: "100%" }}
+            className="bg-sunken border border-line-subtle text-ink px-3 py-2 rounded-md text-sm w-full"
           >
             <option value="">Select employee…</option>
             {candidates?.map(c => (
@@ -341,17 +338,17 @@ function AddAgentModal({ onClose, onAdded }: { onClose: () => void; onAdded: () 
           </select>
         )}
 
-        {error && <div style={{ fontSize: 12, color: "#ef4444" }}>{error}</div>}
+        {error && <div className="text-xs text-crit-fg">{error}</div>}
 
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <div className="flex gap-2 justify-end">
           <button onClick={onClose}
-            style={{ background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text2)", padding: "7px 16px", borderRadius: 6, fontSize: 13, cursor: "pointer" }}>
+            className="bg-sunken border border-line-subtle text-ink-muted px-4 py-[7px] rounded-md text-sm cursor-pointer">
             Cancel
           </button>
           <button
             onClick={() => { setError(null); mutation.mutate(selected) }}
             disabled={!selected || mutation.isPending}
-            style={{ background: "var(--accent)", color: "#fff", border: "none", padding: "7px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: selected && !mutation.isPending ? "pointer" : "not-allowed", opacity: !selected || mutation.isPending ? 0.6 : 1 }}
+            className={`bg-info-solid text-white border-none px-4 py-[7px] rounded-md text-sm font-semibold ${selected && !mutation.isPending ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
           >
             {mutation.isPending ? "Adding…" : "Add to VWIC"}
           </button>
@@ -373,10 +370,10 @@ function CoverageTimeline({
   const [hovered, setHovered] = useState<number | null>(null)
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", marginBottom: 12 }}>
+    <div className="bg-raised border border-line-subtle rounded-md p-4">
+      <div className="text-[11px] font-semibold uppercase tracking-[.07em] text-ink-soft mb-3">
         Coverage Timeline · 24/7 · 00:00 – 24:00
-        <span style={{ marginLeft: 10, fontWeight: 400, color: "var(--text3)", textTransform: "none", letterSpacing: 0 }}>
+        <span className="ml-2.5 font-normal text-ink-soft normal-case tracking-normal">
           — min 1 agent (00-07 &amp; 17-24) · min 3 agents (07-17) · click under-staffed slot to assign
         </span>
       </div>
@@ -386,8 +383,9 @@ function CoverageTimeline({
           {timeline.map((slot, i) => {
             const count     = slot.mainAgents.length
             const isPartial = !slot.hasMainAgent && count > 0
-            const borderCol = slot.hasMainAgent ? "#22c55e" : isPartial ? "#f97316" : "#ef4444"
-            const bgCol     = borderCol + "22"
+            const slotTone  = slot.hasMainAgent ? "good" : isPartial ? "warn" : "crit"
+            const borderCol = `rgb(var(--st-${slotTone}-fg))`
+            const bgCol     = `rgb(var(--st-${slotTone}-mid))`
             const isHov     = hovered === slot.hour
             const isLast    = i >= timeline.length - 4
             const clickable = !slot.hasMainAgent
@@ -408,16 +406,15 @@ function CoverageTimeline({
                   padding:      "7px 2px",
                   textAlign:    "center",
                   cursor:       clickable ? "pointer" : "default",
-                  opacity:      isHov ? 0.75 : 1,
-                  transition:   "opacity .12s, transform .1s",
+                  transition:   "transform .1s",
                   transform:    isHov && clickable ? "translateY(-2px)" : "none",
-                  boxShadow:    isHov && clickable ? `0 4px 12px ${borderCol}44` : "none",
+                  boxShadow:    isHov && clickable ? `0 4px 12px rgb(var(--st-${slotTone}-fg) / 0.27)` : "none",
                 }}>
-                  <div style={{ fontSize: 8, color: "var(--text3)", marginBottom: 2 }}>{slot.label}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "IBM Plex Mono", color: borderCol, lineHeight: 1 }}>
+                  <div className="text-ink-soft" style={{ fontSize: 8, marginBottom: 2 }}>{slot.label}</div>
+                  <div className="font-mono" style={{ fontSize: 15, fontWeight: 700, color: borderCol, lineHeight: 1 }}>
                     {count}
                   </div>
-                  <div style={{ fontSize: 8, color: "var(--text3)", marginTop: 2 }}>
+                  <div className="text-ink-soft" style={{ fontSize: 8, marginTop: 2 }}>
                     /{slot.minRequired}
                     {slot.backupAgents.length > 0 ? ` +${slot.backupAgents.length}` : ""}
                   </div>
@@ -433,13 +430,12 @@ function CoverageTimeline({
                     top: "calc(100% + 6px)",
                     [isLast ? "right" : "left"]: 0,
                     zIndex: 100,
-                    background: "var(--card2)", border: "1px solid var(--border)",
                     borderRadius: 6, padding: "10px 14px", minWidth: 170,
-                    fontSize: 11, color: "var(--text)", whiteSpace: "nowrap",
+                    fontSize: 11, whiteSpace: "nowrap",
                     boxShadow: "0 4px 16px rgba(0,0,0,.35)",
                     pointerEvents: "none",
-                  }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text2)", marginBottom: 6 }}>
+                  }} className="bg-sunken border border-line-subtle text-ink">
+                    <div className="text-[11px] font-semibold text-ink-muted mb-1.5">
                       {slot.label} – {String(slot.hour + 1).padStart(2, "0")}:00
                     </div>
                     <div style={{ fontSize: 10, color: borderCol, marginBottom: 8 }}>
@@ -448,18 +444,18 @@ function CoverageTimeline({
                     </div>
                     {slot.mainAgents.length > 0 && (
                       <>
-                        <div style={{ fontSize: 10, color: "#22c55e", fontWeight: 600, marginBottom: 4 }}>VWIC Assigned</div>
+                        <div className="text-good-fg" style={{ fontSize: 10, fontWeight: 600, marginBottom: 4 }}>VWIC Assigned</div>
                         {slot.mainAgents.map(n => <div key={n} style={{ marginBottom: 3, paddingLeft: 8 }}>· {n}</div>)}
                       </>
                     )}
                     {slot.backupAgents.length > 0 && (
                       <>
-                        <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, marginTop: 8, marginBottom: 4 }}>Voice pool on shift</div>
+                        <div className="text-ink-soft" style={{ fontSize: 10, fontWeight: 600, marginTop: 8, marginBottom: 4 }}>Voice pool on shift</div>
                         {slot.backupAgents.map(n => <div key={n} style={{ marginBottom: 3, paddingLeft: 8 }}>· {n}</div>)}
                       </>
                     )}
                     {!slot.hasAnyAgent && (
-                      <div style={{ color: "var(--text3)", fontSize: 10 }}>No agents on shift this hour</div>
+                      <div className="text-ink-soft" style={{ fontSize: 10 }}>No agents on shift this hour</div>
                     )}
                   </div>
                 )}
@@ -470,7 +466,7 @@ function CoverageTimeline({
       </div>
 
       {gaps.length > 0 && (
-        <div style={{ marginTop: 12, padding: "8px 14px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 6, fontSize: 12, color: "#ef4444" }}>
+        <div className="mt-3 px-3.5 py-2 bg-crit-bg border border-crit-bd rounded-md text-xs text-crit-fg">
           Below minimum staffing:{" "}
           {gaps.map(h => `${String(h).padStart(2, "0")}:00`).join(", ")}
         </div>
@@ -482,8 +478,12 @@ function CoverageTimeline({
 // ─── Agent table ─────────────────────────────────────────────────────────────
 
 const ABSENCE_COLOR: Record<string, string> = {
-  SL: "#ef4444", AL: "#facc15", UL: "#facc15",
-  OFF: "#64748b", PH: "#64748b", OFF_WEEKEND: "#64748b",
+  SL: "rgb(var(--st-warn-fg))", AL: "rgb(var(--st-holiday-fg))", UL: "rgb(var(--st-holiday-fg))",
+  OFF: "rgb(var(--text-secondary))", PH: "rgb(var(--text-secondary))", OFF_WEEKEND: "rgb(var(--text-secondary))",
+}
+const ABSENCE_BG: Record<string, string> = {
+  SL: "rgb(var(--st-warn-bg))", AL: "rgb(var(--st-holiday-bg))", UL: "rgb(var(--st-holiday-bg))",
+  OFF: "rgb(var(--surface-sunken))", PH: "rgb(var(--surface-sunken))", OFF_WEEKEND: "rgb(var(--surface-sunken))",
 }
 
 function AgentTable({
@@ -496,61 +496,59 @@ function AgentTable({
   const available = agents.filter(a => !a.isAbsent).length
   const cols = onRemove ? 5 : 4
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div className="bg-raised border border-line-subtle rounded-md overflow-hidden">
+      <div className="px-4 py-3 border-b border-line-subtle flex justify-between items-center">
         <span style={{ fontWeight: 600, fontSize: 13 }}>{title}</span>
-        <span style={{ fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+        <span className="text-[11px] text-ink-soft font-mono">
           {available}/{agents.length} available
         </span>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead>
-          <tr style={{ background: "var(--card2)" }}>
+          <tr className="bg-sunken">
             {["Name", "Team Lead", "Shift", "Status", ...(onRemove ? [""] : [])].map((h, i) => (
-              <th key={i} style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
+              <th key={i} className="px-3 py-2 text-left text-[10px] font-medium uppercase tracking-[.07em] text-ink-soft border-b border-line-subtle whitespace-nowrap">{h}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {agents.length === 0 && (
-            <tr><td colSpan={cols} style={{ padding: 20, textAlign: "center", color: "var(--text3)", fontSize: 12 }}>No agents</td></tr>
+            <tr><td colSpan={cols} className="p-5 text-center text-ink-soft text-xs">No agents</td></tr>
           )}
           {agents.map(a => (
             <tr key={a.employeeId}
-              style={{ borderBottom: "1px solid var(--border)", opacity: a.isAbsent ? 0.55 : 1 }}
-              onMouseEnter={ev => (ev.currentTarget.style.background = "rgba(255,255,255,.02)")}
-              onMouseLeave={ev => (ev.currentTarget.style.background = "")}>
+              className={`border-b border-line-subtle transition-colors hover:bg-hovered ${a.isAbsent ? "opacity-55" : ""}`}>
 
-              <td style={{ padding: "9px 12px" }}>
+              <td className="px-3 py-[9px]">
                 <div style={{ fontWeight: 600 }}>{a.fullName ?? a.employeeId}</div>
-                <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono", marginTop: 1 }}>{a.employeeId}</div>
+                <div className="text-[10px] text-ink-soft font-mono mt-px">{a.employeeId}</div>
               </td>
-              <td style={{ padding: "9px 12px", color: "var(--text2)", fontSize: 11 }}>{a.teamLeadName ?? "—"}</td>
-              <td style={{ padding: "9px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, color: a.isAbsent ? "var(--text3)" : "var(--text2)" }}>
+              <td className="px-3 py-[9px] text-ink-muted text-[11px]">{a.teamLeadName ?? "—"}</td>
+              <td className={`px-3 py-[9px] font-mono text-[11px] ${a.isAbsent ? "text-ink-soft" : "text-ink-muted"}`}>
                 {a.isAbsent
                   ? "—"
                   : a.shiftStart && a.shiftEnd
                     ? `${a.shiftStart} – ${a.shiftEnd}`
                     : a.shiftType ?? "No shift"}
               </td>
-              <td style={{ padding: "9px 12px" }}>
+              <td className="px-3 py-[9px]">
                 {a.isAbsent ? (
-                  <span style={{ background: (ABSENCE_COLOR[a.absenceType!] ?? "#64748b") + "22", color: ABSENCE_COLOR[a.absenceType!] ?? "#64748b", padding: "2px 8px", borderRadius: 4, fontSize: 10, fontFamily: "IBM Plex Mono" }}>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: ABSENCE_BG[a.absenceType!] ?? "rgb(var(--surface-sunken))", color: ABSENCE_COLOR[a.absenceType!] ?? "rgb(var(--text-secondary))" }}>
                     {a.absenceType}
                   </span>
                 ) : a.isVwicAssigned ? (
-                  <span style={{ background: "rgba(59,126,255,.15)", color: "var(--accent)", padding: "2px 8px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>VWIC</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-info-bg text-info-fg">VWIC</span>
                 ) : a.shiftStart && a.shiftEnd ? (
-                  <span style={{ background: "rgba(34,197,94,.15)", color: "#22c55e", padding: "2px 8px", borderRadius: 4, fontSize: 10 }}>Working</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-good-bg text-good-fg">Working</span>
                 ) : (
-                  <span style={{ background: "rgba(99,102,241,.15)", color: "#818cf8", padding: "2px 8px", borderRadius: 4, fontSize: 10 }}>No shift</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-learn-bg text-learn-fg">No shift</span>
                 )}
               </td>
               {onRemove && (
-                <td style={{ padding: "9px 12px" }}>
+                <td className="px-3 py-[9px]">
                   <button
                     onClick={() => onRemove(a)}
-                    style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", color: "#ef4444", padding: "3px 10px", borderRadius: 4, fontSize: 11, cursor: "pointer" }}
+                    className="bg-crit-bg border border-crit-bd text-crit-fg px-2.5 py-0.5 rounded text-[11px] cursor-pointer"
                   >
                     Remove
                   </button>
@@ -568,10 +566,10 @@ function AgentTable({
 
 function SummaryCard({ label, value, color, sub }: { label: string; value: string | number; color: string; sub?: string }) {
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "16px 20px" }}>
-      <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--text3)", marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 700, fontFamily: "IBM Plex Mono", color }}>{value}</div>
-      {sub && <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 4 }}>{sub}</div>}
+    <div className="bg-raised border border-line-subtle rounded-md px-5 py-4">
+      <div className="text-[10px] uppercase tracking-[.08em] text-ink-soft mb-1.5">{label}</div>
+      <div className="font-mono" style={{ fontSize: 26, fontWeight: 700, color }}>{value}</div>
+      {sub && <div className="text-[10px] text-ink-soft mt-1">{sub}</div>}
     </div>
   )
 }
@@ -691,68 +689,60 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
   const maxVwicHours = result ? Math.max(...result.fairness.map(f => f.vwicHours), 1) : 1
   const allCovered   = result?.coverageProof.every(c => c.covered) ?? false
 
-  const statusStyle = (s: string) =>
-    s === "ON"       ? { bg: "rgba(34,197,94,.18)",  fg: "#22c55e", label: "ON" }
-    : s === "HANDOVER" ? { bg: "rgba(250,204,21,.18)", fg: "#facc15", label: "HO" }
-    : { bg: "transparent", fg: "var(--text3)", label: "—" }
+  const statusStyle = (s: string) => ({
+    bg:    s === "ON" ? "rgb(var(--st-good-bg))" : s === "HANDOVER" ? "rgb(var(--st-holiday-bg))" : "transparent",
+    fgCls: s === "ON" ? "text-good-fg" : s === "HANDOVER" ? "text-warn-fg" : "text-ink-soft",
+    label: s === "ON" ? "ON" : s === "HANDOVER" ? "HO" : "—",
+  })
 
-  const inp: React.CSSProperties = {
-    background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)",
-    padding: "7px 10px", borderRadius: 6, fontSize: 13, outline: "none", width: "100%",
-  }
+  const inpCls = "bg-sunken border border-line-subtle text-ink px-2.5 py-[7px] rounded-md text-sm outline-none w-full"
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
       {/* ── Parameters form ── */}
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text3)", marginBottom: 14 }}>
+      <div className="bg-raised border border-line-subtle rounded-md p-5">
+        <div className="text-[11px] font-semibold uppercase tracking-[.07em] text-ink-soft mb-3.5">
           Rotation Parameters
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 14 }}>
           <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <span style={{ fontSize: 11, color: "var(--text3)" }}>Date</span>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp} />
+            <span className="text-[11px] text-ink-soft">Date</span>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} className={inpCls} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <span style={{ fontSize: 11, color: "var(--text3)" }}>Window start</span>
-            <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={inp} />
+            <span className="text-[11px] text-ink-soft">Window start</span>
+            <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className={inpCls} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <span style={{ fontSize: 11, color: "var(--text3)" }}>Window end</span>
-            <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={inp} />
+            <span className="text-[11px] text-ink-soft">Window end</span>
+            <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className={inpCls} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <span style={{ fontSize: 11, color: "var(--text3)" }}>Max continuous VWIC (h)</span>
+            <span className="text-[11px] text-ink-soft">Max continuous VWIC (h)</span>
             <input type="number" min={1} max={8} value={maxContinuousHours}
-              onChange={e => setMaxContinuousHours(+e.target.value)} style={inp} />
+              onChange={e => setMaxContinuousHours(+e.target.value)} className={inpCls} />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <span style={{ fontSize: 11, color: "var(--text3)" }}>Handover buffer (min)</span>
+            <span className="text-[11px] text-ink-soft">Handover buffer (min)</span>
             <input type="number" min={0} max={30} value={handoverMinutes}
-              onChange={e => setHandoverMinutes(+e.target.value)} style={inp} />
+              onChange={e => setHandoverMinutes(+e.target.value)} className={inpCls} />
           </label>
         </div>
 
         {/* Interval radio */}
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8 }}>Rotation interval</div>
+          <div className="text-[11px] text-ink-soft mb-2">Rotation interval</div>
           <div style={{ display: "flex", gap: 8 }}>
             {([1, 2, 4] as const).map(h => (
-              <label key={h} style={{
-                display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
-                background: intervalHours === h ? "rgba(59,126,255,.15)" : "var(--card2)",
-                border: `1px solid ${intervalHours === h ? "var(--accent)" : "var(--border)"}`,
-                borderRadius: 6, padding: "6px 16px", transition: "all .12s",
-              }}>
+              <label key={h} className={`flex items-center gap-1.5 cursor-pointer rounded-md px-4 py-1.5 transition-all border ${
+                intervalHours === h ? "bg-info-bg border-info-bd" : "bg-sunken border-line-subtle"
+              }`}>
                 <input type="radio" name="rp-interval" value={h} checked={intervalHours === h}
                   onChange={() => setIntervalHours(h)}
-                  style={{ accentColor: "var(--accent)", margin: 0 }} />
-                <span style={{
-                  fontSize: 13, fontWeight: intervalHours === h ? 700 : 400,
-                  color: intervalHours === h ? "var(--accent)" : "var(--text2)",
-                }}>
+                  style={{ accentColor: "inherit", margin: 0 }} />
+                <span className={`text-sm ${intervalHours === h ? "font-bold text-info-fg" : "font-normal text-ink-muted"}`}>
                   {h}h
                 </span>
               </label>
@@ -763,29 +753,22 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
         <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 12 }}>
           <button
             onClick={calculate} disabled={loading || weekLoading}
-            style={{
-              background: "var(--accent)", color: "#fff", border: "none",
-              padding: "9px 22px", borderRadius: 6, fontSize: 13, fontWeight: 600,
-              cursor: loading ? "wait" : "pointer", opacity: loading ? 0.7 : 1,
-            }}
+            className={`bg-info-solid text-white border-none px-[22px] py-[9px] rounded-md text-sm font-semibold ${loading ? "opacity-70 cursor-wait" : "cursor-pointer"}`}
           >
             {loading ? "Calculating…" : "Calculate Rotation"}
           </button>
           <button
             onClick={planWeek} disabled={loading || weekLoading}
-            style={{
-              background: "var(--card2)", color: "var(--text)", border: "1px solid var(--border)",
-              padding: "9px 22px", borderRadius: 6, fontSize: 13, fontWeight: 600,
-              cursor: weekLoading ? "wait" : "pointer", opacity: weekLoading ? 0.7 : 1,
-            }}
+            className={`bg-sunken text-ink border border-line-subtle px-[22px] py-[9px] rounded-md text-sm font-semibold ${weekLoading ? "opacity-70 cursor-wait" : "cursor-pointer"}`}
           >
             {weekLoading ? "Planning…" : "Plan Week"}
           </button>
           {result && (
             <button
               onClick={saveRotation} disabled={saveLoading}
+              className="bg-good-solid text-white"
               style={{
-                background: "#16a34a", color: "#fff", border: "none",
+                border: "none",
                 padding: "9px 22px", borderRadius: 6, fontSize: 13, fontWeight: 600,
                 cursor: saveLoading ? "wait" : "pointer", opacity: saveLoading ? 0.7 : 1,
               }}
@@ -793,10 +776,10 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
               {saveLoading ? "Saving…" : "Save Rotation"}
             </button>
           )}
-          {error     && <span style={{ fontSize: 12, color: "#ef4444" }}>{error}</span>}
-          {weekError && <span style={{ fontSize: 12, color: "#ef4444" }}>{weekError}</span>}
+          {error     && <span className="text-xs text-crit-fg">{error}</span>}
+          {weekError && <span className="text-xs text-crit-fg">{weekError}</span>}
           {saveMsg   && (
-            <span style={{ fontSize: 12, color: saveMsg.includes("failed") ? "#ef4444" : "#22c55e" }}>
+            <span className={saveMsg.includes("failed") ? "text-crit-fg text-xs" : "text-good-fg text-xs"}>
               {saveMsg}
             </span>
           )}
@@ -806,23 +789,19 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
       {result && (
         <>
           {/* ── Recommendation ── */}
-          <div style={{
-            background: "var(--card)",
-            border: `1px solid ${result.availableAgents < 3 ? "rgba(239,68,68,.35)" : "rgba(34,197,94,.35)"}`,
-            borderRadius: 8, padding: "14px 20px", display: "flex", alignItems: "flex-start", gap: 14,
-          }}>
+          <div className="bg-raised rounded-md px-5 py-3.5 flex items-start gap-3.5 border"
+            style={{ borderColor: result.availableAgents < 3 ? "rgb(var(--st-crit-bd))" : "rgb(var(--st-good-bd))" }}>
             <div style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>
-              {result.availableAgents < 3 ? "⚠️" : "✓"}
+              {result.availableAgents < 3
+                ? <AlertTriangle size={20} className="text-warn-fg" />
+                : "✓"}
             </div>
             <div>
-              <div style={{
-                fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em",
-                color: result.availableAgents < 3 ? "#f97316" : "#22c55e", marginBottom: 5,
-              }}>
+              <div className={`text-[10px] font-bold uppercase tracking-[.08em] mb-1.5 ${result.availableAgents < 3 ? "text-warn-fg" : "text-good-fg"}`}>
                 Recommendation
               </div>
-              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>{result.recommendation}</div>
-              <div style={{ marginTop: 6, fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+              <div className="text-sm text-ink" style={{ lineHeight: 1.6 }}>{result.recommendation}</div>
+              <div className="mt-1.5 text-[11px] text-ink-soft font-mono">
                 {result.availableAgents} Voice agents available for rotation &nbsp;·&nbsp;
                 {result.requiredAgentHours.toFixed(0)}h required &nbsp;·&nbsp;
                 {result.availableAgentHours.toFixed(0)}h available capacity
@@ -831,24 +810,24 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
           </div>
 
           {/* ── Schedule table ── */}
-          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="bg-raised border border-line-subtle rounded-md overflow-hidden">
+            <div className="px-4 py-3 border-b border-line-subtle flex justify-between items-center">
               <span style={{ fontWeight: 600, fontSize: 13 }}>Rotation Schedule</span>
-              <div style={{ display: "flex", gap: 14, fontSize: 11, color: "var(--text3)" }}>
-                <span><span style={{ color: "#22c55e", fontWeight: 700 }}>ON</span> — on VWIC</span>
-                <span><span style={{ color: "#facc15", fontWeight: 700 }}>HO</span> — handover</span>
-                <span><span style={{ color: "var(--text3)" }}>—</span> — off</span>
+              <div className="flex gap-3.5 text-[11px] text-ink-soft">
+                <span><span className="text-good-fg font-bold">ON</span> — on VWIC</span>
+                <span><span className="text-warn-fg font-bold">HO</span> — handover</span>
+                <span className="text-ink-soft">— off</span>
               </div>
             </div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                 <thead>
-                  <tr style={{ background: "var(--card2)" }}>
-                    <th style={{ padding: "8px 14px", textAlign: "left", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text3)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", minWidth: 110 }}>
+                  <tr className="bg-sunken">
+                    <th className="px-3.5 py-2 text-left text-[10px] font-semibold uppercase tracking-[.06em] text-ink-soft border-b border-line-subtle whitespace-nowrap min-w-[110px]">
                       Slot
                     </th>
                     {result.schedule.map(row => (
-                      <th key={row.employeeId} style={{ padding: "8px 10px", textAlign: "center", fontSize: 11, fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", minWidth: 85 }}>
+                      <th key={row.employeeId} className="px-2.5 py-2 text-center text-[11px] font-semibold text-ink-muted border-b border-line-subtle whitespace-nowrap min-w-[85px]">
                         {row.fullName.includes(" ") ? row.fullName.split(" ")[0] : row.fullName}
                       </th>
                     ))}
@@ -856,17 +835,15 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
                 </thead>
                 <tbody>
                   {result.slotLabels.map((label, si) => (
-                    <tr key={si} style={{ borderBottom: "1px solid var(--border)" }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.02)")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                      <td style={{ padding: "7px 14px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text2)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                    <tr key={si} className="border-b border-line-subtle transition-colors hover:bg-hovered">
+                      <td className="px-3.5 py-[7px] font-mono text-[11px] text-ink-muted font-semibold whitespace-nowrap">
                         {label}
                       </td>
                       {result.schedule.map(row => {
                         const ss = statusStyle(row.slotStatus[si] ?? "OFF")
                         return (
-                          <td key={row.employeeId} style={{ padding: "5px 8px", textAlign: "center", background: ss.bg }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: ss.fg, fontFamily: "IBM Plex Mono" }}>
+                          <td key={row.employeeId} className="py-1 px-2 text-center" style={{ background: ss.bg }}>
+                            <span className={`text-[10px] font-bold font-mono ${ss.fgCls}`}>
                               {ss.label}
                             </span>
                           </td>
@@ -883,29 +860,31 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
 
             {/* Coverage proof */}
-            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="bg-raised border border-line-subtle rounded-md overflow-hidden">
+              <div className="px-4 py-3 border-b border-line-subtle flex justify-between items-center">
                 <span style={{ fontWeight: 600, fontSize: 13 }}>Coverage Proof</span>
-                <span style={{ fontSize: 11, fontFamily: "IBM Plex Mono", color: allCovered ? "#22c55e" : "#ef4444" }}>
+                <span className={`text-[11px] font-mono ${allCovered ? "text-good-fg" : "text-crit-fg"}`}>
                   {allCovered ? "All slots ✓" : "Gaps detected ✗"}
                 </span>
               </div>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
-                  <tr style={{ background: "var(--card2)" }}>
+                  <tr className="bg-sunken">
                     {["Slot", "Agents", "Min", ""].map((h, i) => (
-                      <th key={i} style={{ padding: "7px 12px", textAlign: i < 3 ? "left" : "center", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text3)", borderBottom: "1px solid var(--border)" }}>{h}</th>
+                      <th key={i} className={`px-3 py-[7px] ${i < 3 ? "text-left" : "text-center"} text-[10px] font-medium uppercase tracking-[.06em] text-ink-soft border-b border-line-subtle`}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {result.coverageProof.map((item, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid var(--border)", background: item.covered ? "transparent" : "rgba(239,68,68,.06)" }}>
-                      <td style={{ padding: "7px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, whiteSpace: "nowrap" }}>{item.startTime}–{item.endTime}</td>
-                      <td style={{ padding: "7px 12px", fontWeight: 700, color: item.covered ? "#22c55e" : "#ef4444" }}>{item.agentCount}</td>
-                      <td style={{ padding: "7px 12px", color: "var(--text3)" }}>{item.required}</td>
-                      <td style={{ padding: "7px 12px", textAlign: "center", fontSize: 14 }}>
-                        {item.covered ? <span style={{ color: "#22c55e" }}>✓</span> : <span style={{ color: "#ef4444" }}>✗</span>}
+                    <tr key={i} className={`border-b border-line-subtle ${!item.covered ? "bg-crit-bg" : ""}`}>
+                      <td className="px-3 py-[7px] font-mono text-[11px] whitespace-nowrap">{item.startTime}–{item.endTime}</td>
+                      <td className={`px-3 py-[7px] font-bold ${item.covered ? "text-good-fg" : "text-crit-fg"}`}>{item.agentCount}</td>
+                      <td className="px-3 py-[7px] text-ink-soft">{item.required}</td>
+                      <td className="px-3 py-[7px] text-center" style={{ fontSize: 14 }}>
+                        {item.covered
+                          ? <Check size={12} className="inline text-good-fg" />
+                          : <X size={12} className="inline text-crit-fg" />}
                       </td>
                     </tr>
                   ))}
@@ -914,30 +893,27 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
             </div>
 
             {/* Fairness */}
-            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+            <div className="bg-raised border border-line-subtle rounded-md overflow-hidden">
+              <div className="px-4 py-3 border-b border-line-subtle">
                 <span style={{ fontWeight: 600, fontSize: 13 }}>Fairness Overview</span>
               </div>
-              <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="px-4 py-3.5 flex flex-col gap-3">
                 {result.fairness.map(item => (
                   <div key={item.employeeId}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                    <div className="flex justify-between items-center mb-1.5">
                       <span style={{ fontSize: 12, fontWeight: 600 }}>{item.fullName}</span>
-                      <span style={{ fontSize: 11, fontFamily: "IBM Plex Mono", color: "var(--text3)" }}>
+                      <span className="text-[11px] font-mono text-ink-soft">
                         {item.vwicHours}h &nbsp;·&nbsp; {item.slotCount} slot{item.slotCount !== 1 ? "s" : ""}
                       </span>
                     </div>
-                    <div style={{ height: 6, background: "var(--card2)", borderRadius: 3, overflow: "hidden" }}>
-                      <div style={{
-                        height: "100%",
-                        width: `${(item.vwicHours / maxVwicHours) * 100}%`,
-                        background: "var(--accent)", borderRadius: 3, transition: "width .3s ease",
-                      }} />
+                    <div className="h-1.5 bg-sunken rounded-full overflow-hidden">
+                      <div className="h-full bg-info-solid rounded-full transition-[width_.3s_ease]"
+                        style={{ width: `${(item.vwicHours / maxVwicHours) * 100}%` }} />
                     </div>
                   </div>
                 ))}
                 {result.fairness.length === 0 && (
-                  <div style={{ color: "var(--text3)", fontSize: 12 }}>No agent data</div>
+                  <div className="text-ink-soft text-xs">No agent data</div>
                 )}
               </div>
             </div>
@@ -948,18 +924,15 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
             const isCritical = result.fallbackWarning.startsWith("CRITICAL")
             const isWarn     = result.fallbackWarning.startsWith("1 absence leaves")
             return (
-              <div style={{
-                background: isCritical ? "rgba(239,68,68,.08)" : isWarn ? "rgba(251,191,36,.08)" : "rgba(34,197,94,.08)",
-                border: `1px solid ${isCritical ? "rgba(239,68,68,.3)" : isWarn ? "rgba(251,191,36,.3)" : "rgba(34,197,94,.3)"}`,
-                borderRadius: 8, padding: "12px 18px",
-              }}>
-                <div style={{
-                  fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em",
-                  color: isCritical ? "#ef4444" : isWarn ? "#f59e0b" : "#22c55e", marginBottom: 5,
-                }}>
+              <div className={`rounded-md px-[18px] py-3 border ${
+                isCritical ? "bg-crit-bg border-crit-bd" : isWarn ? "bg-warn-bg border-warn-bd" : "border-good-bd"
+              }`}>
+                <div className={`text-[10px] font-bold uppercase tracking-[.08em] mb-1.5 ${
+                  isCritical ? "text-crit-fg" : isWarn ? "text-warn-fg" : "text-good-fg"
+                }`}>
                   Fallback Warning
                 </div>
-                <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>{result.fallbackWarning}</div>
+                <div className="text-sm text-ink" style={{ lineHeight: 1.5 }}>{result.fallbackWarning}</div>
               </div>
             )
           })()}
@@ -976,21 +949,18 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
             {/* Day tabs + Export */}
             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
               {weekResult.days.map((d, i) => (
-                <button key={i} onClick={() => setActiveDay(i)} style={{
-                  padding: "7px 20px", borderRadius: 6, border: "1px solid var(--border)",
-                  fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all .12s",
-                  background: activeDay === i ? "var(--accent)" : "var(--card2)",
-                  color:      activeDay === i ? "#fff"          : "var(--text2)",
-                }}>
+                <button key={i} onClick={() => setActiveDay(i)} className={`px-5 py-[7px] rounded-md border text-sm font-semibold cursor-pointer transition-all ${
+                  activeDay === i ? "bg-info-solid text-white border-transparent" : "bg-sunken text-ink-muted border-line-subtle"
+                }`}>
                   {d.dayShort}
                   {d.availableAgents < 3 && (
-                    <span style={{ marginLeft: 5, fontSize: 10, color: activeDay === i ? "#fde68a" : "#f97316" }}>⚠</span>
+                    <AlertTriangle size={10} className={`inline ml-1.5 align-text-bottom ${activeDay === i ? "text-yellow-200" : "text-warn-fg"}`} />
                   )}
                 </button>
               ))}
               <div style={{ flex: 1 }} />
-              <button onClick={exportWeek} style={{
-                background: "#16a34a", color: "#fff", border: "none",
+              <button onClick={exportWeek} className="bg-good-solid text-white" style={{
+                border: "none",
                 padding: "7px 18px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
               }}>
                 Export Excel
@@ -1001,21 +971,19 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
             {day && (
               <>
                 {/* Recommendation */}
-                <div style={{
-                  background: "var(--card)",
-                  border: `1px solid ${day.availableAgents < 3 ? "rgba(239,68,68,.35)" : "rgba(34,197,94,.35)"}`,
-                  borderRadius: 8, padding: "14px 20px", display: "flex", alignItems: "flex-start", gap: 14,
-                }}>
+                <div className="bg-raised rounded-md px-5 py-3.5 flex items-start gap-3.5 border"
+                  style={{ borderColor: day.availableAgents < 3 ? "rgb(var(--st-crit-bd))" : "rgb(var(--st-good-bd))" }}>
                   <div style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>
-                    {day.availableAgents < 3 ? "⚠️" : "✓"}
+                    {day.availableAgents < 3
+                      ? <AlertTriangle size={20} className="text-warn-fg" />
+                      : "✓"}
                   </div>
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em",
-                      color: day.availableAgents < 3 ? "#f97316" : "#22c55e", marginBottom: 5 }}>
+                    <div className={`text-[10px] font-bold uppercase tracking-[.08em] mb-1.5 ${day.availableAgents < 3 ? "text-warn-fg" : "text-good-fg"}`}>
                       {day.dayName} — Recommendation
                     </div>
-                    <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.6 }}>{day.recommendation}</div>
-                    <div style={{ marginTop: 6, fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>
+                    <div className="text-sm text-ink" style={{ lineHeight: 1.6 }}>{day.recommendation}</div>
+                    <div className="mt-1.5 text-[11px] text-ink-soft font-mono">
                       {day.availableAgents} Voice agents available for rotation &nbsp;·&nbsp;
                       {day.requiredAgentHours.toFixed(0)}h required &nbsp;·&nbsp;
                       {day.availableAgentHours.toFixed(0)}h available capacity
@@ -1024,22 +992,22 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
                 </div>
 
                 {/* Schedule table */}
-                <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-                  <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="bg-raised border border-line-subtle rounded-md overflow-hidden">
+                  <div className="px-4 py-3 border-b border-line-subtle flex justify-between items-center">
                     <span style={{ fontWeight: 600, fontSize: 13 }}>{day.dayName} — Rotation Schedule</span>
-                    <div style={{ display: "flex", gap: 14, fontSize: 11, color: "var(--text3)" }}>
-                      <span><span style={{ color: "#22c55e", fontWeight: 700 }}>ON</span> — on VWIC</span>
-                      <span><span style={{ color: "#facc15", fontWeight: 700 }}>HO</span> — handover</span>
-                      <span><span style={{ color: "var(--text3)" }}>—</span> — off</span>
+                    <div className="flex gap-3.5 text-[11px] text-ink-soft">
+                      <span><span className="text-good-fg font-bold">ON</span> — on VWIC</span>
+                      <span><span className="text-warn-fg font-bold">HO</span> — handover</span>
+                      <span className="text-ink-soft">— off</span>
                     </div>
                   </div>
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                       <thead>
-                        <tr style={{ background: "var(--card2)" }}>
-                          <th style={{ padding: "8px 14px", textAlign: "left", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text3)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", minWidth: 110 }}>Slot</th>
+                        <tr className="bg-sunken">
+                          <th className="px-3.5 py-2 text-left text-[10px] font-semibold uppercase tracking-[.06em] text-ink-soft border-b border-line-subtle whitespace-nowrap min-w-[110px]">Slot</th>
                           {day.schedule.map(row => (
-                            <th key={row.employeeId} style={{ padding: "8px 10px", textAlign: "center", fontSize: 11, fontWeight: 600, color: "var(--text2)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap", minWidth: 85 }}>
+                            <th key={row.employeeId} className="px-2.5 py-2 text-center text-[11px] font-semibold text-ink-muted border-b border-line-subtle whitespace-nowrap min-w-[85px]">
                               {row.fullName.includes(" ") ? row.fullName.split(" ")[0] : row.fullName}
                             </th>
                           ))}
@@ -1047,15 +1015,13 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
                       </thead>
                       <tbody>
                         {day.slotLabels.map((label, si) => (
-                          <tr key={si} style={{ borderBottom: "1px solid var(--border)" }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.02)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                            <td style={{ padding: "7px 14px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text2)", fontWeight: 600, whiteSpace: "nowrap" }}>{label}</td>
+                          <tr key={si} className="border-b border-line-subtle transition-colors hover:bg-hovered">
+                            <td className="px-3.5 py-[7px] font-mono text-[11px] text-ink-muted font-semibold whitespace-nowrap">{label}</td>
                             {day.schedule.map(row => {
                               const ss = statusStyle(row.slotStatus[si] ?? "OFF")
                               return (
-                                <td key={row.employeeId} style={{ padding: "5px 8px", textAlign: "center", background: ss.bg }}>
-                                  <span style={{ fontSize: 10, fontWeight: 700, color: ss.fg, fontFamily: "IBM Plex Mono" }}>{ss.label}</span>
+                                <td key={row.employeeId} className="py-1 px-2 text-center" style={{ background: ss.bg }}>
+                                  <span className={`text-[10px] font-bold font-mono ${ss.fgCls}`}>{ss.label}</span>
                                 </td>
                               )
                             })}
@@ -1068,29 +1034,31 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
 
                 {/* Coverage + day fairness */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                  <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-                    <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div className="bg-raised border border-line-subtle rounded-md overflow-hidden">
+                    <div className="px-4 py-3 border-b border-line-subtle flex justify-between items-center">
                       <span style={{ fontWeight: 600, fontSize: 13 }}>Coverage Proof</span>
-                      <span style={{ fontSize: 11, fontFamily: "IBM Plex Mono", color: allCovDay ? "#22c55e" : "#ef4444" }}>
+                      <span className={`text-[11px] font-mono ${allCovDay ? "text-good-fg" : "text-crit-fg"}`}>
                         {allCovDay ? "All slots ✓" : "Gaps detected ✗"}
                       </span>
                     </div>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                       <thead>
-                        <tr style={{ background: "var(--card2)" }}>
+                        <tr className="bg-sunken">
                           {["Slot", "Agents", "Min", ""].map((h, i) => (
-                            <th key={i} style={{ padding: "7px 12px", textAlign: i < 3 ? "left" : "center", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text3)", borderBottom: "1px solid var(--border)" }}>{h}</th>
+                            <th key={i} className={`px-3 py-[7px] ${i < 3 ? "text-left" : "text-center"} text-[10px] font-medium uppercase tracking-[.06em] text-ink-soft border-b border-line-subtle`}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {day.coverageProof.map((item, i) => (
-                          <tr key={i} style={{ borderBottom: "1px solid var(--border)", background: item.covered ? "transparent" : "rgba(239,68,68,.06)" }}>
-                            <td style={{ padding: "7px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, whiteSpace: "nowrap" }}>{item.startTime}–{item.endTime}</td>
-                            <td style={{ padding: "7px 12px", fontWeight: 700, color: item.covered ? "#22c55e" : "#ef4444" }}>{item.agentCount}</td>
-                            <td style={{ padding: "7px 12px", color: "var(--text3)" }}>{item.required}</td>
-                            <td style={{ padding: "7px 12px", textAlign: "center", fontSize: 14 }}>
-                              {item.covered ? <span style={{ color: "#22c55e" }}>✓</span> : <span style={{ color: "#ef4444" }}>✗</span>}
+                          <tr key={i} className={`border-b border-line-subtle ${!item.covered ? "bg-crit-bg" : ""}`}>
+                            <td className="px-3 py-[7px] font-mono text-[11px] whitespace-nowrap">{item.startTime}–{item.endTime}</td>
+                            <td className={`px-3 py-[7px] font-bold ${item.covered ? "text-good-fg" : "text-crit-fg"}`}>{item.agentCount}</td>
+                            <td className="px-3 py-[7px] text-ink-soft">{item.required}</td>
+                            <td className="px-3 py-[7px] text-center" style={{ fontSize: 14 }}>
+                              {item.covered
+                                ? <Check size={12} className="inline text-good-fg" />
+                                : <X size={12} className="inline text-crit-fg" />}
                             </td>
                           </tr>
                         ))}
@@ -1098,21 +1066,22 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
                     </table>
                   </div>
 
-                  <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-                    <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+                  <div className="bg-raised border border-line-subtle rounded-md overflow-hidden">
+                    <div className="px-4 py-3 border-b border-line-subtle">
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{day.dayName} — Fairness</span>
                     </div>
-                    <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div className="px-4 py-3.5 flex flex-col gap-3">
                       {day.dailyFairness.map(item => (
                         <div key={item.employeeId}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                          <div className="flex justify-between items-center mb-1.5">
                             <span style={{ fontSize: 12, fontWeight: 600 }}>{item.fullName}</span>
-                            <span style={{ fontSize: 11, fontFamily: "IBM Plex Mono", color: "var(--text3)" }}>
+                            <span className="text-[11px] font-mono text-ink-soft">
                               {item.vwicHours}h &nbsp;·&nbsp; {item.slotCount} slot{item.slotCount !== 1 ? "s" : ""}
                             </span>
                           </div>
-                          <div style={{ height: 6, background: "var(--card2)", borderRadius: 3, overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${(item.vwicHours / maxDayH) * 100}%`, background: "var(--accent)", borderRadius: 3, transition: "width .3s ease" }} />
+                          <div className="h-1.5 bg-sunken rounded-full overflow-hidden">
+                            <div className="h-full bg-info-solid rounded-full transition-[width_.3s_ease]"
+                              style={{ width: `${(item.vwicHours / maxDayH) * 100}%` }} />
                           </div>
                         </div>
                       ))}
@@ -1124,16 +1093,15 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
                   const isCritical = day.fallbackWarning!.startsWith("CRITICAL")
                   const isWarn     = day.fallbackWarning!.startsWith("1 absence leaves")
                   return (
-                    <div style={{
-                      background: isCritical ? "rgba(239,68,68,.08)" : isWarn ? "rgba(251,191,36,.08)" : "rgba(34,197,94,.08)",
-                      border: `1px solid ${isCritical ? "rgba(239,68,68,.3)" : isWarn ? "rgba(251,191,36,.3)" : "rgba(34,197,94,.3)"}`,
-                      borderRadius: 8, padding: "12px 18px",
-                    }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em",
-                        color: isCritical ? "#ef4444" : isWarn ? "#f59e0b" : "#22c55e", marginBottom: 5 }}>
+                    <div className={`rounded-md px-[18px] py-3 border ${
+                      isCritical ? "bg-crit-bg border-crit-bd" : isWarn ? "bg-warn-bg border-warn-bd" : "border-good-bd"
+                    }`}>
+                      <div className={`text-[10px] font-bold uppercase tracking-[.08em] mb-1.5 ${
+                        isCritical ? "text-crit-fg" : isWarn ? "text-warn-fg" : "text-good-fg"
+                      }`}>
                         Fallback Warning
                       </div>
-                      <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>{day.fallbackWarning}</div>
+                      <div className="text-sm text-ink" style={{ lineHeight: 1.5 }}>{day.fallbackWarning}</div>
                     </div>
                   )
                 })()}
@@ -1141,42 +1109,39 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
             )}
 
             {/* Weekly fairness summary */}
-            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-              <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="bg-raised border border-line-subtle rounded-md overflow-hidden">
+              <div className="px-4 py-3 border-b border-line-subtle flex justify-between items-center">
                 <span style={{ fontWeight: 600, fontSize: 13 }}>Weekly Fairness Summary</span>
-                <span style={{ fontSize: 11, color: "var(--text3)", fontFamily: "IBM Plex Mono" }}>sorted by total VWIC hours ↑</span>
+                <span className="text-[11px] text-ink-soft font-mono">sorted by total VWIC hours ↑</span>
               </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                   <thead>
-                    <tr style={{ background: "var(--card2)" }}>
+                    <tr className="bg-sunken">
                       {["Agent", ...weekResult.days.map(d => d.dayShort), "Total h", "Slots", "Days"].map((h, i) => (
-                        <th key={i} style={{ padding: "7px 12px", textAlign: i === 0 ? "left" : "center", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text3)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
+                        <th key={i} className={`px-3 py-[7px] ${i === 0 ? "text-left" : "text-center"} text-[10px] font-semibold uppercase tracking-[.06em] text-ink-soft border-b border-line-subtle whitespace-nowrap`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {weekResult.weeklyFairness.map(item => (
-                      <tr key={item.employeeId} style={{ borderBottom: "1px solid var(--border)" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.02)")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "")}>
-                        <td style={{ padding: "7px 12px", fontWeight: 600 }}>{item.fullName}</td>
+                      <tr key={item.employeeId} className="border-b border-line-subtle transition-colors hover:bg-hovered">
+                        <td className="px-3 py-[7px] font-semibold">{item.fullName}</td>
                         {weekResult.days.map((d, di) => {
                           const df = d.dailyFairness.find(f => f.employeeId === item.employeeId)
                           return (
-                            <td key={di} style={{ padding: "7px 12px", textAlign: "center", fontFamily: "IBM Plex Mono", fontSize: 11,
-                              color: df && df.vwicHours > 0 ? "#22c55e" : "var(--text3)" }}>
+                            <td key={di} className={`px-3 py-[7px] text-center font-mono text-[11px] ${df && df.vwicHours > 0 ? "text-good-fg" : "text-ink-soft"}`}>
                               {df && df.vwicHours > 0 ? `${df.vwicHours}h` : "—"}
                             </td>
                           )
                         })}
-                        <td style={{ padding: "7px 12px", textAlign: "center", fontFamily: "IBM Plex Mono", fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>
+                        <td className="px-3 py-[7px] text-center font-mono text-[11px] font-bold text-info-fg">
                           {item.totalVwicHours}h
                         </td>
-                        <td style={{ padding: "7px 12px", textAlign: "center", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>
+                        <td className="px-3 py-[7px] text-center font-mono text-[11px] text-ink-soft">
                           {item.totalSlotCount}
                         </td>
-                        <td style={{ padding: "7px 12px", textAlign: "center", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text3)" }}>
+                        <td className="px-3 py-[7px] text-center font-mono text-[11px] text-ink-soft">
                           {item.daysWorked}
                         </td>
                       </tr>
@@ -1194,11 +1159,7 @@ function RotationPlanner({ initialDate }: { initialDate: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-const btnStyle: React.CSSProperties = {
-  background: "var(--card)", border: "1px solid var(--border)",
-  color: "var(--text2)", padding: "6px 12px", borderRadius: 6,
-  fontSize: 12, cursor: "pointer",
-}
+const btnCls = "border border-line-subtle px-3 py-1.5 rounded-md text-xs cursor-pointer"
 
 export default function VWICPage() {
   const [date,         setDate]         = useState(new Date().toISOString().split("T")[0])
@@ -1257,40 +1218,38 @@ export default function VWICPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text)", margin: 0 }}>VWIC</h1>
-          <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 3 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }} className="text-ink">VWIC</h1>
+          <div className="text-xs text-ink-soft mt-0.5">
             Virtual Walk-In Center · 24/7 · min 1 agent (00-07 &amp; 17-24) · min 3 agents (07-17)
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <button
             onClick={() => setShowAddModal(true)}
-            style={{ ...btnStyle, background: "var(--accent)", color: "#fff", border: "none", fontWeight: 600 }}
+            className={`${btnCls} bg-info-solid text-white border-none font-semibold`}
           >
             + Add Agent to VWIC
           </button>
-          <div style={{ width: 1, height: 24, background: "var(--border)", margin: "0 4px" }} />
-          <button onClick={() => shift(-1)} style={btnStyle}>←</button>
+          <div className="w-px h-6 bg-line-subtle mx-1" />
+          <button onClick={() => shift(-1)} className={`${btnCls} bg-raised text-ink-muted`}>←</button>
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
-            style={{ ...btnStyle, fontFamily: "IBM Plex Mono", outline: "none" }} />
+            className={`${btnCls} bg-raised text-ink-muted font-mono outline-none`} />
           <button onClick={() => setDate(new Date().toISOString().split("T")[0])}
-            style={{ ...btnStyle, background: "var(--card2)", color: "var(--text2)" }}>
+            className={`${btnCls} bg-sunken text-ink-muted`}>
             Today
           </button>
-          <button onClick={() => shift(1)} style={btnStyle}>→</button>
+          <button onClick={() => shift(1)} className={`${btnCls} bg-raised text-ink-muted`}>→</button>
         </div>
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 2, background: "var(--card2)", borderRadius: 8, padding: 3, alignSelf: "flex-start" }}>
+      <div className="flex gap-0.5 bg-sunken rounded-md p-0.5 self-start">
         {(["coverage", "rotation"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding: "6px 18px", borderRadius: 6, border: "none", fontSize: 13, fontWeight: 600,
-            cursor: "pointer", transition: "all .12s",
-            background: tab === t ? "var(--card)" : "transparent",
-            color:      tab === t ? "var(--text)"  : "var(--text3)",
-            boxShadow:  tab === t ? "0 1px 4px rgba(0,0,0,.18)" : "none",
-          }}>
+          <button key={t} onClick={() => setTab(t)} className={`px-[18px] py-1.5 rounded-md border-none text-sm font-semibold cursor-pointer transition-all ${
+            tab === t
+              ? "bg-raised text-ink shadow-[0_1px_4px_rgba(0,0,0,.18)]"
+              : "bg-transparent text-ink-soft"
+          }`}>
             {t === "coverage" ? "Coverage" : "Rotation Planner"}
           </button>
         ))}
@@ -1298,10 +1257,10 @@ export default function VWICPage() {
 
       {tab === "coverage" && (
         <>
-          {isLoading && <div style={{ padding: 48, textAlign: "center", color: "var(--text3)" }}>Loading…</div>}
+          {isLoading && <div className="py-12 text-center text-ink-soft">Loading…</div>}
 
           {isError && (
-            <div style={{ padding: 24, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 8, color: "#ef4444", fontSize: 13 }}>
+            <div className="p-6 bg-crit-bg border border-crit-bd rounded-md text-crit-fg text-sm">
               Failed to load VWIC data. Check that the backend is running.
             </div>
           )}
@@ -1310,12 +1269,12 @@ export default function VWICPage() {
             <>
               {/* Summary cards */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-                <SummaryCard label="VWIC Assigned Today" value={`${activeMain}/${mainAgents.length}`}     color="var(--accent)" sub="with VWIC entry today" />
-                <SummaryCard label="Voice Pool"         value={`${activeBackup}/${backupAgents.length}`} color="var(--text2)"  sub="not assigned to VWIC" />
+                <SummaryCard label="VWIC Assigned Today" value={`${activeMain}/${mainAgents.length}`}     color="rgb(var(--st-info-fg))" sub="with VWIC entry today" />
+                <SummaryCard label="Voice Pool"         value={`${activeBackup}/${backupAgents.length}`} color="rgb(var(--text-secondary))"  sub="not assigned to VWIC" />
                 <SummaryCard label="Coverage"           value={`${data.coveredHours}/${data.totalHours}h`}
-                  color={hasCoverage ? "#22c55e" : "#ef4444"} sub="hours meeting minimum staffing" />
+                  color={hasCoverage ? "rgb(var(--st-good-fg))" : "rgb(var(--st-crit-fg))"} sub="hours meeting minimum staffing" />
                 <SummaryCard label="Gaps"               value={data.gaps.length}
-                  color={data.gaps.length === 0 ? "#22c55e" : "#ef4444"}
+                  color={data.gaps.length === 0 ? "rgb(var(--st-good-fg))" : "rgb(var(--st-crit-fg))"}
                   sub={data.gaps.length === 0 ? "fully staffed 24/7" : "hours below minimum"} />
               </div>
 

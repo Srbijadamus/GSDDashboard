@@ -14,3 +14,13 @@ Backend/NUL
 Frontend/NUL
 Backend/publish/
 pending_queue.json
+
+# Root-level puppeteer / temp artefakti
+/node_modules/
+/package.json
+/package-lock.json
+temp_*.js
+temp_*.png
+tmp_*.ps1
+write_*.py
+count_lines.py

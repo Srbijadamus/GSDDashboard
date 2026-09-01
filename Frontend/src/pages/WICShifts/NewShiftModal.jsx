@@ -48,9 +48,9 @@ export default function NewShiftModal({ isOpen, onClose, onSuccess }) {
       .catch(() => {})
   }, [isOpen])
 
+  const inputCls = "bg-sunken border border-line-subtle text-ink"
   const inputStyle = {
-    width: "100%", background: "var(--card2)", border: "1px solid var(--border)",
-    color: "var(--text)", padding: "6px 10px", borderRadius: 6,
+    width: "100%", padding: "6px 10px", borderRadius: 6,
     fontSize: 12, fontFamily: "IBM Plex Sans", outline: "none",
     boxSizing: "border-box", marginTop: 4,
   }
@@ -98,38 +98,36 @@ export default function NewShiftModal({ isOpen, onClose, onSuccess }) {
       onClick={onClose}
     >
       <div
+        className="bg-raised border border-line-subtle"
         style={{
-          background: "var(--card)", border: "1px solid var(--border)",
           borderRadius: 12, padding: 24, width: 440, maxWidth: "90vw",
           boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
         }}
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)", marginBottom: 20 }}>
+        <div className="text-ink" style={{ fontSize: 15, fontWeight: 600, marginBottom: 20 }}>
           {p("title")}
         </div>
 
         {success && (
-          <div style={{
-            background: "rgba(34,208,122,.12)", border: "1px solid rgba(34,208,122,.3)",
-            borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--green)", marginBottom: 14,
+          <div className="bg-good-bg border border-good-bd text-good-fg" style={{
+            borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14,
           }}>
             {success}
           </div>
         )}
         {error && (
-          <div style={{
-            background: "rgba(255,59,92,.12)", border: "1px solid rgba(255,59,92,.3)",
-            borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--danger)", marginBottom: 14,
+          <div className="bg-crit-bg border-crit-bd text-crit-fg" style={{
+            border: "1px solid", borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14,
           }}>
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+          <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
             {p("employee")}
-            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} required style={inputStyle}>
+            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} required className={inputCls} style={inputStyle}>
               <option value="">{p("selectEmployee")}</option>
               {employees.map(e => (
                 <option key={e.employeeId} value={e.employeeId}>{e.fullName ?? e.employeeId}</option>
@@ -138,17 +136,17 @@ export default function NewShiftModal({ isOpen, onClose, onSuccess }) {
           </label>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+            <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
               {p("date")}
               <input
                 type="date" value={date} max={maxFutureDateStr()}
                 onChange={e => setDate(e.target.value)}
-                required style={inputStyle}
+                required className={inputCls} style={inputStyle}
               />
             </label>
-            <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+            <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
               {p("shiftType")}
-              <select value={shiftType} onChange={e => setShiftType(e.target.value)} style={inputStyle}>
+              <select value={shiftType} onChange={e => setShiftType(e.target.value)} className={inputCls} style={inputStyle}>
                 {SHIFT_TYPES.map(s => (
                   <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
@@ -157,20 +155,20 @@ export default function NewShiftModal({ isOpen, onClose, onSuccess }) {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+            <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
               {p("startTime")}
-              <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} style={inputStyle} />
+              <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} className={inputCls} style={inputStyle} />
             </label>
-            <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+            <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
               {p("endTime")}
-              <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} style={inputStyle} />
+              <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} className={inputCls} style={inputStyle} />
             </label>
           </div>
 
           {shiftType === "WIC_DUTY" && (
-            <label style={{ fontSize: 11, color: "var(--text3)", display: "block" }}>
+            <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
               {p("location")}
-              <select value={locationCode} onChange={e => setLocationCode(e.target.value)} style={inputStyle}>
+              <select value={locationCode} onChange={e => setLocationCode(e.target.value)} className={inputCls} style={inputStyle}>
                 <option value="">{p("selectLocation")}</option>
                 {locations.map(l => (
                   <option key={l.locationCode} value={l.locationCode}>{l.displayName}</option>
@@ -182,9 +180,9 @@ export default function NewShiftModal({ isOpen, onClose, onSuccess }) {
           <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
             <button
               type="button" onClick={onClose}
+              className="bg-sunken border border-line-subtle text-ink"
               style={{
-                flex: 1, background: "var(--card2)", border: "1px solid var(--border)",
-                color: "var(--text)", borderRadius: 6, padding: "8px 0",
+                flex: 1, borderRadius: 6, padding: "8px 0",
                 fontSize: 12, cursor: "pointer",
               }}
             >
@@ -193,8 +191,9 @@ export default function NewShiftModal({ isOpen, onClose, onSuccess }) {
             <button
               type="submit"
               disabled={submitting || !employeeId}
+              className="bg-info-solid"
               style={{
-                flex: 2, background: "var(--accent)", border: "none", color: "#fff",
+                flex: 2, border: "none", color: "#fff",
                 borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 600,
                 cursor: submitting || !employeeId ? "not-allowed" : "pointer",
                 opacity: submitting || !employeeId ? 0.6 : 1,

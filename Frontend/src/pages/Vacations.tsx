@@ -65,31 +65,29 @@ function BulkImportPanel({ onSaved }: { onSaved: () => void }) {
   const [saveResults, setSaveResults] = useState<VacSaveResult[] | null>(null)
   const [error, setError]             = useState<string | null>(null)
 
-  const card: React.CSSProperties = {
-    background: "var(--card)", border: "1px solid var(--border)",
-    borderRadius: 10, padding: "18px 20px", marginBottom: 16,
-  }
+  const card: React.CSSProperties = { borderRadius: 10, padding: "18px 20px", marginBottom: 16 }
+  const cardCls = "bg-raised border border-line-subtle"
   const inp: React.CSSProperties = {
-    background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 6,
-    padding: "7px 10px", color: "var(--text)", fontSize: 12,
+    borderRadius: 6, padding: "7px 10px", fontSize: 12,
     fontFamily: "IBM Plex Sans", outline: "none", boxSizing: "border-box" as const,
   }
+  const inpCls = "bg-sunken border border-line-subtle text-ink"
   const btnP: React.CSSProperties = {
-    background: "var(--accent)", border: "none", color: "#fff",
+    border: "none", color: "#fff",
     padding: "7px 16px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
   }
+  const btnPCls = "bg-info-solid"
   const btnS: React.CSSProperties = {
-    background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text2)",
     padding: "7px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer",
   }
+  const btnSCls = "bg-sunken border border-line-subtle text-ink-muted"
   const thS: React.CSSProperties = {
     padding: "8px 12px", textAlign: "left" as const, fontSize: 10, fontWeight: 600,
-    color: "var(--text3)", textTransform: "uppercase" as const, letterSpacing: "0.06em",
-    borderBottom: "1px solid var(--border)",
+    textTransform: "uppercase" as const, letterSpacing: "0.06em",
   }
-  const tdS: React.CSSProperties = {
-    padding: "8px 12px", fontSize: 12, color: "var(--text)", borderBottom: "1px solid var(--border)",
-  }
+  const thSCls = "text-ink-soft border-b border-line-subtle"
+  const tdS: React.CSSProperties = { padding: "8px 12px", fontSize: 12 }
+  const tdSCls = "text-ink border-b border-line-subtle"
 
   const handleParse = () => {
     setError(null); setSaveResults(null)
@@ -159,8 +157,8 @@ function BulkImportPanel({ onSaved }: { onSaved: () => void }) {
   return (
     <div>
       {saveResults && (
-        <div style={card}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 10 }}>
+        <div style={card} className={cardCls}>
+          <div className="text-ink" style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
             Import complete — {saveResults.filter(r => r.status === "saved").length} saved
             {saveResults.some(r => r.status === "skipped") && `, ${saveResults.filter(r => r.status === "skipped").length} skipped`}
             {saveResults.some(r => r.status === "error") && `, ${saveResults.filter(r => r.status === "error").length} errors`}
@@ -169,12 +167,12 @@ function BulkImportPanel({ onSaved }: { onSaved: () => void }) {
             {saveResults.map((r, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
                 {r.status === "saved"
-                  ? <CheckCircle2 size={13} color="var(--green)" />
+                  ? <CheckCircle2 size={13} className="text-good-fg" />
                   : r.status === "skipped"
-                    ? <AlertCircle size={13} color="#f97316" />
-                    : <XCircle size={13} color="#ef4444" />}
-                <span style={{ color: "var(--text)", fontWeight: r.status === "saved" ? 500 : 400 }}>{r.name}</span>
-                {r.reason && <span style={{ color: r.status === "error" ? "#ef4444" : "#f97316", fontSize: 11 }}>— {r.reason}</span>}
+                    ? <AlertCircle size={13} className="text-warn-fg" />
+                    : <XCircle size={13} className="text-crit-fg" />}
+                <span className="text-ink" style={{ fontWeight: r.status === "saved" ? 500 : 400 }}>{r.name}</span>
+                {r.reason && <span className={r.status === "error" ? "text-crit-fg" : "text-warn-fg"} style={{ fontSize: 11 }}>— {r.reason}</span>}
               </div>
             ))}
           </div>
@@ -182,13 +180,13 @@ function BulkImportPanel({ onSaved }: { onSaved: () => void }) {
       )}
 
       {error && (
-        <div style={{ ...card, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)", fontSize: 12, color: "#ef4444" }}>
+        <div style={{ ...card, fontSize: 12 }} className="bg-crit-bg border border-crit-bd text-crit-fg">
           {error}
         </div>
       )}
 
-      <div style={card}>
-        <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 10, fontFamily: "IBM Plex Mono" }}>
+      <div style={card} className={cardCls}>
+        <div className="font-mono text-ink-soft" style={{ fontSize: 11, marginBottom: 10 }}>
           One entry per line:  Agent Name — DD.MM.YY–DD.MM.YY   or   Agent Name DD.MM.YY - DD.MM.YY
         </div>
         <textarea
@@ -196,15 +194,16 @@ function BulkImportPanel({ onSaved }: { onSaved: () => void }) {
           onChange={e => { setText(e.target.value); setRows(null); setSaveResults(null); setError(null) }}
           placeholder={"Shelikhov Dmytro — 27.07.26–29.07.26\nNguyen Tim — 28.07.26–31.07.26\nKaratas Ayten 27.07.26 - 14.08.26"}
           rows={14}
-          style={{ ...inp, width: "100%", resize: "vertical", fontFamily: "IBM Plex Mono", fontSize: 12, lineHeight: 1.6 }}
+          className={`font-mono ${inpCls}`}
+          style={{ ...inp, width: "100%", resize: "vertical", fontSize: 12, lineHeight: 1.6 }}
         />
         <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-          <button onClick={handleParse} disabled={!text.trim()}
+          <button onClick={handleParse} disabled={!text.trim()} className={btnPCls}
             style={{ ...btnP, opacity: text.trim() ? 1 : 0.5, cursor: text.trim() ? "pointer" : "not-allowed" }}>
             Parse Preview
           </button>
           {text.trim() && (
-            <button onClick={() => { setText(""); setRows(null); setSaveResults(null); setError(null) }} style={btnS}>
+            <button onClick={() => { setText(""); setRows(null); setSaveResults(null); setError(null) }} style={btnS} className={btnSCls}>
               Clear
             </button>
           )}
@@ -212,16 +211,17 @@ function BulkImportPanel({ onSaved }: { onSaved: () => void }) {
       </div>
 
       {rows && (
-        <div style={card}>
+        <div style={card} className={cardCls}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }} className="text-ink">
               {rows.length} lines ·{" "}
-              <span style={{ color: "var(--green)" }}>{resolvedCount} resolved</span>
-              {unresolvedCount > 0 && <span style={{ color: "#f97316" }}>, {unresolvedCount} issue{unresolvedCount !== 1 ? "s" : ""}</span>}
+              <span className="text-good-fg">{resolvedCount} resolved</span>
+              {unresolvedCount > 0 && <span className="text-warn-fg">, {unresolvedCount} issue{unresolvedCount !== 1 ? "s" : ""}</span>}
             </span>
             <button
               onClick={handleSave}
               disabled={saving || resolvedCount === 0}
+              className={btnPCls}
               style={{ ...btnP, opacity: saving || resolvedCount === 0 ? 0.5 : 1, cursor: saving || resolvedCount === 0 ? "not-allowed" : "pointer" }}
             >
               {saving ? "Saving…" : `Save ${resolvedCount} Vacation${resolvedCount !== 1 ? "s" : ""}`}
@@ -229,11 +229,7 @@ function BulkImportPanel({ onSaved }: { onSaved: () => void }) {
           </div>
 
           {unresolvedCount > 0 && (
-            <div style={{
-              fontSize: 11, color: "#f97316",
-              background: "rgba(249,115,22,.08)", border: "1px solid rgba(249,115,22,.3)",
-              borderRadius: 6, padding: "7px 12px", marginBottom: 12,
-            }}>
+            <div className="bg-warn-bg border border-warn-bd text-warn-fg" style={{ fontSize: 11, borderRadius: 6, padding: "7px 12px", marginBottom: 12 }}>
               <strong>Will be skipped:</strong>{" "}
               {rows.filter(r => r.status !== "resolved" && r.status !== "resolved-corrected").map(r => r.rawName || r.rawLine).join(", ")}
             </div>
@@ -243,29 +239,30 @@ function BulkImportPanel({ onSaved }: { onSaved: () => void }) {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  <th style={thS}>#</th>
-                  <th style={thS}>Raw Input</th>
-                  <th style={thS}>Resolved</th>
-                  <th style={thS}>First Day</th>
-                  <th style={thS}>Last Day</th>
-                  <th style={thS}>Status</th>
+                  <th style={thS} className={thSCls}>#</th>
+                  <th style={thS} className={thSCls}>Raw Input</th>
+                  <th style={thS} className={thSCls}>Resolved</th>
+                  <th style={thS} className={thSCls}>First Day</th>
+                  <th style={thS} className={thSCls}>Last Day</th>
+                  <th style={thS} className={thSCls}>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, i) => (
                   <tr key={i} style={{ opacity: row.status === "resolved" || row.status === "resolved-corrected" ? 1 : 0.65 }}>
-                    <td style={{ ...tdS, color: "var(--text3)", fontFamily: "IBM Plex Mono", width: 32 }}>{i + 1}</td>
-                    <td style={{ ...tdS, fontFamily: "IBM Plex Mono", fontSize: 11 }}>{row.rawName || <em style={{ color: "var(--text3)" }}>—</em>}</td>
-                    <td style={tdS}>
+                    <td style={{ ...tdS, width: 32 }} className={`font-mono text-ink-soft ${tdSCls}`}>{i + 1}</td>
+                    <td style={{ ...tdS, fontSize: 11 }} className={`font-mono ${tdSCls}`}>{row.rawName || <em className="text-ink-soft">—</em>}</td>
+                    <td style={tdS} className={tdSCls}>
                       {(row.status === "resolved" || row.status === "resolved-corrected") && row.resolved ? (
                         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                          <span style={{ color: "var(--green)", fontWeight: 500 }}>{row.resolved.fullName}</span>
+                          <span className="text-good-fg" style={{ fontWeight: 500 }}>{row.resolved.fullName}</span>
                           {row.status === "resolved-corrected" && (
-                            <span style={{ fontSize: 10, color: "#d97706", background: "rgba(217,119,6,.1)", border: "1px solid rgba(217,119,6,.3)", borderRadius: 3, padding: "1px 5px" }}>corrected</span>
+                            <span className="bg-warn-bg border border-warn-bd text-warn-fg" style={{ fontSize: 10, borderRadius: 3, padding: "1px 5px" }}>corrected</span>
                           )}
                         </div>
                       ) : row.status === "suggest" ? (
                         <select defaultValue="" onChange={e => { if (e.target.value) handleSuggestionPick(i, e.target.value) }}
+                          className={inpCls}
                           style={{ ...inp, fontSize: 11, padding: "4px 8px", minWidth: 200 }}>
                           <option value="">— select —</option>
                           {row.suggestions?.map(s => (
@@ -273,29 +270,29 @@ function BulkImportPanel({ onSaved }: { onSaved: () => void }) {
                           ))}
                         </select>
                       ) : row.status === "ambiguous" ? (
-                        <span style={{ color: "#f97316" }}>Ambiguous ({row.ambiguous.length})</span>
+                        <span className="text-warn-fg">Ambiguous ({row.ambiguous.length})</span>
                       ) : (
-                        <span style={{ color: "#ef4444" }}>—</span>
+                        <span className="text-crit-fg">—</span>
                       )}
                     </td>
-                    <td style={{ ...tdS, fontFamily: "IBM Plex Mono", fontSize: 11, color: row.firstDay ? "var(--text)" : "#ef4444" }}>
+                    <td style={{ ...tdS, fontSize: 11 }} className={`font-mono ${tdSCls} ${row.firstDay ? "text-ink" : "text-crit-fg"}`}>
                       {row.firstDay || "—"}
                     </td>
-                    <td style={{ ...tdS, fontFamily: "IBM Plex Mono", fontSize: 11, color: row.lastDay ? "var(--text)" : "#ef4444" }}>
+                    <td style={{ ...tdS, fontSize: 11 }} className={`font-mono ${tdSCls} ${row.lastDay ? "text-ink" : "text-crit-fg"}`}>
                       {row.lastDay || "—"}
                     </td>
-                    <td style={tdS}>
+                    <td style={tdS} className={tdSCls}>
                       {row.status === "resolved"
-                        ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--green)", fontSize: 11 }}><CheckCircle2 size={13} /> Resolved</span>
+                        ? <span className="text-good-fg" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><CheckCircle2 size={13} /> Resolved</span>
                         : row.status === "resolved-corrected"
-                          ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#d97706", fontSize: 11 }}><CheckCircle2 size={13} /> Resolved (corrected)</span>
+                          ? <span className="text-warn-fg" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><CheckCircle2 size={13} /> Resolved (corrected)</span>
                           : row.status === "suggest"
-                            ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#f97316", fontSize: 11 }}><AlertCircle size={13} /> Did you mean?</span>
+                            ? <span className="text-warn-fg" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><AlertCircle size={13} /> Did you mean?</span>
                             : row.status === "ambiguous"
-                              ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#f97316", fontSize: 11 }}><AlertCircle size={13} /> Ambiguous</span>
+                              ? <span className="text-warn-fg" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><AlertCircle size={13} /> Ambiguous</span>
                               : row.status === "parse-error"
-                                ? <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#8892a4", fontSize: 11 }}><XCircle size={13} /> Parse error</span>
-                                : <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#ef4444", fontSize: 11 }}><XCircle size={13} /> Name not in system</span>
+                                ? <span className="text-ink-soft" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><XCircle size={13} /> Parse error</span>
+                                : <span className="text-crit-fg" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}><XCircle size={13} /> Name not in system</span>
                       }
                     </td>
                   </tr>
@@ -312,18 +309,27 @@ function BulkImportPanel({ onSaved }: { onSaved: () => void }) {
 // ── Add Vacation Modal ────────────────────────────────────────────────────────
 
 const modalInputStyle: React.CSSProperties = {
-  width: "100%", background: "var(--card2)", border: "1px solid var(--border)",
-  color: "var(--text)", padding: "7px 10px", borderRadius: 6, fontSize: 12,
+  width: "100%", padding: "7px 10px", borderRadius: 6, fontSize: 12,
   outline: "none", fontFamily: "IBM Plex Sans", boxSizing: "border-box",
 }
+const modalInputCls = "bg-sunken border border-line-subtle text-ink"
 
-function AddVacationModal({ onClose, onSave }: { onClose: () => void; onSave: (data: any) => void }) {
+export function AddVacationModal({
+  onClose, onSave, initialEmployeeId, initialDate,
+}: {
+  onClose: () => void
+  onSave: (data: any) => void
+  initialEmployeeId?: string
+  initialDate?: string
+}) {
+  const { t } = useTranslation()
   const today = new Date().toISOString().slice(0, 10)
-  const [employeeId, setEmployeeId] = useState("")
-  const [firstDay, setFirstDay] = useState(today)
-  const [lastDay, setLastDay] = useState(today)
-  const [comments, setComments] = useState("")
-  const [error, setError] = useState("")
+  const [employeeId, setEmployeeId] = useState(initialEmployeeId ?? "")
+  const [firstDay, setFirstDay]     = useState(initialDate ?? today)
+  const [lastDay, setLastDay]       = useState(initialDate ?? today)
+  const [comments, setComments]     = useState("")
+  const [isHalfDay, setIsHalfDay]   = useState(false)
+  const [error, setError]           = useState("")
 
   const { data: employees = [] } = useQuery<EmployeeOption[]>({
     queryKey: ["employees-active"],
@@ -331,10 +337,20 @@ function AddVacationModal({ onClose, onSave }: { onClose: () => void; onSave: (d
     staleTime: 5 * 60 * 1000,
   })
 
+  const handleFirstDayChange = (val: string) => {
+    setFirstDay(val)
+    if (isHalfDay) setLastDay(val)
+  }
+
+  const handleHalfDayToggle = (half: boolean) => {
+    setIsHalfDay(half)
+    if (half) setLastDay(firstDay)
+  }
+
   const handleSubmit = () => {
     if (!employeeId) { setError("Select an employee"); return }
-    if (lastDay < firstDay) { setError("To date must be on or after From date"); return }
-    onSave({ employeeId, firstDay, lastDay, comments: comments || null })
+    if (!isHalfDay && lastDay < firstDay) { setError("To date must be on or after From date"); return }
+    onSave({ employeeId, firstDay, lastDay: isHalfDay ? firstDay : lastDay, comments: comments || null, isHalfDay })
   }
 
   return (
@@ -342,56 +358,134 @@ function AddVacationModal({ onClose, onSave }: { onClose: () => void; onSave: (d
       position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 1000,
       display: "flex", alignItems: "center", justifyContent: "center",
     }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{
-        background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10,
-        padding: 24, width: 420,
-      }}>
+      <div className="bg-raised border border-line-subtle" style={{ borderRadius: 10, padding: 24, width: 420 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--text)" }}>Add Vacation (AL)</h2>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text3)", cursor: "pointer" }}>
+          <h2 className="text-ink" style={{ fontSize: 16, fontWeight: 600 }}>Add Vacation (AL)</h2>
+          <button onClick={onClose} className="text-ink-soft" style={{ background: "none", border: "none", cursor: "pointer" }}>
             <X size={18} />
           </button>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>Employee *</label>
-            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} style={modalInputStyle}>
+            <label className="text-ink-soft" style={{ fontSize: 11, marginBottom: 4, display: "block" }}>Employee *</label>
+            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} style={modalInputStyle} className={modalInputCls}>
               <option value="">-- Select employee --</option>
               {employees.map(e => (
                 <option key={e.employeeId} value={e.employeeId}>{e.fullName ?? e.employeeId}</option>
               ))}
             </select>
           </div>
+
+          {/* Full / Half day toggle */}
+          <div style={{ display: "flex", gap: 6 }}>
+            {[false, true].map(half => (
+              <button
+                key={String(half)}
+                onClick={() => handleHalfDayToggle(half)}
+                className={isHalfDay === half ? "bg-info-solid border border-info-bd text-white" : "bg-sunken border border-line-subtle text-ink-muted"}
+                style={{ flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer" }}
+              >
+                {half ? t("vacations.halfDay") : t("vacations.fullDay")}
+              </button>
+            ))}
+          </div>
+
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>From *</label>
-              <input type="date" value={firstDay} max={maxFutureDateStr()} onChange={e => setFirstDay(e.target.value)} style={modalInputStyle} />
+              <label className="text-ink-soft" style={{ fontSize: 11, marginBottom: 4, display: "block" }}>From *</label>
+              <input type="date" value={firstDay} max={maxFutureDateStr()} onChange={e => handleFirstDayChange(e.target.value)} style={modalInputStyle} className={modalInputCls} />
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>To *</label>
-              <input type="date" value={lastDay} max={maxFutureDateStr()} onChange={e => setLastDay(e.target.value)} style={modalInputStyle} />
-            </div>
+            {!isHalfDay && (
+              <div style={{ flex: 1 }}>
+                <label className="text-ink-soft" style={{ fontSize: 11, marginBottom: 4, display: "block" }}>To *</label>
+                <input type="date" value={lastDay} max={maxFutureDateStr()} onChange={e => setLastDay(e.target.value)} style={modalInputStyle} className={modalInputCls} />
+              </div>
+            )}
           </div>
           <div>
-            <label style={{ fontSize: 11, color: "var(--text3)", marginBottom: 4, display: "block" }}>Comments</label>
-            <input value={comments} onChange={e => setComments(e.target.value)} style={modalInputStyle} placeholder="Optional" />
+            <label className="text-ink-soft" style={{ fontSize: 11, marginBottom: 4, display: "block" }}>Comments</label>
+            <input value={comments} onChange={e => setComments(e.target.value)} style={modalInputStyle} className={modalInputCls} placeholder="Optional" />
           </div>
-          {error && <div style={{ fontSize: 11, color: "var(--danger)" }}>{error}</div>}
+          {error && <div className="text-crit-fg" style={{ fontSize: 11 }}>{error}</div>}
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 20, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{
-            background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text2)",
+          <button onClick={onClose} className="bg-sunken border border-line-subtle text-ink-muted" style={{
             padding: "8px 16px", borderRadius: 6, fontSize: 12, cursor: "pointer",
           }}>Cancel</button>
-          <button onClick={handleSubmit} style={{
-            background: "var(--accent)", border: "none", color: "#fff",
+          <button onClick={handleSubmit} className="bg-info-solid" style={{
+            border: "none", color: "#fff",
             padding: "8px 16px", borderRadius: 6, fontSize: 12, cursor: "pointer",
             display: "flex", alignItems: "center", gap: 4,
           }}>
             <Check size={14} /> Add Vacation
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── AL History Drawer ─────────────────────────────────────────────────────────
+
+export function ALHistoryDrawer({ employeeId, name, onClose }: { employeeId: string; name: string; onClose: () => void }) {
+  const { t } = useTranslation()
+
+  const { data, isLoading } = useQuery<any[]>({
+    queryKey: ["vac-history", employeeId],
+    queryFn: () => apiFetch(`/api/vacations?employeeId=${encodeURIComponent(employeeId)}&year=2026`) as Promise<any[]>,
+    staleTime: 60_000,
+  })
+
+  const sorted = data ? [...data].sort((a, b) => b.firstDay.localeCompare(a.firstDay)) : []
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 1100,
+      display: "flex", justifyContent: "flex-end",
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-raised border-l border-line-subtle" style={{
+        width: 460, display: "flex", flexDirection: "column", overflowY: "auto",
+      }}>
+        <div className="border-b border-line-subtle" style={{ padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div className="text-ink" style={{ fontSize: 14, fontWeight: 600 }}>{t("vacations.alHistory")}</div>
+            <div className="text-ink-soft" style={{ fontSize: 11, marginTop: 2 }}>{name}</div>
+          </div>
+          <button onClick={onClose} className="text-ink-soft" style={{ background: "none", border: "none", cursor: "pointer" }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ padding: "14px 20px", flex: 1 }}>
+          {isLoading && Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="skeleton" style={{ height: 38, borderRadius: 6, marginBottom: 8 }} />
+          ))}
+          {!isLoading && sorted.length === 0 && (
+            <div className="text-ink-soft" style={{ fontSize: 12, textAlign: "center", paddingTop: 24 }}>
+              {t("vacations.alHistoryEmpty")}
+            </div>
+          )}
+          {!isLoading && sorted.map((v: any) => (
+            <div key={v.id} className="bg-sunken border border-line-subtle" style={{
+              padding: "10px 12px", borderRadius: 7, marginBottom: 8,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span className="font-mono text-info-fg" style={{ fontSize: 11 }}>
+                  {v.firstDay} → {v.lastDay}
+                </span>
+                <span className="font-mono text-good-fg" style={{ fontSize: 12, fontWeight: 600 }}>
+                  {v.workDaysNet}d
+                </span>
+              </div>
+              {v.comments && (
+                <div className="text-ink-soft" style={{ fontSize: 11, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {v.comments}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -409,6 +503,7 @@ export default function Vacations() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [error, setError]           = useState("")
   const [expanded, setExpanded]     = useState<Set<string>>(new Set())
+  const [historyAgent, setHistoryAgent] = useState<{ id: string; name: string } | null>(null)
 
   const todayStr = new Date().toISOString().slice(0, 10)
 
@@ -497,19 +592,15 @@ export default function Vacations() {
 
       {/* Header */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10 }}>
-        <h1 style={{ fontSize:22, fontWeight:600, color:"var(--text)" }}>{t("nav.vacations")}</h1>
+        <h1 className="text-ink" style={{ fontSize:22, fontWeight:600 }}>{t("nav.vacations")}</h1>
         <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
 
           {/* Tab toggle */}
           <div style={{ display:"flex", gap:2 }}>
             {(["list", "import"] as const).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                background: activeTab === tab ? "var(--accent)" : "var(--card2)",
-                border: `1px solid ${activeTab === tab ? "var(--accent)" : "var(--border)"}`,
-                color: activeTab === tab ? "#fff" : "var(--text2)",
-                padding: "7px 18px", borderRadius: 6, fontSize: 12, fontWeight: 600,
-                cursor: "pointer",
-              }}>
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                className={activeTab === tab ? "bg-info-solid border border-info-bd text-white" : "bg-sunken border border-line-subtle text-ink-muted"}
+                style={{ padding: "7px 18px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                 {tab === "list" ? "List" : "Bulk Import"}
               </button>
             ))}
@@ -517,8 +608,8 @@ export default function Vacations() {
 
           {activeTab === "list" && (
             <>
-              <button onClick={() => setShowAddModal(true)} style={{
-                background:"var(--accent)", border:"none", color:"#fff",
+              <button onClick={() => setShowAddModal(true)} className="bg-info-solid" style={{
+                border:"none", color:"#fff",
                 padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer",
                 display:"flex", alignItems:"center", gap:6
               }}>
@@ -539,37 +630,36 @@ export default function Vacations() {
       {activeTab === "list" && (
         <>
           {error && (
-            <div style={{ background:"rgba(255,59,92,.1)", border:"1px solid rgba(255,59,92,.3)",
-              borderRadius:6, padding:"8px 14px", fontSize:12, color:"var(--danger)" }}>
+            <div className="bg-crit-bg border border-crit-bd text-crit-fg" style={{ borderRadius:6, padding:"8px 14px", fontSize:12 }}>
               ❌ {error}
             </div>
           )}
 
           <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12 }}>
             {[
-              { label:"On AL Today",     value:(active as any[])?.length ?? 0, color:"var(--green)" },
-              { label:"Upcoming 7 Days", value:(upcoming as any[])?.length ?? 0, color:"var(--accent)" },
-              { label:"Employees",       value:grouped.length,                  color:"var(--text)" },
+              { label:"On AL Today",     value:(active as any[])?.length ?? 0, colorCls:"text-good-fg" },
+              { label:"Upcoming 7 Days", value:(upcoming as any[])?.length ?? 0, colorCls:"text-info-fg" },
+              { label:"Employees",       value:grouped.length,                  colorCls:"text-ink" },
             ].map(s => (
-              <div key={s.label} style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, padding:"16px 20px" }}>
-                <div style={{ fontSize:10, textTransform:"uppercase", letterSpacing:".08em", color:"var(--text3)", marginBottom:6 }}>{s.label}</div>
-                <div style={{ fontSize:28, fontWeight:600, fontFamily:"IBM Plex Mono", color:s.color }}>{s.value}</div>
+              <div key={s.label} className="bg-raised border border-line-subtle" style={{ borderRadius:8, padding:"16px 20px" }}>
+                <div className="text-ink-soft" style={{ fontSize:10, textTransform:"uppercase", letterSpacing:".08em", marginBottom:6 }}>{s.label}</div>
+                <div className={`font-mono ${s.colorCls}`} style={{ fontSize:28, fontWeight:600 }}>{s.value}</div>
               </div>
             ))}
           </div>
 
           {upcoming && (upcoming as any[]).length > 0 && (
-            <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, padding:"14px 16px" }}>
-              <div style={{ fontSize:10, textTransform:"uppercase", letterSpacing:".07em", color:"var(--text3)", marginBottom:10 }}>
+            <div className="bg-raised border border-line-subtle" style={{ borderRadius:8, padding:"14px 16px" }}>
+              <div className="text-ink-soft" style={{ fontSize:10, textTransform:"uppercase", letterSpacing:".07em", marginBottom:10 }}>
                 Starting next 7 days
               </div>
               {(upcoming as any[]).map((v: any) => (
-                <div key={v.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-                  padding:"5px 0", borderBottom:"1px solid var(--border)", fontSize:12 }}>
-                  <span style={{ fontFamily:"IBM Plex Mono", fontSize:11, color:"var(--text3)" }}>{v.employeeId}</span>
-                  <span style={{ color:"var(--text2)" }}>{v.firstName} {v.lastName}</span>
-                  <span style={{ fontFamily:"IBM Plex Mono", fontSize:11, color:"var(--accent)" }}>{v.firstDay} → {v.lastDay}</span>
-                  <span style={{ fontFamily:"IBM Plex Mono", fontSize:11, color:"var(--text3)" }}>{v.workDaysNet}d</span>
+                <div key={v.id} className="border-b border-line-subtle" style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                  padding:"5px 0", fontSize:12 }}>
+                  <span className="font-mono text-ink-soft" style={{ fontSize:11 }}>{v.employeeId}</span>
+                  <span className="text-ink-muted">{v.firstName} {v.lastName}</span>
+                  <span className="font-mono text-info-fg" style={{ fontSize:11 }}>{v.firstDay} → {v.lastDay}</span>
+                  <span className="font-mono text-ink-soft" style={{ fontSize:11 }}>{v.workDaysNet}d</span>
                 </div>
               ))}
             </div>
@@ -577,18 +667,18 @@ export default function Vacations() {
 
           <div style={{ display:"flex", gap:10 }}>
             <select value={sheet} onChange={e => setSheet(e.target.value)}
-              style={{ background:"var(--card)", border:"1px solid var(--border)", color:"var(--text2)",
-                padding:"7px 12px", borderRadius:6, fontSize:12 }}>
+              className="bg-raised border border-line-subtle text-ink-muted"
+              style={{ padding:"7px 12px", borderRadius:6, fontSize:12 }}>
               <option value="">All</option>
               <option value="Agents">Agents</option>
               <option value="Overhead">Overhead</option>
             </select>
           </div>
 
-          <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, overflow:"hidden" }}>
-            <div style={{ display:"grid", gridTemplateColumns:"28px 1fr 160px 70px 70px 140px",
-              padding:"9px 12px", background:"var(--card2)", borderBottom:"1px solid var(--border)",
-              fontSize:10, fontWeight:500, textTransform:"uppercase", letterSpacing:".07em", color:"var(--text3)" }}>
+          <div className="bg-raised border border-line-subtle" style={{ borderRadius:8, overflow:"hidden" }}>
+            <div className="bg-sunken border-b border-line-subtle text-ink-soft" style={{ display:"grid", gridTemplateColumns:"28px 1fr 160px 70px 70px 140px",
+              padding:"9px 12px",
+              fontSize:10, fontWeight:500, textTransform:"uppercase", letterSpacing:".07em" }}>
               <div/>
               <div>Name</div>
               <div>Team Lead</div>
@@ -598,7 +688,7 @@ export default function Vacations() {
             </div>
 
             {isLoading && Array.from({length: 8}).map((_, i) => (
-              <div key={i} style={{ padding:"12px 12px", borderBottom:"1px solid var(--border)" }}>
+              <div key={i} className="border-b border-line-subtle" style={{ padding:"12px 12px" }}>
                 <div className="skeleton" style={{ height:11, width:"55%" }}/>
               </div>
             ))}
@@ -606,58 +696,59 @@ export default function Vacations() {
             {grouped.map(grp => {
               const isOpen = expanded.has(grp.empId)
               return (
-                <div key={grp.empId} style={{ borderBottom:"1px solid var(--border)" }}>
+                <div key={grp.empId} className="border-b border-line-subtle">
                   <div
                     onClick={() => toggleExpand(grp.empId)}
+                    className={`hover:bg-hovered ${isOpen ? "bg-raised" : ""}`}
                     style={{ display:"grid", gridTemplateColumns:"28px 1fr 160px 70px 70px 140px",
                       padding:"10px 12px", cursor:"pointer", alignItems:"center",
-                      background: isOpen ? "rgba(255,255,255,0.03)" : "transparent",
-                      transition:"background 0.1s" }}
-                    onMouseEnter={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.background = "var(--card2)" }}
-                    onMouseLeave={e => { if (!isOpen) (e.currentTarget as HTMLElement).style.background = "transparent" }}>
-                    <div style={{ color:"var(--text3)", display:"flex", alignItems:"center" }}>
+                      transition:"background 0.1s" }}>
+                    <div className="text-ink-soft" style={{ display:"flex", alignItems:"center" }}>
                       {isOpen ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
                     </div>
-                    <div style={{ fontSize:13, fontWeight:500, color:"var(--text)" }}>{grp.name}</div>
-                    <div style={{ fontSize:11, color:"var(--text3)" }}>{grp.teamLead}</div>
-                    <div style={{ textAlign:"center", fontFamily:"IBM Plex Mono", fontSize:11, color:"var(--text2)" }}>
+                    <div
+                      className="text-ink"
+                      style={{ fontSize:13, fontWeight:500, cursor:"pointer", textDecoration:"underline dotted", textUnderlineOffset:3 }}
+                      onClick={e => { e.stopPropagation(); setHistoryAgent({ id: grp.empId, name: grp.name }) }}
+                    >{grp.name}</div>
+                    <div className="text-ink-soft" style={{ fontSize:11 }}>{grp.teamLead}</div>
+                    <div className="font-mono text-ink-muted" style={{ textAlign:"center", fontSize:11 }}>
                       {grp.periodCount}
                     </div>
-                    <div style={{ textAlign:"center", fontFamily:"IBM Plex Mono", fontSize:12, fontWeight:600, color:"var(--green)" }}>
+                    <div className="font-mono text-good-fg" style={{ textAlign:"center", fontSize:12, fontWeight:600 }}>
                       {grp.totalDays}d
                     </div>
-                    <div style={{ fontFamily:"IBM Plex Mono", fontSize:11, color: grp.nextVacation ? "var(--accent)" : "var(--text3)" }}>
+                    <div className={`font-mono ${grp.nextVacation ? "text-info-fg" : "text-ink-soft"}`} style={{ fontSize:11 }}>
                       {grp.nextVacation ?? "—"}
                     </div>
                   </div>
 
                   {isOpen && (
-                    <div style={{ background:"rgba(0,0,0,0.18)", borderTop:"1px solid var(--border)" }}>
+                    <div className="border-t border-line-subtle bg-sunken">
                       {grp.periods.map((p: any) => (
                         <div key={p.id}
                           style={{ display:"grid", gridTemplateColumns:"28px 1fr 160px 70px 70px 140px",
                             padding:"7px 12px", alignItems:"center",
-                            borderBottom:"1px solid rgba(255,255,255,0.04)", fontSize:11 }}>
+                            borderBottom:"1px solid rgb(var(--line-subtle))", fontSize:11 }}>
                           <div/>
-                          <div style={{ fontFamily:"IBM Plex Mono", color:"var(--text2)", fontSize:11 }}>
+                          <div className="font-mono text-ink-muted" style={{ fontSize:11 }}>
                             {p.firstDay} → {p.lastDay}
                           </div>
                           <div>
                             {p.isOverhead
-                              ? <span style={{ background:"rgba(167,139,250,.15)", color:"var(--purple)", padding:"1px 6px", borderRadius:4, fontSize:10 }}>Overhead</span>
-                              : <span style={{ background:"rgba(34,208,122,.1)", color:"var(--green)", padding:"1px 6px", borderRadius:4, fontSize:10 }}>Agent</span>}
+                              ? <span className="bg-learn-bg text-learn-fg px-1.5 py-px rounded text-2xs">Overhead</span>
+                              : <span className="bg-good-bg text-good-fg px-1.5 py-px rounded text-2xs">Agent</span>}
                           </div>
                           <div/>
-                          <div style={{ textAlign:"center", fontFamily:"IBM Plex Mono", color:"var(--text3)" }}>
+                          <div className="font-mono text-ink-soft" style={{ textAlign:"center" }}>
                             {p.workDaysNet ?? "—"}d
                           </div>
                           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
-                            <span style={{ color:"var(--text3)", fontSize:10, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            <span className="text-ink-soft" style={{ fontSize:10, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                               {p.comments ?? ""}
                             </span>
-                            <button onClick={e => { e.stopPropagation(); setDeleteId(p.id) }} style={{
-                              background:"rgba(255,59,92,.1)", border:"1px solid rgba(255,59,92,.2)",
-                              color:"var(--danger)", padding:"3px 7px", borderRadius:4,
+                            <button onClick={e => { e.stopPropagation(); setDeleteId(p.id) }} className="bg-crit-bg border border-crit-bd text-crit-fg" style={{
+                              padding:"3px 7px", borderRadius:4,
                               fontSize:10, cursor:"pointer", display:"flex", alignItems:"center", gap:3,
                               flexShrink:0
                             }}><Trash2 size={10}/></button>
@@ -670,8 +761,7 @@ export default function Vacations() {
               )
             })}
 
-            <div style={{ padding:"8px 12px", borderTop:"1px solid var(--border)",
-              fontSize:11, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>
+            <div className="font-mono text-ink-soft border-t border-line-subtle" style={{ padding:"8px 12px", fontSize:11 }}>
               {grouped.length} employees · {(data as any[])?.length ?? 0} periods
             </div>
           </div>
@@ -679,31 +769,29 @@ export default function Vacations() {
       )}
 
       {showAddModal && <AddVacationModal onClose={() => { setShowAddModal(false); setError("") }} onSave={handleAdd} />}
+      {historyAgent && <ALHistoryDrawer employeeId={historyAgent.id} name={historyAgent.name} onClose={() => setHistoryAgent(null)} />}
 
       {deleteId && deleteVac && (
         <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:1000,
           display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <div style={{ background:"var(--card)", border:"1px solid rgba(255,59,92,.3)",
-            borderRadius:10, padding:24, width:400 }}>
-            <h2 style={{ fontSize:15, fontWeight:600, color:"var(--danger)", marginBottom:12 }}>Delete Vacation</h2>
-            <p style={{ fontSize:13, color:"var(--text2)", marginBottom:8 }}>
-              Delete vacation for <strong style={{ color:"var(--text)" }}>{deleteVac.firstName} {deleteVac.lastName}</strong>?
+          <div className="bg-raised border border-crit-bd" style={{ borderRadius:10, padding:24, width:400 }}>
+            <h2 className="text-crit-fg" style={{ fontSize:15, fontWeight:600, marginBottom:12 }}>Delete Vacation</h2>
+            <p className="text-ink-muted" style={{ fontSize:13, marginBottom:8 }}>
+              Delete vacation for <strong className="text-ink">{deleteVac.firstName} {deleteVac.lastName}</strong>?
             </p>
-            <p style={{ fontSize:12, color:"var(--text3)", marginBottom:16 }}>
+            <p className="text-ink-soft" style={{ fontSize:12, marginBottom:16 }}>
               {deleteVac.firstDay} → {deleteVac.lastDay} ({deleteVac.workDaysNet} days)
             </p>
             {deleteVac.workDaysNet > 0 && (
-              <div style={{ background:"rgba(34,208,122,.08)", border:"1px solid rgba(34,208,122,.2)",
-                borderRadius:6, padding:"8px 12px", marginBottom:14, fontSize:12, color:"var(--green)" }}>
+              <div className="bg-good-solid/10 border border-good-solid/20 text-good-fg" style={{ borderRadius:6, padding:"8px 12px", marginBottom:14, fontSize:12 }}>
                 ✅ {deleteVac.workDaysNet} AL days will be restored to balance
               </div>
             )}
             <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-              <button onClick={() => setDeleteId(null)} style={{
-                background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text2)",
+              <button onClick={() => setDeleteId(null)} className="bg-sunken border border-line-subtle text-ink-muted" style={{
                 padding:"7px 14px", borderRadius:6, fontSize:12, cursor:"pointer" }}>Cancel</button>
-              <button onClick={handleDelete} style={{
-                background:"var(--danger)", border:"none", color:"#fff",
+              <button onClick={handleDelete} className="bg-crit-solid" style={{
+                border:"none", color:"#fff",
                 padding:"7px 14px", borderRadius:6, fontSize:12, cursor:"pointer",
                 display:"flex", alignItems:"center", gap:4
               }}><Trash2 size={13}/> Delete & Restore AL</button>

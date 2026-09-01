@@ -1,19 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { Bot } from "lucide-react"
-import { ChatPanel, useAssistantAsk } from "../components/WicChatWidget"
-
-interface ChatMessage {
-  id: number
-  role: "user" | "assistant"
-  text: string
-  table?: {
-    employee: string; employeeId: string; start: string; end: string
-    workDays?: number; wicLocation: string; role: string
-  }[]
-  dateRange?: string
-  hint?: string
-  isError?: boolean
-}
+import { ChatPanel, useAssistantAsk, type ChatMessage } from "../components/WicChatWidget"
 
 let _pid = 1000
 const nextId = () => ++_pid
@@ -39,6 +26,7 @@ export default function WicAssistant() {
       dateRange: data.dateRangeChecked,
       hint:      data.error ? undefined : data.hint,
       isError:   !!data.error,
+      follow_up: data.follow_up,
     }),
     err => push({
       id: nextId(), role: "assistant",
@@ -58,30 +46,28 @@ export default function WicAssistant() {
   }
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto", height: "calc(100vh - 100px)", display: "flex", flexDirection: "column" }}>
+    <div style={{ maxWidth: 860, margin: "0 auto", height: "calc(100vh - 100px)", display: "flex", flexDirection: "column" }}>
       {/* Page header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: 8,
-          background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
+        <div
+          className="bg-info-solid"
+          style={{ width: 34, height: 34, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
           <Bot size={18} color="#fff" />
         </div>
         <div>
-          <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--text)" }}>GSD Assistant</h1>
-          <p style={{ margin: 0, fontSize: 12, color: "var(--text3)" }}>
+          <h1 className="text-ink" style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>GSD Assistant</h1>
+          <p className="text-ink-soft" style={{ margin: 0, fontSize: 12 }}>
             Ask questions about leave, sick, AL balance, pipeline, training, employees, WIC coverage — live data, EN or DE.
           </p>
         </div>
       </div>
 
       {/* Chat card */}
-      <div style={{
-        flex: 1, background: "var(--card)",
-        border: "1px solid var(--border)", borderRadius: 12,
-        display: "flex", flexDirection: "column", overflow: "hidden",
-        minHeight: 0,
-      }}>
+      <div
+        className="bg-raised border border-line-subtle"
+        style={{ flex: 1, borderRadius: 12, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}
+      >
         <ChatPanel
           messages={messages}
           isPending={mutation.isPending}

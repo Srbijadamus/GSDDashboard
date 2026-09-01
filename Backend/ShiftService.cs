@@ -138,6 +138,7 @@ public class ShiftService
         if (shift == null) return null;
 
         if (dto.ShiftType        != null) shift.ShiftType        = dto.ShiftType;
+        if (dto.ShiftType        != null && !string.Equals(dto.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase)) shift.IsWicDuty = false;
         if (dto.ShiftStart       != null) shift.ShiftStart       = dto.ShiftStart;
         if (dto.ShiftEnd         != null) shift.ShiftEnd         = dto.ShiftEnd;
         if (dto.AgentTask        != null) shift.AgentTask        = dto.AgentTask;
@@ -186,6 +187,7 @@ public class ShiftService
             shift.ShiftType  = dto.ShiftType;
             shift.ShiftStart = dto.ShiftStart;
             shift.ShiftEnd   = dto.ShiftEnd;
+            if (dto.ShiftType != ShiftTypes.WicDuty) shift.IsWicDuty = false;
         }
         else
         {

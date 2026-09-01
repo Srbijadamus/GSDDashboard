@@ -1,9 +1,12 @@
-﻿import { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
+import { AlertTriangle } from "lucide-react"
 
 const BASE = ""
 
-const inputStyle: any = { background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text)", padding:"7px 10px", borderRadius:6, fontSize:12, width:"100%", fontFamily:"IBM Plex Sans", outline:"none" }
-const labelStyle: any = { fontSize:11, color:"var(--text3)", marginBottom:4, display:"block" }
+const inputCls = "bg-sunken border border-line-subtle text-ink"
+const inputSty: any = { padding:"7px 10px", borderRadius:6, fontSize:12, width:"100%", fontFamily:"IBM Plex Sans", outline:"none" }
+const labelCls = "text-ink-soft"
+const labelSty: any = { fontSize:11, marginBottom:4, display:"block" }
 
 function TopicModal({ onClose, onSave }: any) {
   const [form, setForm] = useState({ name:"", durationHours:2, minGroupSize:3, maxGroupSize:15, isMandatory:false, notes:"" })
@@ -14,28 +17,32 @@ function TopicModal({ onClose, onSave }: any) {
   }
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:10, padding:24, width:460 }}>
-        <h2 style={{ fontSize:15, fontWeight:600, color:"var(--text)", marginBottom:20 }}>New Training Topic</h2>
+      <div className="bg-raised border border-line-subtle" style={{ borderRadius:10, padding:24, width:460 }}>
+        <h2 className="text-ink" style={{ fontSize:15, fontWeight:600, marginBottom:20 }}>New Training Topic</h2>
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          <div><label style={labelStyle}>Name</label><input value={form.name} onChange={e => h("name", e.target.value)} style={inputStyle} placeholder="Topic name..." /></div>
+          <div><label className={labelCls} style={labelSty}>Name</label><input value={form.name} onChange={e => h("name", e.target.value)} className={inputCls} style={inputSty} placeholder="Topic name..." /></div>
           <div style={{ display:"flex", gap:8 }}>
-            <div style={{ flex:1 }}><label style={labelStyle}>Duration (h)</label><input type="number" min={1} max={8} value={form.durationHours} onChange={e => h("durationHours", Number(e.target.value))} style={inputStyle} /></div>
-            <div style={{ flex:1 }}><label style={labelStyle}>Min Group</label><input type="number" min={1} value={form.minGroupSize} onChange={e => h("minGroupSize", Number(e.target.value))} style={inputStyle} /></div>
-            <div style={{ flex:1 }}><label style={labelStyle}>Max Group</label><input type="number" min={1} value={form.maxGroupSize} onChange={e => h("maxGroupSize", Number(e.target.value))} style={inputStyle} /></div>
+            <div style={{ flex:1 }}><label className={labelCls} style={labelSty}>Duration (h)</label><input type="number" min={1} max={8} value={form.durationHours} onChange={e => h("durationHours", Number(e.target.value))} className={inputCls} style={inputSty} /></div>
+            <div style={{ flex:1 }}><label className={labelCls} style={labelSty}>Min Group</label><input type="number" min={1} value={form.minGroupSize} onChange={e => h("minGroupSize", Number(e.target.value))} className={inputCls} style={inputSty} /></div>
+            <div style={{ flex:1 }}><label className={labelCls} style={labelSty}>Max Group</label><input type="number" min={1} value={form.maxGroupSize} onChange={e => h("maxGroupSize", Number(e.target.value))} className={inputCls} style={inputSty} /></div>
           </div>
           <div>
-            <label style={labelStyle}>Mandatory</label>
+            <label className={labelCls} style={labelSty}>Mandatory</label>
             <div style={{ display:"flex", gap:8 }}>
               {[true, false].map(v => (
-                <button key={String(v)} onClick={() => h("isMandatory", v)} style={{ flex:1, padding:"7px 0", borderRadius:6, border:`1px solid ${form.isMandatory===v ? (v ? "#22c55e" : "#8892a4") : "var(--border)"}`, background: form.isMandatory===v ? (v ? "rgba(34,197,94,.15)" : "rgba(136,146,164,.15)") : "transparent", color: form.isMandatory===v ? (v ? "#22c55e" : "#8892a4") : "var(--text3)", cursor:"pointer", fontSize:12, fontWeight:600 }}>{v ? "YES" : "NO"}</button>
+                <button key={String(v)} onClick={() => h("isMandatory", v)}
+                  className={`border ${form.isMandatory===v ? (v ? "bg-good-bg border-good-bd text-good-fg" : "bg-neutralst-bg border-neutralst-bd text-neutralst-fg") : "border-line-subtle text-ink-soft"}`}
+                  style={{ flex:1, padding:"7px 0", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:600, background: form.isMandatory===v ? undefined : "transparent" }}>
+                  {v ? "YES" : "NO"}
+                </button>
               ))}
             </div>
           </div>
-          <div><label style={labelStyle}>Notes</label><textarea value={form.notes} onChange={(e: any) => h("notes", e.target.value)} rows={2} style={{ ...inputStyle, resize:"vertical" }} /></div>
+          <div><label className={labelCls} style={labelSty}>Notes</label><textarea value={form.notes} onChange={(e: any) => h("notes", e.target.value)} rows={2} className={inputCls} style={{ ...inputSty, resize:"vertical" }} /></div>
         </div>
         <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:20 }}>
-          <button onClick={onClose} style={{ background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text2)", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer" }}>Cancel</button>
-          <button onClick={save} style={{ background:"var(--accent)", border:"none", color:"#fff", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>Create Topic</button>
+          <button onClick={onClose} className="bg-sunken border border-line-subtle text-ink-muted" style={{ padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer" }}>Cancel</button>
+          <button onClick={save} className="bg-info-solid text-white" style={{ padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>Create Topic</button>
         </div>
       </div>
     </div>
@@ -121,78 +128,89 @@ export default function Training() {
 
   const filteredEmps = employees.filter((e: any) => !empSearch || e.fullName?.toLowerCase().includes(empSearch.toLowerCase()) || e.teamLeadName?.toLowerCase().includes(empSearch.toLowerCase()))
 
-  const thStyle: any = { padding:"10px 12px", fontSize:10, fontWeight:500, textTransform:"uppercase", letterSpacing:".07em", color:"var(--text3)", borderBottom:"1px solid var(--border)", background:"var(--card2)" }
-  const tdStyle: any = { padding:"9px 12px", borderBottom:"1px solid rgba(30,45,69,.5)", fontSize:12, color:"var(--text)" }
+  const thCls = "bg-sunken border-b border-line-subtle text-ink-soft"
+  const thSty: any = { padding:"10px 12px", fontSize:10, fontWeight:500, textTransform:"uppercase" as const, letterSpacing:".07em" }
+  const tdCls = "border-b border-line-subtle"
+  const tdSty: any = { padding:"9px 12px", fontSize:12 }
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-      {toast && <div style={{ position:"fixed", bottom:24, right:24, background:"#22c55e", color:"#fff", padding:"10px 18px", borderRadius:8, fontSize:12, zIndex:9999, fontFamily:"IBM Plex Sans" }}>{toast}</div>}
+      {toast && <div className="bg-good-solid text-white" style={{ position:"fixed", bottom:24, right:24, padding:"10px 18px", borderRadius:8, fontSize:12, zIndex:9999, fontFamily:"IBM Plex Sans" }}>{toast}</div>}
 
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-        <h1 style={{ fontSize:22, fontWeight:600, color:"var(--text)" }}>Training</h1>
+        <h1 className="text-ink" style={{ fontSize:22, fontWeight:600 }}>Training</h1>
       </div>
 
       <div style={{ display:"flex", gap:4 }}>
         {(["scheduler","sessions","topics"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{ background: tab===t ? "var(--accent)" : "var(--card)", border:`1px solid ${tab===t ? "var(--accent)" : "var(--border)"}`, color: tab===t ? "#fff" : "var(--text2)", borderRadius:6, padding:"6px 16px", fontSize:12, cursor:"pointer", fontWeight: tab===t ? 600 : 400, textTransform:"capitalize" }}>{t}</button>
+          <button key={t} onClick={() => setTab(t)}
+            className={tab===t ? "bg-info-solid border border-info-bd text-white" : "bg-raised border border-line-subtle text-ink-muted"}
+            style={{ borderRadius:6, padding:"6px 16px", fontSize:12, cursor:"pointer", fontWeight: tab===t ? 600 : 400, textTransform:"capitalize" }}>{t}</button>
         ))}
       </div>
 
       {/* SCHEDULER TAB */}
       {tab === "scheduler" && (
         <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-          <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, padding:16 }}>
-            <div style={{ fontSize:11, fontWeight:700, color:"var(--text3)", letterSpacing:".08em", textTransform:"uppercase", marginBottom:14 }}>Training Scheduler</div>
+          <div className="bg-raised border border-line-subtle" style={{ borderRadius:8, padding:16 }}>
+            <div className="text-ink-soft" style={{ fontSize:11, fontWeight:700, letterSpacing:".08em", textTransform:"uppercase", marginBottom:14 }}>Training Scheduler</div>
             <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:14 }}>
               <div style={{ flex:2, minWidth:200 }}>
-                <label style={labelStyle}>Topic</label>
-                <select value={selectedTopic ?? ""} onChange={e => { const v = parseInt(e.target.value); setSelectedTopic(isNaN(v) ? null : v) }} style={inputStyle}>
+                <label className={labelCls} style={labelSty}>Topic</label>
+                <select value={selectedTopic ?? ""} onChange={e => { const v = parseInt(e.target.value); setSelectedTopic(isNaN(v) ? null : v) }} className={inputCls} style={inputSty}>
                   <option value="">-- Select topic --</option>
                   {topics.map((t: any) => <option key={t.id} value={t.id}>{t.name} ({t.durationHours}h, min {t.minGroupSize} agents)</option>)}
                 </select>
               </div>
               <div style={{ flex:1, minWidth:140 }}>
-                <label style={labelStyle}>Date From</label>
-                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={inputStyle} />
+                <label className={labelCls} style={labelSty}>Date From</label>
+                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputCls} style={inputSty} />
               </div>
               <div style={{ flex:1, minWidth:140 }}>
-                <label style={labelStyle}>Date To</label>
-                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={inputStyle} />
+                <label className={labelCls} style={labelSty}>Date To</label>
+                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputCls} style={inputSty} />
               </div>
             </div>
 
-            <label style={labelStyle}>Select Agents ({selectedAgents.length} selected)</label>
-            <input value={empSearch} onChange={e => setEmpSearch(e.target.value)} placeholder="Search agents..." style={{ ...inputStyle, marginBottom:8 }} />
+            <label className={labelCls} style={labelSty}>Select Agents ({selectedAgents.length} selected)</label>
+            <input value={empSearch} onChange={e => setEmpSearch(e.target.value)} placeholder="Search agents..." className={inputCls} style={{ ...inputSty, marginBottom:8 }} />
             <div style={{ maxHeight:220, overflowY:"auto", display:"flex", flexDirection:"column", gap:4 }}>
               {filteredEmps.map((e: any) => {
                 const sel = selectedAgents.includes(e.employeeId)
                 return (
-                  <div key={e.employeeId} onClick={() => toggleAgent(e.employeeId)} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px", borderRadius:6, cursor:"pointer", fontSize:12, background: sel ? "rgba(59,126,255,.12)" : "var(--card2)", border:`1px solid ${sel ? "rgba(59,126,255,.3)" : "var(--border)"}` }}>
-                    <span style={{ color: sel ? "var(--accent)" : "var(--text3)", fontSize:12 }}>{sel ? "✓" : "○"}</span>
-                    <span style={{ fontWeight:500, color:"var(--text)" }}>{e.fullName}</span>
-                    <span style={{ fontSize:10, color:"var(--text3)" }}>{e.teamLeadName}</span>
-                    {e.engagement === "Student" && <span style={{ fontSize:9, background:"rgba(250,204,21,.15)", color:"var(--yellow)", border:"1px solid rgba(250,204,21,.3)", padding:"1px 5px", borderRadius:3, fontWeight:600 }}>STU</span>}
+                  <div key={e.employeeId} onClick={() => toggleAgent(e.employeeId)}
+                    className={sel ? "bg-info-bg border border-info-bd" : "bg-sunken border border-line-subtle"}
+                    style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px", borderRadius:6, cursor:"pointer", fontSize:12 }}>
+                    <span className={sel ? "text-info-fg" : "text-ink-soft"} style={{ fontSize:12 }}>{sel ? "✓" : "○"}</span>
+                    <span className="text-ink" style={{ fontWeight:500 }}>{e.fullName}</span>
+                    <span className="text-ink-soft" style={{ fontSize:10 }}>{e.teamLeadName}</span>
+                    {e.engagement === "Student" && <span className="bg-holiday-bg border border-holiday-bd text-holiday-fg" style={{ fontSize:9, padding:"1px 5px", borderRadius:3, fontWeight:600 }}>STU</span>}
                   </div>
                 )
               })}
             </div>
 
             <button onClick={suggest} disabled={!selectedTopic || suggesting}
-              style={{ marginTop:14, background: !selectedTopic ? "rgba(59,126,255,.3)" : "var(--accent)", border:"none", color:"#fff", padding:"10px 20px", borderRadius:6, fontSize:12, cursor: !selectedTopic ? "not-allowed" : "pointer", fontWeight:600 }}>
+              className={!selectedTopic ? "" : "bg-info-solid text-white"}
+              style={{ marginTop:14, background: !selectedTopic ? "rgb(var(--st-info-solid) / 0.3)" : undefined, border:"none", color: !selectedTopic ? "#fff" : undefined, padding:"10px 20px", borderRadius:6, fontSize:12, cursor: !selectedTopic ? "not-allowed" : "pointer", fontWeight:600 }}>
               {suggesting ? "⏳ Analyzing shifts..." : "Find Available Slots"}
             </button>
           </div>
 
           {warning && (
-            <div style={{ background:"rgba(250,204,21,.1)", border:"1px solid #facc15", borderRadius:6, padding:"10px 14px", fontSize:12, color:"var(--yellow)", marginBottom:8 }}>⚠ {warning}</div>
+            <div className="bg-warn-bg border border-warn-bd text-warn-fg rounded-md px-3.5 py-2.5 text-xs mb-2">
+              <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> {warning}
+            </div>
           )}
           {suggestions.length > 0 && (
             <div>
               <div style={{ display:"flex", alignItems:"center", marginBottom:10 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:"var(--text3)", letterSpacing:".08em", textTransform:"uppercase" }}>Available Slots — {suggestions.length} found</div>
+                <div className="text-ink-soft" style={{ fontSize:11, fontWeight:700, letterSpacing:".08em", textTransform:"uppercase" }}>Available Slots — {suggestions.length} found</div>
                 <div style={{ marginLeft:"auto", display:"flex", gap:4 }}>
                   {(["list","calendar"] as const).map(v => (
-                    <button key={v} onClick={() => setSlotView(v)} style={{ background: slotView===v ? "var(--accent)" : "var(--card2)", border:`1px solid ${slotView===v ? "var(--accent)" : "var(--border)"}`, color: slotView===v ? "#fff" : "var(--text2)", borderRadius:5, padding:"4px 12px", fontSize:11, cursor:"pointer", fontWeight: slotView===v ? 600 : 400, textTransform:"capitalize" }}>{v}</button>
+                    <button key={v} onClick={() => setSlotView(v)}
+                      className={slotView===v ? "bg-info-solid border border-info-bd text-white" : "bg-sunken border border-line-subtle text-ink-muted"}
+                      style={{ borderRadius:5, padding:"4px 12px", fontSize:11, cursor:"pointer", fontWeight: slotView===v ? 600 : 400, textTransform:"capitalize" }}>{v}</button>
                   ))}
                 </div>
               </div>
@@ -201,43 +219,43 @@ export default function Training() {
                 const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()]
                 const label = `${dow} ${dt.getDate().toString().padStart(2,"0")}.${(dt.getMonth()+1).toString().padStart(2,"0")}.${dt.getFullYear()}`
                 return (
-                  <div key={i} style={{ background:"var(--card)", border:"1px solid rgba(255,255,255,.07)", borderRadius:8, padding:16, marginBottom:12 }}>
-                    <div style={{ fontSize:14, fontWeight:700, color:"var(--text)", marginBottom:8 }}>📅 {label} &nbsp; {s.startTime} – {s.endTime}</div>
+                  <div key={i} className="bg-raised" style={{ border:"1px solid rgb(var(--line-subtle))", borderRadius:8, padding:16, marginBottom:12 }}>
+                    <div className="text-ink" style={{ fontSize:14, fontWeight:700, marginBottom:8 }}>📅 {label} &nbsp; {s.startTime} – {s.endTime}</div>
                     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color: s.coveragePct >= 80 ? "#22c55e" : s.coveragePct >= 50 ? "var(--yellow)" : "var(--danger)" }}>{s.selectedAvailable} / {s.totalSelected} selected agents can attend</div>
-                      <div style={{ fontSize:11, color:"var(--text3)" }}>(coverage {s.coveragePct}%)</div>
-                      <div style={{ marginLeft:"auto", fontSize:10, color:"var(--text3)" }}>score {s.score}</div>
+                      <div style={{ fontSize:13, fontWeight:600, color: s.coveragePct >= 80 ? "rgb(var(--st-good-fg))" : s.coveragePct >= 50 ? "rgb(var(--st-holiday-fg))" : "rgb(var(--st-crit-fg))" }}>{s.selectedAvailable} / {s.totalSelected} selected agents can attend</div>
+                      <div className="text-ink-soft" style={{ fontSize:11 }}>(coverage {s.coveragePct}%)</div>
+                      <div className="text-ink-soft" style={{ marginLeft:"auto", fontSize:10 }}>score {s.score}</div>
                     </div>
                     <div style={{ marginBottom:8 }}>
-                      <div style={{ fontSize:10, color:"var(--text3)", marginBottom:3 }}>Production impact: {s.availableCount} of {s.totalOnDuty} on duty ({s.impactPct}%)</div>
-                      <div style={{ height:6, background:"var(--border)", borderRadius:3, overflow:"hidden" }}>
-                        <div style={{ width:`${s.impactPct}%`, height:"100%", background: s.impactPct < 25 ? "#22c55e" : s.impactPct < 40 ? "var(--yellow)" : "var(--danger)", borderRadius:3 }} />
+                      <div className="text-ink-soft" style={{ fontSize:10, marginBottom:3 }}>Production impact: {s.availableCount} of {s.totalOnDuty} on duty ({s.impactPct}%)</div>
+                      <div className="bg-line-subtle" style={{ height:6, borderRadius:3, overflow:"hidden" }}>
+                        <div style={{ width:`${s.impactPct}%`, height:"100%", background: s.impactPct < 25 ? "rgb(var(--st-good-solid))" : s.impactPct < 40 ? "rgb(var(--st-holiday-solid))" : "rgb(var(--st-crit-solid))", borderRadius:3 }} />
                       </div>
                     </div>
                     {s.selectedAttendees && s.selectedAttendees.length > 0 && (
                       <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:6 }}>
                         {s.selectedAttendees.map((a: any) => (
-                          <span key={a.employeeId} style={{ fontSize:10, background:"rgba(34,197,94,.12)", border:"1px solid rgba(34,197,94,.3)", color:"#22c55e", padding:"2px 8px", borderRadius:4 }}>✓ {a.fullName}</span>
+                          <span key={a.employeeId} className="bg-good-bg border border-good-bd text-good-fg" style={{ fontSize:10, padding:"2px 8px", borderRadius:4 }}>✓ {a.fullName}</span>
                         ))}
                       </div>
                     )}
                     {s.missingSelected && s.missingSelected.length > 0 && (
                       <div style={{ display:"flex", flexWrap:"wrap", gap:4, marginBottom:8 }}>
                         {s.missingSelected.map((n: string, mi: number) => (
-                          <span key={mi} style={{ fontSize:10, background:"rgba(249,115,22,.1)", border:"1px solid rgba(249,115,22,.3)", color:"#f97316", padding:"2px 8px", borderRadius:4 }}>✖ {n}</span>
+                          <span key={mi} className="bg-warn-bg border border-warn-bd text-warn-fg" style={{ fontSize:10, padding:"2px 8px", borderRadius:4 }}>✖ {n}</span>
                         ))}
                       </div>
                     )}
                     {confirmingSlot === s ? (
-                      <div style={{ background:"rgba(34,197,94,.08)", border:"1px solid rgba(34,197,94,.2)", borderRadius:6, padding:12, marginTop:8 }}>
-                        <div style={{ fontSize:12, color:"#22c55e", marginBottom:8 }}>Confirm training session? {label} {s.startTime}–{s.endTime} · {s.selectedAttendees.length} agents</div>
+                      <div className="bg-good-bg border border-good-bd" style={{ borderRadius:6, padding:12, marginTop:8 }}>
+                        <div className="text-good-fg" style={{ fontSize:12, marginBottom:8 }}>Confirm training session? {label} {s.startTime}–{s.endTime} · {s.selectedAttendees.length} agents</div>
                         <div style={{ display:"flex", gap:8 }}>
-                          <button onClick={() => setConfirmingSlot(null)} style={{ background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text2)", padding:"6px 14px", borderRadius:5, fontSize:11, cursor:"pointer" }}>Cancel</button>
-                          <button onClick={confirm} style={{ background:"#22c55e", border:"none", color:"#fff", padding:"6px 14px", borderRadius:5, fontSize:11, cursor:"pointer", fontWeight:600 }}>Confirm & Create TRAINING entries</button>
+                          <button onClick={() => setConfirmingSlot(null)} className="bg-sunken border border-line-subtle text-ink-muted" style={{ padding:"6px 14px", borderRadius:5, fontSize:11, cursor:"pointer" }}>Cancel</button>
+                          <button onClick={confirm} className="bg-good-solid text-white" style={{ padding:"6px 14px", borderRadius:5, fontSize:11, cursor:"pointer", fontWeight:600 }}>Confirm & Create TRAINING entries</button>
                         </div>
                       </div>
                     ) : (
-                      <button onClick={() => setConfirmingSlot(s)} style={{ background:"rgba(34,197,94,.15)", border:"1px solid #22c55e", color:"#22c55e", padding:"7px 16px", borderRadius:5, fontSize:11, cursor:"pointer", fontWeight:600 }}>Select This Slot</button>
+                      <button onClick={() => setConfirmingSlot(s)} className="bg-good-bg border border-good-bd text-good-fg" style={{ padding:"7px 16px", borderRadius:5, fontSize:11, cursor:"pointer", fontWeight:600 }}>Select This Slot</button>
                     )}
                   </div>
                 )
@@ -250,7 +268,7 @@ export default function Training() {
                 const first = new Date(days[0])
                 const year = first.getFullYear(), month = first.getMonth()
                 const firstOfMonth = new Date(year, month, 1)
-                const startOffset = (firstOfMonth.getDay() + 6) % 7 // Monday-first
+                const startOffset = (firstOfMonth.getDay() + 6) % 7
                 const daysInMonth = new Date(year, month + 1, 0).getDate()
                 const cells: any[] = []
                 for (let i = 0; i < startOffset; i++) cells.push(null)
@@ -258,34 +276,41 @@ export default function Training() {
                 const monthName = first.toLocaleString("en-US", { month: "long", year: "numeric" })
                 const wd = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
                 return (
-                  <div style={{ background:"var(--card)", border:"1px solid rgba(255,255,255,.07)", borderRadius:8, padding:16 }}>
-                    <div style={{ fontSize:13, fontWeight:700, color:"var(--text)", marginBottom:12, textAlign:"center" }}>{monthName}</div>
+                  <div className="bg-raised" style={{ border:"1px solid rgb(var(--line-subtle))", borderRadius:8, padding:16 }}>
+                    <div className="text-ink" style={{ fontSize:13, fontWeight:700, marginBottom:12, textAlign:"center" }}>{monthName}</div>
                     <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:6 }}>
-                      {wd.map(d => <div key={d} style={{ fontSize:10, fontWeight:600, color:"var(--text3)", textAlign:"center", textTransform:"uppercase", paddingBottom:4 }}>{d}</div>)}
+                      {wd.map(d => <div key={d} className="text-ink-soft" style={{ fontSize:10, fontWeight:600, textAlign:"center", textTransform:"uppercase", paddingBottom:4 }}>{d}</div>)}
                       {cells.map((d, ci) => {
                         if (d === null) return <div key={"e"+ci} />
                         const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`
                         const slots = (byDay[dateStr] || []).slice().sort((a:any,b:any)=> b.score - a.score)
                         const best = slots[0]
                         return (
-                          <div key={dateStr} style={{ minHeight:80, background: best ? "var(--card2)" : "transparent", border:`1px solid ${best ? "rgba(59,126,255,.2)" : "var(--border)"}`, borderRadius:6, padding:6, display:"flex", flexDirection:"column", gap:3 }}>
-                            <div style={{ fontSize:10, color:"var(--text3)", fontWeight:600 }}>{d}</div>
+                          <div key={dateStr}
+                            className={`border ${best ? "bg-sunken border-info-bd" : "border-line-subtle"}`}
+                            style={{ minHeight:80, borderRadius:6, padding:6, display:"flex", flexDirection:"column", gap:3 }}>
+                            <div className="text-ink-soft" style={{ fontSize:10, fontWeight:600 }}>{d}</div>
                             {slots.slice(0,3).map((s:any, si:number) => (
-                              <div key={si} onClick={() => setConfirmingSlot(s)} title={`${s.selectedAvailable}/${s.totalSelected} can attend, impact ${s.impactPct}%`} style={{ cursor:"pointer", fontSize:9, padding:"2px 4px", borderRadius:3, background: s.coveragePct >= 80 ? "rgba(34,197,94,.15)" : s.coveragePct >= 50 ? "rgba(250,204,21,.15)" : "rgba(255,59,92,.12)", color: s.coveragePct >= 80 ? "#22c55e" : s.coveragePct >= 50 ? "var(--yellow)" : "var(--danger)", border:`1px solid ${s.coveragePct >= 80 ? "rgba(34,197,94,.3)" : s.coveragePct >= 50 ? "rgba(250,204,21,.3)" : "rgba(255,59,92,.3)"}` }}>
+                              <div key={si} onClick={() => setConfirmingSlot(s)} title={`${s.selectedAvailable}/${s.totalSelected} can attend, impact ${s.impactPct}%`}
+                                style={{ cursor:"pointer", fontSize:9, padding:"2px 4px", borderRadius:3,
+                                  background: s.coveragePct >= 80 ? "rgb(var(--st-good-bg))" : s.coveragePct >= 50 ? "rgb(var(--st-holiday-bg))" : "rgb(var(--st-crit-bg))",
+                                  color: s.coveragePct >= 80 ? "rgb(var(--st-good-fg))" : s.coveragePct >= 50 ? "rgb(var(--st-holiday-fg))" : "rgb(var(--st-crit-fg))",
+                                  border:`1px solid ${s.coveragePct >= 80 ? "rgb(var(--st-good-bd))" : s.coveragePct >= 50 ? "rgb(var(--st-holiday-bd))" : "rgb(var(--st-crit-bd))"}`
+                                }}>
                                 {s.startTime} ({s.selectedAvailable}/{s.totalSelected})
                               </div>
                             ))}
-                            {slots.length > 3 && <div style={{ fontSize:8, color:"var(--text3)" }}>+{slots.length-3} more</div>}
+                            {slots.length > 3 && <div className="text-ink-soft" style={{ fontSize:8 }}>+{slots.length-3} more</div>}
                           </div>
                         )
                       })}
                     </div>
                     {confirmingSlot && (
-                      <div style={{ marginTop:12, background:"rgba(34,197,94,.08)", border:"1px solid rgba(34,197,94,.2)", borderRadius:6, padding:12 }}>
-                        <div style={{ fontSize:12, color:"#22c55e", marginBottom:8 }}>Confirm: {confirmingSlot.date} {confirmingSlot.startTime}–{confirmingSlot.endTime} · {confirmingSlot.selectedAttendees.length} agents</div>
+                      <div className="bg-good-bg border border-good-bd" style={{ marginTop:12, borderRadius:6, padding:12 }}>
+                        <div className="text-good-fg" style={{ fontSize:12, marginBottom:8 }}>Confirm: {confirmingSlot.date} {confirmingSlot.startTime}–{confirmingSlot.endTime} · {confirmingSlot.selectedAttendees.length} agents</div>
                         <div style={{ display:"flex", gap:8 }}>
-                          <button onClick={() => setConfirmingSlot(null)} style={{ background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text2)", padding:"6px 14px", borderRadius:5, fontSize:11, cursor:"pointer" }}>Cancel</button>
-                          <button onClick={confirm} style={{ background:"#22c55e", border:"none", color:"#fff", padding:"6px 14px", borderRadius:5, fontSize:11, cursor:"pointer", fontWeight:600 }}>Confirm & Create TRAINING entries</button>
+                          <button onClick={() => setConfirmingSlot(null)} className="bg-sunken border border-line-subtle text-ink-muted" style={{ padding:"6px 14px", borderRadius:5, fontSize:11, cursor:"pointer" }}>Cancel</button>
+                          <button onClick={confirm} className="bg-good-solid text-white" style={{ padding:"6px 14px", borderRadius:5, fontSize:11, cursor:"pointer", fontWeight:600 }}>Confirm & Create TRAINING entries</button>
                         </div>
                       </div>
                     )}
@@ -299,29 +324,31 @@ export default function Training() {
 
       {/* SESSIONS TAB */}
       {tab === "sessions" && (
-        <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, overflow:"hidden" }}>
+        <div className="bg-raised border border-line-subtle" style={{ borderRadius:8, overflow:"hidden" }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-            <thead><tr>{["Topic","Date","Time","Agents","Status","Actions"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+            <thead><tr>{["Topic","Date","Time","Agents","Status","Actions"].map(h => <th key={h} className={thCls} style={thSty}>{h}</th>)}</tr></thead>
             <tbody>
-              {sessions.length === 0 && <tr><td colSpan={6} style={{ ...tdStyle, textAlign:"center", color:"var(--text3)" }}>No training sessions scheduled.</td></tr>}
+              {sessions.length === 0 && <tr><td colSpan={6} className={`${tdCls} text-ink-soft`} style={{ ...tdSty, textAlign:"center" }}>No training sessions scheduled.</td></tr>}
               {sessions.map((s: any) => {
                 const dt = new Date(s.scheduledDate)
                 const dow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()]
-                const sc = s.status === "CONFIRMED" ? {bg:"rgba(34,197,94,.15)",border:"#22c55e",color:"#22c55e"} : s.status === "CANCELLED" ? {bg:"rgba(239,68,68,.15)",border:"#ef4444",color:"#ef4444"} : {bg:"rgba(136,146,164,.15)",border:"#8892a4",color:"#8892a4"}
+                const scCls = s.status === "CONFIRMED" ? "bg-good-bg border border-good-bd text-good-fg"
+                            : s.status === "CANCELLED" ? "bg-crit-bg border border-crit-bd text-crit-fg"
+                            : "bg-neutralst-bg border border-neutralst-bd text-neutralst-fg"
                 return (<>
-                  <tr key={s.id} onClick={() => toggleSession(s)} style={{ cursor:"pointer" }} onMouseEnter={e => e.currentTarget.style.background="var(--card2)"} onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                    <td style={{ ...tdStyle, fontWeight:600 }}>{s.topicName}</td>
-                    <td style={{ ...tdStyle, fontFamily:"IBM Plex Mono", fontSize:11 }}>{dow} {dt.getDate().toString().padStart(2,"0")}.{(dt.getMonth()+1).toString().padStart(2,"0")}.{dt.getFullYear()}</td>
-                    <td style={{ ...tdStyle, fontFamily:"IBM Plex Mono", fontSize:11 }}>{s.startTime} – {s.endTime}</td>
-                    <td style={{ ...tdStyle, fontSize:11, color:"var(--text2)" }}>{expandedSession === s.id ? "▾" : "▸"} {s.agentIds?.length ?? 0} agents</td>
-                    <td style={tdStyle}><span style={{ ...sc, padding:"2px 8px", borderRadius:4, fontSize:10, fontWeight:600, border:`1px solid ${sc.border}` }}>{s.status}</span></td>
-                    <td style={tdStyle}><button onClick={(e) => { e.stopPropagation(); deleteSession(s.id) }} style={{ background:"rgba(255,59,92,.12)", border:"1px solid rgba(255,59,92,.2)", color:"var(--danger)", padding:"4px 8px", borderRadius:4, fontSize:10, cursor:"pointer" }}>Delete</button></td>
+                  <tr key={s.id} onClick={() => toggleSession(s)} className="cursor-pointer transition-colors hover:bg-hovered">
+                    <td className={`${tdCls} text-ink`} style={{ ...tdSty, fontWeight:600 }}>{s.topicName}</td>
+                    <td className={`${tdCls} text-ink font-mono`} style={{ ...tdSty, fontSize:11 }}>{dow} {dt.getDate().toString().padStart(2,"0")}.{(dt.getMonth()+1).toString().padStart(2,"0")}.{dt.getFullYear()}</td>
+                    <td className={`${tdCls} text-ink font-mono`} style={{ ...tdSty, fontSize:11 }}>{s.startTime} – {s.endTime}</td>
+                    <td className={`${tdCls} text-ink-muted`} style={{ ...tdSty, fontSize:11 }}>{expandedSession === s.id ? "▾" : "▸"} {s.agentIds?.length ?? 0} agents</td>
+                    <td className={`${tdCls} text-ink`} style={tdSty}><span className={scCls} style={{ padding:"2px 8px", borderRadius:4, fontSize:10, fontWeight:600 }}>{s.status}</span></td>
+                    <td className={`${tdCls} text-ink`} style={tdSty}><button onClick={(e) => { e.stopPropagation(); deleteSession(s.id) }} className="bg-crit-bg border border-crit-bd text-crit-fg" style={{ padding:"4px 8px", borderRadius:4, fontSize:10, cursor:"pointer" }}>Delete</button></td>
                   </tr>
                   {expandedSession === s.id && (
                     <tr key={s.id + "-detail"}>
-                      <td colSpan={6} style={{ padding:"0 12px 12px 12px", background:"var(--card2)" }}>
+                      <td colSpan={6} className="bg-sunken" style={{ padding:"0 12px 12px 12px" }}>
                         <div style={{ padding:12, display:"flex", flexDirection:"column", gap:6 }}>
-                          <div style={{ fontSize:10, fontWeight:700, color:"var(--text3)", letterSpacing:".06em", textTransform:"uppercase", marginBottom:4 }}>Attendees ({s.agentIds?.length ?? 0})</div>
+                          <div className="text-ink-soft" style={{ fontSize:10, fontWeight:700, letterSpacing:".06em", textTransform:"uppercase", marginBottom:4 }}>Attendees ({s.agentIds?.length ?? 0})</div>
                           {(s.agentIds ?? []).map((id: string) => {
                             const emp = employees.find((e: any) => e.employeeId === id)
                             const dayShifts = sessionShifts[s.scheduledDate] ?? []
@@ -329,12 +356,16 @@ export default function Training() {
                             const shiftLabel = sh ? (sh.shiftStart && sh.shiftEnd ? `${sh.shiftStart} – ${sh.shiftEnd}` : sh.shiftType) : "…"
                             const task = sh ? (sh.agentTask ?? null) : null
                             return (
-                              <div key={id} style={{ display:"flex", alignItems:"center", gap:12, fontSize:12, padding:"6px 10px", background:"var(--card)", borderRadius:6, border:"1px solid var(--border)" }}>
-                                <span style={{ fontWeight:600, color:"var(--text)", minWidth:180 }}>{emp?.fullName ?? id}</span>
-                                <span style={{ fontSize:11, color:"var(--text3)", minWidth:160 }}>TL: {emp?.teamLeadName ?? "—"}</span>
-                                <span style={{ fontSize:11, fontFamily:"IBM Plex Mono", color:"#60a5fa" }}>Shift that day: {shiftLabel}</span>
-                                {task && <span style={{ fontSize:9, fontWeight:600, padding:"1px 6px", borderRadius:3, background: task === "BACKLOG" ? "rgba(136,146,164,.15)" : task === "TRAINING" ? "rgba(168,85,247,.15)" : "rgba(59,126,255,.15)", color: task === "BACKLOG" ? "#8892a4" : task === "TRAINING" ? "#a855f7" : "#60a5fa", border:`1px solid ${task === "BACKLOG" ? "rgba(136,146,164,.3)" : task === "TRAINING" ? "rgba(168,85,247,.3)" : "rgba(59,126,255,.3)"}` }}>{task === "BACKLOG" ? "BACKLOG/VOICE" : task}</span>}
-                                {emp?.engagement === "Student" && <span style={{ fontSize:9, background:"rgba(250,204,21,.15)", color:"var(--yellow)", border:"1px solid rgba(250,204,21,.3)", padding:"1px 5px", borderRadius:3, fontWeight:600 }}>STU</span>}
+                              <div key={id} className="bg-raised border border-line-subtle" style={{ display:"flex", alignItems:"center", gap:12, fontSize:12, padding:"6px 10px", borderRadius:6 }}>
+                                <span className="text-ink" style={{ fontWeight:600, minWidth:180 }}>{emp?.fullName ?? id}</span>
+                                <span className="text-ink-soft" style={{ fontSize:11, minWidth:160 }}>TL: {emp?.teamLeadName ?? "—"}</span>
+                                <span className="font-mono text-info-fg" style={{ fontSize:11 }}>Shift that day: {shiftLabel}</span>
+                                {task && <span
+                                  className={`border ${task === "BACKLOG" ? "bg-neutralst-bg border-neutralst-bd text-neutralst-fg" : task === "TRAINING" ? "bg-learn-bg border-learn-bd text-learn-fg" : "bg-info-bg border-info-bd text-info-fg"}`}
+                                  style={{ fontSize:9, fontWeight:600, padding:"1px 6px", borderRadius:3 }}>
+                                  {task === "BACKLOG" ? "BACKLOG/VOICE" : task}
+                                </span>}
+                                {emp?.engagement === "Student" && <span className="bg-holiday-bg border border-holiday-bd text-holiday-fg" style={{ fontSize:9, padding:"1px 5px", borderRadius:3, fontWeight:600 }}>STU</span>}
                               </div>
                             )
                           })}
@@ -346,7 +377,7 @@ export default function Training() {
                 })}
             </tbody>
           </table>
-          <div style={{ padding:"8px 12px", borderTop:"1px solid var(--border)", fontSize:11, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{sessions.length} sessions</div>
+          <div className="font-mono text-ink-soft border-t border-line-subtle" style={{ padding:"8px 12px", fontSize:11 }}>{sessions.length} sessions</div>
         </div>
       )}
 
@@ -354,19 +385,21 @@ export default function Training() {
       {tab === "topics" && (
         <div>
           <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-            <button onClick={() => setShowTopicModal(true)} style={{ background:"var(--accent)", border:"none", color:"#fff", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>+ New Topic</button>
+            <button onClick={() => setShowTopicModal(true)} className="bg-info-solid text-white" style={{ padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>+ New Topic</button>
           </div>
-          <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8, overflow:"hidden" }}>
+          <div className="bg-raised border border-line-subtle" style={{ borderRadius:8, overflow:"hidden" }}>
             <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-              <thead><tr>{["Name","Duration","Min Group","Max Group","Mandatory"].map(h => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+              <thead><tr>{["Name","Duration","Min Group","Max Group","Mandatory"].map(h => <th key={h} className={thCls} style={thSty}>{h}</th>)}</tr></thead>
               <tbody>
                 {topics.map((t: any) => (
-                  <tr key={t.id} onMouseEnter={e => e.currentTarget.style.background="var(--card2)"} onMouseLeave={e => e.currentTarget.style.background="transparent"}>
-                    <td style={{ ...tdStyle, fontWeight:600 }}>{t.name}</td>
-                    <td style={{ ...tdStyle, fontFamily:"IBM Plex Mono" }}>{t.durationHours}h</td>
-                    <td style={{ ...tdStyle, fontFamily:"IBM Plex Mono" }}>{t.minGroupSize}</td>
-                    <td style={{ ...tdStyle, fontFamily:"IBM Plex Mono" }}>{t.maxGroupSize}</td>
-                    <td style={tdStyle}><span style={{ background: t.isMandatory ? "rgba(34,197,94,.15)" : "rgba(136,146,164,.15)", border:`1px solid ${t.isMandatory ? "#22c55e" : "#8892a4"}`, color: t.isMandatory ? "#22c55e" : "#8892a4", padding:"2px 8px", borderRadius:4, fontSize:10, fontWeight:600 }}>{t.isMandatory ? "YES" : "NO"}</span></td>
+                  <tr key={t.id} className="transition-colors hover:bg-hovered">
+                    <td className={`${tdCls} text-ink`} style={{ ...tdSty, fontWeight:600 }}>{t.name}</td>
+                    <td className={`${tdCls} text-ink font-mono`} style={tdSty}>{t.durationHours}h</td>
+                    <td className={`${tdCls} text-ink font-mono`} style={tdSty}>{t.minGroupSize}</td>
+                    <td className={`${tdCls} text-ink font-mono`} style={tdSty}>{t.maxGroupSize}</td>
+                    <td className={`${tdCls} text-ink`} style={tdSty}><span
+                      className={`border ${t.isMandatory ? "bg-good-bg border-good-bd text-good-fg" : "bg-neutralst-bg border-neutralst-bd text-neutralst-fg"}`}
+                      style={{ padding:"2px 8px", borderRadius:4, fontSize:10, fontWeight:600 }}>{t.isMandatory ? "YES" : "NO"}</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -379,12 +412,3 @@ export default function Training() {
     </div>
   )
 }
-
-
-
-
-
-
-
-
-

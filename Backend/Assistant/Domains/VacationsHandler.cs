@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using GSDDashboard.API.Modules.Vacations;
 
 namespace GSDDashboard.API.Modules.Assistant;
@@ -23,7 +24,7 @@ public sealed class VacationsHandler(
             q.Contains("jeder im urlaub"))
             score += 85;
 
-        if (q.Contains("wic")) score += 25; // lower than WicLeave's +90 for "wic"
+        if (Regex.IsMatch(q, @"\bwic\b")) score += 25; // whole-word only — "vwic" must NOT match
 
         if (q.Contains("leave") || q.Contains("urlaub") || q.Contains("vacation") ||
             q.Contains("holiday") || q.Contains("absent") || q.Contains("absence") ||

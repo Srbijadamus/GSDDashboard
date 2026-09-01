@@ -38,8 +38,11 @@ public sealed class WicOpeningHoursHandler(
         if (q.Contains("balance")  || q.Contains("urlaubskonto"))   return 0;
         if ((q.Contains("who covers") || q.Contains("backup")      ||
              q.Contains("main agent")) && q.Contains("wic"))        return 0;
+        // Duty queries belong to DashboardHandler, not opening hours
+        if (q.Contains("wic duty") || q.Contains("wic dienst"))     return 0;
 
-        bool hasWic     = q.Contains("wic");
+        // Whole-word match only — "vwic" must NOT trigger WIC opening hours routing
+        bool hasWic     = Regex.IsMatch(q, @"\bwic\b");
         bool hasWicCity = WicCities.Any(c => q.Contains(c));
 
         bool hasSpecificKw =

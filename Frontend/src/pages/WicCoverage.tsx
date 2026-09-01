@@ -69,7 +69,7 @@ function initials(name: string | null) {
 
 function AgentAvatar({ name }: { name: string | null }) {
   return (
-    <div className="w-9 h-9 rounded-full flex-shrink-0 bg-[var(--accent)] text-white flex items-center justify-center text-sm font-bold">
+    <div className="w-9 h-9 rounded-full flex-shrink-0 bg-info-solid text-white flex items-center justify-center text-sm font-bold">
       {initials(name)}
     </div>
   )
@@ -84,7 +84,7 @@ function CarBadge({ hasCar }: { hasCar: boolean | null }) {
       </span>
     )
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--card2)] text-[var(--text3)]">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sunken text-ink-soft">
       <Car size={9} /> {hasCar === false ? t("wicCoverage.hasCarNo") : t("wicCoverage.hasCarUnknown")}
     </span>
   )
@@ -97,7 +97,7 @@ function TypeBadge({ type }: { type: string }) {
     REGIONAL: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
   }
   return (
-    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cls[type] ?? "bg-[var(--card2)] text-[var(--text2)]"}`}>
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cls[type] ?? "bg-sunken text-ink-muted"}`}>
       {type}
     </span>
   )
@@ -105,7 +105,7 @@ function TypeBadge({ type }: { type: string }) {
 
 function Pill({ label }: { label: string }) {
   return (
-    <span className="bg-[var(--card2)] text-[var(--text2)] border border-[var(--border)] rounded-full px-2 py-0.5 text-[10px]">
+    <span className="bg-sunken text-ink-muted border border-line-subtle rounded-full px-2 py-0.5 text-[10px]">
       {label}
     </span>
   )
@@ -117,15 +117,15 @@ function AgentCard({ agent, onClick }: { agent: AgentCoverageDto; onClick: () =>
   return (
     <div
       onClick={onClick}
-      className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 cursor-pointer flex flex-col gap-2.5 hover:border-[var(--accent)] transition-colors"
+      className="bg-raised border border-line-subtle rounded-xl p-4 cursor-pointer flex flex-col gap-2.5 hover:border-info-bd transition-colors"
     >
       <div className="flex items-center gap-2.5">
         <AgentAvatar name={agent.fullName} />
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-[13px] text-[var(--text)] truncate">
+          <div className="font-semibold text-[13px] text-ink truncate">
             {agent.fullName ?? agent.employeeId}
           </div>
-          <div className="text-[10px] text-[var(--text3)] font-mono">
+          <div className="text-[10px] text-ink-soft font-mono">
             {agent.primaryKid ?? "—"} · {agent.secondaryKid ?? "—"}
           </div>
         </div>
@@ -133,7 +133,7 @@ function AgentCard({ agent, onClick }: { agent: AgentCoverageDto; onClick: () =>
       </div>
 
       {agent.groupRegion && (
-        <div className="flex items-center gap-1 text-[11px] text-[var(--text2)]">
+        <div className="flex items-center gap-1 text-[11px] text-ink-muted">
           <Globe size={11} />
           {agent.groupRegion}
         </div>
@@ -150,7 +150,7 @@ function AgentCard({ agent, onClick }: { agent: AgentCoverageDto; onClick: () =>
           {agent.wicRoles.map(r => (
             <span key={r.locationCode + r.assignmentType} className="flex items-center gap-1">
               <TypeBadge type={r.assignmentType} />
-              <span className="text-[10px] text-[var(--text2)]">{r.displayName}</span>
+              <span className="text-[10px] text-ink-muted">{r.displayName}</span>
             </span>
           ))}
         </div>
@@ -182,15 +182,15 @@ function AgentDetail({ kid }: { kid: string }) {
   })
 
   if (!agent)
-    return <div className="text-[var(--text3)] text-sm">{t("wicCoverage.loading")}</div>
+    return <div className="text-ink-soft text-sm">{t("wicCoverage.loading")}</div>
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2.5">
         <AgentAvatar name={agent.fullName} />
         <div className="flex-1">
-          <div className="font-bold text-[15px] text-[var(--text)]">{agent.fullName}</div>
-          <div className="text-[11px] text-[var(--text3)] font-mono">
+          <div className="font-bold text-[15px] text-ink">{agent.fullName}</div>
+          <div className="text-[11px] text-ink-soft font-mono">
             {agent.primaryKid} · {agent.secondaryKid}
           </div>
         </div>
@@ -198,17 +198,17 @@ function AgentDetail({ kid }: { kid: string }) {
 
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
-          <div className="text-[var(--text3)] mb-0.5">Infosys Email</div>
-          <div className="text-[var(--text)] break-all">{agent.infosysEmail ?? "—"}</div>
+          <div className="text-ink-soft mb-0.5">Infosys Email</div>
+          <div className="text-ink break-all">{agent.infosysEmail ?? "—"}</div>
         </div>
         <div>
-          <div className="text-[var(--text3)] mb-0.5">EON Email</div>
-          <div className="text-[var(--text)] break-all">{agent.eonEmail ?? "—"}</div>
+          <div className="text-ink-soft mb-0.5">EON Email</div>
+          <div className="text-ink break-all">{agent.eonEmail ?? "—"}</div>
         </div>
       </div>
 
       <div>
-        <div className="text-[11px] text-[var(--text3)] mb-1.5">{t("wicCoverage.hasCarLabel")}</div>
+        <div className="text-[11px] text-ink-soft mb-1.5">{t("wicCoverage.hasCarLabel")}</div>
         <div className="flex gap-1.5">
           {(["true", "false", "null"] as const).map(v => {
             const label = v === "true" ? t("wicCoverage.hasCarYes") : v === "false" ? t("wicCoverage.hasCarNo") : t("wicCoverage.hasCarUnknown")
@@ -217,7 +217,7 @@ function AgentDetail({ kid }: { kid: string }) {
               <button
                 key={v}
                 onClick={() => patch.mutate({ hasCar: v === "null" ? null : v === "true" })}
-                className={`px-2.5 py-1 rounded-md text-[11px] cursor-pointer border border-[var(--border)] transition-colors ${active ? "bg-[var(--accent)] text-white" : "bg-[var(--card2)] text-[var(--text2)]"}`}
+                className={`px-2.5 py-1 rounded-md text-[11px] cursor-pointer border border-line-subtle transition-colors ${active ? "bg-info-solid text-white" : "bg-sunken text-ink-muted"}`}
               >{label}</button>
             )
           })}
@@ -225,10 +225,10 @@ function AgentDetail({ kid }: { kid: string }) {
       </div>
 
       <div>
-        <div className="text-[11px] text-[var(--text3)] mb-1.5">{t("wicCoverage.region")}</div>
+        <div className="text-[11px] text-ink-soft mb-1.5">{t("wicCoverage.region")}</div>
         <div className="flex gap-1.5">
           <input
-            className="flex-1 px-2 py-1.5 rounded-md border border-[var(--border)] bg-[var(--card2)] text-[var(--text)] text-xs outline-none"
+            className="flex-1 px-2 py-1.5 rounded-md border border-line-subtle bg-sunken text-ink text-xs outline-none"
             placeholder={agent.groupRegion ?? t("wicCoverage.regionPlaceholder")}
             value={regionEdit}
             onChange={e => setRegionEdit(e.target.value)}
@@ -236,14 +236,14 @@ function AgentDetail({ kid }: { kid: string }) {
           />
           <button
             onClick={() => { patch.mutate({ groupRegion: regionEdit }); setRegionEdit("") }}
-            className="px-2.5 py-1.5 rounded-md text-[11px] cursor-pointer bg-[var(--accent)] text-white border-none"
+            className="px-2.5 py-1.5 rounded-md text-[11px] cursor-pointer bg-info-solid text-white border-none"
           >{t("wicCoverage.save")}</button>
         </div>
       </div>
 
       {agent.reachableCities.length > 0 && (
         <div>
-          <div className="text-[11px] text-[var(--text3)] mb-1.5">{t("wicCoverage.reachableCities")}</div>
+          <div className="text-[11px] text-ink-soft mb-1.5">{t("wicCoverage.reachableCities")}</div>
           <div className="flex flex-wrap gap-1">
             {agent.reachableCities.map(c => <Pill key={c} label={c} />)}
           </div>
@@ -252,14 +252,14 @@ function AgentDetail({ kid }: { kid: string }) {
 
       {agent.wicRoles.length > 0 && (
         <div>
-          <div className="text-[11px] text-[var(--text3)] mb-1.5">{t("wicCoverage.wicRoles")}</div>
+          <div className="text-[11px] text-ink-soft mb-1.5">{t("wicCoverage.wicRoles")}</div>
           <div className="flex flex-col gap-1">
             {agent.wicRoles.map(r => (
               <div key={r.locationCode + r.assignmentType}
-                className="flex items-center gap-2 px-2.5 py-1.5 bg-[var(--card2)] rounded-md text-xs">
+                className="flex items-center gap-2 px-2.5 py-1.5 bg-sunken rounded-md text-xs">
                 <TypeBadge type={r.assignmentType} />
-                <span className="text-[var(--text)]">{r.displayName}</span>
-                <span className="text-[var(--text3)] text-[10px] ml-auto">{r.locationCode}</span>
+                <span className="text-ink">{r.displayName}</span>
+                <span className="text-ink-soft text-[10px] ml-auto">{r.locationCode}</span>
               </div>
             ))}
           </div>
@@ -276,29 +276,29 @@ function WicCard({ wic, onClick }: { wic: WicListItemDto; onClick: () => void })
   return (
     <div
       onClick={onClick}
-      className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 cursor-pointer flex flex-col gap-2 hover:border-[var(--accent)] transition-colors"
+      className="bg-raised border border-line-subtle rounded-xl p-4 cursor-pointer flex flex-col gap-2 hover:border-info-bd transition-colors"
     >
       <div className="flex items-start gap-2.5">
-        <div className="w-8 h-8 rounded-lg flex-shrink-0 bg-[var(--accent)]/10 text-[var(--accent)] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg flex-shrink-0 bg-info-solid/10 text-info-fg flex items-center justify-center">
           <MapPin size={16} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-[13px] text-[var(--text)] flex items-center gap-1.5">
+          <div className="font-semibold text-[13px] text-ink flex items-center gap-1.5">
             {wic.displayName}
             {wic.isNpp && <NppBadge />}
           </div>
-          <div className="text-[10px] text-[var(--text3)]">
+          <div className="text-[10px] text-ink-soft">
             {[wic.city, wic.bundesland].filter(Boolean).join(" · ")}
           </div>
         </div>
-        <ChevronRight size={14} className="text-[var(--text3)] flex-shrink-0" />
+        <ChevronRight size={14} className="text-ink-soft flex-shrink-0" />
       </div>
 
       {wic.openingDay && (
-        <div className="text-[11px] text-[var(--text2)]">{wic.openingDay}</div>
+        <div className="text-[11px] text-ink-muted">{wic.openingDay}</div>
       )}
 
-      <div className="flex gap-2 text-[11px] text-[var(--text2)]">
+      <div className="flex gap-2 text-[11px] text-ink-muted">
         <span className="flex items-center gap-1">
           <ShieldCheck size={11} className="text-green-600" />
           {t("wicCoverage.mainCount", { n: wic.mainCount })}
@@ -329,12 +329,12 @@ function TierSection({ title, agents, accent, icon }: {
       </div>
       <div className="flex flex-col gap-1">
         {agents.map(a => (
-          <div key={a.name} className="flex items-center gap-2 px-2.5 py-1.5 bg-[var(--card2)] rounded-md">
+          <div key={a.name} className="flex items-center gap-2 px-2.5 py-1.5 bg-sunken rounded-md">
             <AgentAvatar name={a.name} />
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-[var(--text)] truncate">{a.name}</div>
+              <div className="text-xs font-medium text-ink truncate">{a.name}</div>
               {a.primaryKid && (
-                <div className="text-[10px] text-[var(--text3)] font-mono">{a.primaryKid}</div>
+                <div className="text-[10px] text-ink-soft font-mono">{a.primaryKid}</div>
               )}
             </div>
             <CarBadge hasCar={a.hasCar} />
@@ -371,7 +371,7 @@ function WicDetail({ locationCode }: { locationCode: string }) {
   })
 
   if (!wic)
-    return <div className="text-[var(--text3)] text-sm">{t("wicCoverage.loading")}</div>
+    return <div className="text-ink-soft text-sm">{t("wicCoverage.loading")}</div>
 
   const backupBExtra = reachable?.filter(
     r => !wic.backupB.some(b => b.name.toLowerCase() === r.name.toLowerCase())
@@ -380,29 +380,29 @@ function WicDetail({ locationCode }: { locationCode: string }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-start gap-2.5">
-        <div className="w-9 h-9 rounded-lg flex-shrink-0 bg-[var(--accent)]/10 text-[var(--accent)] flex items-center justify-center">
+        <div className="w-9 h-9 rounded-lg flex-shrink-0 bg-info-solid/10 text-info-fg flex items-center justify-center">
           <MapPin size={18} />
         </div>
         <div className="flex-1">
-          <div className="font-bold text-[15px] text-[var(--text)] flex items-center gap-2">
+          <div className="font-bold text-[15px] text-ink flex items-center gap-2">
             {wic.displayName}
             {wic.isNpp && <NppBadge />}
           </div>
-          <div className="text-[11px] text-[var(--text3)]">
+          <div className="text-[11px] text-ink-soft">
             {[wic.city, wic.bundesland].filter(Boolean).join(" · ")}
           </div>
         </div>
       </div>
 
       {wic.openingDay && (
-        <div className="px-3 py-2 bg-[var(--card2)] rounded-lg text-xs text-[var(--text)]">
-          <span className="text-[var(--text3)] mr-1.5">{t("wicCoverage.openingDays")}:</span>
+        <div className="px-3 py-2 bg-sunken rounded-lg text-xs text-ink">
+          <span className="text-ink-soft mr-1.5">{t("wicCoverage.openingDays")}:</span>
           {wic.openingDay}
         </div>
       )}
 
       {wic.fullAddress && (
-        <div className="text-[11px] text-[var(--text2)]">{wic.fullAddress}</div>
+        <div className="text-[11px] text-ink-muted">{wic.fullAddress}</div>
       )}
 
       <TierSection
@@ -429,28 +429,28 @@ function WicDetail({ locationCode }: { locationCode: string }) {
           </div>
           <div className="flex flex-col gap-1">
             {wic.backupB.map(a => (
-              <div key={a.name} className="flex items-center gap-2 px-2.5 py-1.5 bg-[var(--card2)] rounded-md">
+              <div key={a.name} className="flex items-center gap-2 px-2.5 py-1.5 bg-sunken rounded-md">
                 <AgentAvatar name={a.name} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-[var(--text)] truncate">{a.name}</div>
+                  <div className="text-xs font-medium text-ink truncate">{a.name}</div>
                 </div>
                 <CarBadge hasCar={a.hasCar} />
                 <button
                   onClick={() => pin.mutate(a.name)}
-                  className="px-2 py-1 text-[10px] rounded cursor-pointer bg-[var(--accent)] text-white border-none flex-shrink-0"
+                  className="px-2 py-1 text-[10px] rounded cursor-pointer bg-info-solid text-white border-none flex-shrink-0"
                 >{t("wicCoverage.pinNote")}</button>
               </div>
             ))}
             {backupBExtra.map(a => (
-              <div key={a.name} className="flex items-center gap-2 px-2.5 py-1.5 bg-[var(--card2)] rounded-md opacity-70">
+              <div key={a.name} className="flex items-center gap-2 px-2.5 py-1.5 bg-sunken rounded-md opacity-70">
                 <AgentAvatar name={a.name} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-[var(--text)] truncate">{a.name}</div>
+                  <div className="text-xs font-medium text-ink truncate">{a.name}</div>
                 </div>
                 <CarBadge hasCar={a.hasCar} />
                 <button
                   onClick={() => pin.mutate(a.name)}
-                  className="px-2 py-1 text-[10px] rounded cursor-pointer bg-[var(--accent)] text-white border-none flex-shrink-0"
+                  className="px-2 py-1 text-[10px] rounded cursor-pointer bg-info-solid text-white border-none flex-shrink-0"
                 >{t("wicCoverage.pinNote")}</button>
               </div>
             ))}
@@ -466,7 +466,7 @@ function WicDetail({ locationCode }: { locationCode: string }) {
       />
 
       {wic.comment && (
-        <div className="px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/50 text-xs text-[var(--text)]">
+        <div className="px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800/50 text-xs text-ink">
           <span className="font-semibold text-amber-700 dark:text-amber-400 mr-1.5">{t("wicCoverage.note")}:</span>
           {wic.comment}
         </div>
@@ -514,15 +514,15 @@ export default function WicCoverage() {
 
       {/* Header */}
       <div className="flex flex-col gap-3 pb-4">
-        <h2 className="m-0 text-[17px] font-bold text-[var(--text)]">{t("wicCoverage.title")}</h2>
+        <h2 className="m-0 text-[17px] font-bold text-ink">{t("wicCoverage.title")}</h2>
 
         {/* Tab toggle */}
-        <div className="flex gap-1 bg-[var(--card2)] p-0.5 rounded-lg w-fit">
+        <div className="flex gap-1 bg-sunken p-0.5 rounded-lg w-fit">
           {(["wics", "agents"] as const).map(tabId => (
             <button
               key={tabId}
               onClick={() => { setTab(tabId); setSelectedAgent(null); setSelectedWic(null) }}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-semibold border-none cursor-pointer transition-colors ${tab === tabId ? "bg-[var(--accent)] text-white" : "bg-transparent text-[var(--text2)]"}`}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-semibold border-none cursor-pointer transition-colors ${tab === tabId ? "bg-info-solid text-white" : "bg-transparent text-ink-muted"}`}
             >
               {tabId === "wics"
                 ? <><MapPin size={12} />{t("wicCoverage.tabWics")}</>
@@ -534,9 +534,9 @@ export default function WicCoverage() {
         {/* Search + filters */}
         <div className="flex gap-2">
           <div className="flex-1 relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text3)] pointer-events-none" />
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-soft pointer-events-none" />
             <input
-              className="w-full pl-7 pr-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card2)] text-[var(--text)] text-xs outline-none box-border"
+              className="w-full pl-7 pr-2.5 py-1.5 rounded-lg border border-line-subtle bg-sunken text-ink text-xs outline-none box-border"
               placeholder={tab === "wics" ? t("wicCoverage.searchWics") : t("wicCoverage.searchAgents")}
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -545,7 +545,7 @@ export default function WicCoverage() {
           {tab === "agents" && (
             <button
               onClick={() => setFilterCar(f => !f)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] cursor-pointer border border-[var(--border)] transition-colors ${filterCar ? "bg-[var(--accent)] text-white" : "bg-[var(--card2)] text-[var(--text2)]"}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] cursor-pointer border border-line-subtle transition-colors ${filterCar ? "bg-info-solid text-white" : "bg-sunken text-ink-muted"}`}
             >
               <Car size={12} /> {t("wicCoverage.filterCar")}
             </button>
@@ -557,7 +557,7 @@ export default function WicCoverage() {
       <div className="flex-1 overflow-y-auto">
         {tab === "wics" && (
           loadingWics
-            ? <div className="p-5 text-sm text-[var(--text3)]">{t("wicCoverage.loading")}</div>
+            ? <div className="p-5 text-sm text-ink-soft">{t("wicCoverage.loading")}</div>
             : <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
                 {wics.map(w => (
                   <WicCard key={w.locationCode} wic={w} onClick={() => openWic(w.locationCode)} />
@@ -567,7 +567,7 @@ export default function WicCoverage() {
 
         {tab === "agents" && (
           loadingAgents
-            ? <div className="p-5 text-sm text-[var(--text3)]">{t("wicCoverage.loading")}</div>
+            ? <div className="p-5 text-sm text-ink-soft">{t("wicCoverage.loading")}</div>
             : <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
                 {filteredAgents.map(a => (
                   <AgentCard

@@ -5,39 +5,40 @@ import { api, apiFetch } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
 // @ts-ignore
 import CoverageBar from "./CoverageBar"
-import { MoreVertical, Pencil, Trash2, UserMinus, ChevronUp, ChevronDown } from "lucide-react"
+import { MoreVertical, Pencil, Trash2, UserMinus, ChevronUp, ChevronDown, AlertTriangle } from "lucide-react"
 import { maxFutureDateStr } from "../constants"
+import { AddVacationModal } from "./Vacations"
 
 const OVERRIDE_CONFIRM_TYPES = ["OFF_WEEKEND", "PH"]
 const TASKS = ["WIC", "Voice", "Backlog"]
 
 const shiftColor = (type: string) => {
-  const map: Record<string,{bg:string;color:string}> = {
-    WORKING:     {bg:"rgba(34,208,122,.15)", color:"var(--green)"},
-    WIC_DUTY:    {bg:"rgba(126,184,255,.15)",color:"var(--blue-light)"},
-    AL:          {bg:"rgba(59,126,255,.15)", color:"var(--accent)"},
-    HALF_AL:     {bg:"rgba(59,126,255,.08)", color:"var(--blue-light)"},
-    SL:          {bg:"rgba(255,124,59,.15)", color:"var(--warn)"},
-    UL:          {bg:"rgba(255,59,92,.15)",  color:"var(--danger)"},
-    OL:          {bg:"rgba(255,255,255,.05)",color:"var(--text2)"},
-    TRAINING:    {bg:"rgba(167,139,250,.15)",color:"var(--purple)"},
-    OFF:         {bg:"rgba(74,95,122,.12)",  color:"var(--text3)"},
-    OFF_WEEKEND: {bg:"rgba(30,45,69,.4)",    color:"var(--text3)"},
-    PH:          {bg:"rgba(250,204,21,.15)", color:"var(--yellow)"},
-    LPH:         {bg:"rgba(250,204,21,.08)", color:"var(--yellow)"},
-    CD:          {bg:"rgba(255,255,255,.05)",color:"var(--text2)"},
-    CO:          {bg:"rgba(255,255,255,.05)",color:"var(--text2)"},
-    RESIGNED:    {bg:"rgba(74,95,122,.2)",   color:"var(--text3)"},
-    EMPTY:       {bg:"transparent",          color:"var(--text3)"},
+  const map: Record<string,{background:string;color:string}> = {
+    WORKING:     {background:"rgb(var(--st-good-bg))",    color:"rgb(var(--st-good-fg))"},
+    WIC_DUTY:    {background:"rgb(var(--st-wic-bg))",     color:"rgb(var(--st-wic-fg))"},
+    AL:          {background:"rgb(var(--st-info-bg))",    color:"rgb(var(--st-info-fg))"},
+    HALF_AL:     {background:"rgb(var(--st-info-bg))",    color:"rgb(var(--st-info-fg))"},
+    SL:          {background:"rgb(var(--st-warn-bg))",    color:"rgb(var(--st-warn-fg))"},
+    UL:          {background:"rgb(var(--st-crit-bg))",    color:"rgb(var(--st-crit-fg))"},
+    OL:          {background:"rgb(var(--surface-raised))",color:"rgb(var(--text-secondary))"},
+    TRAINING:    {background:"rgb(var(--st-learn-bg))",   color:"rgb(var(--st-learn-fg))"},
+    OFF:         {background:"rgb(var(--st-neutral-bg))", color:"rgb(var(--text-tertiary))"},
+    OFF_WEEKEND: {background:"rgb(var(--surface-sunken))",color:"rgb(var(--text-tertiary))"},
+    PH:          {background:"rgb(var(--st-holiday-bg))", color:"rgb(var(--st-holiday-fg))"},
+    LPH:         {background:"rgb(var(--st-holiday-bg))", color:"rgb(var(--st-holiday-fg))"},
+    CD:          {background:"rgb(var(--surface-raised))",color:"rgb(var(--text-secondary))"},
+    CO:          {background:"rgb(var(--surface-raised))",color:"rgb(var(--text-secondary))"},
+    RESIGNED:    {background:"rgb(var(--st-neutral-bg))", color:"rgb(var(--text-tertiary))"},
+    EMPTY:       {background:"transparent",               color:"rgb(var(--text-tertiary))"},
   }
   return map[type] ?? map.EMPTY
 }
 
 const taskStyle = (task: string | null) => {
-  if (task === "WIC")     return {bg:"rgba(126,184,255,.15)", color:"var(--blue-light)", border:"rgba(126,184,255,.3)"}
-  if (task === "Voice")   return {bg:"rgba(34,208,122,.15)",  color:"var(--green)", border:"rgba(34,208,122,.3)"}
-  if (task === "Backlog") return {bg:"rgba(255,124,59,.15)",  color:"var(--warn)", border:"rgba(255,124,59,.3)"}
-  return {bg:"rgba(255,59,92,.15)", color:"var(--danger)", border:"rgba(255,59,92,.3)"}
+  if (task === "WIC")     return {background:"rgb(var(--st-wic-bg))",  color:"rgb(var(--st-wic-fg))",  border:"rgb(var(--st-wic-bd))"}
+  if (task === "Voice")   return {background:"rgb(var(--st-good-bg))", color:"rgb(var(--st-good-fg))", border:"rgb(var(--st-good-bd))"}
+  if (task === "Backlog") return {background:"rgb(var(--st-warn-bg))", color:"rgb(var(--st-warn-fg))", border:"rgb(var(--st-warn-bd))"}
+  return {background:"rgb(var(--st-crit-bg))", color:"rgb(var(--st-crit-fg))", border:"rgb(var(--st-crit-bd))"}
 }
 
 const SHIFT_TYPES = ["WORKING","WIC_DUTY","AL","HALF_AL","SL","UL","OL","TRAINING","OFF","OFF_WEEKEND","PH","LPH","CD","CO","RESIGNED"]
@@ -48,19 +49,21 @@ function OverrideConfirmModal({ type, onConfirm, onCancel }: {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:2000,
       display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ background:"var(--card)", border:"1px solid rgba(250,204,21,.3)",
+      <div className="bg-raised" style={{ border:"1px solid rgb(var(--st-holiday-bd))",
         borderRadius:10, padding:24, width:380 }}>
-        <h2 style={{ fontSize:15, fontWeight:600, color:"var(--yellow)", marginBottom:12 }}>⚠ Override Required</h2>
-        <p style={{ fontSize:13, color:"var(--text2)", marginBottom:16 }}>
-          <strong style={{ color:"var(--text)" }}>{type}</strong> is automatically set by the system.
+        <h2 className="text-holiday-fg" style={{ fontSize:15, fontWeight:600, marginBottom:12 }}>
+          <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> Override Required
+        </h2>
+        <p className="text-ink-muted" style={{ fontSize:13, marginBottom:16 }}>
+          <strong className="text-ink">{type}</strong> is automatically set by the system.
           Are you sure you want to override?
         </p>
         <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
-          <button onClick={onCancel} style={{ background:"var(--card2)", border:"1px solid var(--border)",
-            color:"var(--text2)", padding:"7px 14px", borderRadius:6, fontSize:12, cursor:"pointer" }}>
+          <button onClick={onCancel} className="bg-sunken text-ink-muted border border-line-subtle"
+            style={{ padding:"7px 14px", borderRadius:6, fontSize:12, cursor:"pointer" }}>
             Cancel
           </button>
-          <button onClick={onConfirm} style={{ background:"var(--yellow)", border:"none",
+          <button onClick={onConfirm} style={{ background:"rgb(var(--st-holiday-solid))", border:"none",
             color:"#000", padding:"7px 14px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>
             Override
           </button>
@@ -76,23 +79,24 @@ function LegalViolationModal({ violations, onClose, onConfirmAnyway }: {
   const hardBlocks = violations.filter((v: any) => v.isHardBlock)
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:3000, display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div style={{ background:"var(--card)", border:`1px solid ${hardBlocks.length > 0 ? "rgba(255,59,92,.4)" : "rgba(250,204,21,.4)"}`, borderRadius:10, padding:24, width:480, maxHeight:"80vh", overflowY:"auto" }}>
-        <h2 style={{ fontSize:15, fontWeight:600, color: hardBlocks.length > 0 ? "var(--danger)" : "var(--yellow)", marginBottom:16 }}>
-          {hardBlocks.length > 0 ? "⛔ Shift Validation Failed" : "⚠ Shift Warning"}
+      <div className="bg-raised" style={{ border:`1px solid ${hardBlocks.length > 0 ? "rgb(var(--st-crit-bd))" : "rgb(var(--st-holiday-bd))"}`, borderRadius:10, padding:24, width:480, maxHeight:"80vh", overflowY:"auto" }}>
+        <h2 className={hardBlocks.length > 0 ? "text-crit-fg" : "text-holiday-fg"} style={{ fontSize:15, fontWeight:600, marginBottom:16 }}>
+          {hardBlocks.length > 0 ? "⛔ Shift Validation Failed" : <><AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> Shift Warning</>}
         </h2>
         {violations.map((v: any, i: number) => (
-          <div key={i} style={{ background: v.isHardBlock ? "rgba(255,59,92,.08)" : "rgba(250,204,21,.08)", border:`1px solid ${v.isHardBlock ? "rgba(255,59,92,.2)" : "rgba(250,204,21,.2)"}`, borderRadius:6, padding:"10px 14px", marginBottom:8 }}>
+          <div key={i} className={v.isHardBlock ? "bg-crit-bg border border-crit-bd" : "bg-warn-bg border border-warn-bd"}
+            style={{ borderRadius:6, padding:"10px 14px", marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-              <span style={{ fontSize:11, fontWeight:700, color: v.isHardBlock ? "var(--danger)" : "var(--yellow)", fontFamily:"IBM Plex Mono" }}>{v.rule}</span>
-              <span style={{ fontSize:10, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{v.law}</span>
+              <span className={`font-mono text-2xs font-bold ${v.isHardBlock ? "text-crit-fg" : "text-warn-fg"}`}>{v.rule}</span>
+              <span className="font-mono text-ink-soft" style={{ fontSize:10 }}>{v.law}</span>
             </div>
-            <div style={{ fontSize:12, color:"var(--text2)" }}>{v.description}</div>
+            <div className="text-ink-muted" style={{ fontSize:12 }}>{v.description}</div>
           </div>
         ))}
         <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:16 }}>
-          <button onClick={onClose} style={{ background:"var(--card2)", border:"1px solid var(--border)", color:"var(--text2)", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer" }}>Cancel</button>
+          <button onClick={onClose} className="bg-sunken border border-line-subtle text-ink-muted" style={{ padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer" }}>Cancel</button>
           {hardBlocks.length === 0 && onConfirmAnyway && (
-            <button onClick={onConfirmAnyway} style={{ background:"var(--yellow)", border:"none", color:"#000", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>Save Anyway</button>
+            <button onClick={onConfirmAnyway} style={{ background:"rgb(var(--st-holiday-solid))", border:"none", color:"#000", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>Save Anyway</button>
           )}
         </div>
       </div>
@@ -113,28 +117,25 @@ function LocationPicker({ onSelect, onClose }: { onSelect: (locId: string, locNa
   const nl = locations?.filter((l: any) => l.country === "NL") ?? []
 
   return (
-    <div ref={ref} style={{
+    <div ref={ref} className="bg-sunken border border-line-subtle" style={{
       position:"absolute", top:"100%", left:0, zIndex:500, minWidth:220,
-      background:"var(--card2)", border:"1px solid var(--border)",
       borderRadius:6, padding:4, boxShadow:"0 8px 24px rgba(0,0,0,.4)",
       maxHeight:250, overflowY:"auto"
     }}>
-      {de.length > 0 && <div style={{ padding:"4px 8px", fontSize:9, color:"var(--text3)", textTransform:"uppercase" }}>DE</div>}
+      {de.length > 0 && <div className="text-ink-soft" style={{ padding:"4px 8px", fontSize:9, textTransform:"uppercase" }}>DE</div>}
       {de.map((l: any) => (
         <div key={l.locationCode} onClick={() => onSelect(l.locationCode, l.displayName)}
-          style={{ padding:"5px 8px", borderRadius:4, cursor:"pointer", fontSize:11, color:"var(--text2)" }}
-          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.05)")}
-          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+          className="text-ink-muted hover:bg-hovered"
+          style={{ padding:"5px 8px", borderRadius:4, cursor:"pointer", fontSize:11 }}>
           {l.displayName}
-          {l.openingSchedule && <span style={{ marginLeft:4, fontSize:9, color:"var(--text3)" }}>({l.openingSchedule})</span>}
+          {l.openingSchedule && <span className="text-ink-soft" style={{ marginLeft:4, fontSize:9 }}>({l.openingSchedule})</span>}
         </div>
       ))}
-      {nl.length > 0 && <div style={{ padding:"4px 8px", fontSize:9, color:"var(--text3)", textTransform:"uppercase", marginTop:4 }}>NL</div>}
+      {nl.length > 0 && <div className="text-ink-soft" style={{ padding:"4px 8px", fontSize:9, textTransform:"uppercase", marginTop:4 }}>NL</div>}
       {nl.map((l: any) => (
         <div key={l.locationCode} onClick={() => onSelect(l.locationCode, l.displayName)}
-          style={{ padding:"5px 8px", borderRadius:4, cursor:"pointer", fontSize:11, color:"var(--text2)" }}
-          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.05)")}
-          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+          className="text-ink-muted hover:bg-hovered"
+          style={{ padding:"5px 8px", borderRadius:4, cursor:"pointer", fontSize:11 }}>
           {l.displayName}
         </div>
       ))}
@@ -158,7 +159,7 @@ function TaskBadge({ shift, onTaskChange }: {
   const task = shift.agentTask ?? "Voice"
   const isUnassigned = task === "WIC" && !shift.locationId
   const ts = isUnassigned
-    ? {bg:"rgba(255,59,92,.15)", color:"var(--danger)", border:"rgba(255,59,92,.3)"}
+    ? {background:"rgb(var(--st-crit-bg))", color:"rgb(var(--st-crit-fg))", border:"rgb(var(--st-crit-bd))"}
     : taskStyle(task)
 
   const cycleUp = () => {
@@ -177,26 +178,25 @@ function TaskBadge({ shift, onTaskChange }: {
 
   return (
     <div ref={ref} style={{ display:"flex", alignItems:"center", gap:2, position:"relative" }}>
-      <button onClick={cycleUp} style={{ background:"none", border:"none", color:"var(--text3)", cursor:"pointer", padding:"1px 2px" }}>
+      <button onClick={cycleUp} className="text-ink-soft" style={{ background:"none", border:"none", cursor:"pointer", padding:"1px 2px" }}>
         <ChevronUp size={11} />
       </button>
 
-      <div onClick={() => setOpen(!open)} style={{
-        ...ts, padding:"2px 7px", borderRadius:4, fontSize:10,
-        fontFamily:"IBM Plex Mono", fontWeight:600, cursor:"pointer",
-        border:`1px solid ${ts.border}`, whiteSpace:"nowrap"
-      }}>
-        {isUnassigned ? "⚠ WIC" : task}
+      <div onClick={() => setOpen(!open)} className="font-mono"
+        style={{ ...ts, padding:"2px 7px", borderRadius:4, fontSize:10,
+          fontWeight:600, cursor:"pointer",
+          border:`1px solid ${ts.border}`, whiteSpace:"nowrap"
+        }}>
+        {isUnassigned ? <><AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> WIC</> : task}
       </div>
 
-      <button onClick={cycleDown} style={{ background:"none", border:"none", color:"var(--text3)", cursor:"pointer", padding:"1px 2px" }}>
+      <button onClick={cycleDown} className="text-ink-soft" style={{ background:"none", border:"none", cursor:"pointer", padding:"1px 2px" }}>
         <ChevronDown size={11} />
       </button>
 
       {open && (
-        <div style={{
+        <div className="bg-sunken border border-line-subtle" style={{
           position:"absolute", top:"100%", left:0, zIndex:300,
-          background:"var(--card2)", border:"1px solid var(--border)",
           borderRadius:6, padding:4, minWidth:100,
           boxShadow:"0 8px 24px rgba(0,0,0,.4)"
         }}>
@@ -207,9 +207,9 @@ function TaskBadge({ shift, onTaskChange }: {
                 if (t === "WIC") setShowLocPicker(true)
                 onTaskChange(shift.id, t)
                 setOpen(false)
-              }} style={{
+              }} className="font-mono" style={{
                 ...ts2, padding:"5px 8px", borderRadius:4, cursor:"pointer",
-                fontSize:11, fontFamily:"IBM Plex Mono", marginBottom:2,
+                fontSize:11, marginBottom:2,
                 fontWeight: task === t ? 700 : 400,
                 outline: task === t ? "1px solid currentColor" : "none"
               }}>{t}</div>
@@ -230,11 +230,8 @@ function TaskBadge({ shift, onTaskChange }: {
 
       {isUnassigned && (
         <div style={{ position:"relative" }}>
-          <button onClick={() => setShowLocPicker(true)} style={{
-            background:"rgba(255,59,92,.1)", border:"1px solid rgba(255,59,92,.2)",
-            color:"var(--danger)", padding:"1px 5px", borderRadius:4,
-            fontSize:9, cursor:"pointer", fontFamily:"IBM Plex Mono", whiteSpace:"nowrap"
-          }}>assign ▼</button>
+          <button onClick={() => setShowLocPicker(true)} className="bg-crit-bg border border-crit-bd text-crit-fg font-mono"
+            style={{ padding:"1px 5px", borderRadius:4, fontSize:9, cursor:"pointer", whiteSpace:"nowrap" }}>assign ▼</button>
           {showLocPicker && (
             <LocationPicker
               onSelect={(locId) => { onTaskChange(shift.id, "WIC", locId); setShowLocPicker(false) }}
@@ -326,11 +323,11 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
 
   return (
     <td style={{ padding:"3px 4px", position:"relative", minWidth:90 }}>
-      <div onClick={() => setOpen(!open)} style={{
-        ...c, padding:"3px 6px", borderRadius:4, fontSize:10,
-        fontFamily:"IBM Plex Mono", fontWeight:600, cursor:"pointer",
-        userSelect:"none", textAlign:"center"
-      }}>
+      <div onClick={() => setOpen(!open)} className="font-mono"
+        style={{ ...c, padding:"3px 6px", borderRadius:4, fontSize:10,
+          fontWeight:600, cursor:"pointer",
+          userSelect:"none", textAlign:"center"
+        }}>
         {shift.shiftType === "EMPTY" ? "—" : shift.shiftType.replace("_"," ")}
         {showTime && (
           <div style={{ fontSize:9, opacity:.8, marginTop:1 }}>{shift.shiftStart}–{shift.shiftEnd}</div>
@@ -338,61 +335,50 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
       </div>
 
       {open && (
-        <div style={{
+        <div className="bg-sunken border border-line-subtle" style={{
           position:"absolute", top:"100%", left:0, zIndex:100,
-          background:"var(--card2)", border:"1px solid var(--border)",
           borderRadius:6, padding:6, minWidth:160,
           boxShadow:"0 8px 24px rgba(0,0,0,.4)"
         }}>
           {SHIFT_TYPES.map(t => {
             const tc = shiftColor(t)
             return (
-              <div key={t} onClick={() => handleTypeClick(t)} style={{
+              <div key={t} onClick={() => handleTypeClick(t)} className="font-mono" style={{
                 ...tc, padding:"4px 8px", borderRadius:4, marginBottom:2,
-                fontSize:10, fontFamily:"IBM Plex Mono", cursor:"pointer",
+                fontSize:10, cursor:"pointer",
                 fontWeight: shift.shiftType === t ? 700 : 400,
                 outline: shift.shiftType === t ? "1px solid currentColor" : "none"
               }}>{t.replace("_"," ")}</div>
             )
           })}
           {(shift.shiftType === "WORKING" || shift.shiftType === "WIC_DUTY") && (
-            <div style={{ marginTop:6, borderTop:"1px solid var(--border)", paddingTop:6 }}>
-              <div style={{ fontSize:9, color:"var(--text3)", marginBottom:4 }}>SHIFT TIME</div>
+            <div className="border-t border-line-subtle" style={{ marginTop:6, paddingTop:6 }}>
+              <div className="text-ink-soft" style={{ fontSize:9, marginBottom:4 }}>SHIFT TIME</div>
               <div style={{ display:"flex", gap:4 }}>
                 <input value={editStart} onChange={e => setEditStart(e.target.value)}
-                  placeholder="08:00" style={{ width:54, background:"var(--card)",
-                    border:"1px solid var(--border)", color:"var(--text)",
-                    padding:"3px 4px", borderRadius:4, fontSize:10,
-                    fontFamily:"IBM Plex Mono", outline:"none" }} />
-                <span style={{ color:"var(--text3)", fontSize:10, alignSelf:"center" }}>–</span>
+                  placeholder="08:00" className="bg-raised border border-line-subtle text-ink font-mono"
+                  style={{ width:54, padding:"3px 4px", borderRadius:4, fontSize:10, outline:"none" }} />
+                <span className="text-ink-soft" style={{ fontSize:10, alignSelf:"center" }}>–</span>
                 <input value={editEnd} onChange={e => setEditEnd(e.target.value)}
-                  placeholder="17:00" style={{ width:54, background:"var(--card)",
-                    border:"1px solid var(--border)", color:"var(--text)",
-                    padding:"3px 4px", borderRadius:4, fontSize:10,
-                    fontFamily:"IBM Plex Mono", outline:"none" }} />
+                  placeholder="17:00" className="bg-raised border border-line-subtle text-ink font-mono"
+                  style={{ width:54, padding:"3px 4px", borderRadius:4, fontSize:10, outline:"none" }} />
               </div>
               <button onClick={() => { onUpdate(shift, shift.shiftType, editStart, editEnd); setOpen(false) }}
-                style={{ marginTop:4, width:"100%", background:"var(--accent)", border:"none",
-                  color:"#fff", padding:4, borderRadius:4, fontSize:10, cursor:"pointer" }}>
+                className="bg-info-solid text-white border-0"
+                style={{ marginTop:4, width:"100%", padding:4, borderRadius:4, fontSize:10, cursor:"pointer" }}>
                 Save Time
               </button>
             </div>
           )}
           {shift.id && (
-            <div style={{ marginTop:6, borderTop:"1px solid var(--border)", paddingTop:6, display:"flex", gap:4 }}>
+            <div className="border-t border-line-subtle" style={{ marginTop:6, paddingTop:6, display:"flex", gap:4 }}>
               {shift.shiftType !== "EMPTY" && (
-                <button onClick={handleDelete} style={{
-                  flex:1, background:"rgba(255,59,92,.1)", border:"1px solid rgba(255,59,92,.2)",
-                  color:"var(--danger)", padding:"4px 0", borderRadius:4, fontSize:9,
-                  cursor:"pointer", fontFamily:"IBM Plex Mono"
-                }}>Delete</button>
+                <button onClick={handleDelete} className="bg-crit-bg border border-crit-bd text-crit-fg font-mono"
+                  style={{ flex:1, padding:"4px 0", borderRadius:4, fontSize:9, cursor:"pointer" }}>Delete</button>
               )}
               {(shift.shiftType === "WIC_DUTY" || shift.shiftType === "WORKING") && (
-                <button onClick={startSwap} style={{
-                  flex:1, background:"rgba(59,126,255,.1)", border:"1px solid rgba(59,126,255,.2)",
-                  color:"var(--accent)", padding:"4px 0", borderRadius:4, fontSize:9,
-                  cursor:"pointer", fontFamily:"IBM Plex Mono"
-                }}>Swap</button>
+                <button onClick={startSwap} className="bg-info-bg border border-info-bd text-info-fg font-mono"
+                  style={{ flex:1, padding:"4px 0", borderRadius:4, fontSize:9, cursor:"pointer" }}>Swap</button>
               )}
             </div>
           )}
@@ -400,67 +386,59 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
       )}
 
       {swapStep !== "idle" && (
-        <div style={{
+        <div className="bg-sunken border border-line-subtle" style={{
           position:"absolute", top:"100%", left:0, zIndex:200,
-          background:"var(--card2)", border:"1px solid var(--border)",
           borderRadius:6, padding:8, width:240,
           boxShadow:"0 8px 24px rgba(0,0,0,.4)"
         }}>
           {swapStep === "loading" && (
-            <div style={{ fontSize:11, color:"var(--text3)", padding:"8px 4px", textAlign:"center" }}>Loading…</div>
+            <div className="text-ink-soft" style={{ fontSize:11, padding:"8px 4px", textAlign:"center" }}>Loading…</div>
           )}
           {swapStep === "warn" && (
             <div>
-              <div style={{ fontSize:11, color:"var(--warn)", fontWeight:600, marginBottom:6 }}>
-                ⚠ Dieser Agent deckt am {swapFmtDate} {wicEntries.length} Standorte ab: / This agent covers {wicEntries.length} locations on {swapFmtDate}:
+              <div className="text-warn-fg" style={{ fontSize:11, fontWeight:600, marginBottom:6 }}>
+                <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> Dieser Agent deckt am {swapFmtDate} {wicEntries.length} Standorte ab: / This agent covers {wicEntries.length} locations on {swapFmtDate}:
               </div>
-              <ul style={{ margin:"0 0 8px 0", paddingLeft:16, fontSize:11, color:"var(--text2)", lineHeight:1.6 }}>
+              <ul className="text-ink-muted" style={{ margin:"0 0 8px 0", paddingLeft:16, fontSize:11, lineHeight:1.6 }}>
                 {wicEntries.map((entry, i) => (
                   <li key={i}>{entry.supportLocation}{entry.workingShift ? ` (${entry.workingShift})` : ""}</li>
                 ))}
               </ul>
-              <div style={{ fontSize:10, color:"var(--text3)", marginBottom:8 }}>
+              <div className="text-ink-soft" style={{ fontSize:10, marginBottom:8 }}>
                 Alle werden auf den ausgewählten Agenten übertragen. / All will be transferred to the selected agent.
               </div>
               <div style={{ display:"flex", gap:6 }}>
-                <button onClick={() => setSwapStep("pick")} style={{
-                  flex:1, background:"var(--accent)", border:"none",
-                  color:"#fff", padding:"5px 0", borderRadius:4, fontSize:11, cursor:"pointer", fontWeight:600
-                }}>Weiter / Proceed</button>
-                <button onClick={() => setSwapStep("idle")} style={{
-                  background:"var(--card)", border:"1px solid var(--border)",
-                  color:"var(--text2)", padding:"5px 8px", borderRadius:4, fontSize:11, cursor:"pointer"
-                }}>✕</button>
+                <button onClick={() => setSwapStep("pick")} className="bg-info-solid text-white border-0"
+                  style={{ flex:1, padding:"5px 0", borderRadius:4, fontSize:11, cursor:"pointer", fontWeight:600 }}>Weiter / Proceed</button>
+                <button onClick={() => setSwapStep("idle")} className="bg-raised border border-line-subtle text-ink-muted"
+                  style={{ padding:"5px 8px", borderRadius:4, fontSize:11, cursor:"pointer" }}>✕</button>
               </div>
             </div>
           )}
           {swapStep === "pick" && (
             <>
-              <div style={{ fontSize:10, color:"var(--text3)", marginBottom:6 }}>Swap with agent:</div>
+              <div className="text-ink-soft" style={{ fontSize:10, marginBottom:6 }}>Swap with agent:</div>
               <input autoFocus value={swapSearch} onChange={e => setSwapSearch(e.target.value)}
                 placeholder="Search name or ID..."
-                style={{ width:"100%", boxSizing:"border-box", background:"var(--card)",
-                  border:"1px solid var(--border)", color:"var(--text)",
+                className="bg-raised border border-line-subtle text-ink"
+                style={{ width:"100%", boxSizing:"border-box",
                   padding:"4px 7px", borderRadius:4, fontSize:11, outline:"none", marginBottom:4 }} />
               <div style={{ maxHeight:180, overflowY:"auto" }}>
                 {filteredEmps.map((e: any) => (
                   <div key={e.employeeId} onClick={() => doSwap(e.employeeId)}
+                    className="text-ink-muted hover:bg-hovered"
                     style={{ padding:"5px 8px", borderRadius:4, cursor: swapping ? "not-allowed" : "pointer",
-                      fontSize:11, color:"var(--text2)", opacity: swapping ? 0.5 : 1 }}
-                    onMouseEnter={el => (el.currentTarget.style.background = "rgba(255,255,255,.05)")}
-                    onMouseLeave={el => (el.currentTarget.style.background = "transparent")}>
+                      fontSize:11, opacity: swapping ? 0.5 : 1 }}>
                     <div style={{ fontWeight:500 }}>{e.fullName}</div>
-                    <div style={{ fontSize:9, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>{e.employeeId}</div>
+                    <div className="text-ink-soft font-mono" style={{ fontSize:9 }}>{e.employeeId}</div>
                   </div>
                 ))}
                 {filteredEmps.length === 0 && (
-                  <div style={{ fontSize:11, color:"var(--text3)", padding:"6px 8px" }}>No matches</div>
+                  <div className="text-ink-soft" style={{ fontSize:11, padding:"6px 8px" }}>No matches</div>
                 )}
               </div>
-              <button onClick={() => setSwapStep("idle")} style={{
-                marginTop:6, width:"100%", background:"var(--card)", border:"1px solid var(--border)",
-                color:"var(--text2)", padding:"4px 0", borderRadius:4, fontSize:10, cursor:"pointer"
-              }}>Cancel</button>
+              <button onClick={() => setSwapStep("idle")} className="bg-raised border border-line-subtle text-ink-muted"
+                style={{ marginTop:6, width:"100%", padding:"4px 0", borderRadius:4, fontSize:10, cursor:"pointer" }}>Cancel</button>
             </>
           )}
         </div>
@@ -488,24 +466,19 @@ function ContextMenu({ emp: _emp, onEdit, onDelete, onRemove, onClose }: {
   }, [])
 
   return (
-    <div ref={ref} style={{
+    <div ref={ref} className="bg-sunken border border-line-subtle" style={{
       position:"absolute", right:0, top:"100%", zIndex:500,
-      background:"var(--card2)", border:"1px solid var(--border)",
       borderRadius:6, padding:4, minWidth:160,
       boxShadow:"0 8px 24px rgba(0,0,0,.4)"
     }}>
       {[
-        { icon:<Pencil size={12}/>, label:"Edit agent",         action:onEdit,   color:"var(--text2)" },
-        { icon:<UserMinus size={12}/>, label:"Remove from plan", action:onRemove, color:"var(--warn)" },
-        { icon:<Trash2 size={12}/>, label:"Delete agent",       action:onDelete, color:"var(--danger)" },
+        { icon:<Pencil size={12}/>, label:"Edit agent",         action:onEdit,   colorCls:"text-ink-muted" },
+        { icon:<UserMinus size={12}/>, label:"Remove from plan", action:onRemove, colorCls:"text-warn-fg" },
+        { icon:<Trash2 size={12}/>, label:"Delete agent",       action:onDelete, colorCls:"text-crit-fg" },
       ].map(item => (
-        <div key={item.label} onClick={item.action} style={{
-          display:"flex", alignItems:"center", gap:8,
-          padding:"7px 10px", borderRadius:4, cursor:"pointer",
-          fontSize:11, color:item.color
-        }}
-          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,.05)")}
-          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+        <div key={item.label} onClick={item.action}
+          className={`flex items-center gap-2 rounded hover:bg-hovered cursor-pointer ${item.colorCls}`}
+          style={{ padding:"7px 10px", fontSize:11 }}>
           {item.icon} {item.label}
         </div>
       ))}
@@ -538,6 +511,7 @@ export default function Shifts() {
   })
   const [legalModal, setLegalModal] = useState<{violations:any[]; pendingUpdate:()=>void} | null>(null)
   const [assignError, setAssignError] = useState<string | null>(null)
+  const [showAlModal, setShowAlModal] = useState(false)
 
   const dates: string[] = []
   for (let i = 0; i < days; i++) {
@@ -573,8 +547,6 @@ export default function Shifts() {
 
   const updateShift = async (shift: any, type: string, start?: string, end?: string) => {
     if (!shift.id) {
-      // No ShiftEntries row exists yet for this employee+date (e.g. a far-future
-      // month the import job hasn't reached) — create it instead of patching.
       try {
         await doAssignShift(shift.employeeId, shift.shiftDate, type, start, end)
       } catch (e: any) {
@@ -659,19 +631,27 @@ export default function Shifts() {
     return `${dow} ${dt.getDate().toString().padStart(2,"0")}.${(dt.getMonth()+1).toString().padStart(2,"0")}`
   }
 
-  const inputStyle = { background:"var(--card)", border:"1px solid var(--border)", color:"var(--text)",
+  const inputStyle = { background:"rgb(var(--surface-raised))", border:"1px solid rgb(var(--border-subtle))", color:"rgb(var(--text-primary))",
     padding:"6px 10px", borderRadius:6, fontSize:12, outline:"none", fontFamily:"IBM Plex Sans" }
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-        <h1 style={{ fontSize:22, fontWeight:600, color:"var(--text)" }}>{t("nav.shifts")}</h1>
-        <DownloadButtons onToday={api.shifts.downloadToday} on7Days={api.shifts.download7} on30Days={api.shifts.download30} />
+        <h1 className="text-ink" style={{ fontSize:22, fontWeight:600 }}>{t("nav.shifts")}</h1>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <button onClick={() => setShowAlModal(true)} className="bg-info-solid text-white border-0"
+            style={{ padding:"7px 14px", borderRadius:6, fontSize:12, fontWeight:600,
+              cursor:"pointer", display:"flex", alignItems:"center", gap:5 }}>
+            {t("vacations.addAl")}
+          </button>
+          <DownloadButtons onToday={api.shifts.downloadToday} on7Days={api.shifts.download7} on30Days={api.shifts.download30} />
+        </div>
       </div>
       {assignError && (
-        <div style={{ background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ef4444", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="bg-crit-bg border border-crit-bd text-crit-fg"
+          style={{ borderRadius: 8, padding: "10px 14px", fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>{assignError}</span>
-          <button onClick={() => setAssignError(null)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px" }}>×</button>
+          <button onClick={() => setAssignError(null)} className="text-crit-fg" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px" }}>×</button>
         </div>
       )}
       <CoverageBar date={from} />
@@ -697,23 +677,24 @@ export default function Shifts() {
         </select>
         <div style={{ display:"flex", gap:4 }}>
           {[7, 14, 30].map(d => (
-            <button key={d} onClick={() => setDays(d)} style={{
-              ...inputStyle, cursor:"pointer",
-              background: days === d ? "var(--accent)" : "var(--card)",
-              color: days === d ? "#fff" : "var(--text2)",
-              border: `1px solid ${days === d ? "var(--accent)" : "var(--border)"}`
-            }}>{d}d</button>
+            <button key={d} onClick={() => setDays(d)}
+              className={days === d ? "text-white" : "text-ink-muted"}
+              style={{
+                ...inputStyle, cursor:"pointer",
+                background: days === d ? "rgb(var(--st-info-solid))" : "rgb(var(--surface-raised))",
+                border: `1px solid ${days === d ? "rgb(var(--st-info-solid))" : "rgb(var(--border-subtle))"}`
+              }}>{d}d</button>
           ))}
         </div>
         <input type="date" value={startDate} max={maxFutureDateStr()}
           onChange={e => setStartDate(e.target.value)} style={inputStyle} />
         {startDate !== today.toISOString().split("T")[0] && (
           <button onClick={() => setStartDate(today.toISOString().split("T")[0])}
-            style={{ ...inputStyle, cursor:"pointer", color:"var(--text2)" }}>Today</button>
+            style={{ ...inputStyle, cursor:"pointer", color:"rgb(var(--text-secondary))" }}>Today</button>
         )}
       </div>
 
-      <div style={{ background:"var(--card)", border:"1px solid var(--border)", borderRadius:8 }}>
+      <div className="bg-raised border border-line-subtle" style={{ borderRadius:8 }}>
         <div style={{ overflowX:"auto", direction:"rtl" }} onScroll={e => { const el = e.currentTarget; el.querySelectorAll("[data-scroll-sync]").forEach((s: any) => { if (s !== el) s.scrollLeft = el.scrollLeft }) }}>
         <div style={{ direction:"ltr" }}>
         </div>
@@ -724,40 +705,39 @@ export default function Shifts() {
       <div id="shifts-scroll-bot" style={{ overflowX:"auto" }} onScroll={e => { const t = document.getElementById("shifts-scroll-top"); if(t) t.scrollLeft = e.currentTarget.scrollLeft }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
             <thead>
-              <tr style={{ background:"var(--card2)" }}>
-                <th style={{ width:24, padding:"8px 4px", borderBottom:"1px solid var(--border)" }} />
-                <th style={{ padding:"8px 10px", textAlign:"left", fontSize:10, fontWeight:500,
-                  textTransform:"uppercase", letterSpacing:".07em", color:"var(--text3)",
-                  borderBottom:"1px solid var(--border)", minWidth:130,
-                  position:"sticky", left:0, background:"var(--card2)", zIndex:2 }}>Name</th>
-                <th style={{ padding:"8px 10px", textAlign:"left", fontSize:10, fontWeight:500,
-                  textTransform:"uppercase", letterSpacing:".07em", color:"var(--text3)",
-                  borderBottom:"1px solid var(--border)", minWidth:70 }}>Role</th>
-                <th style={{ padding:"8px 10px", textAlign:"left", fontSize:10, fontWeight:500,
-                  textTransform:"uppercase", letterSpacing:".07em", color:"var(--text3)",
-                  borderBottom:"1px solid var(--border)", minWidth:120 }}>Task</th>
+              <tr className="bg-sunken">
+                <th className="border-b border-line-subtle" style={{ width:24, padding:"8px 4px" }} />
+                <th className="text-ink-soft border-b border-line-subtle bg-sunken" style={{ padding:"8px 10px", textAlign:"left", fontSize:10, fontWeight:500,
+                  textTransform:"uppercase", letterSpacing:".07em",
+                  minWidth:130,
+                  position:"sticky", left:0, zIndex:2 }}>Name</th>
+                <th className="text-ink-soft border-b border-line-subtle" style={{ padding:"8px 10px", textAlign:"left", fontSize:10, fontWeight:500,
+                  textTransform:"uppercase", letterSpacing:".07em",
+                  minWidth:70 }}>Role</th>
+                <th className="text-ink-soft border-b border-line-subtle" style={{ padding:"8px 10px", textAlign:"left", fontSize:10, fontWeight:500,
+                  textTransform:"uppercase", letterSpacing:".07em",
+                  minWidth:120 }}>Task</th>
                 {dates.map(d => {
                   const we  = isWeekend(d)
                   const tod = isToday(d)
                   return (
-                    <th key={d} style={{
+                    <th key={d} className="border-b border-line-subtle" style={{
                       padding:"8px 4px", textAlign:"center", fontSize:10, fontWeight:500,
-                      color: tod ? "var(--accent)" : we ? "var(--text3)" : "var(--text2)",
-                      borderBottom:"1px solid var(--border)",
-                      borderLeft:"1px solid var(--border)",
+                      color: tod ? "rgb(var(--st-info-fg))" : we ? "rgb(var(--text-tertiary))" : "rgb(var(--text-secondary))",
+                      borderLeft:"1px solid rgb(var(--border-subtle))",
                       minWidth:90, whiteSpace:"nowrap",
-                      background: tod ? "rgba(59,126,255,.06)" : we ? "rgba(30,45,69,.2)" : "transparent"
+                      background: tod ? "rgb(var(--st-info-bg))" : we ? "rgb(var(--surface-sunken))" : "transparent"
                     }}>
                       {dayLabel(d)}
                     </th>
                   )
                 })}
-                <th style={{ width:30, padding:"8px 4px", borderBottom:"1px solid var(--border)" }} />
+                <th className="border-b border-line-subtle" style={{ width:30, padding:"8px 4px" }} />
               </tr>
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={6 + dates.length} style={{ padding:24, textAlign:"center", color:"var(--text3)" }}>
+                <tr><td colSpan={6 + dates.length} className="text-ink-soft" style={{ padding:24, textAlign:"center" }}>
                   Loading...
                 </td></tr>
               )}
@@ -770,52 +750,60 @@ export default function Shifts() {
                     onDragOver={e => { e.preventDefault(); setDragOver(idx) }}
                     onDrop={() => handleDrop(idx)}
                     style={{
-                      borderBottom:"1px solid var(--border)",
-                      background: dragOver === idx ? "rgba(59,126,255,.08)" : "transparent",
+                      borderBottom:"1px solid rgb(var(--border-subtle))",
+                      background: dragOver === idx ? "rgb(var(--st-info-bg))" : "transparent",
                       transition:"background .1s"
                     }}>
                     <td style={{ padding:4, textAlign:"center" }}>
                       <div style={{ display:"flex", flexDirection:"column", gap:1, alignItems:"center" }}>
-                        <button onClick={() => moveRow(idx, -1)} style={{ background:"none", border:"none", color:"var(--text3)", cursor:"pointer", fontSize:9, padding:"1px 3px" }}>▲</button>
-                        <span style={{ color:"var(--text3)", fontSize:10, cursor:"grab" }}>⠿</span>
-                        <button onClick={() => moveRow(idx, 1)} style={{ background:"none", border:"none", color:"var(--text3)", cursor:"pointer", fontSize:9, padding:"1px 3px" }}>▼</button>
+                        <button onClick={() => moveRow(idx, -1)} className="text-ink-soft" style={{ background:"none", border:"none", cursor:"pointer", fontSize:9, padding:"1px 3px" }}>▲</button>
+                        <span className="text-ink-soft" style={{ fontSize:10, cursor:"grab" }}>⠿</span>
+                        <button onClick={() => moveRow(idx, 1)} className="text-ink-soft" style={{ background:"none", border:"none", cursor:"pointer", fontSize:9, padding:"1px 3px" }}>▼</button>
                       </div>
                     </td>
-                    <td style={{ padding:"6px 10px", position:"sticky", left:0, background:"var(--card)", zIndex:1, borderRight:"1px solid var(--border)" }}>
+                    <td className="bg-raised" style={{ padding:"6px 10px", position:"sticky", left:0, zIndex:1, borderRight:"1px solid rgb(var(--border-subtle))" }}>
                       <div style={{ fontWeight:500, fontSize:12 }}>{emp.name}</div>
-                      <div style={{ fontFamily:"IBM Plex Mono", fontSize:9, color:"var(--text3)" }}>{emp.id}</div>
+                      <div className="font-mono text-ink-soft" style={{ fontSize:9 }}>{emp.id}</div>
                     </td>
-                    <td style={{ padding:"6px 10px", fontSize:11, fontFamily:"IBM Plex Mono", color:"var(--accent2)", whiteSpace:"nowrap" }}>{emp.role}</td>
-                    <td style={{ padding:"6px 10px" }}>
-                      {todayShift ? (
-                        <TaskBadge shift={todayShift} onTaskChange={updateTask} />
-                      ) : (
-                        <span style={{ fontSize:10, color:"var(--text3)" }}>—</span>
-                      )}
-                    </td>
+                    {(() => {
+                      const absentTypes = new Set(["AL", "HALF_AL", "SL", "UL"])
+                      const isAbsent = !!todayShift && absentTypes.has(todayShift.shiftType)
+                      return (
+                        <>
+                          <td className={`font-mono ${isAbsent ? "text-ink-disabled opacity-50" : "text-wic-fg"}`} style={{ padding:"6px 10px", fontSize:11, whiteSpace:"nowrap" }}>{emp.role}</td>
+                          <td style={{ padding:"6px 10px" }}>
+                            {todayShift ? (
+                              <div className={isAbsent ? "pointer-events-none" : ""}>
+                                <TaskBadge shift={todayShift} onTaskChange={updateTask} />
+                              </div>
+                            ) : (
+                              <span className="text-ink-soft" style={{ fontSize:10 }}>—</span>
+                            )}
+                          </td>
+                        </>
+                      )
+                    })()}
                     {dates.map(d => {
                       const s  = shifts[d]
                       const we = isWeekend(d)
                       const tod = isToday(d)
                       if (!s && we) return (
-                        <td key={d} style={{ padding:"3px 4px", borderLeft:"1px solid var(--border)",
-                          background: "rgba(30,45,69,.2)" }}>
-                          <div style={{ textAlign:"center", fontSize:9, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>WE</div>
+                        <td key={d} style={{ padding:"3px 4px", borderLeft:"1px solid rgb(var(--border-subtle))",
+                          background: "rgb(var(--surface-sunken))" }}>
+                          <div className="text-ink-soft font-mono" style={{ textAlign:"center", fontSize:9 }}>WE</div>
                         </td>
                       )
-                      // No ShiftEntries row yet for this employee+date (common for far-future
-                      // months) — still render a clickable cell; onUpdate creates the row on demand.
                       const cellShift = s ?? { id: null, employeeId: emp.id, shiftDate: d, shiftType: "EMPTY", shiftStart: null, shiftEnd: null }
                       return (
-                        <td key={d} style={{ borderLeft:"1px solid var(--border)",
-                          background: !s && tod ? "rgba(59,126,255,.03)" : "transparent" }}>
+                        <td key={d} style={{ borderLeft:"1px solid rgb(var(--border-subtle))",
+                          background: !s && tod ? "rgb(var(--st-info-bg))" : "transparent" }}>
                           <ShiftCell shift={cellShift} onUpdate={updateShift} onSwapDone={() => qc.invalidateQueries({ queryKey:["shifts-cal"] })} />
                         </td>
                       )
                     })}
                     <td style={{ padding:"4px 6px", position:"relative" }}>
                       <button onClick={() => setContextEmp(contextEmp?.emp.id === emp.id ? null : { emp, idx })}
-                        style={{ background:"none", border:"none", color:"var(--text3)", cursor:"pointer", padding:3, borderRadius:4 }}>
+                        className="text-ink-soft" style={{ background:"none", border:"none", cursor:"pointer", padding:3, borderRadius:4 }}>
                         <MoreVertical size={14} />
                       </button>
                       {contextEmp?.emp.id === emp.id && (
@@ -832,7 +820,7 @@ export default function Shifts() {
             </tbody>
           </table>
         </div>
-        <div style={{ padding:"8px 12px", borderTop:"1px solid var(--border)", fontSize:11, color:"var(--text3)", fontFamily:"IBM Plex Mono" }}>
+        <div className="border-t border-line-subtle text-ink-soft font-mono" style={{ padding:"8px 12px", fontSize:11 }}>
           {orderedEmps.length} agents · {dates.length} days
         </div>
       </div>
@@ -843,9 +831,25 @@ export default function Shifts() {
           onConfirmAnyway={legalModal.violations.every((v:any) => !v.isHardBlock) ? () => { legalModal.pendingUpdate(); setLegalModal(null) } : undefined}
         />
       )}
+      {showAlModal && (
+        <AddVacationModal
+          onClose={() => setShowAlModal(false)}
+          initialDate={today.toISOString().split("T")[0]}
+          onSave={async (form: any) => {
+            try {
+              await apiFetch("/api/vacations", {
+                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form)
+              } as any)
+              qc.invalidateQueries({ queryKey: ["shifts-cal"] })
+              qc.invalidateQueries({ queryKey: ["vacations"] })
+              qc.invalidateQueries({ queryKey: ["albalance"] })
+            } catch {}
+            setShowAlModal(false)
+          }}
+        />
+      )}
     </div>
   )
 }
-
 
 

@@ -14,11 +14,17 @@ interface BoEntry {
 const todayStr = () => new Date().toISOString().split("T")[0]
 
 const inputStyle: React.CSSProperties = {
-  background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 6,
-  padding: "7px 10px", color: "var(--text)", fontSize: 13, width: "100%", boxSizing: "border-box",
+  background: "rgb(var(--surface-sunken))",
+  border: "1px solid rgb(var(--border-subtle))",
+  borderRadius: 6,
+  padding: "7px 10px",
+  color: "rgb(var(--text-primary))",
+  fontSize: 13,
+  width: "100%",
+  boxSizing: "border-box",
 }
 
-const monoInputStyle: React.CSSProperties = { ...inputStyle, fontFamily: "IBM Plex Mono" }
+const monoInputStyle: React.CSSProperties = { ...inputStyle }
 
 export default function BoList() {
   const [date, setDate] = useState(todayStr())
@@ -85,11 +91,11 @@ export default function BoList() {
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <ListChecks size={18} color="var(--accent)" />
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--text)", margin: 0 }}>BO Liste</h1>
-          <span style={{
-            background: "var(--accent)", color: "#fff", borderRadius: 12,
-            padding: "2px 10px", fontSize: 12, fontWeight: 600, fontFamily: "IBM Plex Mono"
+          <ListChecks size={18} className="text-info-fg" />
+          <h1 className="text-ink" style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>BO Liste</h1>
+          <span className="bg-info-solid font-mono" style={{
+            color: "#fff", borderRadius: 12,
+            padding: "2px 10px", fontSize: 12, fontWeight: 600
           }}>
             {entries.length}
           </span>
@@ -98,16 +104,14 @@ export default function BoList() {
           <input
             type="date" value={date}
             onChange={e => setDate(e.target.value)}
-            style={{
-              background: "var(--card2)", border: "1px solid var(--border)",
-              color: "var(--text)", padding: "6px 10px", borderRadius: 6,
-              fontSize: 12, fontFamily: "IBM Plex Mono", cursor: "pointer"
-            }}
+            className="bg-sunken border border-line-subtle text-ink font-mono"
+            style={{ padding: "6px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer" }}
           />
           <button
             onClick={() => setShowAdd(true)}
+            className="bg-info-solid"
             style={{
-              background: "var(--accent)", color: "#fff", border: "none",
+              color: "#fff", border: "none",
               borderRadius: 6, padding: "7px 14px", fontSize: 12,
               cursor: "pointer", display: "flex", alignItems: "center", gap: 6
             }}
@@ -118,41 +122,40 @@ export default function BoList() {
       </div>
 
       {/* Table card */}
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+      <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, overflow: "hidden" }}>
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>Lade...</div>
+          <div className="text-ink-soft" style={{ padding: 40, textAlign: "center", fontSize: 13 }}>Lade...</div>
         ) : entries.length === 0 ? (
-          <div style={{ padding: 48, textAlign: "center", color: "var(--text3)", fontSize: 13 }}>
+          <div className="text-ink-soft" style={{ padding: 48, textAlign: "center", fontSize: 13 }}>
             Keine Einträge für diesen Tag
           </div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ background: "var(--card2)", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "9px 16px", textAlign: "left", color: "var(--text3)", fontWeight: 500, width: 40 }}>#</th>
-                <th style={{ padding: "9px 16px", textAlign: "left", color: "var(--text3)", fontWeight: 500 }}>Name</th>
-                <th style={{ padding: "9px 16px", textAlign: "left", color: "var(--text3)", fontWeight: 500, width: 160 }}>Schicht</th>
-                <th style={{ padding: "9px 16px", textAlign: "left", color: "var(--text3)", fontWeight: 500 }}>Notiz</th>
+              <tr className="bg-sunken border-b border-line-subtle">
+                <th className="text-ink-soft" style={{ padding: "9px 16px", textAlign: "left", fontWeight: 500, width: 40 }}>#</th>
+                <th className="text-ink-soft" style={{ padding: "9px 16px", textAlign: "left", fontWeight: 500 }}>Name</th>
+                <th className="text-ink-soft" style={{ padding: "9px 16px", textAlign: "left", fontWeight: 500, width: 160 }}>Schicht</th>
+                <th className="text-ink-soft" style={{ padding: "9px 16px", textAlign: "left", fontWeight: 500 }}>Notiz</th>
                 <th style={{ padding: "9px 16px", width: 80 }}></th>
               </tr>
             </thead>
             <tbody>
               {entries.map((e, i) => (
-                <tr key={e.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "10px 16px", color: "var(--text3)", fontFamily: "IBM Plex Mono", fontSize: 11 }}>
+                <tr key={e.id} className="border-b border-line-subtle">
+                  <td className="font-mono text-ink-soft" style={{ padding: "10px 16px", fontSize: 11 }}>
                     {i + 1}
                   </td>
-                  <td style={{ padding: "10px 16px", color: "var(--text)", fontWeight: 500 }}>
+                  <td className="text-ink" style={{ padding: "10px 16px", fontWeight: 500 }}>
                     {e.employeeName}
                   </td>
-                  <td style={{ padding: "10px 16px", color: "var(--text2)", fontFamily: "IBM Plex Mono", fontSize: 12 }}>
+                  <td className="font-mono text-ink-muted" style={{ padding: "10px 16px", fontSize: 12 }}>
                     {e.shiftStart} – {e.shiftEnd}
                   </td>
                   <td style={{ padding: "10px 16px" }}>
                     {e.note && (
-                      <span style={{
-                        background: "var(--card2)", border: "1px solid var(--border)",
-                        borderRadius: 4, padding: "2px 8px", fontSize: 11, color: "var(--text2)"
+                      <span className="bg-sunken border border-line-subtle text-ink-muted" style={{
+                        borderRadius: 4, padding: "2px 8px", fontSize: 11
                       }}>
                         {e.note}
                       </span>
@@ -163,9 +166,10 @@ export default function BoList() {
                       <button
                         onClick={() => openEdit(e)}
                         title="Bearbeiten"
+                        className="border border-line-subtle text-ink-muted"
                         style={{
-                          background: "none", border: "1px solid var(--border)", borderRadius: 5,
-                          padding: "4px 8px", cursor: "pointer", color: "var(--text2)"
+                          background: "none", borderRadius: 5,
+                          padding: "4px 8px", cursor: "pointer"
                         }}
                       >
                         <Pencil size={12} />
@@ -173,9 +177,10 @@ export default function BoList() {
                       <button
                         onClick={() => handleDelete(e.id)}
                         title="Löschen"
+                        className="border border-line-subtle text-crit-fg"
                         style={{
-                          background: "none", border: "1px solid var(--border)", borderRadius: 5,
-                          padding: "4px 8px", cursor: "pointer", color: "var(--danger)"
+                          background: "none", borderRadius: 5,
+                          padding: "4px 8px", cursor: "pointer"
                         }}
                       >
                         <Trash2 size={12} />
@@ -192,15 +197,15 @@ export default function BoList() {
       {/* Add modal */}
       {showAdd && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: 24, width: 380, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="bg-raised border border-line-subtle" style={{ borderRadius: 10, padding: 24, width: 380, display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>Agent hinzufügen</span>
-              <button onClick={closeAdd} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)" }}>
+              <span className="text-ink" style={{ fontWeight: 600, fontSize: 15 }}>Agent hinzufügen</span>
+              <button onClick={closeAdd} className="text-ink-soft" style={{ background: "none", border: "none", cursor: "pointer" }}>
                 <X size={16} />
               </button>
             </div>
 
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text2)" }}>
+            <label className="text-ink-muted" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
               Name
               <input
                 value={addName} onChange={e => setAddName(e.target.value)}
@@ -211,26 +216,26 @@ export default function BoList() {
             </label>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text2)" }}>
+              <label className="text-ink-muted" style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
                 Beginn
-                <input value={addStart} onChange={e => setAddStart(e.target.value)} style={monoInputStyle} />
+                <input value={addStart} onChange={e => setAddStart(e.target.value)} className="font-mono" style={monoInputStyle} />
               </label>
-              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text2)" }}>
+              <label className="text-ink-muted" style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
                 Ende
-                <input value={addEnd} onChange={e => setAddEnd(e.target.value)} style={monoInputStyle} />
+                <input value={addEnd} onChange={e => setAddEnd(e.target.value)} className="font-mono" style={monoInputStyle} />
               </label>
             </div>
 
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text2)" }}>
+            <label className="text-ink-muted" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
               Notiz (optional)
               <input value={addNote} onChange={e => setAddNote(e.target.value)} placeholder="z.B. Newjoiner, Enviam …" style={inputStyle} />
             </label>
 
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={closeAdd} style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 6, padding: "7px 14px", fontSize: 12, cursor: "pointer", color: "var(--text2)" }}>
+              <button onClick={closeAdd} className="bg-sunken border border-line-subtle text-ink-muted" style={{ borderRadius: 6, padding: "7px 14px", fontSize: 12, cursor: "pointer" }}>
                 Abbrechen
               </button>
-              <button onClick={handleAdd} disabled={!addName.trim()} style={{ background: "var(--accent)", border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 12, cursor: "pointer", color: "#fff", opacity: addName.trim() ? 1 : 0.5 }}>
+              <button onClick={handleAdd} disabled={!addName.trim()} className="bg-info-solid" style={{ border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 12, cursor: "pointer", color: "#fff", opacity: addName.trim() ? 1 : 0.5 }}>
                 Hinzufügen
               </button>
             </div>
@@ -241,35 +246,35 @@ export default function BoList() {
       {/* Edit modal */}
       {editEntry && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: 24, width: 380, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="bg-raised border border-line-subtle" style={{ borderRadius: 10, padding: 24, width: 380, display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>{editEntry.employeeName}</span>
-              <button onClick={() => setEditEntry(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)" }}>
+              <span className="text-ink" style={{ fontWeight: 600, fontSize: 15 }}>{editEntry.employeeName}</span>
+              <button onClick={() => setEditEntry(null)} className="text-ink-soft" style={{ background: "none", border: "none", cursor: "pointer" }}>
                 <X size={16} />
               </button>
             </div>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text2)" }}>
+              <label className="text-ink-muted" style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
                 Beginn
-                <input value={editStart} onChange={e => setEditStart(e.target.value)} style={monoInputStyle} />
+                <input value={editStart} onChange={e => setEditStart(e.target.value)} className="font-mono" style={monoInputStyle} />
               </label>
-              <label style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text2)" }}>
+              <label className="text-ink-muted" style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
                 Ende
-                <input value={editEnd} onChange={e => setEditEnd(e.target.value)} style={monoInputStyle} />
+                <input value={editEnd} onChange={e => setEditEnd(e.target.value)} className="font-mono" style={monoInputStyle} />
               </label>
             </div>
 
-            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text2)" }}>
+            <label className="text-ink-muted" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
               Notiz
               <input value={editNote} onChange={e => setEditNote(e.target.value)} style={inputStyle} />
             </label>
 
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setEditEntry(null)} style={{ background: "var(--card2)", border: "1px solid var(--border)", borderRadius: 6, padding: "7px 14px", fontSize: 12, cursor: "pointer", color: "var(--text2)" }}>
+              <button onClick={() => setEditEntry(null)} className="bg-sunken border border-line-subtle text-ink-muted" style={{ borderRadius: 6, padding: "7px 14px", fontSize: 12, cursor: "pointer" }}>
                 Abbrechen
               </button>
-              <button onClick={handleEdit} style={{ background: "var(--accent)", border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 12, cursor: "pointer", color: "#fff" }}>
+              <button onClick={handleEdit} className="bg-info-solid" style={{ border: "none", borderRadius: 6, padding: "7px 14px", fontSize: 12, cursor: "pointer", color: "#fff" }}>
                 Speichern
               </button>
             </div>

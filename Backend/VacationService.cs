@@ -9,12 +9,12 @@ namespace GSDDashboard.API.Modules.Vacations;
 
 public record VacationDto(
     int Id, string? EmployeeId, string? LastName, string? FirstName,
-    string FirstDay, string LastDay, int? WorkDaysNet,
+    string FirstDay, string LastDay, decimal? WorkDaysNet,
     string? Comments, string? ApprovedDenied, string? ApproverName,
     string? SourceSheet, bool IsOverhead, string? TeamLeadName
 );
 
-public record CreateVacationDto(string EmployeeId, string FirstDay, string LastDay, string? Comments);
+public record CreateVacationDto(string EmployeeId, string FirstDay, string LastDay, string? Comments, bool IsHalfDay = false);
 
 public record DailyLeaveCountDto(
     string Date, int MaxLeave, int TotalOff, int AlCount, int SlCount, int Remaining, bool IsFull
@@ -119,7 +119,10 @@ public class VacationService
             s.EmployeeId == dto.EmployeeId && s.FirstDay <= lastDay && s.LastDay >= firstDay);
         if (hasSickLeaveOverlap) return null;
 
-        var workDays = CountWeekdays(firstDay, lastDay);
+        decimal workDays = dto.IsHalfDay ? 0.5m : CountWeekdays(firstDay, lastDay);
+        string shiftType = dto.IsHalfDay ? "HALF_AL" : "AL";
+        // Half-day: first and last day must be the same day
+        if (dto.IsHalfDay) lastDay = firstDay;
 
         var vac = new Vacation
         {
@@ -148,7 +151,7 @@ public class VacationService
 
         await _db.SaveChangesAsync();
 
-        await _shiftSync.SyncVacationAsync(dto.EmployeeId, firstDay, lastDay, vac.Id);
+        await _shiftSync.SyncVacationAsync(dto.EmployeeId, firstDay, lastDay, vac.Id, shiftType);
 
         return Map(vac, emp);
     }
@@ -161,6 +164,7 @@ public class VacationService
         return count;
     }
 
+
     public async Task<bool> DeleteAsync(int id)
     {
         var vac = await _db.Vacations.FindAsync(id);
@@ -172,7 +176,7 @@ public class VacationService
             var bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == vac.EmployeeId);
             if (bal != null)
             {
-                bal.PlannedTakenAL = Math.Max(0, bal.PlannedTakenAL - vac.WorkDaysNet.Value);
+                bal.PlannedTakenAL = Math.Max(0m, bal.PlannedTakenAL - vac.WorkDaysNet.Value);
                 bal.RemainingAL    = bal.EligibleDays - bal.PlannedTakenAL;
                 bal.LastUpdated    = DateTime.UtcNow;
             }
@@ -225,7 +229,7 @@ public class VacationService
         "",
         emp?.FullName ?? v.FirstName,
         v.FirstDay.ToString("yyyy-MM-dd"), v.LastDay.ToString("yyyy-MM-dd"),
-        v.WorkDaysNet ?? (v.LastDay.DayNumber - v.FirstDay.DayNumber + 1),
+        v.WorkDaysNet ?? (decimal)(v.LastDay.DayNumber - v.FirstDay.DayNumber + 1),
         v.Comments, v.ApprovedDenied, v.ApproverName,
         v.SourceSheet, v.IsOverhead, emp?.TeamLeadName
     );

@@ -1,26 +1,131 @@
-const colors: Record<string, string> = {
-  WORKING:     "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  WIC_DUTY:    "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300",
-  AL:          "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
-  HALF_AL:     "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400",
-  SL:          "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
-  UL:          "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-  TRAINING:    "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
-  OFF:         "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  OFF_WEEKEND: "bg-gray-50 text-gray-500 dark:bg-gray-900 dark:text-gray-500",
-  PH:          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
-  LPH:         "bg-yellow-50 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400",
-  CD:          "bg-white text-gray-700 border border-gray-300 dark:bg-gray-900 dark:text-gray-300",
-  CO:          "bg-white text-gray-700 border border-gray-300 dark:bg-gray-900 dark:text-gray-300",
-  RESIGNED:    "bg-gray-200 text-gray-500 dark:bg-gray-800 dark:text-gray-600 line-through",
-  EMPTY:       "bg-transparent text-gray-300 dark:text-gray-700",
+import type { CSSProperties } from 'react'
+
+export type ShiftStatus =
+  | 'WORKING' | 'OFF' | 'OFF_WEEKEND'
+  | 'WIC_DUTY' | 'AL' | 'HALF_AL'
+  | 'SL' | 'UL' | 'TRAINING'
+  | 'PH' | 'LPH' | 'CD' | 'CO' | 'OL'
+  | 'RESIGNED'
+
+// Pill label — same in DE/EN (shared operational abbreviations).
+const CODE: Record<ShiftStatus, string> = {
+  WORKING:     'WORKING',
+  OFF:         'OFF',
+  OFF_WEEKEND: 'OFF',
+  WIC_DUTY:    'WIC',
+  AL:          'AL',
+  HALF_AL:     '½AL',
+  SL:          'SL',
+  UL:          'UL',
+  TRAINING:    'TR',
+  PH:          'PH',
+  LPH:         'LPH',
+  CD:          'CD',
+  CO:          'CO',
+  OL:          'OL',
+  RESIGNED:    'OFF',
 }
 
-export function ShiftBadge({ type, time }: { type: string; time?: string }) {
-  const cls = colors[type] ?? colors.EMPTY
+// ── Tailwind class strings written in full — no string concatenation ──────────
+// Quiet (bg-{t}-bg text-{t}-fg border border-{t}-bd): WORKING, OFF, OFF_WEEKEND, RESIGNED
+const QUIET: Record<string, string> = {
+  good:     'bg-good-bg text-good-fg border border-good-bd',
+  neutralst:'bg-neutralst-bg text-neutralst-fg border border-neutralst-bd',
+  mutedst:  'bg-mutedst-bg text-mutedst-fg border border-mutedst-bd',
+}
+
+// Loud (bg-{t}-solid text-white border border-transparent): WIC_DUTY, AL, SL, UL, TRAINING, PH
+// CONTRAST NOTE — holiday-solid (#EAAA00): white is ~2.26:1 at 11px → FAILS WCAG AA.
+// text-ink used on holiday-solid (dark text passes at 9.3:1). Verified per spec §3.
+const LOUD: Record<string, string> = {
+  wic:     'bg-wic-solid text-white border border-transparent',
+  info:    'bg-info-solid text-white border border-transparent',
+  warn:    'bg-warn-solid text-white border border-transparent',
+  mutedst: 'bg-mutedst-solid text-white border border-transparent',
+  learn:   'bg-learn-solid text-white border border-transparent',
+  holiday: 'bg-holiday-solid text-ink border border-transparent',
+}
+
+// Outline-only (bg-transparent text-{t}-fg border border-{t}-bd): LPH, CD, CO, OL
+const OUTLINE: Record<string, string> = {
+  holiday: 'bg-transparent text-holiday-fg border border-holiday-bd',
+  mutedst: 'bg-transparent text-mutedst-fg border border-mutedst-bd',
+}
+
+// ── Tone + variant per type — locked from Piece 1 §2.2 ───────────────────────
+type Variant = 'quiet' | 'loud' | 'outline'
+type Special = 'half-al' | 'off-weekend'
+
+const TYPES: Record<ShiftStatus, { tone: string; variant: Variant; special?: Special }> = {
+  WORKING:     { tone: 'good',     variant: 'quiet' },
+  OFF:         { tone: 'neutralst',variant: 'quiet' },
+  OFF_WEEKEND: { tone: 'neutralst',variant: 'quiet', special: 'off-weekend' },
+  WIC_DUTY:    { tone: 'wic',      variant: 'loud'  },
+  AL:          { tone: 'info',     variant: 'loud'  },
+  HALF_AL:     { tone: 'info',     variant: 'loud',  special: 'half-al' },
+  SL:          { tone: 'warn',     variant: 'loud'  },
+  UL:          { tone: 'mutedst',  variant: 'loud'  },
+  TRAINING:    { tone: 'learn',    variant: 'loud'  },
+  PH:          { tone: 'holiday',  variant: 'loud'  },
+  LPH:         { tone: 'holiday',  variant: 'outline'},
+  CD:          { tone: 'mutedst',  variant: 'outline'},
+  CO:          { tone: 'mutedst',  variant: 'outline'},
+  OL:          { tone: 'mutedst',  variant: 'outline'},
+  RESIGNED:    { tone: 'mutedst',  variant: 'quiet' },
+}
+
+function pillClass(tone: string, variant: Variant): string {
+  if (variant === 'quiet')   return QUIET[tone]   ?? ''
+  if (variant === 'loud')    return LOUD[tone]    ?? ''
+  if (variant === 'outline') return OUTLINE[tone] ?? ''
+  return ''
+}
+
+function specialStyle(special?: Special): CSSProperties | undefined {
+  if (special === 'half-al') return {
+    // Left half solid info-tone, right half subtle — diagonal split at 50%
+    background: 'linear-gradient(135deg, rgb(var(--st-info-solid)) 50%, rgb(var(--st-info-bg)) 50%)',
+  }
+  if (special === 'off-weekend') return {
+    backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgb(var(--st-neutralst-bd)) 3px, rgb(var(--st-neutralst-bd)) 4px)',
+  }
+  return undefined
+}
+
+const PILL_BASE = 'px-2 h-5 rounded-[4px] text-[11px] font-semibold tracking-wide grid place-items-center min-w-14 select-none'
+
+interface ShiftBadgeProps {
+  status: ShiftStatus
+  className?: string
+}
+
+export function ShiftBadge({ status, className }: ShiftBadgeProps) {
+  const cfg = TYPES[status] ?? TYPES.OFF
+
+  // HALF_AL: the gradient spans solid→bg diagonally. A single text colour is invisible on
+  // one of the two halves. Label sits on a bg-info-bg inset so it's always readable at 11px.
+  if (cfg.special === 'half-al') {
+    return (
+      <span
+        className={[
+          'h-5 rounded-[4px] grid place-items-center min-w-14 border border-info-bd select-none',
+          className ?? '',
+        ].filter(Boolean).join(' ')}
+        style={{ background: 'linear-gradient(135deg, rgb(var(--st-info-solid)) 50%, rgb(var(--st-info-bg)) 50%)' }}
+      >
+        <span className="inline-block px-1 rounded-[3px] bg-info-bg text-info-fg text-[11px] font-semibold leading-none tracking-wide">
+          {CODE.HALF_AL}
+        </span>
+      </span>
+    )
+  }
+
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cls}`}>
-      {time ?? type}
+    <span
+      className={[PILL_BASE, pillClass(cfg.tone, cfg.variant), className ?? ''].filter(Boolean).join(' ')}
+      style={specialStyle(cfg.special)}
+    >
+      {CODE[status] ?? status}
     </span>
   )
 }

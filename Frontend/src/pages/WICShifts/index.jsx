@@ -142,7 +142,7 @@ export default function WICShifts() {
   function showToast(msg) {
     const t = document.createElement("div")
     t.textContent = msg
-    t.style.cssText = "position:fixed;bottom:24px;right:24px;background:#ef4444;color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;z-index:9999"
+    t.style.cssText = "position:fixed;bottom:24px;right:24px;background:rgb(var(--st-crit-solid));color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;z-index:9999"
     document.body.appendChild(t)
     setTimeout(() => t.remove(), 3000)
   }
@@ -152,23 +152,24 @@ export default function WICShifts() {
       <UncoveredBanner locations={locations.filter(l => l.status === "uncovered")} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0 12px", gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#e2e8f0", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "rgb(var(--text-primary))", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
             WIC Shifts
-            {polling && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#60a5fa", display: "inline-block", animation: "pulse 1s infinite" }} />}
+            {polling && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "rgb(var(--st-info-solid))", display: "inline-block", animation: "pulse 1s infinite" }} />}
           </h1>
           <div style={{ display: "flex", gap: 6 }}>
-            <Pill color="#22c55e" label={`${covered} Covered`} />
-            <Pill color="#f97316" label={`${partial} Partial`} />
-            <Pill color="#ef4444" label={`${uncovered} Uncovered`} />
+            <Pill status="good" label={`${covered} Covered`} />
+            <Pill status="warn" label={`${partial} Partial`} />
+            <Pill status="crit" label={`${uncovered} Uncovered`} />
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {connectionLost && <span style={{ fontSize: 11, color: "#f97316", background: "rgba(249,115,22,.12)", padding: "3px 10px", borderRadius: 20, border: "1px solid rgba(249,115,22,.3)" }}>Connection lost</span>}
-          <span style={{ fontSize: 11, color: "#8892a4", fontFamily: "IBM Plex Mono" }}>Updated {secondsAgo}s ago</span>
+          {connectionLost && <span style={{ fontSize: 11, color: "rgb(var(--st-warn-solid))", background: "rgb(var(--st-warn-bg))", padding: "3px 10px", borderRadius: 20, border: "1px solid rgb(var(--st-warn-bd))" }}>Connection lost</span>}
+          <span className="font-mono" style={{ fontSize: 11, color: "rgb(var(--text-secondary))" }}>Updated {secondsAgo}s ago</span>
           <button
             onClick={() => setNewShiftOpen(true)}
+            className="bg-info-solid"
             style={{
-              background: "var(--accent)", border: "none", color: "#fff",
+              border: "none", color: "#fff",
               padding: "7px 14px", borderRadius: 6, fontSize: 12,
               cursor: "pointer", fontWeight: 600,
             }}
@@ -196,8 +197,8 @@ export default function WICShifts() {
   )
 }
 
-function Pill({ color, label }) {
+function Pill({ status, label }) {
   return (
-    <span style={{ fontSize: 11, color, background: color + "1a", border: `1px solid ${color}44`, padding: "3px 10px", borderRadius: 20, fontFamily: "IBM Plex Mono" }}>{label}</span>
+    <span className="font-mono" style={{ fontSize: 11, color: `rgb(var(--st-${status}-solid))`, background: `rgb(var(--st-${status}-bg))`, border: `1px solid rgb(var(--st-${status}-bd))`, padding: "3px 10px", borderRadius: 20 }}>{label}</span>
   )
 }

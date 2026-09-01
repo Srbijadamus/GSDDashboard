@@ -33,8 +33,6 @@ interface BreakDistributeResult {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// Relative by default — see Frontend/src/api/client.ts for why an absolute
-// fallback here breaks the app on any origin other than localhost:5000.
 const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL ?? ""
 
 function timeToMin(t: string): number {
@@ -72,17 +70,16 @@ function post(path: string, body?: unknown) {
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, { bg: string; color: string }> = {
-    SCHEDULED: { bg: "rgba(59,126,255,.15)", color: "var(--accent)" },
-    ON_BREAK:  { bg: "rgba(249,115,22,.18)", color: "#f97316" },
-    DONE:      { bg: "rgba(34,197,94,.15)",  color: "#22c55e" },
-    CANCELLED: { bg: "rgba(100,116,139,.15)", color: "var(--text3)" },
+  const cls: Record<string, string> = {
+    SCHEDULED: "bg-info-bg text-info-fg",
+    ON_BREAK:  "bg-warn-bg text-warn-fg",
+    DONE:      "bg-good-bg text-good-fg",
+    CANCELLED: "bg-neutralst-bg text-neutralst-fg",
   }
-  const c = colors[status] ?? colors.CANCELLED
+  const c = cls[status] ?? cls.CANCELLED
   return (
-    <span style={{
-      background: c.bg, color: c.color,
-      fontSize: 10, fontWeight: 700, fontFamily: "IBM Plex Mono",
+    <span className={`font-mono ${c}`} style={{
+      fontSize: 10, fontWeight: 700,
       padding: "2px 7px", borderRadius: 4, letterSpacing: 0.5
     }}>{status}</span>
   )
@@ -106,7 +103,6 @@ function Timeline({
 
   const active = slots.filter(s => s.status !== "CANCELLED")
 
-  // 15-min slots for concurrent count row
   const concSlots: number[] = []
   for (let t = wsMin; t < weMin; t += 15) concSlots.push(t)
 
@@ -119,15 +115,15 @@ function Timeline({
     const left  = Math.max(0, (start - wsMin) / total * 100)
     const width = Math.min(100 - left, (end - start) / total * 100)
     const isLate = s.actualStart && Math.abs(timeToMin(s.actualStart) - timeToMin(s.breakStart)) > 15
-    const bg = s.status === "ON_BREAK"  ? "#f97316"
-             : s.status === "DONE"      ? "#22c55e"
-             : s.agentRole === "VWIC"   ? "var(--accent)"
-             : "#10b981"
+    const bg = s.status === "ON_BREAK"  ? "rgb(var(--st-warn-solid))"
+             : s.status === "DONE"      ? "rgb(var(--st-good-solid))"
+             : s.agentRole === "VWIC"   ? "rgb(var(--st-info-solid))"
+             : "rgb(var(--st-good-solid))"
     return {
       position: "absolute" as const,
       left: `${left}%`, width: `${width}%`, top: 4, height: 16,
       background: bg, borderRadius: 3, opacity: s.status === "DONE" ? 0.55 : 0.9,
-      border: isLate ? "2px solid #fbbf24" : "none",
+      border: isLate ? "2px solid rgb(var(--st-warn-solid))" : "none",
       transition: "all .2s"
     }
   }
@@ -145,45 +141,42 @@ function Timeline({
 
   return (
     <div style={{ overflowX: "auto" }}>
-      {/* Time axis */}
       <div style={{ display: "flex", marginBottom: 4, marginLeft: 140 }}>
         {timeLabels.map(l => (
-          <div key={l} style={{
-            flex: 1, fontSize: 10, color: "var(--text3)", fontFamily: "IBM Plex Mono",
-            textAlign: l === timeLabels[timeLabels.length - 1] ? "right" : "left"
-          }}>{l}</div>
+          <div key={l}
+            className="font-mono text-ink-soft"
+            style={{
+              flex: 1, fontSize: 10,
+              textAlign: l === timeLabels[timeLabels.length - 1] ? "right" : "left"
+            }}>{l}</div>
         ))}
       </div>
 
-      {/* Agent rows */}
       {active.length === 0 && (
-        <div style={{ color: "var(--text3)", fontSize: 12, padding: "8px 0", marginLeft: 140 }}>
+        <div className="text-ink-soft" style={{ fontSize: 12, padding: "8px 0", marginLeft: 140 }}>
           No breaks scheduled — click Auto-Distribute to generate a plan.
         </div>
       )}
       {active.map(s => (
         <div key={s.id} style={{ display: "flex", alignItems: "center", marginBottom: 3 }}>
-          <div style={{
-            width: 140, fontSize: 11, color: "var(--text2)", flexShrink: 0,
+          <div className="text-ink-muted" style={{
+            width: 140, fontSize: 11, flexShrink: 0,
             display: "flex", alignItems: "center", gap: 5, overflow: "hidden"
           }}>
-            <span style={{
-              fontSize: 9, fontWeight: 700, fontFamily: "IBM Plex Mono",
-              color: s.agentRole === "VWIC" ? "var(--accent)" : "#10b981",
-              background: s.agentRole === "VWIC" ? "rgba(59,126,255,.12)" : "rgba(16,185,129,.12)",
-              padding: "1px 4px", borderRadius: 3, flexShrink: 0
-            }}>{s.agentRole}</span>
+            <span
+              className={`font-mono ${s.agentRole === "VWIC" ? "bg-info-bg text-info-fg" : "bg-good-bg text-good-fg"}`}
+              style={{ fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3, flexShrink: 0 }}
+            >{s.agentRole}</span>
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {s.fullName ?? s.employeeId}
             </span>
           </div>
-          <div style={{ flex: 1, height: 24, position: "relative", background: "var(--card2)", borderRadius: 4 }}>
+          <div className="bg-sunken" style={{ flex: 1, height: 24, position: "relative", borderRadius: 4 }}>
             <div style={barStyle(s)} title={`${s.breakStart}–${s.breakEnd}${s.actualStart ? ` (actual: ${s.actualStart})` : ""}`} />
           </div>
         </div>
       ))}
 
-      {/* Concurrent count row */}
       {active.length > 0 && (
         <div style={{ marginTop: 8, marginLeft: 140, display: "flex" }}>
           {concSlots.map(t => {
@@ -193,13 +186,9 @@ function Timeline({
                         || (maxVoice > 0 && voiceN >= maxVoice)
             const pct    = 15 / total * 100
             return (
-              <div key={t} style={{
-                width: `${pct}%`, textAlign: "center",
-                fontSize: 10, fontFamily: "IBM Plex Mono",
-                color: over ? "#ef4444" : "var(--text3)",
-                background: over ? "rgba(239,68,68,.08)" : "transparent",
-                borderRadius: 2, padding: "1px 0"
-              }}>
+              <div key={t}
+                className={`font-mono ${over ? "bg-crit-bg text-crit-fg" : "text-ink-soft"}`}
+                style={{ width: `${pct}%`, textAlign: "center", fontSize: 10, borderRadius: 2, padding: "1px 0" }}>
                 {vwicN + voiceN > 0 ? vwicN + voiceN : "·"}
               </div>
             )
@@ -207,7 +196,7 @@ function Timeline({
         </div>
       )}
       {active.length > 0 && (
-        <div style={{ marginLeft: 140, fontSize: 10, color: "var(--text3)", marginTop: 2 }}>
+        <div className="text-ink-soft" style={{ marginLeft: 140, fontSize: 10, marginTop: 2 }}>
           concurrent on-break count per 15 min · red = at limit
         </div>
       )}
@@ -229,47 +218,37 @@ function ManualModal({
       position: "fixed", inset: 0, background: "rgba(0,0,0,.5)",
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
     }}>
-      <div style={{
-        background: "var(--card)", border: "1px solid var(--border)",
-        borderRadius: 10, padding: 24, width: 340
-      }}>
-        <div style={{ fontWeight: 700, marginBottom: 16, color: "var(--text)" }}>Manual Break Slot</div>
-        <label style={{ fontSize: 11, color: "var(--text2)", display: "block", marginBottom: 4 }}>Employee ID</label>
+      <div className="bg-raised border border-line-subtle" style={{ borderRadius: 10, padding: 24, width: 340 }}>
+        <div className="text-ink" style={{ fontWeight: 700, marginBottom: 16 }}>Manual Break Slot</div>
+        <label className="text-ink-muted" style={{ fontSize: 11, display: "block", marginBottom: 4 }}>Employee ID</label>
         <input value={empId} onChange={e => setEmpId(e.target.value)}
           placeholder="e.g. E12345"
+          className="bg-sunken border border-line-subtle text-ink"
           style={{
             width: "100%", padding: "6px 10px", borderRadius: 6, fontSize: 13,
-            background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)",
             boxSizing: "border-box", marginBottom: 12
           }} />
         <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 11, color: "var(--text2)", display: "block", marginBottom: 4 }}>Start time</label>
+            <label className="text-ink-muted" style={{ fontSize: 11, display: "block", marginBottom: 4 }}>Start time</label>
             <input type="time" value={start} onChange={e => setStart(e.target.value)}
-              style={{
-                width: "100%", padding: "6px 10px", borderRadius: 6, fontSize: 13,
-                background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)"
-              }} />
+              className="bg-sunken border border-line-subtle text-ink"
+              style={{ width: "100%", padding: "6px 10px", borderRadius: 6, fontSize: 13 }} />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 11, color: "var(--text2)", display: "block", marginBottom: 4 }}>Duration (min)</label>
+            <label className="text-ink-muted" style={{ fontSize: 11, display: "block", marginBottom: 4 }}>Duration (min)</label>
             <input type="number" value={dur} onChange={e => setDur(Number(e.target.value))} min={15} max={60}
-              style={{
-                width: "100%", padding: "6px 10px", borderRadius: 6, fontSize: 13,
-                background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)"
-              }} />
+              className="bg-sunken border border-line-subtle text-ink"
+              style={{ width: "100%", padding: "6px 10px", borderRadius: 6, fontSize: 13 }} />
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{
-            padding: "7px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer",
-            background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text2)"
-          }}>Cancel</button>
+          <button onClick={onClose}
+            className="bg-sunken border border-line-subtle text-ink-muted"
+            style={{ padding: "7px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>Cancel</button>
           <button onClick={() => empId && onSave({ employeeId: empId.trim(), date, breakStart: start, durationMinutes: dur })}
-            style={{
-              padding: "7px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer",
-              background: "var(--accent)", border: "none", color: "#fff", fontWeight: 600
-            }}>Save</button>
+            className="bg-info-solid text-white"
+            style={{ padding: "7px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Save</button>
         </div>
       </div>
     </div>
@@ -312,7 +291,6 @@ export default function BreakPlanner() {
   const now = nowHHMM()
   const nowMin = timeToMin(now)
 
-  // KPI derived from breaks data
   const kpi = useMemo(() => {
     const scheduled  = breaks.filter(b => b.status === "SCHEDULED").length
     const onBreak    = breaks.filter(b => b.status === "ON_BREAK").length
@@ -336,13 +314,13 @@ export default function BreakPlanner() {
   const unscheduled = lastResult?.unscheduledAgents ?? []
   const busy = distributeMut.isPending || startMut.isPending || endMut.isPending || cancelMut.isPending || manualMut.isPending
 
-  const btn = (label: string, onClick: () => void, color = "var(--card2)", textColor = "var(--text2)", disabled = false) => (
+  const btn = (label: string, onClick: () => void, cls = "bg-sunken text-ink-muted", disabled = false) => (
     <button
       onClick={onClick}
       disabled={disabled || busy}
+      className={`border border-line-subtle ${cls}`}
       style={{
         padding: "5px 11px", borderRadius: 5, fontSize: 11, cursor: disabled ? "not-allowed" : "pointer",
-        background: color, border: "1px solid var(--border)", color: textColor,
         fontWeight: 600, opacity: disabled ? 0.45 : 1, display: "flex", alignItems: "center", gap: 4
       }}
     >{label}</button>
@@ -353,71 +331,56 @@ export default function BreakPlanner() {
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-        <Coffee size={20} style={{ color: "var(--accent)" }} />
-        <span style={{ fontSize: 18, fontWeight: 700, color: "var(--text)" }}>Break Planner</span>
-        <span style={{ fontSize: 12, color: "var(--text3)", marginLeft: 4 }}>Voice + VWIC · 30 min lunch</span>
+        <Coffee size={20} className="text-info-fg" />
+        <span className="text-ink" style={{ fontSize: 18, fontWeight: 700 }}>Break Planner</span>
+        <span className="text-ink-soft" style={{ fontSize: 12, marginLeft: 4 }}>Voice + VWIC · 30 min lunch</span>
       </div>
 
       {/* Controls */}
-      <div style={{
-        background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
-        padding: "14px 16px", marginBottom: 16, display: "flex", alignItems: "center",
-        gap: 16, flexWrap: "wrap"
+      <div className="bg-raised border border-line-subtle" style={{
+        borderRadius: 8, padding: "14px 16px", marginBottom: 16,
+        display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap"
       }}>
         <div>
-          <label style={{ fontSize: 10, color: "var(--text3)", display: "block", marginBottom: 3 }}>DATE</label>
+          <label className="text-ink-soft" style={{ fontSize: 10, display: "block", marginBottom: 3 }}>DATE</label>
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
-            style={{
-              padding: "5px 9px", borderRadius: 6, fontSize: 12, fontFamily: "IBM Plex Mono",
-              background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)"
-            }} />
+            className="bg-sunken border border-line-subtle text-ink font-mono"
+            style={{ padding: "5px 9px", borderRadius: 6, fontSize: 12 }} />
         </div>
         <div>
-          <label style={{ fontSize: 10, color: "var(--text3)", display: "block", marginBottom: 3 }}>WINDOW START</label>
+          <label className="text-ink-soft" style={{ fontSize: 10, display: "block", marginBottom: 3 }}>WINDOW START</label>
           <input type="time" value={windowStart} onChange={e => setWindowStart(e.target.value)}
-            style={{
-              padding: "5px 9px", borderRadius: 6, fontSize: 12, fontFamily: "IBM Plex Mono",
-              background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)"
-            }} />
+            className="bg-sunken border border-line-subtle text-ink font-mono"
+            style={{ padding: "5px 9px", borderRadius: 6, fontSize: 12 }} />
         </div>
         <div>
-          <label style={{ fontSize: 10, color: "var(--text3)", display: "block", marginBottom: 3 }}>WINDOW END</label>
+          <label className="text-ink-soft" style={{ fontSize: 10, display: "block", marginBottom: 3 }}>WINDOW END</label>
           <input type="time" value={windowEnd} onChange={e => setWindowEnd(e.target.value)}
-            style={{
-              padding: "5px 9px", borderRadius: 6, fontSize: 12, fontFamily: "IBM Plex Mono",
-              background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)"
-            }} />
+            className="bg-sunken border border-line-subtle text-ink font-mono"
+            style={{ padding: "5px 9px", borderRadius: 6, fontSize: 12 }} />
         </div>
         <div>
-          <label style={{ fontSize: 10, color: "var(--text3)", display: "block", marginBottom: 3 }}>VOICE MIN ON-LINE %</label>
+          <label className="text-ink-soft" style={{ fontSize: 10, display: "block", marginBottom: 3 }}>VOICE MIN ON-LINE %</label>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <input type="number" value={voiceMinPct} onChange={e => setVoiceMinPct(Number(e.target.value))}
               min={50} max={100} step={5}
-              style={{
-                padding: "5px 9px", borderRadius: 6, fontSize: 12, fontFamily: "IBM Plex Mono",
-                background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", width: 64
-              }} />
-            <span style={{ fontSize: 11, color: "var(--text3)" }}>%</span>
+              className="bg-sunken border border-line-subtle text-ink font-mono"
+              style={{ padding: "5px 9px", borderRadius: 6, fontSize: 12, width: 64 }} />
+            <span className="text-ink-soft" style={{ fontSize: 11 }}>%</span>
           </div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <button
             onClick={() => setShowManual(true)}
             disabled={busy}
-            style={{
-              padding: "7px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer",
-              background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text2)",
-              display: "flex", alignItems: "center", gap: 6
-            }}
+            className="bg-sunken border border-line-subtle text-ink-muted"
+            style={{ padding: "7px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
           ><X size={13} /> Manual slot</button>
           <button
             onClick={() => distributeMut.mutate()}
             disabled={busy}
-            style={{
-              padding: "7px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer",
-              background: "var(--accent)", border: "none", color: "#fff",
-              fontWeight: 700, display: "flex", alignItems: "center", gap: 6
-            }}
+            className="bg-info-solid text-white"
+            style={{ padding: "7px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}
           >
             <Shuffle size={13} />
             {distributeMut.isPending ? "Distributing…" : "Auto-Distribute"}
@@ -428,80 +391,68 @@ export default function BreakPlanner() {
       {/* KPI strip */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
         {[
-          { label: "Scheduled today", value: kpi.scheduled,     icon: <Clock size={14} />,        color: "var(--accent)" },
-          { label: "On break now",    value: kpi.onBreak,        icon: <Coffee size={14} />,       color: "#f97316" },
-          { label: "Completed",       value: kpi.done,           icon: <CheckCircle size={14} />,  color: "#22c55e" },
-          { label: "VWIC on break",   value: kpi.vwicOnBreak,    icon: <AlertTriangle size={14} />,color: kpi.vwicOnBreak > (maxVwic || 99) ? "#ef4444" : "var(--text2)" },
+          { label: "Scheduled today", value: kpi.scheduled,     icon: <Clock size={14} />,         cls: "text-info-fg" },
+          { label: "On break now",    value: kpi.onBreak,        icon: <Coffee size={14} />,        cls: "text-warn-fg" },
+          { label: "Completed",       value: kpi.done,           icon: <CheckCircle size={14} />,   cls: "text-good-fg" },
+          { label: "VWIC on break",   value: kpi.vwicOnBreak,    icon: <AlertTriangle size={14} />, cls: kpi.vwicOnBreak > (maxVwic || 99) ? "text-crit-fg" : "text-ink-muted" },
         ].map(k => (
-          <div key={k.label} style={{
-            flex: 1, background: "var(--card)", border: "1px solid var(--border)",
-            borderRadius: 8, padding: "12px 14px"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: k.color, marginBottom: 4 }}>
+          <div key={k.label} className="bg-raised border border-line-subtle" style={{ flex: 1, borderRadius: 8, padding: "12px 14px" }}>
+            <div className={k.cls} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
               {k.icon}
-              <span style={{ fontSize: 10, fontWeight: 600, fontFamily: "IBM Plex Mono" }}>{k.label.toUpperCase()}</span>
+              <span className="font-mono" style={{ fontSize: 10, fontWeight: 600 }}>{k.label.toUpperCase()}</span>
             </div>
-            <div style={{ fontSize: 28, fontWeight: 700, color: "var(--text)" }}>{k.value}</div>
+            <div className="text-ink" style={{ fontSize: 28, fontWeight: 700 }}>{k.value}</div>
           </div>
         ))}
       </div>
 
       {/* Constraint info */}
       {lastResult && (
-        <div style={{
-          background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8,
-          padding: "10px 14px", marginBottom: 12,
-          display: "flex", gap: 20, fontSize: 11, color: "var(--text2)", fontFamily: "IBM Plex Mono"
+        <div className="bg-raised border border-line-subtle font-mono text-ink-muted" style={{
+          borderRadius: 8, padding: "10px 14px", marginBottom: 12,
+          display: "flex", gap: 20, fontSize: 11
         }}>
-          <span>VWIC working: <b style={{color:"var(--text)"}}>{lastResult.totalVwic}</b> · max {maxVwic} on break</span>
-          <span>Voice working: <b style={{color:"var(--text)"}}>{lastResult.totalVoice}</b> · max {maxVoice} on break</span>
-          <span>Scheduled: <b style={{color:"#22c55e"}}>{lastResult.scheduled}</b></span>
+          <span>VWIC working: <b className="text-ink">{lastResult.totalVwic}</b> · max {maxVwic} on break</span>
+          <span>Voice working: <b className="text-ink">{lastResult.totalVoice}</b> · max {maxVoice} on break</span>
+          <span>Scheduled: <b className="text-good-fg">{lastResult.scheduled}</b></span>
           {lastResult.unscheduled > 0 && (
-            <span style={{ color: "#f97316" }}>⚠ Unscheduled: {lastResult.unscheduled}</span>
+            <span className="text-warn-fg"><AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> Unscheduled: {lastResult.unscheduled}</span>
           )}
         </div>
       )}
 
       {/* Unscheduled warning */}
       {unscheduled.length > 0 && (
-        <div style={{
-          background: "rgba(249,115,22,.08)", border: "1px solid rgba(249,115,22,.3)",
+        <div className="bg-warn-bg border border-warn-bd" style={{
           borderRadius: 8, padding: "10px 14px", marginBottom: 12,
           display: "flex", alignItems: "center", gap: 8
         }}>
-          <AlertTriangle size={14} style={{ color: "#f97316", flexShrink: 0 }} />
-          <span style={{ fontSize: 11, color: "#f97316" }}>
+          <AlertTriangle size={14} className="text-warn-fg" style={{ flexShrink: 0 }} />
+          <span className="text-warn-fg" style={{ fontSize: 11 }}>
             Could not schedule: {unscheduled.join(", ")} — assign manual slots or widen the window.
           </span>
         </div>
       )}
 
       {/* Timeline */}
-      <div style={{
-        background: "var(--card)", border: "1px solid var(--border)",
-        borderRadius: 8, padding: "14px 16px", marginBottom: 16
-      }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", marginBottom: 12,
-          display: "flex", alignItems: "center", gap: 6 }}>
-          <Clock size={13} style={{ color: "var(--accent)" }} /> Break Timeline · {windowStart}–{windowEnd}
+      <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, padding: "14px 16px", marginBottom: 16 }}>
+        <div className="text-ink" style={{ fontSize: 11, fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+          <Clock size={13} className="text-info-fg" /> Break Timeline · {windowStart}–{windowEnd}
         </div>
         {isLoading
-          ? <div style={{ color: "var(--text3)", fontSize: 12 }}>Loading…</div>
+          ? <div className="text-ink-soft" style={{ fontSize: 12 }}>Loading…</div>
           : <Timeline slots={breaks} windowStart={windowStart} windowEnd={windowEnd} maxVwic={maxVwic} maxVoice={maxVoice} />
         }
       </div>
 
       {/* Agent table */}
-      <div style={{
-        background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden"
-      }}>
-        <div style={{
-          padding: "12px 16px", borderBottom: "1px solid var(--border)",
-          fontSize: 11, fontWeight: 700, color: "var(--text)"
-        }}>Agent Break List</div>
+      <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, overflow: "hidden" }}>
+        <div className="text-ink border-b border-line-subtle" style={{ padding: "12px 16px", fontSize: 11, fontWeight: 700 }}>
+          Agent Break List
+        </div>
 
         {breaks.length === 0 && !isLoading && (
-          <div style={{ padding: 20, color: "var(--text3)", fontSize: 12, textAlign: "center" }}>
+          <div className="text-ink-soft" style={{ padding: 20, fontSize: 12, textAlign: "center" }}>
             No break slots for this date. Run Auto-Distribute to generate.
           </div>
         )}
@@ -509,13 +460,11 @@ export default function BreakPlanner() {
         {breaks.length > 0 && (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
-              <tr style={{ background: "var(--card2)" }}>
+              <tr className="bg-sunken">
                 {["Agent", "Role", "Scheduled", "Actual Start", "Actual End", "Status", "Actions"].map(h => (
-                  <th key={h} style={{
+                  <th key={h} className="font-mono text-ink-soft border-b border-line-subtle" style={{
                     padding: "8px 12px", textAlign: "left",
-                    fontSize: 10, fontWeight: 700, color: "var(--text3)",
-                    fontFamily: "IBM Plex Mono", letterSpacing: 0.5,
-                    borderBottom: "1px solid var(--border)"
+                    fontSize: 10, fontWeight: 700, letterSpacing: 0.5
                   }}>{h.toUpperCase()}</th>
                 ))}
               </tr>
@@ -524,35 +473,30 @@ export default function BreakPlanner() {
               {breaks.map((b, i) => {
                 const lateStart = b.actualStart && Math.abs(timeToMin(b.actualStart) - timeToMin(b.breakStart)) > 15
                 return (
-                  <tr key={b.id} style={{
-                    borderBottom: "1px solid var(--border)",
-                    background: i % 2 === 0 ? "transparent" : "rgba(0,0,0,.02)"
-                  }}>
-                    <td style={{ padding: "9px 12px", color: "var(--text)", fontWeight: 500 }}>
+                  <tr key={b.id} className="border-b border-line-subtle" style={{ background: i % 2 === 0 ? "transparent" : "rgba(0,0,0,.02)" }}>
+                    <td className="text-ink" style={{ padding: "9px 12px", fontWeight: 500 }}>
                       {b.fullName ?? b.employeeId}
                       {b.teamLeadName && (
-                        <div style={{ fontSize: 10, color: "var(--text3)" }}>{b.teamLeadName}</div>
+                        <div className="text-ink-soft" style={{ fontSize: 10 }}>{b.teamLeadName}</div>
                       )}
                     </td>
                     <td style={{ padding: "9px 12px" }}>
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, fontFamily: "IBM Plex Mono",
-                        color: b.agentRole === "VWIC" ? "var(--accent)" : "#10b981",
-                        background: b.agentRole === "VWIC" ? "rgba(59,126,255,.12)" : "rgba(16,185,129,.12)",
-                        padding: "2px 6px", borderRadius: 3
-                      }}>{b.agentRole}</span>
+                      <span
+                        className={`font-mono ${b.agentRole === "VWIC" ? "bg-info-bg text-info-fg" : "bg-good-bg text-good-fg"}`}
+                        style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 3 }}
+                      >{b.agentRole}</span>
                     </td>
-                    <td style={{ padding: "9px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text2)" }}>
+                    <td className="font-mono text-ink-muted" style={{ padding: "9px 12px", fontSize: 11 }}>
                       {b.breakStart} – {b.breakEnd}
-                      <div style={{ fontSize: 10, color: "var(--text3)" }}>{b.durationMinutes} min</div>
+                      <div className="text-ink-soft" style={{ fontSize: 10 }}>{b.durationMinutes} min</div>
                     </td>
-                    <td style={{ padding: "9px 12px", fontFamily: "IBM Plex Mono", fontSize: 11 }}>
+                    <td className="font-mono" style={{ padding: "9px 12px", fontSize: 11 }}>
                       {b.actualStart
-                        ? <span style={{ color: lateStart ? "#fbbf24" : "var(--text)" }}>{b.actualStart}</span>
-                        : <span style={{ color: "var(--text3)" }}>—</span>}
-                      {lateStart && <div style={{ fontSize: 10, color: "#fbbf24" }}>≠ scheduled</div>}
+                        ? <span className={lateStart ? "text-warn-fg" : "text-ink"}>{b.actualStart}</span>
+                        : <span className="text-ink-soft">—</span>}
+                      {lateStart && <div className="text-warn-fg" style={{ fontSize: 10 }}>≠ scheduled</div>}
                     </td>
-                    <td style={{ padding: "9px 12px", fontFamily: "IBM Plex Mono", fontSize: 11, color: "var(--text2)" }}>
+                    <td className="font-mono text-ink-muted" style={{ padding: "9px 12px", fontSize: 11 }}>
                       {b.actualEnd ?? "—"}
                     </td>
                     <td style={{ padding: "9px 12px" }}>
@@ -560,8 +504,8 @@ export default function BreakPlanner() {
                     </td>
                     <td style={{ padding: "9px 12px" }}>
                       <div style={{ display: "flex", gap: 4 }}>
-                        {b.status === "SCHEDULED" && btn("▶ Start", () => startMut.mutate(b.id), "rgba(59,126,255,.15)", "var(--accent)")}
-                        {b.status === "ON_BREAK"  && btn("■ End",   () => endMut.mutate(b.id),   "rgba(34,197,94,.15)",  "#22c55e")}
+                        {b.status === "SCHEDULED" && btn("▶ Start", () => startMut.mutate(b.id), "bg-info-bg text-info-fg")}
+                        {b.status === "ON_BREAK"  && btn("■ End",   () => endMut.mutate(b.id),   "bg-good-bg text-good-fg")}
                         {(b.status === "SCHEDULED" || b.status === "ON_BREAK") &&
                           btn("✕", () => cancelMut.mutate(b.id))}
                       </div>

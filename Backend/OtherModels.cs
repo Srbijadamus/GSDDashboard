@@ -79,7 +79,7 @@ public class Vacation
     [MaxLength(100)] public string? FirstName { get; set; }
     public DateOnly FirstDay { get; set; }
     public DateOnly LastDay { get; set; }
-    public int? WorkDaysNet { get; set; }
+    public decimal? WorkDaysNet { get; set; }
     [MaxLength(500)] public string? Comments { get; set; }
     [MaxLength(20)]  public string? ApprovedDenied { get; set; }
     [MaxLength(200)] public string? ApproverName { get; set; }
@@ -98,8 +98,8 @@ public class ALBalance
     [MaxLength(20)]  public string? EmployeeId { get; set; }
     [MaxLength(200)] public string? EmployeeName { get; set; }
     public int EligibleDays { get; set; } = 28;
-    public int PlannedTakenAL { get; set; } = 0;
-    public int RemainingAL { get; set; } = 0;
+    public decimal PlannedTakenAL { get; set; } = 0;
+    public decimal RemainingAL { get; set; } = 0;
     public int CountSL { get; set; } = 0;
     public int CountUL { get; set; } = 0;
     public int CountWorkingSundays { get; set; } = 0;

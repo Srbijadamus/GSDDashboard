@@ -303,10 +303,11 @@ public class SubstitutionService
 
             var candidates = new List<SubstituteCandidate>();
 
-            // ── (A) Designated BACKUP agents ─────────────────────────────────
+            // ── (A) Designated BACKUP and REGIONAL agents ────────────────────
             var backupAssignments = allAssignments
                 .Where(a => (a.LocationCode == locationCode ||
-                             a.LocationCode == loc.LocationCodeLegacy) && a.AssignmentType == "BACKUP")
+                             a.LocationCode == loc.LocationCodeLegacy) &&
+                            (a.AssignmentType == "BACKUP" || a.AssignmentType == "REGIONAL"))
                 .ToList();
 
             foreach (var ba in backupAssignments)
@@ -318,6 +319,8 @@ public class SubstitutionService
                 bool halfAL = string.Equals(sh?.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase);
                 double avail = halfAL ? 0.5 : 1.0;
                 string availType = halfAL ? "HALF_AL" : "WORKING";
+
+                string sourceType = ba.AssignmentType == "REGIONAL" ? "REGIONAL" : "BACKUP";
 
                 var (baseCode, baseCoords, baseLbl) = ResolveBase(emp, locationCode, loc.LocationCodeLegacy, allAssignments, locByCode, locByLegacyCode);
                 var reach = baseCoords != null
@@ -334,7 +337,7 @@ public class SubstitutionService
 
                 candidates.Add(new SubstituteCandidate(
                     emp.EmployeeId, emp.FullName ?? emp.EmployeeId,
-                    "BACKUP", baseLbl, baseCoords,
+                    sourceType, baseLbl, baseCoords,
                     distKm, tierStr,
                     null, null,
                     availType, avail, null,

@@ -93,6 +93,31 @@ Single file. Registers all services via DI, configures middleware (Swagger, CORS
 
 EF Core `DbContext` with Windows Authentication (`Trusted_Connection=true`). `EnableRetryOnFailure(3)` for transient errors. 19 DbSets including SubstitutionHistory, BreakSlots, VwicRotationSlots, AgentReachableCities.
 
+### Execution Strategy — Required for Manual Transactions
+
+`EnableRetryOnFailure(3)` makes EF Core refuse to open a manual transaction unless the call is wrapped in `CreateExecutionStrategy().ExecuteAsync()`. Calling `BeginTransactionAsync()` directly throws `InvalidOperationException` at the strategy layer — before the transaction opens and before any `catch (DbUpdateException)` runs. The caller gets HTTP 500 with no useful error surfaced.
+
+**Rule:** Every endpoint that calls `BeginTransactionAsync()` must use this pattern:
+
+```csharp
+IResult? errorResult = null;
+var strategy = db.Database.CreateExecutionStrategy();
+await strategy.ExecuteAsync(async () => {
+    await using var tx = await db.Database.BeginTransactionAsync();
+    try {
+        // all DB mutations + SaveChangesAsync()
+        await tx.CommitAsync();
+    } catch (Exception ex) {          // catch Exception, not DbUpdateException
+        await tx.RollbackAsync();
+        logger.LogError(ex, "...");
+        errorResult = Results.Conflict(new { error = "..." });
+    }
+});
+if (errorResult != null) return errorResult;
+```
+
+Catch `Exception`, not `DbUpdateException` — the strategy conflict exception is not a `DbUpdateException`. Current implementation: `SubstitutionModule.cs` (Accept Substitute endpoint).
+
 ### Services
 
 | Service | DI Lifetime | Responsibility |
@@ -106,7 +131,7 @@ EF Core `DbContext` with Windows Authentication (`Trusted_Connection=true`). `En
 | `WicCardsService` | Scoped | Per-location coverage status cards via CoverageCalculator |
 | `CoverageEvaluator` | Scoped | Canonical COVERED/PARTIAL/UNCOVERED/CLOSED classifier |
 | `ReachabilityService` | **Singleton** | Haversine matrix, 4h TTL cache, `IServiceScopeFactory` |
-| `SubstitutionService` | Scoped | 4-tier ranked substitute engine |
+| `SubstitutionService` | Scoped | 4-tier ranked substitute engine. Section (A) includes both `BACKUP` and `REGIONAL` assignment types from `WicAgentAssignments`. `sourceType` field in candidates reflects which type the agent holds. |
 | `BackupService` | Scoped | Older substitute engine at `/api/wic/backup` |
 | `ForecastService` | Scoped | 14-day coverage forecast |
 | `WhatIfService` | Scoped | What-if absence simulation |
@@ -135,6 +160,53 @@ EF Core `DbContext` with Windows Authentication (`Trusted_Connection=true`). `En
 
 ---
 
+## Data Model: ShiftEntries and WicShiftEntries
+
+These two tables are separate and have no foreign key or cascade relationship. They are joined in code by `(EmployeeId, ShiftDate)`.
+
+| Table | Source of truth for | Populated by |
+|-------|--------------------|-----------| 
+| `ShiftEntries` | Shift type (WORKING, AL, SL, WIC_DUTY, HALF_AL, etc.) and shift times | Excel import via `ShiftService`; SickLeave/Vacation creation via `ShiftSyncService` |
+| `WicShiftEntries` | WIC duty details: which location (`SupportLocation`), on-site vs. remote, agent task | Excel import; `SubstitutionModule` (when a substitute is accepted) |
+
+**Source of truth for "where is who today":** `ShiftEntries.ShiftType` determines if an agent is present, absent, or on WIC duty. `WicShiftEntries.SupportLocation` determines which WIC location they cover. Both tables are read in parallel for coverage calculations — mismatches produce artifacts.
+
+### WicShiftEntries Field Reference
+
+| Field | Type | Meaning | Who writes it |
+|-------|------|---------|---------------|
+| `IsOnSite` | bool | Agent is physically on-site at the WIC location | SubstitutionModule (Accept), WicShiftService (Assign Agent, GetOpenAsync) |
+| `IsGSDDay` | bool | Legacy import flag: agent worked a GSD shift instead of WIC that day | **Excel import only.** Current code always writes `false`. No coverage service reads this field. Exported to Excel column "GSD Day" in the WIC shift download. |
+| `IsOffDay` | bool | Legacy import flag: agent had a day off | **Excel import only.** Current code always writes `false`. Read by `WicScheduleService` (renders "OFF" in CSV) and `GetAvailableHoursAsync` (excludes rows where `IsOffDay=true`). |
+| `Task` | string? | Default `"WIC"`. Also `"VWIC"`, `"SL"` (garbage from import), `null` | Set to `"WIC"` by SubstitutionModule and Assign Agent |
+| `SupportLocation` | string? | Free-text location name. Resolved to `WicLocation` via `WicLocationMatcher.MatchesSupportLocation` | Excel import; SubstitutionModule; Assign Agent |
+
+**IsGSDDay vs. IsOnSite:** Both can be non-zero in historical data from the Excel WIC plan. `IsGSDDay=1` means the row was scheduled but the agent ended up doing GSD work; `IsOnSite=0` means not scheduled at all. In current code these are always written as `false`/`false` — historical values are read-only artifacts from the import.
+
+**Coverage query filter pattern (all services):** `w.IsOnSite == true` — `IsGSDDay` is intentionally NOT used in coverage queries because the Excel import is no longer the authoritative source for GSD vs. WIC. `ShiftEntries.ShiftType == "WIC_DUTY"` is the authoritative signal (via `AvailabilityResolver.GetWicContribution`).
+
+### Known Data Patterns (not bugs)
+
+**`SupportLocation = 'Global Service Desk'`** — WIC agents have a `WicShiftEntries` row for every day of their schedule. On days they work in the GSD office (not at a WIC site), the Excel import writes `SupportLocation='Global Service Desk'` with `IsOnSite=0`. These rows are harmless — all coverage queries filter `w.IsOnSite == true`, so they are never evaluated. Currently ~1 264 rows.
+
+**Multiple rows per `(EmployeeId, ShiftDate)` is legitimate** — an agent may be the scheduled backup for several WIC locations on the same day. Do not treat these as duplicates without first verifying that the `SupportLocation` values are identical (after normalising encoding — see below). Currently ~102 such agent+date combinations; 0 true duplicates confirmed after encoding normalisation.
+
+**Duplicate-check caveat:** comparing `SupportLocation` as raw strings treats `Fürstenwalde` and `FÃ¼rstenwalde` as two distinct locations and will produce a false "no duplicates" result. Always normalise via `WicLocationMatcher.RepairDoubleEncoding()` (or SQL `COLLATE`) before comparing. During the June 2026 encoding cleanup, 41 rows appeared to be legitimate multi-location entries until the constraint-level repair revealed they were encoding duplicates.
+
+**Double-encoding artifacts in `SupportLocation`** — historical import rows sometimes contain Windows-1252 mis-decoded UTF-8 sequences (e.g. `MÃ¼nchen` instead of `München`). `WicLocationMatcher.RepairDoubleEncoding()` corrects these at query time; they have no effect on coverage. The June 2026 batch cleanup removed 41 duplicate rows and renamed the remaining 50 oştećene values in place.
+
+**`SupportLocation = 'VWIC'`** — agent was assigned to Virtual WIC (remote phone coverage) on that day, not a physical WIC site. `IsOnSite=1` is correct. `WicLocationMatcher` intentionally does not map this value, so these rows never enter coverage calculations. Do not delete — they are valid historical schedule records. Currently 8 rows. Note: these rows are not synchronised with `VwicRotationSlots`; the Excel-import VWIC schedule and the in-app VWIC rotation plan are separate systems with no shared data.
+
+### Known Artifacts
+
+1. **`IsWicDuty=1` on non-WIC_DUTY rows.** Any code path that changes `ShiftType` on an existing row (sick leave sync, vacation sync, `AssignShiftAsync`, PATCH endpoint) used to leave `IsWicDuty=true` if the row previously had `ShiftType=WIC_DUTY`. Fixed at the four write sites in `ShiftSyncService.cs` and `ShiftService.cs` — these now clear `IsWicDuty` whenever `ShiftType` is set to anything other than `WIC_DUTY`. Startup safety net: `UPDATE ShiftEntries SET IsWicDuty=0 WHERE ShiftType != 'WIC_DUTY' AND IsWicDuty=1` (catches any residual rows from before the fix, or from external writes).
+
+2. **Orphan `WicShiftEntries` with `NULL SupportLocation`.** A partial write (e.g. failed Accept Substitute transaction pre-B1 fix) can leave a `WicShiftEntry` with `SupportLocation=NULL`. This row satisfies no coverage query but bypasses the `UNIQUE` constraint on `(EmployeeId, ShiftDate, SupportLocation)` because SQL Server treats NULL values as distinct in uniqueness checks. One-shot cleanup: `POST /api/admin/cleanup-wic-orphans` (deletes rows where NULL-location entry coexists with a non-NULL entry for the same agent+date).
+
+3. **Duplicate entries from partial writes.** The current `SubstitutionModule.cs` cleans up NULL-location `WicShiftEntries` for the same `(EmployeeId, ShiftDate)` before inserting the new targeted row, preventing future duplicates.
+
+---
+
 ## Database Schema
 
 **Server:** `localhost\SQLEXPRESS`
@@ -155,7 +227,7 @@ EF Core `DbContext` with Windows Authentication (`Trusted_Connection=true`). `En
 | `DailyAttendance` | LocationCode, Date, Status | assigned / WO / closed / PH |
 | `SickLeaves` | EmployeeId, FirstDay, LastDay, LeaveType, DurationDays, ChildName, Comments, SourceSheet | **FirstDay/LastDay** (NOT StartDate/EndDate) |
 | `Vacations` | EmployeeId, FirstDay, LastDay, ApprovalStatus, DurationDays | **FirstDay/LastDay** (NOT StartDate/EndDate) |
-| `ALBalance` | EmployeeId, Year, EligibleDays, TakenDays, RemainingDays | — |
+| `ALBalance` | EmployeeId, EmployeeName, EligibleDays, PlannedTakenAL, RemainingAL, CountSL, CountUL, CountWorkingSundays, CountFreeSundays | `PlannedTakenAL` and `RemainingAL` are `DECIMAL(10,1)` — allows half-day values (e.g. 14.5). ALTERed from `int` at startup if the column is still `int`. |
 | `PublicHolidays` | HolidayDate, Name, Bundesland, IsNational | IsNational=true for federal holidays |
 | `TrainingTopics` / `TrainingSessions` | Topic metadata and session assignments | — |
 | `SubstitutionHistory` | EmployeeId, LocationCode, Date, SourceType, AssignedAt, LoadScore | Populated at runtime; 30-day window for fairness penalty |
@@ -179,6 +251,8 @@ EF Core `DbContext` with Windows Authentication (`Trusted_Connection=true`). `En
 - 3 tables created at startup via `ExecuteSqlRaw` if not exists: BreakSlots, VwicRotationSlots, AgentReachableCities
 - 9 new columns added to Employees at startup if not exists: PrimaryKid, SecondaryKid, InfosysEmail, EonEmail, HasCar, GroupRegion, ShiftPattern
 - 2 new columns added to WicLocations at startup if not exists: OpeningDay, Comment
+- `Vacations.WorkDaysNet` is `DECIMAL(10,1)` — ALTERed from `int` at startup. Half-day AL entries use `WorkDaysNet=0.5`.
+- `ALBalance.PlannedTakenAL` and `ALBalance.RemainingAL` are `DECIMAL(10,1)` — ALTERed from `int` at startup (requires dynamically dropping the auto-named DEFAULT constraint before ALTER, then re-adding it). Threshold checks `≤5` and `≤10` work correctly with decimals.
 
 ### SSP / Voice Agent Base Location
 
@@ -303,6 +377,8 @@ All routes registered in `Program.cs` (Minimal API syntax).
 | GET | `/api/vacations?...` | Vacation records |
 | GET | `/api/vacations/active?date=` | Active vacations on a date |
 | GET | `/api/vacations/upcoming?days=` | Upcoming vacations |
+| POST | `/api/vacations` | Create vacation; body includes `isHalfDay: bool` — sets `WorkDaysNet=0.5`, `ShiftType=HALF_AL`, forces `lastDay=firstDay` |
+| PATCH | `/api/vacations/{id}` | Update vacation |
 | DELETE | `/api/vacations/{id}` | Delete vacation |
 | GET | `/api/vacations/download?from=&to=` | Excel export |
 | GET | `/api/albalance` | AL balance per employee |
@@ -327,6 +403,13 @@ All routes registered in `Program.cs` (Minimal API syntax).
 | GET | `/swagger` | Swagger UI (dev only) |
 
 `MapFallbackToFile("index.html")` serves the React SPA for all unmatched routes in production.
+
+### Admin
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| POST | `/api/admin/cleanup-wic-orphans` | One-shot: deletes `WicShiftEntries` rows where `SupportLocation IS NULL` and a non-NULL row exists for the same `(EmployeeId, ShiftDate)`. Not in startup path — call manually. |
+| GET | `/api/admin/wic-migration/dry-run` | Reports how many `WicShiftEntries` (IsOnSite=1, IsGSDDay=0) have a paired `ShiftEntry` with `ShiftType≠WIC_DUTY` and would be candidates for migration to `WIC_DUTY`. Returns counts by disposition and the list of unmatched `SupportLocation` values. Read-only — no data changes. |
 
 ---
 
@@ -408,6 +491,44 @@ TanStack Query stale times: locations 10 min, forecast/briefing 5 min, static da
 
 ---
 
+## Build & Deploy
+
+The backend is a self-contained .NET executable managed by Windows Task Scheduler (`GSDDashboard-Backend`). The frontend is a Vite SPA whose build output lives inside the backend's `wwwroot/`. Both must be built before a restart will pick up any changes.
+
+### Mandatory procedure — no exceptions
+
+```
+1.  schtasks /End /TN "GSDDashboard-Backend"
+2.  timeout /t 3
+3.  tasklist | findstr /I "GSDDashboard"   ← if still running, taskkill /PID <pid> /F
+4.  cd C:\GSDDashboard\Backend  && dotnet build -c Release
+5.  cd C:\GSDDashboard\Frontend && npm run build
+6.  schtasks /Run /TN "GSDDashboard-Backend"
+7.  sleep 10 → GET https://d2jn94qg-5000.euw.devtunnels.ms/ → confirm new JS hash
+```
+
+**Step 3 is a gate**: `dotnet build` fails with "file is locked" if the process is still running. `schtasks /Change /DISABLE` requires elevated privileges and must not be used — use `taskkill /PID` instead if the process lingers.
+
+**Step 4 is mandatory even for frontend-only changes**: cost is ~2 seconds; skipping it risks silently deploying stale backend code.
+
+**Step 7 hash check**: the `index.html` served at the tunnel root contains the content-hashed JS filename (e.g. `index-BQkiZ_x6.js`). Confirm it changed after a frontend rebuild; if it hasn't, the old bundle is still being served.
+
+### Verification (from tunnel, not localhost)
+
+All verification runs against `https://d2jn94qg-5000.euw.devtunnels.ms/`, never `localhost:5173`. The tunnel is the production surface; the dev server bypasses the backend.
+
+### Tunnel URL scope
+
+Each project has its own tunnel. Never cross URLs between projects.
+
+| Project | Tunnel |
+|---------|--------|
+| GSDDashboard | `https://d2jn94qg-5000.euw.devtunnels.ms/` |
+| LaptopTracker | `https://puzzled-plane-1cfdm0z-5016.euw.devtunnels.ms/` |
+| ShiftKiosk | `https://ssr7tm2l-8000.euw.devtunnels.ms/` |
+
+---
+
 ## Kiosk Server
 
 | Property | Value |
@@ -449,6 +570,89 @@ Canonical full-absence set (AvailabilityResolver.FullAbsenceTypes): `SL, AL, UL,
 
 ---
 
+---
+
+## Operational Workflows
+
+These are the common day-to-day operational changes and their system effects, for anyone who needs to make such changes without reading the full service code.
+
+---
+
+### Q1 — Moving a WIC agent to GSD backlog
+
+**Scenario:** An agent who is normally assigned to a WIC location needs to work in GSD (Voice, Backlog/SSP) for a day or a longer period.
+
+**Steps in the application:**
+
+1. Open the **Shifts** page and find the agent's row for the target date(s).
+2. Click the shift cell and change `ShiftType` from `WIC_DUTY` to `WORKING`.
+3. Set `AgentTask` to `Voice` or `Backlog` as appropriate (shown as a badge in the shift cell).
+4. Save. `ShiftSyncService` clears `IsWicDuty` automatically when `ShiftType` changes away from `WIC_DUTY`.
+
+**What changes in the database:**
+- `ShiftEntries.ShiftType` → `WORKING`; `IsWicDuty` → `0`; `AgentTask` updated.
+- `WicShiftEntries` is **not** automatically updated. The row remains with whatever `IsOnSite` value it had.
+
+**Effect on WIC coverage:**
+- `AvailabilityResolver.GetWicContribution(false, sh)` returns `0.0` because `ShiftType ≠ WIC_DUTY`.
+- The WIC card for the agent's location will immediately show one fewer active agent.
+- If coverage drops below `MinAgentsRequired`, the location status changes to `PARTIAL` or `UNCOVERED`.
+- The **Backup** and **Substitution** endpoints will now list this location as at-risk.
+
+**Note:** If the agent should be absent from WIC for an extended period, also update the WicShiftEntries row (`IsOnSite=false`) via `PATCH /api/wic/shifts/{id}` to keep the two tables consistent.
+
+---
+
+### Q2 — Planned WIC agent needs to work BO instead
+
+**Scenario:** An agent is scheduled for WIC duty but on a specific day must handle a BO (back-office) task instead. This is a task change, not an agent swap.
+
+**Correct approach — change the task, do not swap agents:**
+
+1. Open the **Shifts** page and change the agent's `ShiftType` from `WIC_DUTY` to `WORKING`, set `AgentTask` to the appropriate task (e.g. `Backlog`).
+2. Alternatively, use `PATCH /api/shifts/{id}` directly: `{ "shiftType": "WORKING", "agentTask": "Backlog" }`.
+
+**Incorrect approach — swapping out the agent:**
+Swapping agents means assigning a substitute, which creates a `SubstitutionHistory` record and triggers the 30-day fairness penalty. This inflates load scores for agents used as emergency substitutes when in reality it was a planned task reassignment, not an absence.
+
+**What the system shows:**
+- The agent disappears from the WIC coverage count for that day (`GetWicContribution` returns `0.0`).
+- The gap is visible in `/api/wic/open` and in the **Briefing** export as a coverage gap for the affected location.
+- `SubstitutionService` and `BackupService` will surface candidates to fill the gap — this is the signal for a team lead to arrange actual backup coverage if needed.
+
+**Note on the `WicShiftEntries` row:** The agent's `WicShiftEntry` for that date still has `IsOnSite=true`. This is acceptable for a single day — the coverage calculation ignores it because it reads `ShiftEntries.ShiftType` first. For multi-day reassignments, patch `IsOnSite=false` to keep the data clean.
+
+---
+
+### Q3 — How WIC and GSD data is joined
+
+**Two-table design:**
+
+`ShiftEntries` and `WicShiftEntries` are independent tables with no foreign key relationship. They are joined in code on `(EmployeeId, ShiftDate)` wherever both are needed. There is no cascade, no trigger, and no referential constraint between them.
+
+```
+ShiftEntries    ←── joined in code by (EmployeeId, ShiftDate) ───→    WicShiftEntries
+ShiftType       determines presence/absence/WIC duty                  SupportLocation  determines which WIC site
+IsWicDuty       legacy flag (now always derived from ShiftType)       IsOnSite         agent is physically there
+AgentTask       what kind of work the agent is doing                  Task             WIC / VWIC / null
+```
+
+**Why they can get out of sync:**
+
+Both tables are written by different code paths:
+- `ShiftEntries` is written by: Excel import via `ShiftService`, `ShiftSyncService` (sick leave / vacation propagation), the Shifts-page PATCH endpoint, `SubstitutionModule` (Accept Substitute), and the Assign Agent endpoint.
+- `WicShiftEntries` is written by: a separate Excel import, `SubstitutionModule`, and the Assign Agent endpoint.
+
+If one path writes only one table (e.g. a shift import runs after Assign Agent), the two rows for the same `(EmployeeId, ShiftDate)` will disagree. The coverage logic resolves this by treating `ShiftEntries.ShiftType` as **authoritative**: `GetWicContribution` returns `1.0` only when `ShiftType = WIC_DUTY`. A `WicShiftEntry` with `IsOnSite=true` but a paired `ShiftEntry` with `ShiftType = WORKING` counts as `0.0`.
+
+**Known artefacts of this design:**
+
+1. A `WicShiftEntry` can exist with `IsOnSite=true` while `ShiftEntries` says `WORKING` — happens when a shift import overwrites the `ShiftEntry` after Assign Agent set it to `WIC_DUTY`.
+2. Agents with no `ShiftEntry` at all (5 505 WIC agents in the historical import) correctly receive `GetWicContribution = 1.0` — the null case is treated as "no evidence of absence, assume on duty."
+3. `IsWicDuty` on `ShiftEntries` is a stale legacy flag. It was previously used to detect WIC duty but could remain `true` after a `ShiftType` change. All write paths now reset it. Coverage no longer reads `IsWicDuty` — it reads `ShiftType` exclusively.
+
+---
+
 ## Parsing Notes
 
 - WIC shifts matched with `.Contains("WIC")` — raw data has variable spacing.
@@ -456,4 +660,54 @@ Canonical full-absence set (AvailabilityResolver.FullAbsenceTypes): `SL, AL, UL,
 - Team lead names may carry a trailing `\n`; services always `.Trim()` before comparison.
 - Shift times stored as `varchar` (e.g. `"08:00"`), not SQL `TIME`.
 - `WicAgentAssignments` join is string-based: `e.FullName = waa.EmployeeName`.
+
+---
+
+## Assistant Router
+
+`AssistantService` routes each question to the `IDomainHandler` with the highest non-zero `Score()`. If two handlers tie, a clarification prompt is returned.
+
+Input is always `normalizedQ`: lowercase, umlauts converted (ä→ae, ö→oe, ü→ue, ß→ss), trimmed.
+
+### Handler priority table
+
+| Score | Handler | Winning keywords |
+|-------|---------|-----------------|
+| 100 | `SickLeaveHandler` | "sick", "krank", "sick leave", `\bsl\b` |
+| 100 | `PipelineHandler` | "pipeline" |
+| 100 | `TrainingHandler` | "training", "schulung", "session" |
+| 95 | `WicForecastHandler` | "wic coverage" |
+| 90 | `ALBalanceHandler` | "balance", "remaining al", "al balance", "remaining leave", "remaining days", "how many days left" |
+| 90 | `WicForecastHandler` | "at risk", "forecast", "coverage risk" |
+| 90 | `WicCoverageDetailHandler` | "who covers", "main agent", "who is responsible", "who is the agent for" |
+| 80 | `AgentAvailabilityHandler` | "available" — **requires a person name; returns error for list queries** |
+| 80 | `DashboardHandler` | "dashboard", "summary", "working today", "on duty", "wic duty", "absent today", "agents today", "headcount" |
+| +90 | `WicLeaveHandler` | `\bwic\b` (whole-word — see warning below) |
+| +60 | `WicLeaveHandler` | "leave", "urlaub", "annual", "frei", "off" |
+| +40 | `VacationsHandler` | "leave", "urlaub", "absent", "vacation" |
+
+### ⚠️ WIC substring trap
+
+`WicLeaveHandler` scores **+90** for the whole-word regex `\bwic\b`. Before the August 2026 fix this was `q.Contains("wic")`, which caused "vwic", "rwic", and other compound identifiers to incorrectly route to WicLeaveHandler.
+
+**Rule**: Never write `q.Contains("wic")` in any handler. Always use `Regex.IsMatch(q, @"\bwic\b")`.
+
+Handlers fixed (August 2026): `WicLeaveHandler`, `WicOpeningHoursHandler`, `VacationsHandler`.
+
+### WicLeaveHandler yield conditions
+
+WicLeaveHandler returns 0 (does not compete) for:
+- "sick", "krank" → SickLeaveHandler
+- "pipeline" → PipelineHandler
+- "training", "schulung" → TrainingHandler
+- "balance", "urlaubskonto" → ALBalanceHandler
+- "forecast", "at risk", "prognose", "vorhersage" → WicForecastHandler
+- **"wic duty", "wic dienst"** → DashboardHandler
+- "employee list", "mitarbeiterliste" → VacationsHandler
+
+Absence keywords ("absent", "absence", "away", "abwesend") only score for WicLeaveHandler when `\bwic\b` is also present. Without "wic" these questions route to DashboardHandler (counts) or VacationsHandler (names).
+
+### SickLeaveHandler — long-term sick filter
+
+`HandleAsync` detects long-sick queries via: "longer than", "more than", "21 day", "langzeitkrank", "long-term", "laenger als". When detected, it filters to employees sick for ≥21 calendar days (or the number parsed from the question). The Langzeitkrank threshold (21 days) matches the `crit` tone on the Sick Leave page.
 - Raw "OFFWE" from the upstream sheet maps to `OFF_WEEKEND` in ShiftTypes.Parse().

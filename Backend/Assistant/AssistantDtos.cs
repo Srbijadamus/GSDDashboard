@@ -5,9 +5,9 @@ namespace GSDDashboard.API.Modules.Assistant;
 public record AskRequest(string Question);
 
 public record AssistantTableRow(
-    string Employee, string EmployeeId,
-    string Start,    string End,
-    int?   WorkDays, string WicLocation, string Role);
+    string   Employee, string EmployeeId,
+    string   Start,    string End,
+    decimal? WorkDays, string WicLocation, string Role);
 
 public record AssistantResponse(
     string               AnswerText,
