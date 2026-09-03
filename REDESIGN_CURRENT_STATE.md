@@ -1,5 +1,5 @@
 # Current-State Design Report
-## EON GSD Dashboard + ShiftKiosk — Visual Redesign Brief for External Agent
+## WorkForce Pulse + ShiftKiosk — Visual Redesign Brief for External Agent
 
 > **Purpose of this document:** A second AI agent will use this as its sole reference to redesign both tools. It will not have direct access to the codebase at the start. Every statement here is based on reading the actual source files; nothing is assumed.
 
@@ -60,7 +60,7 @@ The app uses a fixed 200px left sidebar with a flat list of 21 nav links, no gro
 | `/employees` | `Employees.tsx` | Agent master data, activation/deactivation |
 | `/wic-coverage` | `WicCoverage.tsx` | WIC coverage analysis |
 | `/wic-al` | `WicAnnualLeave.tsx` | WIC-specific annual leave view |
-| `/assistant` | `WicAssistant.tsx` | AI chat assistant (GSD Assistant) |
+| `/assistant` | `WicAssistant.tsx` | AI chat assistant (Pulse Assistant) |
 | `/bo-list` | `BoList.tsx` | BO (Backoffice) daily entry list |
 | `/bulk-rtm` | `BulkRtm.tsx` | Bulk RTM (Ready To Move) entry form |
 
@@ -84,15 +84,15 @@ The app uses a fixed 200px left sidebar with a flat list of 21 nav links, no gro
 ## 2. Current Visual State
 
 ### Shell layout (`App.tsx`)
-- **Sidebar**: 200px fixed, `background: var(--sidebar)`, `border-right: 1px solid var(--border)`. Logo area: blue `GSD` badge (10px font, IBM Plex Mono) + "EON GSD Dashboard" (12px font). The list is scrollable and has no section headings or visual groupings.
-- **Topbar**: Full width, `padding: 10px 20px`. Shows "EON GSD Dashboard" text on the left (redundant with sidebar) and date, horizon toggle, Ctrl+K button, language toggle, theme toggle on the right.
+- **Sidebar**: 200px fixed, `background: var(--sidebar)`, `border-right: 1px solid var(--border)`. Logo area: blue `GSD` badge (10px font, IBM Plex Mono) + "EON GSD Dashboard" (12px font). *(pre-redesign state — product is now **WorkForce Pulse**)* The list is scrollable and has no section headings or visual groupings.
+- **Topbar**: Full width, `padding: 10px 20px`. Shows "EON GSD Dashboard" text on the left (redundant with sidebar; pre-redesign label) and date, horizon toggle, Ctrl+K button, language toggle, theme toggle on the right.
 - **Main content**: `padding: 20px`, `overflowY: auto`. Note: `WicAttendance` overrides this with `margin: -20px` to create its own full-height panel layout — this means WicAttendance visually breaks out of the normal padding, which is intentional but fragile.
 
 ### What looks bad today (honest assessment)
 
 1. **21 flat nav items with no grouping.** The sidebar lists everything from "Overview" to "Bulk RTM Entry" without any section headers. A user has to scan all 21 items to find anything. WIC-related pages (6+) are interspersed with HR pages (sick leave, vacations, AL).
 
-2. **Topbar duplicates the sidebar header.** "EON GSD Dashboard" appears in both the sidebar logo area and the topbar as a large label. The topbar mainly serves as a container for controls that don't belong to any page.
+2. **Topbar duplicates the sidebar header.** "EON GSD Dashboard" appeared in both the sidebar logo area and the topbar as a large label. *(pre-redesign; the product is now WorkForce Pulse)* The topbar mainly serves as a container for controls that don't belong to any page.
 
 3. **Everything is inline styles.** All 50+ component files use `style={{}}` JSX inline styles. There is no shared component library. The CSS file (`index.css`) defines CSS variables and three animations but almost nothing else. Tailwind is imported (`@tailwind base/components/utilities`) but its utility classes are essentially unused in components — only the `skeleton` and `spin` class names from `index.css` appear.
 

@@ -48,7 +48,7 @@ export function Topbar({ onOpenCmd }: TopbarProps) {
       ? location.pathname === '/'
       : location.pathname === item.to || location.pathname.startsWith(item.to + '/')
   )
-  const pageTitle = currentItem?.i18nKey ? t(currentItem.i18nKey) : 'EON GSD Dashboard'
+  const pageTitle = currentItem?.i18nKey ? t(currentItem.i18nKey) : 'WorkForce Pulse'
 
   return (
     <header className="h-14 shrink-0 sticky top-0 z-topbar bg-raised/80 backdrop-blur-md border-b border-line-subtle flex items-center gap-4 px-6">

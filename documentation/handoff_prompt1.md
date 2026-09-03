@@ -1,4 +1,4 @@
-# GSD Dashboard — WIC Backup Model Handoff (Session 1)
+# WorkForce Pulse — WIC Backup Model Handoff (Session 1)
 
 **Date:** 2026-06-15  
 **Branch:** main  

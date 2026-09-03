@@ -165,7 +165,20 @@ public class TrainingService
         }
 
         var ordered = slots.OrderByDescending(s => s.Score).Take(req.MaxResults > 0 ? req.MaxResults : 12).ToList();
-        return new { warning = (string?)null, slots = ordered };
+
+        string? emptyWarning = null;
+        if (ordered.Count == 0 && selected.Count > 0)
+        {
+            int selectedWithAnyShift = allShiftMap.Keys
+                .Where(k => selected.Contains(k.EmployeeId))
+                .Select(k => k.EmployeeId).Distinct().Count();
+            if (selectedWithAnyShift == 0)
+                emptyWarning = $"None of the {totalSelected} selected agent(s) have any shifts in {fromDate:yyyy-MM-dd} – {toDate:yyyy-MM-dd}. Make sure the shift plan has been imported for this period.";
+            else
+                emptyWarning = $"No slot found where {minGroup}+ of the selected agents are available simultaneously. {selectedWithAnyShift}/{totalSelected} have shifts in this period but their schedules don't overlap enough for a {topic.DurationHours}h session.";
+        }
+
+        return new { warning = emptyWarning, slots = ordered };
     }
 
     public async Task<TrainingSessionDto> ConfirmAsync(ConfirmRequest req)

@@ -1,4 +1,4 @@
-# GSD Dashboard — Handoff (Current State)
+# WorkForce Pulse — Handoff (Current State)
 
 **Date:** 2026-07-03
 **Build status:** VERIFIED PASSING — PS1_19_FinalBuildVerify.ps1 all checks green 2026-06-15
@@ -36,7 +36,7 @@ Read these before doing anything else.
 
 | Service | URL |
 |---------|-----|
-| GSD Dashboard | https://d2jn94qg-5000.euw.devtunnels.ms |
+| WorkForce Pulse | https://d2jn94qg-5000.euw.devtunnels.ms |
 | Kiosk | https://ssr7tm2l-8000.euw.devtunnels.ms |
 | Kiosk Dashboard | https://ssr7tm2l-8000.euw.devtunnels.ms/dashboard |
 

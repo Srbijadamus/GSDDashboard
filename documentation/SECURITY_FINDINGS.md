@@ -1,4 +1,4 @@
-# Security Findings - EON GSD Dashboard
+# Security Findings - WorkForce Pulse
 
 Date: 2026-07-06  
 Scope: C:\GSDDashboard (ASP.NET Core 8 + React 19, internal network only)

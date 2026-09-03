@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { MessageCircle, X, Send, Bot, RefreshCw, ChevronDown } from "lucide-react"
+import { MessageCircle, X, Send, Bot, RefreshCw, ChevronDown, ChevronUp } from "lucide-react"
 import { apiFetch } from "../api/client"
+
+const SUGGESTIONS_KEY = "gsd.assistant.suggestions"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -16,10 +18,23 @@ interface TableRow {
   role: string
 }
 
+interface CoverageRow {
+  location: string
+  locationCode: string
+  date: string
+  presentAgents: number
+  minRequired: number
+  deficit: number | null
+  status: string
+}
+
 interface AssistantResponse {
   answerText: string
   dateRangeChecked: string
   table?: TableRow[]
+  coverageTable?: CoverageRow[]
+  tableType?: string
+  coverageTableTotal?: number
   error?: string
   hint?: string
   follow_up?: string | null
@@ -30,6 +45,9 @@ export interface ChatMessage {
   role: "user" | "assistant"
   text: string
   table?: TableRow[]
+  coverageTable?: CoverageRow[]
+  tableType?: string
+  coverageTableTotal?: number
   dateRange?: string
   hint?: string
   isError?: boolean
@@ -90,18 +108,30 @@ const GROUPED_ACTIONS = [
 const WELCOME: ChatMessage = {
   id: nextId(),
   role: "assistant",
-  text: "Ask me about the GSD dashboard — WIC leave, sick leave, AL balance, pipeline, training, employees, WIC coverage, or today's summary. EN or DE.",
+  text: "Ask me about WorkForce Pulse — WIC leave, sick leave, AL balance, pipeline, training, employees, WIC coverage, or today's summary. EN or DE.",
 }
 
 // ─── Result table ─────────────────────────────────────────────────────────────
 
-function ResultTable({ rows }: { rows: TableRow[] }) {
+function ResultTable({ rows, coverageRows, tableType, coverageTableTotal, t }: {
+  rows?: TableRow[]
+  coverageRows?: CoverageRow[]
+  tableType?: string
+  coverageTableTotal?: number
+  t: (key: string, opts?: Record<string, unknown>) => string
+}) {
+  const isCoverage = tableType === "COVERAGE" && coverageRows && coverageRows.length > 0
+  if (!isCoverage && (!rows || rows.length === 0)) return null
+
+  const agentHeaders    = ["Employee", "ID", "Start", "End", "Days", "Location", "Role"]
+  const coverageHeaders = ["Location", "Date", "Present / Min", "Deficit", "Status"]
+
   return (
     <div className="border border-line-subtle mt-2" style={{ overflowX: "auto", borderRadius: 6 }}>
       <table className="font-mono w-full" style={{ borderCollapse: "collapse", fontSize: 11 }}>
         <thead>
           <tr className="bg-sunken">
-            {["Employee", "ID", "Start", "End", "Days", "Location", "Role"].map(h => (
+            {(isCoverage ? coverageHeaders : agentHeaders).map(h => (
               <th key={h} className="text-ink-muted" style={{ padding: "5px 7px", textAlign: "left", fontWeight: 600, whiteSpace: "nowrap", fontSize: 10 }}>
                 {h}
               </th>
@@ -109,19 +139,47 @@ function ResultTable({ rows }: { rows: TableRow[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-t border-line-subtle">
-              <td className="text-ink"      style={{ padding: "4px 7px", whiteSpace: "nowrap" }}>{row.employee}</td>
-              <td className="text-ink-soft" style={{ padding: "4px 7px" }}>{row.employeeId}</td>
-              <td className="text-ink"      style={{ padding: "4px 7px" }}>{row.start}</td>
-              <td className="text-ink"      style={{ padding: "4px 7px" }}>{row.end}</td>
-              <td className="text-ink-muted" style={{ padding: "4px 7px", textAlign: "center" }}>{row.workDays ?? "–"}</td>
-              <td className="text-ink"      style={{ padding: "4px 7px" }}>{row.wicLocation}</td>
-              <td className="text-ink-soft" style={{ padding: "4px 7px" }}>{row.role}</td>
-            </tr>
-          ))}
+          {isCoverage
+            ? coverageRows!.map((row, i) => {
+                const statusCls =
+                  row.status === "UNCOVERED" ? "bg-crit-bg text-crit-fg" :
+                  row.status === "PARTIAL"   ? "bg-warn-bg text-warn-fg" :
+                                              "bg-good-bg text-good-fg"
+                const abs = row.deficit !== null && row.deficit !== undefined ? Math.abs(row.deficit) : null
+                const deficitLabel = abs !== null
+                  ? t("assistant.coverage.deficit", { count: abs })
+                  : "–"
+                return (
+                  <tr key={i} className="border-t border-line-subtle">
+                    <td className="text-ink"       style={{ padding: "4px 7px", whiteSpace: "nowrap" }}>{row.location}</td>
+                    <td className="text-ink"       style={{ padding: "4px 7px" }}>{row.date}</td>
+                    <td className="text-ink-muted" style={{ padding: "4px 7px", textAlign: "center" }}>{row.presentAgents} / {row.minRequired}</td>
+                    <td className="text-crit-fg"   style={{ padding: "4px 7px", textAlign: "center" }}>{deficitLabel}</td>
+                    <td style={{ padding: "4px 7px" }}>
+                      <span className={`${statusCls} px-1.5 py-0.5 rounded font-medium`} style={{ fontSize: 10 }}>{row.status}</span>
+                    </td>
+                  </tr>
+                )
+              })
+            : rows!.map((row, i) => (
+                <tr key={i} className="border-t border-line-subtle">
+                  <td className="text-ink"      style={{ padding: "4px 7px", whiteSpace: "nowrap" }}>{row.employee}</td>
+                  <td className="text-ink-soft" style={{ padding: "4px 7px" }}>{row.employeeId}</td>
+                  <td className="text-ink"      style={{ padding: "4px 7px" }}>{row.start}</td>
+                  <td className="text-ink"      style={{ padding: "4px 7px" }}>{row.end}</td>
+                  <td className="text-ink-muted" style={{ padding: "4px 7px", textAlign: "center" }}>{row.workDays ?? "–"}</td>
+                  <td className="text-ink"      style={{ padding: "4px 7px" }}>{row.wicLocation}</td>
+                  <td className="text-ink-soft" style={{ padding: "4px 7px" }}>{row.role}</td>
+                </tr>
+              ))
+          }
         </tbody>
       </table>
+      {isCoverage && coverageTableTotal && coverageTableTotal > coverageRows!.length && (
+        <div className="text-2xs text-ink-soft border-t border-line-subtle text-center" style={{ padding: "5px 7px" }}>
+          {t("assistant.coverage.showingOf", { shown: coverageRows!.length, total: coverageTableTotal })}
+        </div>
+      )}
     </div>
   )
 }
@@ -140,14 +198,22 @@ interface ChatPanelProps {
 export function ChatPanel({ messages, isPending, input, onInput, onSend, bottomRef }: ChatPanelProps) {
   const { t } = useTranslation()
   const [search, setSearch] = useState("")
-  const [suggestionsVisible, setSuggestionsVisible] = useState(true)
+  const [suggestionsVisible, setSuggestionsVisible] = useState(
+    () => localStorage.getItem(SUGGESTIONS_KEY) !== "hidden"
+  )
   const [lastQuestion, setLastQuestion] = useState("")
   const autoCollapsed = useRef(false)
 
-  // Auto-collapse suggestions after the first user message arrives
+  const toggleSuggestions = (visible: boolean) => {
+    setSuggestionsVisible(visible)
+    if (visible) localStorage.removeItem(SUGGESTIONS_KEY)
+    else localStorage.setItem(SUGGESTIONS_KEY, "hidden")
+  }
+
+  // Auto-collapse after the first user message
   useEffect(() => {
     if (!autoCollapsed.current && messages.length > 1) {
-      setSuggestionsVisible(false)
+      toggleSuggestions(false)
       autoCollapsed.current = true
     }
   }, [messages.length])
@@ -173,7 +239,7 @@ export function ChatPanel({ messages, isPending, input, onInput, onSend, bottomR
     <div className="flex flex-col h-full">
 
       {/* ── Messages ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
         <div className="max-w-[860px] mx-auto flex flex-col gap-3">
 
           {messages.map(msg => (
@@ -214,7 +280,9 @@ export function ChatPanel({ messages, isPending, input, onInput, onSend, bottomR
                       </div>
                     )}
                   </div>
-                  {msg.table && msg.table.length > 0 && <ResultTable rows={msg.table} />}
+                  {(msg.table?.length || msg.coverageTable?.length)
+                    ? <ResultTable rows={msg.table} coverageRows={msg.coverageTable} tableType={msg.tableType} coverageTableTotal={msg.coverageTableTotal} t={t} />
+                    : null}
                   {msg.follow_up && (
                     <div className="mt-2">
                       <button
@@ -249,10 +317,10 @@ export function ChatPanel({ messages, isPending, input, onInput, onSend, bottomR
       </div>
 
       {/* ── Suggestions panel ── */}
-      <div className="border-t border-line-subtle px-3 pt-3 pb-2">
+      <div className={`border-t border-line-subtle px-3 pt-3 pb-2 flex-shrink-0 ${messages.length > 1 && suggestionsVisible ? "max-h-[40%] overflow-y-auto" : ""}`}>
         {!suggestionsVisible ? (
           <button
-            onClick={() => setSuggestionsVisible(true)}
+            onClick={() => toggleSuggestions(true)}
             className="text-2xs font-semibold uppercase tracking-[0.06em] text-ink-soft hover:text-ink transition-colors duration-fast flex items-center gap-1.5"
           >
             <ChevronDown size={10} />
@@ -260,13 +328,22 @@ export function ChatPanel({ messages, isPending, input, onInput, onSend, bottomR
           </button>
         ) : (
           <>
-            {/* Search */}
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder={t("assistant.search")}
-              className="w-full bg-sunken border border-line-subtle text-ink text-sm rounded-lg px-3 py-1.5 mb-3 outline-none"
-            />
+            {/* Search + collapse */}
+            <div className="flex items-center gap-2 mb-3">
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={t("assistant.search")}
+                className="flex-1 bg-sunken border border-line-subtle text-ink text-sm rounded-lg px-3 py-1.5 outline-none"
+              />
+              <button
+                onClick={() => toggleSuggestions(false)}
+                className="text-ink-soft hover:text-ink transition-colors duration-fast flex-shrink-0 p-1"
+                title="Collapse suggestions"
+              >
+                <ChevronUp size={14} />
+              </button>
+            </div>
 
             {/* Groups */}
             {filteredGroups.map(group => (
@@ -294,7 +371,7 @@ export function ChatPanel({ messages, isPending, input, onInput, onSend, bottomR
       </div>
 
       {/* ── Input ── */}
-      <div className="px-3 pb-3 pt-2 border-t border-line-subtle flex gap-2">
+      <div className="px-3 pb-3 pt-2 border-t border-line-subtle flex gap-2 flex-shrink-0">
         <input
           value={input}
           onChange={e => onInput(e.target.value)}
@@ -356,18 +433,22 @@ export function WicChatWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME])
   const [input, setInput]       = useState("")
   const bottomRef               = useRef<HTMLDivElement>(null)
+  const panelRef                = useRef<HTMLDivElement>(null)
 
   const push = (msg: ChatMessage) => setMessages(prev => [...prev, msg])
 
   const mutation = useAssistantAsk(
     data => push({
       id: nextId(), role: "assistant",
-      text:      data.error ?? data.answerText,
-      table:     data.table,
-      dateRange: data.dateRangeChecked,
-      hint:      data.error ? undefined : data.hint,
-      isError:   !!data.error,
-      follow_up: data.follow_up,
+      text:               data.error ?? data.answerText,
+      table:              data.table,
+      coverageTable:      data.coverageTable,
+      tableType:          data.tableType,
+      coverageTableTotal: data.coverageTableTotal,
+      dateRange:          data.dateRangeChecked,
+      hint:          data.error ? undefined : data.hint,
+      isError:       !!data.error,
+      follow_up:     data.follow_up,
     }),
     err => push({
       id: nextId(), role: "assistant",
@@ -377,6 +458,26 @@ export function WicChatWidget() {
   )
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }) }, [messages])
+
+  // Escape to close
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open])
+
+  // Click outside to close
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", onDown)
+    return () => document.removeEventListener("mousedown", onDown)
+  }, [open])
 
   const send = (q: string) => {
     const question = q.trim()
@@ -392,10 +493,10 @@ export function WicChatWidget() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          title="GSD Assistant"
+          title="Pulse Assistant"
           className="bg-info-solid"
           style={{
-            position: "fixed", bottom: 24, right: 24, zIndex: 1000,
+            position: "fixed", bottom: 24, right: 24, zIndex: 60,
             color: "#fff",
             border: "none", borderRadius: "50%",
             width: 52, height: 52, cursor: "pointer",
@@ -409,9 +510,9 @@ export function WicChatWidget() {
 
       {/* Chat window */}
       {open && (
-        <div className="bg-raised border border-line-subtle" style={{
-          position: "fixed", bottom: 24, right: 24, zIndex: 1000,
-          width: 460, height: 620,
+        <div ref={panelRef} className="bg-raised border border-line-subtle" style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 60,
+          width: 460, maxHeight: "70vh",
           borderRadius: 12, display: "flex", flexDirection: "column",
           boxShadow: "0 8px 32px rgba(0,0,0,.20)",
           overflow: "hidden",
@@ -424,7 +525,7 @@ export function WicChatWidget() {
           }}>
             <Bot size={15} className="text-info-fg" />
             <span className="text-ink" style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
-              GSD Assistant
+              Pulse Assistant
             </span>
             <button
               onClick={() => setOpen(false)}

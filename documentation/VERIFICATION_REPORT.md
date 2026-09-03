@@ -1,4 +1,4 @@
-# Verification Report - EON GSD Dashboard
+# Verification Report - WorkForce Pulse
 
 Date: 2026-07-06  
 Scope: C:\GSDDashboard (ASP.NET Core 8 backend + React 19 frontend)  

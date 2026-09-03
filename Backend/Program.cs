@@ -65,6 +65,7 @@ builder.Services.AddScoped<BoListService>();
 builder.Services.AddScoped<BulkRtmService>();
 builder.Services.AddScoped<WicAssistantService>();
 builder.Services.AddScoped<WicMigrationDryRunService>();
+builder.Services.AddScoped<WicConflictDetector>();
 
 // Full-dashboard assistant — domain handlers + router
 builder.Services.AddScoped<IDomainHandler, WicLeaveHandler>();
@@ -391,6 +392,13 @@ app.MapPost("/api/admin/cleanup-wic-orphans", (GSDContext db, ILoggerFactory log
     logger.LogInformation("cleanup-wic-orphans: deleted {Count} rows", deleted);
     return Results.Ok(new { deleted, message = $"Deleted {deleted} orphan WicShiftEntry rows" });
 }).WithTags("Admin");
+
+app.MapGet("/api/wic/conflicts", async (string? from, string? to, bool? includeSplitShifts, WicConflictDetector svc) =>
+{
+    var fromDate = from != null && DateOnly.TryParse(from, out var f) ? f : DateOnly.FromDateTime(DateTime.Today.AddDays(-30));
+    var toDate   = to   != null && DateOnly.TryParse(to,   out var t) ? t : DateOnly.FromDateTime(DateTime.Today);
+    return Results.Ok(await svc.GetConflictsAsync(fromDate, toDate, includeSplitShifts ?? false));
+}).WithTags("WIC");
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.MapFallbackToFile("index.html", staticFileOptions);

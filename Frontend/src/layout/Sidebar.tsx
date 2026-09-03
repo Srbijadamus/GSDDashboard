@@ -23,19 +23,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     ].join(' ')}>
 
       {/* Logo block */}
-      <div className="h-14 px-4 flex items-center gap-3 border-b border-nav-border shrink-0">
-        <span className="h-7 w-7 rounded-md bg-eon text-eon-fg grid place-items-center text-2xs font-bold shrink-0">
-          GSD
-        </span>
+      <div className="h-14 px-4 flex items-center gap-2.5 border-b border-nav-border shrink-0">
+        <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true" className="shrink-0">
+          <rect width="32" height="32" rx="7" fill="rgb(var(--brand-accent))" />
+          <path d="M5 16h5.2l2.6-6.4 4.2 12.8 2.6-6.4H27"
+                fill="none" stroke="#FFFFFF" strokeWidth="2.6"
+                strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
         {!collapsed && (
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-nav-ink leading-tight truncate">
-              EON GSD Dashboard
-            </p>
-            <p className="text-2xs text-nav-soft leading-tight truncate">
-              Infosys · E.ON
-            </p>
-          </div>
+          <p className="text-sm font-semibold text-nav-ink leading-tight truncate">
+            WorkForce Pulse
+          </p>
         )}
       </div>
 
@@ -73,7 +71,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   {({ isActive }) => (
                     <>
                       {isActive && (
-                        <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-nav-rail" />
+                        <span className="absolute left-0 inset-y-0 w-[3px] rounded-full bg-accent" />
                       )}
                       <Icon className={[
                         'h-4 w-4 shrink-0',

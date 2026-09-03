@@ -56,21 +56,25 @@ public sealed class WicForecastHandler(
                 $"no at-risk days across {forecast.LocationCount} locations.",
                 label, null, null);
 
-        var rows = atRisk
+        var allCoverageRows = atRisk
             .SelectMany(loc => loc.Forecast
                 .Where(d => d.IsAtRisk)
-                .Select(d => new AssistantTableRow(
+                .Select(d => new AssistantCoverageRow(
                     loc.DisplayName,
                     loc.LocationCode,
-                    d.Date, "",
+                    d.Date,
+                    d.EffectiveCoverage,
+                    d.MinRequired,
                     d.CoverageBuffer < 0 ? d.CoverageBuffer : (int?)null,
-                    loc.City,
                     d.Status)))
-            .Take(20)
             .ToArray();
+
+        var coverageRows = allCoverageRows.Take(20).ToArray();
+        int? total = allCoverageRows.Length > 20 ? allCoverageRows.Length : (int?)null;
 
         var text = $"WIC coverage at risk: {forecast.TotalAtRiskDays} at-risk day(s) across " +
                    $"{atRisk.Count} location(s) in the next {horizon} days.";
-        return new AssistantResponse(text, label, rows.Length > 0 ? rows : null, null);
+        return new AssistantResponse(text, label, null, null, null, "COVERAGE",
+            coverageRows.Length > 0 ? coverageRows : null, total);
     }
 }

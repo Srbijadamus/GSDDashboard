@@ -1,8 +1,8 @@
-# GSD Dashboard — Feature Overview
+# WorkForce Pulse — Feature Overview
 
 ## What Is It?
 
-The **GSD Dashboard** is an internal workforce management and visibility platform for the **GSD DE (Global Service Desk Germany)** and **WIC (Workforce In Contact)** teams. It gives team leads and management a real-time window into scheduling, shift coverage, attendance, sick leave, vacations, and annual leave balances.
+The **WorkForce Pulse** is an internal workforce management and visibility platform for the **GSD DE (Global Service Desk Germany)** and **WIC (Workforce In Contact)** teams. It gives team leads and management a real-time window into scheduling, shift coverage, attendance, sick leave, vacations, and annual leave balances.
 
 The database is read by a separate upstream system. The dashboard surfaces data and adds its own write operations for WIC shift management, substitutions, and employee administration.
 

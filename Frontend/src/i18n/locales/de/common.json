@@ -24,7 +24,7 @@
     "alCalendar": "Urlaubskalender",
     "wicCoverage": "WIC-Abdeckung",
     "wicAnnualLeave": "WIC-Urlaub",
-    "assistant": "GSD-Assistent",
+    "assistant": "Pulse-Assistent",
     "boList": "BO-Liste",
     "bulkRtm": "RTM-Sammeleingabe",
     "collapseSidebar": "Einklappen",
@@ -103,6 +103,15 @@
     },
     "coverageRisk": {
       "title": "Abdeckungsrisiko"
+    },
+    "conflicts": {
+      "count_one": "{{count}} widersprüchliche Zuweisung",
+      "count_other": "{{count}} widersprüchliche Zuweisungen",
+      "closedCount_one": "{{count}} Zuweisung an geschlossenem Tag",
+      "closedCount_other": "{{count}} Zuweisungen an geschlossenem Tag",
+      "agent": "Agent",
+      "date": "Datum",
+      "locations": "Standorte"
     },
     "grid": {
       "title": "Vollständiges Abdeckungsraster"
@@ -377,6 +386,11 @@
       "pipelineEvents": "Pipeline-Ereignisse",
       "eventsNeedAgents": "Ereignisse ohne Agent",
       "trainingSlot": "Nächster Schulungsslot"
+    },
+    "coverage": {
+      "deficit_one": "−{{count}} Agent",
+      "deficit_other": "−{{count}} Agenten",
+      "showingOf": "{{shown}} von {{total}} angezeigt"
     }
   }
 }

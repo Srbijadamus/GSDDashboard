@@ -9,13 +9,28 @@ public record AssistantTableRow(
     string   Start,    string End,
     decimal? WorkDays, string WicLocation, string Role);
 
+public record AssistantCoverageRow(
+    string Location,
+    string LocationCode,
+    string Date,
+    int    PresentAgents,
+    int    MinRequired,
+    int?   Deficit,
+    string Status);
+
 public record AssistantResponse(
-    string               AnswerText,
-    string               DateRangeChecked,
-    AssistantTableRow[]? Table,
-    string?              Error,
+    string                  AnswerText,
+    string                  DateRangeChecked,
+    AssistantTableRow[]?    Table,
+    string?                 Error,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string?              Hint = null);
+    string?                 Hint = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string?                 TableType = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    AssistantCoverageRow[]? CoverageTable = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    int?                    CoverageTableTotal = null);
 
 internal static class A
 {

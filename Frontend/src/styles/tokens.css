@@ -33,6 +33,7 @@
   /* ---------- BRAND ---------- */
   --brand-eon:        227   0  15;  /* #E3000F  logo chip ONLY */
   --brand-eon-ink:    255 255 255;
+  --brand-accent:       0 124 195;  /* #007CC3  Infosys blue — brand identity only (logo mark, favicon) */
 
   /* ---------- STATUS FAMILIES ---------- */
   /* each family = fg / bg / bd / solid */

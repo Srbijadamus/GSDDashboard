@@ -67,6 +67,8 @@ export default function Training() {
   const [expandedSession, setExpandedSession] = useState<number | null>(null)
   const [sessionShifts, setSessionShifts] = useState<any>({})
   const [suggesting, setSuggesting]   = useState(false)
+  const [hasSuggested, setHasSuggested] = useState(false)
+  const [suggestError, setSuggestError] = useState("")
   const [confirmingSlot, setConfirmingSlot] = useState<any>(null)
   const [showTopicModal, setShowTopicModal] = useState(false)
   const [toast, setToast] = useState("")
@@ -86,12 +88,19 @@ export default function Training() {
 
   const suggest = async () => {
     if (!selectedTopic) return
-    setSuggesting(true); setSuggestions([]); setWarning("")
+    setSuggesting(true); setSuggestions([]); setWarning(""); setSuggestError(""); setHasSuggested(false)
     try {
       const r = await fetch(`${BASE}/api/training/suggest`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ topicId: selectedTopic, dateFrom, dateTo, selectedAgentIds: selectedAgents, maxResults: 12 }) })
-      const data = await r.json(); if (data && data.warning) setWarning(data.warning); else setWarning(""); const slots = Array.isArray(data) ? data : (data.slots ?? []); setSuggestions(slots)
-    } catch {}
+      if (!r.ok) { setSuggestError(`Server error ${r.status} — ${r.statusText}`); setSuggesting(false); setHasSuggested(true); return }
+      const data = await r.json()
+      if (data && data.warning) setWarning(data.warning); else setWarning("")
+      const slots = Array.isArray(data) ? data : (data.slots ?? [])
+      setSuggestions(slots)
+    } catch (err: any) {
+      setSuggestError(err?.message ?? "Network error — could not reach the server.")
+    }
     setSuggesting(false)
+    setHasSuggested(true)
   }
 
   const confirm = async () => {
@@ -197,9 +206,19 @@ export default function Training() {
             </button>
           </div>
 
+          {suggestError && (
+            <div className="bg-crit-bg border border-crit-bd text-crit-fg rounded-md px-3.5 py-2.5 text-xs mb-2">
+              <AlertTriangle size={11} className="inline align-text-bottom" /> {suggestError}
+            </div>
+          )}
           {warning && (
             <div className="bg-warn-bg border border-warn-bd text-warn-fg rounded-md px-3.5 py-2.5 text-xs mb-2">
               <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> {warning}
+            </div>
+          )}
+          {hasSuggested && !suggesting && suggestions.length === 0 && !warning && !suggestError && (
+            <div className="bg-raised border border-line-subtle text-ink-soft" style={{ borderRadius:8, padding:"32px 20px", textAlign:"center", fontSize:12 }}>
+              No available slots found in this range. Try a wider date range or select different agents.
             </div>
           )}
           {suggestions.length > 0 && (

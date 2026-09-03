@@ -105,6 +105,36 @@ public static class WicLocationMatcher
             .Replace("Ã©", "é");
     }
 
+    // Strips umlauts to ASCII for user-query comparison.
+    // Input may already be NormalizeUmlauts-processed (ü→ue), but display names from the DB still have real umlauts.
+    public static string StripUmlauts(string s) =>
+        s.Replace("ä", "ae").Replace("Ä", "Ae")
+         .Replace("ö", "oe").Replace("Ö", "Oe")
+         .Replace("ü", "ue").Replace("Ü", "Ue")
+         .Replace("ß", "ss");
+
+    /// <summary>
+    /// Matches a user-typed query term (already NormalizeUmlauts-processed) against a WIC location DTO.
+    /// Normalises diacritics on both sides so "muenchen" hits "München",
+    /// "saarbruecken" hits "Saarbrücken", etc.
+    /// Checks DisplayName, City, LocationCode, and the alias map.
+    /// </summary>
+    public static bool MatchesQuery(string userTerm, string displayName, string? city, string locationCode)
+    {
+        if (string.IsNullOrWhiteSpace(userTerm)) return false;
+        var term = StripUmlauts(userTerm);
+        if (StripUmlauts(displayName).Contains(term, StringComparison.OrdinalIgnoreCase)) return true;
+        if (city != null && StripUmlauts(city).Contains(term, StringComparison.OrdinalIgnoreCase)) return true;
+        if (StripUmlauts(locationCode).Contains(term, StringComparison.OrdinalIgnoreCase)) return true;
+        // Alias map: find any key that contains the term and maps to this location's code.
+        foreach (var (key, code) in _aliases)
+        {
+            if (!StripUmlauts(key).Contains(term, StringComparison.OrdinalIgnoreCase)) continue;
+            if (string.Equals(code, locationCode, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// Matches WicShiftEntry.SupportLocation against a WicLocation.
     /// Checks DisplayName, City, and the alias map (against both LocationCode and LocationCodeLegacy).

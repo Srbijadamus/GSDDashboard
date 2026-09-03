@@ -82,6 +82,17 @@ interface WicCardDto {
   coveragePercent: number
 }
 
+interface WicConflictEntry {
+  entryId: number; supportLocation: string; locationCode: string
+  locationDisplayName: string; assignmentRole: string
+  openTime: string | null; closeTime: string | null
+}
+interface WicConflict {
+  employeeId: string; fullName: string | null; shiftDate: string
+  conflictType: string   // "OVERLAP" | "SPLIT_SHIFT" | "CLOSED_LOCATION"
+  locations: WicConflictEntry[]
+}
+
 // ── Color maps ────────────────────────────────────────────────────────────────
 
 // Leaflet marker colors come from statusColor() in lib/tokenColor — reads CSS custom properties at
@@ -570,6 +581,7 @@ export default function Overview() {
   const [showClosed, setShowClosed] = useState(false)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   // localStorage-persisted (VI) — was useState(false)
+  const [conflictsOpen, setConflictsOpen] = useState(false)
   const [showDetailGrid, setShowDetailGrid] = useState<boolean>(() => {
     try { return localStorage.getItem("gsd.overview.detail") === "true" } catch { return false }
   })
@@ -612,6 +624,13 @@ export default function Overview() {
     queryFn: () => apiFetch<WicCardDto[]>(`/api/wic/cards?date=${today}`),
     staleTime: 3 * 60 * 1000,
     enabled: showDetailGrid,
+  })
+
+  const conflictTo = (() => { const d = new Date(today); d.setDate(d.getDate() + horizon - 1); return d.toISOString().split("T")[0] })()
+  const { data: conflicts } = useQuery({
+    queryKey: ["wic-conflicts", today, horizon],
+    queryFn: () => apiFetch<WicConflict[]>(`/api/wic/conflicts?from=${today}&to=${conflictTo}`),
+    staleTime: 10 * 60 * 1000,
   })
 
   // ── KPI derivations ───────────────────────────────────────────────────────────
@@ -709,6 +728,94 @@ export default function Overview() {
             horizon={horizon}
           />
         </div>
+        {(() => {
+          const overlapList  = (conflicts ?? []).filter(c => c.conflictType === "OVERLAP")
+          const closedList   = (conflicts ?? []).filter(c => c.conflictType === "CLOSED_LOCATION")
+          const expandedList = conflictsOpen ? [...overlapList, ...closedList] : []
+          if (overlapList.length === 0 && closedList.length === 0) return null
+          return (
+            <div className="border-t border-line-subtle">
+              {/* OVERLAP banner */}
+              {overlapList.length > 0 && (
+                <button
+                  onClick={() => setConflictsOpen(v => !v)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8, width: "100%",
+                    background: STATUS_TOKEN_BG["PARTIAL"], border: "none",
+                    padding: "8px 14px", fontSize: 12, cursor: "pointer", textAlign: "left",
+                    color: STATUS_TOKEN_FG["PARTIAL"],
+                  }}
+                >
+                  <AlertTriangle size={13} style={{ flexShrink: 0 }} />
+                  <span style={{ fontWeight: 600 }}>
+                    {t("overview.conflicts.count", { count: overlapList.length })}
+                  </span>
+                </button>
+              )}
+              {/* CLOSED_LOCATION banner — separate, no fold toggle (shares the same expand state) */}
+              {closedList.length > 0 && (
+                <button
+                  onClick={() => setConflictsOpen(v => !v)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8, width: "100%",
+                    background: STATUS_TOKEN_BG["UNCOVERED"], border: "none",
+                    borderTop: overlapList.length > 0 ? `1px solid rgb(var(--st-crit-bd))` : "none",
+                    padding: "6px 14px", fontSize: 11, cursor: "pointer", textAlign: "left",
+                    color: STATUS_TOKEN_FG["UNCOVERED"],
+                  }}
+                >
+                  <AlertTriangle size={12} style={{ flexShrink: 0 }} />
+                  <span style={{ fontWeight: 600 }}>
+                    {t("overview.conflicts.closedCount", { count: closedList.length })}
+                  </span>
+                </button>
+              )}
+              {/* Expanded table — shows both types with type badge */}
+              {conflictsOpen && expandedList.length > 0 && (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "rgb(var(--text-secondary))", borderBottom: "1px solid rgb(var(--st-warn-bd))" }}>{t("overview.conflicts.agent")}</th>
+                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "rgb(var(--text-secondary))", borderBottom: "1px solid rgb(var(--st-warn-bd))" }}>{t("overview.conflicts.date")}</th>
+                        <th style={{ padding: "6px 14px", textAlign: "left", fontWeight: 600, color: "rgb(var(--text-secondary))", borderBottom: "1px solid rgb(var(--st-warn-bd))" }}>{t("overview.conflicts.locations")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {expandedList.map((c, i) => {
+                        const isClosed = c.conflictType === "CLOSED_LOCATION"
+                        const rowBg    = isClosed ? STATUS_TOKEN_BG["UNCOVERED"] : undefined
+                        return (
+                          <tr key={i} className="border-b border-line-subtle" style={{ background: rowBg }}>
+                            <td style={{ padding: "6px 14px", fontWeight: 500, color: isClosed ? STATUS_TOKEN_FG["UNCOVERED"] : undefined }}>{c.fullName ?? c.employeeId}</td>
+                            <td style={{ padding: "6px 14px", fontFamily: "monospace", color: isClosed ? STATUS_TOKEN_FG["UNCOVERED"] : undefined }}>{c.shiftDate}</td>
+                            <td style={{ padding: "6px 14px" }}>
+                              {c.locations.map((l, j) => {
+                                const hours = l.openTime ? ` ${l.openTime}–${l.closeTime}` : ""
+                                return (
+                                  <span key={j} style={{
+                                    display: "inline-block", marginRight: 5, marginBottom: 2,
+                                    padding: "1px 7px", borderRadius: 4, fontSize: 11, fontFamily: "monospace",
+                                    background: isClosed ? STATUS_TOKEN_BG["UNCOVERED"]
+                                      : l.assignmentRole === "NONE" ? "rgb(var(--bg-subtle))" : STATUS_TOKEN_BG["PARTIAL"],
+                                    color: isClosed ? STATUS_TOKEN_FG["UNCOVERED"]
+                                      : l.assignmentRole === "NONE" ? "rgb(var(--text-secondary))" : STATUS_TOKEN_FG["PARTIAL"],
+                                  }}>
+                                    {l.locationDisplayName}{hours}{l.assignmentRole !== "NONE" ? ` (${l.assignmentRole})` : ""}
+                                  </span>
+                                )
+                              })}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </Panel>
 
       {/* ── Recommendations ── */}

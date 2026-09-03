@@ -43,7 +43,11 @@ public class AvailabilityResolver
         if (sh == null) return 1.0; // no ShiftEntry → WIC-only agent, assume on duty
         if (FullAbsenceTypes.Contains(sh.ShiftType)) return 0.0;
         if (string.Equals(sh.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase)) return 0.5;
-        if (string.Equals(sh.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase)) return 1.0;
+        if (string.Equals(sh.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase))
+            // WIC_DUTY + GSD/Backlog AgentTask = agent is doing non-WIC work; introduced 2026-09-03 (223 hist. rows, 0 current)
+            return (string.Equals(sh.AgentTask, "GSD",     StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(sh.AgentTask, "Backlog", StringComparison.OrdinalIgnoreCase))
+                ? 0.0 : 1.0;
         return 0.0; // WORKING or other non-WIC type → agent is doing other work, not WIC duty
     }
 

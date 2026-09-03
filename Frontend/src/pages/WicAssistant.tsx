@@ -8,7 +8,7 @@ const nextId = () => ++_pid
 const WELCOME: ChatMessage = {
   id: nextId(),
   role: "assistant",
-  text: "Hello! I can answer questions about the GSD dashboard. Examples:\n• \"Who is on WIC leave next week?\"\n• \"Who is sick today?\"\n• \"Show AL balance\"\n• \"Show pipeline events\"\n• \"What training is scheduled?\"\n• \"Show dashboard summary today\"",
+  text: "Hello! I can answer questions about WorkForce Pulse. Examples:\n• \"Who is on WIC leave next week?\"\n• \"Who is sick today?\"\n• \"Show AL balance\"\n• \"Show pipeline events\"\n• \"What training is scheduled?\"\n• \"Show dashboard summary today\"",
 }
 
 export default function WicAssistant() {
@@ -56,7 +56,7 @@ export default function WicAssistant() {
           <Bot size={18} color="#fff" />
         </div>
         <div>
-          <h1 className="text-ink" style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>GSD Assistant</h1>
+          <h1 className="text-ink" style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Pulse Assistant</h1>
           <p className="text-ink-soft" style={{ margin: 0, fontSize: 12 }}>
             Ask questions about leave, sick, AL balance, pipeline, training, employees, WIC coverage — live data, EN or DE.
           </p>

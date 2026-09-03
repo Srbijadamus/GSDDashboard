@@ -24,7 +24,7 @@
     "alCalendar": "AL Calendar",
     "wicCoverage": "WIC Coverage",
     "wicAnnualLeave": "WIC Annual Leave",
-    "assistant": "GSD Assistant",
+    "assistant": "Pulse Assistant",
     "boList": "BO List",
     "bulkRtm": "Bulk RTM Entry",
     "collapseSidebar": "Collapse",
@@ -103,6 +103,15 @@
     },
     "coverageRisk": {
       "title": "Coverage Risk"
+    },
+    "conflicts": {
+      "count_one": "{{count}} conflicting assignment",
+      "count_other": "{{count}} conflicting assignments",
+      "closedCount_one": "{{count}} closed-day assignment",
+      "closedCount_other": "{{count}} closed-day assignments",
+      "agent": "Agent",
+      "date": "Date",
+      "locations": "Locations"
     },
     "grid": {
       "title": "Full coverage grid"
@@ -377,6 +386,11 @@
       "pipelineEvents": "Pipeline events",
       "eventsNeedAgents": "Events need agents",
       "trainingSlot": "Next training slot"
+    },
+    "coverage": {
+      "deficit_one": "−{{count}} agent",
+      "deficit_other": "−{{count}} agents",
+      "showingOf": "Showing {{shown}} of {{total}}"
     }
   }
 }

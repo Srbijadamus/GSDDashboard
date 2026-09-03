@@ -1,4 +1,4 @@
-# GSD Dashboard
+# WorkForce Pulse
 
 Internal workforce management dashboard for the **GSD DE (Global Service Desk Germany)** and **WIC (Workforce In Contact)** teams. Provides real-time visibility into shift schedules, WIC location coverage, attendance, sick leave, vacations, annual leave balances — with Excel export and an AI-assisted substitution engine.
 
@@ -12,7 +12,7 @@ Tunnels expire every 4 days and auto-restart via Task Scheduler.
 
 | Service | URL |
 |---------|-----|
-| GSD Dashboard | https://d2jn94qg-5000.euw.devtunnels.ms |
+| WorkForce Pulse | https://d2jn94qg-5000.euw.devtunnels.ms |
 | Kiosk | https://ssr7tm2l-8000.euw.devtunnels.ms |
 | Kiosk Dashboard | https://ssr7tm2l-8000.euw.devtunnels.ms/dashboard |
 

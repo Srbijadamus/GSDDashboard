@@ -1,4 +1,4 @@
-# GSD Dashboard + ShiftKiosk — Full Exhaustive Redesign Specification
+# WorkForce Pulse + ShiftKiosk — Full Exhaustive Redesign Specification
 
 > **Purpose:** This document is a complete, code-free specification for a redesigner.
 > Every screen, state, interaction, color, API call, validation, and edge case is
@@ -34,7 +34,7 @@
 - [B16. Employees (`/employees`)](#b16-employees)
 - [B17. WIC Coverage (`/wic-coverage`)](#b17-wic-coverage)
 - [B18. WIC Annual Leave (`/wic-al`)](#b18-wic-annual-leave)
-- [B19. GSD Assistant (`/assistant`)](#b19-gsd-assistant)
+- [B19. Pulse Assistant (`/assistant`)](#b19-pulse-assistant)
 - [B20. BO Liste (`/bo-list`)](#b20-bo-liste)
 - [B21. Bulk RTM Entry (`/bulk-rtm`)](#b21-bulk-rtm-entry)
 
@@ -101,7 +101,7 @@
 ┌──────────────────────────────────────────────────────────────────┐
 │ SIDEBAR (200px fixed, var(--sidebar) bg)                         │
 │  ┌ Logo chip "GSD" (accent bg, white text, IBM Plex Mono)        │
-│  │ "EON GSD Dashboard" label (12px bold)                         │
+│  │ "EON GSD Dashboard" label (12px bold) [pre-redesign]          │
 │  ├─────────────────────────────────────────────────────────────  │
 │  │ nav items (scroll if overflow)                                 │
 │  │  • Active item: accent color text, left 2px accent border,    │
@@ -111,7 +111,7 @@
 │  └─────────────────────────────────────────────────────────────  │
 ├──────────────────────────────────────────────────────────────────│
 │ TOPBAR (padding 10px 20px, sidebar bg, border-bottom)            │
-│  Left: "EON GSD Dashboard" (13px bold)                           │
+│  Left: "EON GSD Dashboard" (13px bold) [pre-redesign]                           │
 │  Right (flex row, gap 10):                                        │
 │    • Today's date (de-DE format: DD.MM.YYYY, 11px mono, text3)   │
 │    • Horizon toggle "7T" / "14T" — ONLY shown on Overview (/)    │
@@ -147,7 +147,7 @@
 | 16 | Employees | Mitarbeiter | `/employees` | Users |
 | 17 | WIC Coverage | WIC Coverage | `/wic-coverage` | ShieldCheck |
 | 18 | WIC Annual Leave | WIC Annual Leave | `/wic-al` | CalendarOff |
-| 19 | GSD Assistant | GSD Assistant | `/assistant` | Bot |
+| 19 | Pulse Assistant | Pulse Assistant | `/assistant` | Bot |
 | 20 | BO Liste | BO Liste | `/bo-list` | ListChecks |
 | 21 | Bulk RTM Entry | Bulk RTM Entry | `/bulk-rtm` | FileText |
 
@@ -1871,7 +1871,7 @@ Fixed window: today through today+13 (14 calendar days).
 
 ---
 
-## B19. GSD Assistant
+## B19. Pulse Assistant
 
 **File:** `Frontend/src/pages/WicAssistant.tsx` (96 lines); mounts `ChatPanel` from `WicChatWidget`  
 **Route:** `/assistant`  
@@ -1882,7 +1882,7 @@ Fixed window: today through today+13 (14 calendar days).
 Full-page card:
 
 ```
-[Bot icon] GSD Assistant         [header]
+[Bot icon] Pulse Assistant       [header]
 ─────────────────────────────────────────
 [Chat history area]              [scrolls]
 ─────────────────────────────────────────

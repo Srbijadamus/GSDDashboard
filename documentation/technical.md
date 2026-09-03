@@ -1,4 +1,16 @@
-# GSD Dashboard — Technical Documentation
+# WorkForce Pulse — Technical Documentation
+
+---
+
+## Naming
+
+The product name is **WorkForce Pulse**. Infrastructure names remain `GSDDashboard` — path `C:\GSDDashboard`, database `GSDDashboard`, scheduled task `GSDDashboard-Backend`, namespace `GSDDashboard.API`, repository, tunnel URLs. **This mismatch is intentional.** Renaming the infrastructure breaks the deploy chain and tunnels. Do not "align" them.
+
+The assistant is named **Pulse Assistant**. The route remains `/assistant`.
+
+`GSD` as a business domain term remains untouched: `GSD backlog`, `GSD duty`, `Global Service Desk`, `IsGSDDay`, `AgentTask = 'GSD'`, column names and enum values. This is a domain term, not a brand.
+
+---
 
 ## Technology Stack
 
@@ -128,7 +140,7 @@ Catch `Exception`, not `DbUpdateException` — the strategy conflict exception i
 | `ShiftValidationService` | Scoped | Validates shift changes against German labour law rules |
 | `AvailabilityResolver` | Scoped | Canonical absence resolver; SickLeaves take priority over ShiftEntries |
 | `WicShiftService` | Scoped | WIC-specific shifts, on-site vs. office, assignment management |
-| `WicCardsService` | Scoped | Per-location coverage status cards via CoverageCalculator |
+| `WicCardsService` | Scoped | Per-location coverage status cards via CoverageCalculator. Uses `Vacations` table for AL detection (not `ShiftEntries.ShiftType`). See **Vacations / AL ShiftEntries divergence** note below. |
 | `CoverageEvaluator` | Scoped | Canonical COVERED/PARTIAL/UNCOVERED/CLOSED classifier |
 | `ReachabilityService` | **Singleton** | Haversine matrix, 4h TTL cache, `IServiceScopeFactory` |
 | `SubstitutionService` | Scoped | 4-tier ranked substitute engine. Section (A) includes both `BACKUP` and `REGIONAL` assignment types from `WicAgentAssignments`. `sourceType` field in candidates reflects which type the agent holds. |
@@ -139,8 +151,9 @@ Catch `Exception`, not `DbUpdateException` — the strategy conflict exception i
 | `ALPlanningService` | Scoped | AL planning per WIC location |
 | `VwicService` | Scoped | Virtual WIC coverage 07-18; rotation plan generator |
 | `BreakService` | Scoped | Voice-agent break scheduling, auto-distribution, VWIC-aware |
-| `WicCoverageService` | Scoped | Agent and WIC coverage plan management |
+| `WicCoverageService` | Scoped | Agent and WIC coverage plan management — serves `/api/wic-coverage/*`; static MAIN/BACKUP/REGIONAL directory only, **no date parameter, no COVERED/PARTIAL/UNCOVERED computation** |
 | `WicCoverageImport` | Static | One-time startup seeder (skips if AgentReachableCities non-empty) |
+| `WicConflictDetector` | Scoped | Detects agents assigned to multiple WIC locations on the same day. Reports-only (never writes). Three conflict types: `OVERLAP` (hours overlap → real conflict), `SPLIT_SHIFT` (non-overlapping hours, e.g. Demmin dual-location — intentional design, hidden by default), `CLOSED_LOCATION` (agent on-site at a location closed that day). |
 | `SickLeaveService` | Scoped | Sick leave records, stats, create/patch/delete, ShiftSync, Excel |
 | `VacationService` | Scoped | Vacation records, Excel export |
 | `ALBalanceService` | Scoped | AL balance |
@@ -157,6 +170,23 @@ Catch `Exception`, not `DbUpdateException` — the strategy conflict exception i
 | `CoverageCalculator` | Static | Minute-based coverage overlap (dual open blocks) |
 
 **Rule:** No service may contain its own `COVERED/PARTIAL/UNCOVERED/CLOSED` if-else chain. All coverage classification goes through `CoverageEvaluator`.
+
+### Three WIC Coverage Sources
+
+Three distinct services compute WIC coverage. They use different absence signals and serve different purposes:
+
+| Service | Absence signal | Date scope | COVERED/PARTIAL/UNCOVERED? | Notes |
+|---------|---------------|-----------|---------------------------|-------|
+| `ForecastService` | `ShiftEntries.ShiftType` (AL, SL, etc.) via `GetWicContribution` | Multi-day forecast | Yes — via `CoverageEvaluator` | Authoritative for risk forecasting. Reads `WicOpeningHours` at load (L62) — closed days return `IsAtRisk=false`, skipped entirely. Verified correct 2026-09-03: 190 at-risk on open days, 0 on closed days. |
+| `OverviewService` | `ShiftEntries.ShiftType` via `GetAbsentIdsAsync` pre-filter | Today snapshot | Yes — via `CoverageEvaluator` | Feeds the Overview page daily KPIs. |
+| `WicCardsService` | `Vacations` table (FirstDay ≤ date ≤ LastDay, no status filter) + `SickLeaves` | Single date | Yes — via `CoverageCalculator` (minute-based) | Feeds `/api/dashboard/wic-cards`. Uses Vacations for AL detection — diverges from ShiftEntries. 72 vacation rows in 2026-06-01–2026-12-31 have no matching AL ShiftEntry; 8 AL ShiftEntries have no matching Vacation. Impact on WIC on-site agents for specific dates is zero for 2026-09-08/2026-09-15. |
+| `WicCoverageService` | None | No date | Static roles only | Serves `/api/wic-coverage/*`. Returns MAIN/BACKUP/REGIONAL assignment directory. **Never** computes COVERED/PARTIAL/UNCOVERED. |
+
+### Vacations / AL ShiftEntries divergence
+
+`Vacations` and AL `ShiftEntries` are separate imports and are not auto-synced. Checked 2026-09-03 for Jun–Dec 2026: 72 `Vacations` rows without a matching AL `ShiftEntry`, 8 in the reverse direction. `WicCardsService` reads `Vacations`; `OverviewService` and `ForecastService` do not. Operational impact on WIC coverage verified as zero for the tested dates — no affected agent had `IsOnSite=1` on 2026-09-08 or 2026-09-15. Accepted as known divergence, not fixed. Re-check if the WIC roster grows.
+
+`Vacations.ApprovedDenied` (actual column name — **not** `ApprovalStatus`) is always `NULL` in current data. No approval filtering is applied anywhere. `WicCardsService` loads all `Vacations` rows unconditionally.
 
 ---
 
@@ -195,6 +225,8 @@ These two tables are separate and have no foreign key or cascade relationship. T
 
 **Double-encoding artifacts in `SupportLocation`** — historical import rows sometimes contain Windows-1252 mis-decoded UTF-8 sequences (e.g. `MÃ¼nchen` instead of `München`). `WicLocationMatcher.RepairDoubleEncoding()` corrects these at query time; they have no effect on coverage. The June 2026 batch cleanup removed 41 duplicate rows and renamed the remaining 50 oştećene values in place.
 
+**Demmin dual-location (intentional design):** Demmin has two physical locations — *Am Hanseufer* (Mon/Wed 08:00-15:00, Tue/Thu 10:00-12:00) and *Woldeforster Str.* (Tue/Thu 13:00-15:00). A single MAIN agent covers both sequentially on Tue/Thu with no overlap. This creates two `WicShiftEntries` rows for the same `(EmployeeId, ShiftDate)` resolving to two distinct `LocationCode` values. `WicConflictDetector` classifies this as `SPLIT_SHIFT` (hidden by default) — not `OVERLAP`. Do not treat as a data quality issue.
+
 **`SupportLocation = 'VWIC'`** — agent was assigned to Virtual WIC (remote phone coverage) on that day, not a physical WIC site. `IsOnSite=1` is correct. `WicLocationMatcher` intentionally does not map this value, so these rows never enter coverage calculations. Do not delete — they are valid historical schedule records. Currently 8 rows. Note: these rows are not synchronised with `VwicRotationSlots`; the Excel-import VWIC schedule and the in-app VWIC rotation plan are separate systems with no shared data.
 
 ### Known Artifacts
@@ -226,7 +258,7 @@ These two tables are separate and have no foreign key or cascade relationship. T
 | `WicPipelineItems` | Id, PipelineDate, PipelineDateEnd, Title, Description, PrimaryAgent, BackupAgent, AdditionalAgentsNeeded, HandledBy, CreatedBy, CreatedAt, Status, StartTime, EndTime, AgentsRequired | Pipeline events |
 | `DailyAttendance` | LocationCode, Date, Status | assigned / WO / closed / PH |
 | `SickLeaves` | EmployeeId, FirstDay, LastDay, LeaveType, DurationDays, ChildName, Comments, SourceSheet | **FirstDay/LastDay** (NOT StartDate/EndDate) |
-| `Vacations` | EmployeeId, FirstDay, LastDay, ApprovalStatus, DurationDays | **FirstDay/LastDay** (NOT StartDate/EndDate) |
+| `Vacations` | EmployeeId, FirstDay, LastDay, WorkDaysNet, ApprovedDenied, ApproverName, ApproverDate, Comments, SourceYear, SourceSheet | **FirstDay/LastDay** (NOT StartDate/EndDate). `ApprovedDenied` is always NULL in current data — no approval filtering is applied. |
 | `ALBalance` | EmployeeId, EmployeeName, EligibleDays, PlannedTakenAL, RemainingAL, CountSL, CountUL, CountWorkingSundays, CountFreeSundays | `PlannedTakenAL` and `RemainingAL` are `DECIMAL(10,1)` — allows half-day values (e.g. 14.5). ALTERed from `int` at startup if the column is still `int`. |
 | `PublicHolidays` | HolidayDate, Name, Bundesland, IsNational | IsNational=true for federal holidays |
 | `TrainingTopics` / `TrainingSessions` | Topic metadata and session assignments | — |
@@ -240,6 +272,7 @@ These two tables are separate and have no foreign key or cascade relationship. T
 
 - `SickLeaves` uses `FirstDay` / `LastDay` — do NOT use `StartDate` / `EndDate`
 - `Vacations` uses `FirstDay` / `LastDay` — do NOT use `StartDate` / `EndDate`
+- `Vacations.ApprovedDenied` is always NULL — do NOT filter on it; use it only to confirm no approval gate exists
 - `WicOpeningHours.DayOfWeek` = .NET convention (0=Sun, 1=Mon ... 6=Sat)
 - `WicAgentAssignments.LocationCode` uses old-style codes (`DE_Dortmund`); `WicLocations.LocationCodeLegacy` maps to them
 - `WicLocations.LocationCode` uses new tilde-style codes (`DE~44139~Dortmund~Str.`)
@@ -297,6 +330,7 @@ All routes registered in `Program.cs` (Minimal API syntax).
 | GET | `/api/wic/reachability/sanity` | Berlin to Munich ~504 km sanity check |
 | GET | `/api/wic/schedule` | WIC opening hours |
 | POST | `/api/wic/al-planning` | AL planning for a WIC location and date range |
+| GET | `/api/wic/conflicts?from=&to=&includeSplitShifts=` | Agents with conflicting WIC assignments. `includeSplitShifts=false` (default) returns only `OVERLAP` and `CLOSED_LOCATION`. `includeSplitShifts=true` also returns `SPLIT_SHIFT` (Demmin-style complementary schedules). Reports only — no data is mutated. |
 
 ### Overview
 
@@ -482,6 +516,10 @@ CSS custom properties in `index.css`. `:root` = light, `.dark` = dark (navy pale
 | `--status-closed` | slate | slate |
 
 Leaflet cannot use CSS variables in canvas/SVG — `STATUS_HEX` in `Overview.tsx` holds hardcoded hex values for map pins. This is intentional.
+
+`favicon.svg` uses the hardcoded hex `#007CC3` (Infosys blue). This is intentional — SVG files cannot reference CSS custom properties. This hex appears only in `Frontend/public/favicon.svg` and nowhere in the app UI.
+
+**`--brand-accent` token rule:** `--brand-accent` (`#007CC3`, Infosys blue) is for brand identity only — the sidebar logo mark and the favicon. Never for status indicators, interactive controls, or data visualisation. It remains separate from `--st-info-*` even though the hues are close: `info` semantically means AL/informational status; `--brand-accent` means only "this is the application". If they ever diverge in value, that divergence is intentional.
 
 ### API Client (src/api/client.ts)
 

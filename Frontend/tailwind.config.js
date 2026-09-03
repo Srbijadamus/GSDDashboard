@@ -21,6 +21,7 @@ export default {
         action:    { DEFAULT: rgb('--action-solid'), hover: rgb('--action-solid-hover'), fg: rgb('--action-fg') },
         focusring: rgb('--focus-ring'),
         eon:       { DEFAULT: rgb('--brand-eon'), fg: rgb('--brand-eon-ink') },
+        accent:    rgb('--brand-accent'),
         good:      { fg: rgb('--st-good-fg'),    bg: rgb('--st-good-bg'),    bd: rgb('--st-good-bd'),    solid: rgb('--st-good-solid'),    mid: rgb('--st-good-mid') },
         warn:      { fg: rgb('--st-warn-fg'),    bg: rgb('--st-warn-bg'),    bd: rgb('--st-warn-bd'),    solid: rgb('--st-warn-solid'),    mid: rgb('--st-warn-mid') },
         crit:      { fg: rgb('--st-crit-fg'),    bg: rgb('--st-crit-bg'),    bd: rgb('--st-crit-bd'),    solid: rgb('--st-crit-solid'),    mid: rgb('--st-crit-mid') },
