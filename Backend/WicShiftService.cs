@@ -47,6 +47,8 @@ public record CreateAssignmentRequest(
     string? ShiftEnd
 );
 
+public record MoveToGsdRequest(string EmployeeId, string Date);
+
 public record WicOpenIntervalDto(string OpenTime, string CloseTime);
 
 public record WicDayStatusDto(
@@ -712,6 +714,7 @@ public static class WicEndpointMapper
                 existingForLoc.WorkingShift = $"{openTime}-{closeTime}";
                 existingForLoc.LocationCode = req.LocationCode;
                 existingForLoc.IsOnSite     = true;
+                existingForLoc.IsGSDDay     = false;
                 existingForLoc.Task         = "WIC";
             }
             else
@@ -757,6 +760,76 @@ public static class WicEndpointMapper
                 displayName  = location.DisplayName,
                 date         = date.ToString("yyyy-MM-dd"),
                 nppWarning,
+            });
+        });
+
+        grp.MapPost("/move-to-gsd", async (MoveToGsdRequest req, GSDContext db, ILogger<WicShiftService> logger) =>
+        {
+            if (string.IsNullOrWhiteSpace(req.EmployeeId))
+                return Results.BadRequest(new { error = "EmployeeId is required." });
+            if (!DateOnly.TryParse(req.Date, out var date))
+                return Results.BadRequest(new { error = "Invalid date format. Expected yyyy-MM-dd." });
+
+            var employee = await db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId);
+            if (employee == null)
+                return Results.NotFound(new { error = $"Employee '{req.EmployeeId}' not found." });
+
+            IResult? errorResult = null;
+            var strategy = db.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+                try
+                {
+                    var shift = await db.ShiftEntries
+                        .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+                    if (shift != null)
+                    {
+                        shift.ShiftType    = ShiftTypes.Working;
+                        shift.AgentTask    = "GSD";
+                        shift.IsWicDuty    = false;
+                        shift.SourceModule = "MOVE_TO_GSD";
+                    }
+                    else
+                    {
+                        db.ShiftEntries.Add(new ShiftEntry
+                        {
+                            EmployeeId   = req.EmployeeId,
+                            ShiftDate    = date,
+                            ShiftType    = ShiftTypes.Working,
+                            AgentTask    = "GSD",
+                            IsWicDuty    = false,
+                            SourceSheet  = "MOVE_TO_GSD",
+                            SourceModule = "MOVE_TO_GSD",
+                        });
+                    }
+
+                    var wicEntries = await db.WicShiftEntries
+                        .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date && w.IsOnSite)
+                        .ToListAsync();
+                    foreach (var w in wicEntries)
+                    {
+                        w.IsOnSite = false;
+                        w.IsGSDDay = true;
+                    }
+
+                    await db.SaveChangesAsync();
+                    await tx.CommitAsync();
+                }
+                catch (Exception ex)
+                {
+                    await tx.RollbackAsync();
+                    logger.LogError(ex, "Move to GSD failed");
+                    errorResult = Results.Conflict(new { error = "Operation failed" });
+                }
+            });
+            if (errorResult != null) return errorResult;
+
+            return Results.Ok(new
+            {
+                success      = true,
+                employeeName = employee.FullName ?? req.EmployeeId,
+                date         = date.ToString("yyyy-MM-dd"),
             });
         });
     }

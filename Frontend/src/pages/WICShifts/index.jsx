@@ -36,19 +36,23 @@ export default function WICShifts() {
       const cards = await cardsRes.json()
       const shifts = await shiftsRes.json()
 
+      const ABSENT_TYPES = ['SL','AL','UL','OL','PH','LPH','RESIGNED','OFF','OFF_WEEKEND']
       const agentsByLoc = {}
       shifts.forEach(s => {
         if (!s.supportLocation) return
-        const isSpecial = ['SL','AL','Training','OFF','PH'].includes(s.task)
-        if (!s.isOnSite && !isSpecial) return
+        if (!s.isOnSite) return
         if (!agentsByLoc[s.supportLocation]) agentsByLoc[s.supportLocation] = []
+        const absent = ABSENT_TYPES.includes(s.agentStatus) ||
+          (s.agentStatus === 'WORKING' && (s.task === 'GSD' || s.task === 'Backlog'))
         agentsByLoc[s.supportLocation].push({
           id: s.id,
+          employeeId: s.employeeId ?? null,
           name: s.fullName ?? s.employeeId,
           role: "primary",
           time: s.workingShift ?? null,
-          al: s.task === 'AL',
-          agentStatus: s.task === 'AL' ? 'AL' : s.task === 'SL' ? 'SL' : s.task === 'Training' ? 'Training' : s.task === 'OFF' ? 'OFF' : s.task === 'PH' ? 'PH' : s.isOffDay ? 'OFF' : null,
+          al: s.agentStatus === 'AL',
+          agentStatus: absent ? (s.agentStatus || s.task || 'OFF') : null,
+          absent,
           assignedTo: s.supportLocation
         })
       })
@@ -60,6 +64,7 @@ export default function WICShifts() {
           const shiftAgents = agentsByLoc[c.displayName] ?? []
           const cardAgents = (c.assignedAgents ?? []).map(a => ({
             id: a.employeeId ?? a.name,
+            employeeId: a.employeeId ?? null,
             name: a.name,
             role: a.isMain ? 'primary' : 'backup',
             time: a.shiftStart === 'SICK' ? null : (a.shiftStart && a.shiftEnd ? a.shiftStart + ' - ' + a.shiftEnd : null),
@@ -183,12 +188,13 @@ export default function WICShifts() {
         {filtered.map(loc => (
           <LocationCard key={loc.id} location={loc}
             onAgentClick={agent => setModalAgent({ agent, currentLocation: loc.name })}
-            onDrop={handleDrop} dragAgent={dragAgent} setDragAgent={setDragAgent} />
+            onDrop={handleDrop} dragAgent={dragAgent} setDragAgent={setDragAgent}
+            onActionSuccess={fetchData} shiftDate={today} />
         ))}
       </div>
       {modalAgent && (
         <ReassignModal agent={modalAgent.agent} currentLocation={modalAgent.currentLocation}
-          locations={locations} onSave={handleReassign} onClose={() => setModalAgent(null)} />
+          locations={locations} onSave={handleReassign} onClose={() => setModalAgent(null)} shiftDate={today} />
       )}
       <NewShiftModal isOpen={newShiftOpen} onClose={() => setNewShiftOpen(false)} onSuccess={fetchData} />
       <AvailableHoursPanel />

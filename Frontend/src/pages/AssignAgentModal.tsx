@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Users, AlertTriangle } from "lucide-react"
 import { NppBadge } from "../components/NppBadge"
+import { MoveToGsdBacklogAction } from "../components/MoveToGsdBacklogAction"
+import { SearchableSelect } from "../components/SearchableSelect"
 import { apiFetch } from "../api/client"
 
 interface Employee {
@@ -65,6 +67,8 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
   const [nppWarn, setNppWarn]             = useState<string | null>(null)
   const [error, setError]                 = useState<string | null>(null)
   const [closedDay, setClosedDay]         = useState(false)
+  const [uncoveredWarn, setUncoveredWarn] = useState<{ agent: string; location: string; date: string } | null>(null)
+  const pendingProceed                    = useRef<(() => Promise<void>) | null>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -80,6 +84,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
       setError(null)
       setProgress(null)
       setClosedDay(false)
+      setUncoveredWarn(null)
     }
   }, [isOpen, defaultLocationCode, defaultDate])
 
@@ -94,10 +99,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
     queryKey: ["wic-locations"],
     queryFn: () =>
       fetch("/api/wic/locations")
-        .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() })
-        .then((rows: { locationCode: string; displayName: string }[]) =>
-          rows.map(r => ({ locationCode: r.locationCode, displayName: r.displayName }))
-        ),
+        .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
     staleTime: 10 * 60 * 1000,
     enabled: isOpen,
   })
@@ -141,14 +143,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
     marginTop: 4,
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!employeeId || !locationCode || dates.length === 0) return
-    setSubmitting(true)
-    setError(null)
-    setSuccess(null)
-    setNppWarn(null)
-
+  const proceedWithAssignment = async () => {
     let lastDisplayName = ""
     let failed = 0
     let skipped = 0
@@ -202,9 +197,48 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
     }
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!employeeId || !locationCode || dates.length === 0) return
+    setSubmitting(true)
+    setError(null)
+    setSuccess(null)
+    setNppWarn(null)
+
+    // Check if moving leaves source location uncovered
+    const agentsRes = await fetch(`/api/wic/cards?date=${dateFrom}`)
+    if (agentsRes.ok) {
+      const cards: any[] = await agentsRes.json()
+      const sourceCard = cards.find((c: any) =>
+        c.assignedAgents?.some((a: any) => a.employeeId === employeeId)
+      )
+      if (sourceCard && sourceCard.locationCode !== locationCode) {
+        const otherAgents = (sourceCard.assignedAgents ?? []).filter(
+          (a: any) => a.employeeId !== employeeId &&
+          a.coverageMatch !== "NONE" &&
+          a.shiftStart !== "SICK" && a.shiftStart !== "AL"
+        )
+        if (otherAgents.length === 0) {
+          const emp = employees.find(e => e.employeeId === employeeId)
+          pendingProceed.current = proceedWithAssignment
+          setUncoveredWarn({
+            agent: emp?.fullName ?? employeeId,
+            location: sourceCard.displayName,
+            date: dateFrom
+          })
+          setSubmitting(false)
+          return
+        }
+      }
+    }
+
+    await proceedWithAssignment()
+  }
+
   if (!isOpen) return null
 
   return (
+    <>
     <div
       style={{
         position: "fixed", inset: 0, zIndex: 1000,
@@ -268,12 +302,15 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
             {p("employee")}
-            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} required className={inputCls} style={inputStyle}>
-              <option value="">{p("selectEmployee")}</option>
-              {employees.map(e => (
-                <option key={e.employeeId} value={e.employeeId}>{e.fullName ?? e.employeeId}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              options={employees.map(e => ({ value: e.employeeId, label: e.fullName ?? e.employeeId }))}
+              value={employeeId}
+              onChange={setEmployeeId}
+              placeholder={p("selectEmployee")}
+              required
+              className={inputCls}
+              style={inputStyle}
+            />
           </label>
 
           <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
@@ -404,7 +441,81 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
             </button>
           </div>
         </form>
+
+        {/* Move to GSD section */}
+        {employeeId && dateFrom && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 0" }}>
+              <div style={{ flex: 1, height: 1, background: "rgb(var(--line-subtle))" }} />
+              <span className="text-ink-soft" style={{ fontSize: 11 }}>or</span>
+              <div style={{ flex: 1, height: 1, background: "rgb(var(--line-subtle))" }} />
+            </div>
+            <MoveToGsdBacklogAction
+              employeeId={employeeId}
+              agentName={employees.find(e => e.employeeId === employeeId)?.fullName ?? employeeId}
+              shiftDate={dateFrom}
+              onSuccess={() => {
+                setSuccess(String(t("wicShifts.moveToBacklog.success", { agent: employees.find(e => e.employeeId === employeeId)?.fullName ?? employeeId })))
+                setTimeout(() => { setSuccess(null); onClose() }, 1800)
+              }}
+            >
+              {({ onClick, isPending }) => (
+                <button
+                  type="button"
+                  onClick={onClick}
+                  disabled={isPending}
+                  className="bg-transparent border border-warn-bd text-warn-fg"
+                  style={{
+                    width: "100%", borderRadius: 6, padding: "8px 0", fontSize: 12,
+                    cursor: isPending ? "not-allowed" : "pointer",
+                    opacity: isPending ? 0.6 : 1,
+                  }}
+                >
+                  {isPending ? t("wicShifts.moveToBacklog.moving") as string : t("wicShifts.moveToBacklog.button") as string}
+                </button>
+              )}
+            </MoveToGsdBacklogAction>
+          </>
+        )}
       </div>
     </div>
+    {uncoveredWarn && (
+      <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="bg-raised border border-warn-bd" style={{ borderRadius: 12, padding: 24, width: 400, maxWidth: "90vw" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            <AlertTriangle size={16} className="text-warn-fg" />
+            <span className="text-ink" style={{ fontWeight: 600, fontSize: 14 }}>
+              Location will be uncovered / Standort bleibt unbesetzt
+            </span>
+          </div>
+          <p className="text-ink-muted" style={{ fontSize: 13, marginBottom: 20 }}>
+            Moving <strong className="text-ink">{uncoveredWarn.agent}</strong> leaves{" "}
+            <strong className="text-ink">{uncoveredWarn.location}</strong> uncovered on{" "}
+            <strong className="text-ink font-mono">{uncoveredWarn.date}</strong>.
+            <br />
+            Das Verschieben von <strong className="text-ink">{uncoveredWarn.agent}</strong> lässt{" "}
+            <strong className="text-ink">{uncoveredWarn.location}</strong> am{" "}
+            <strong className="text-ink font-mono">{uncoveredWarn.date}</strong> unbesetzt.
+          </p>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={() => setUncoveredWarn(null)}
+              className="bg-info-solid"
+              style={{ flex: 2, border: "none", color: "#fff", borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+            >
+              Cancel / Abbrechen
+            </button>
+            <button
+              onClick={() => { setUncoveredWarn(null); pendingProceed.current?.() }}
+              className="bg-transparent border border-warn-bd text-warn-fg"
+              style={{ flex: 1, borderRadius: 6, padding: "8px 0", fontSize: 12, cursor: "pointer" }}
+            >
+              Move anyway / Trotzdem verschieben
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

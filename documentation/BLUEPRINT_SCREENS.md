@@ -373,12 +373,14 @@ Employee directory with create/edit/delete.
 
 ---
 
-## 17. WIC Coverage
+## 17. WIC Assignments
 
 **Route:** `/wic-coverage`
 **File:** `src/pages/WicCoverage.tsx`
 
-Coverage assignment management. Shows MAIN/BACKUP_A/BACKUP_B agents per WIC, with the What-If scenario tool and substitution finder.
+Static assignment directory for WIC agents. Shows each WIC location's Main, BackupA, BackupB, and BackupC agent assignments. Supports patching agent attributes (HasCar, GroupRegion) and pinning a BackupB agent to a formal BACKUP assignment. This is not a daily coverage status page — it shows the standing assignment structure only.
+
+> **Display name changed 2026-09-03:** "WIC Coverage" → "WIC Assignments" (EN) / "WIC-Zuweisungen" (DE). Route `/wic-coverage` is intentionally preserved.
 
 **Main API calls:**
 - `GET /api/wic/forecast?horizon=28` → `ForecastResponse`

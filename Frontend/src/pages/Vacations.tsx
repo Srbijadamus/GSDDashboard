@@ -504,6 +504,9 @@ export default function Vacations() {
   const [error, setError]           = useState("")
   const [expanded, setExpanded]     = useState<Set<string>>(new Set())
   const [historyAgent, setHistoryAgent] = useState<{ id: string; name: string } | null>(null)
+  const [nameSearch, setNameSearch] = useState("")
+  const [sortKey, setSortKey] = useState<"name" | "teamLead" | "periodCount" | "totalDays" | "nextVacation" | null>(null)
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
 
   const todayStr = new Date().toISOString().slice(0, 10)
 
@@ -543,6 +546,27 @@ export default function Vacations() {
         (a.teamLead || "￿").localeCompare(b.teamLead || "￿") || a.name.localeCompare(b.name)
       )
   }, [data, todayStr])
+
+  const toggleSort = (key: typeof sortKey) => {
+    if (!key) return
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc")
+    else { setSortKey(key); setSortDir("asc") }
+  }
+
+  const visibleGrouped = useMemo(() => {
+    const filtered = nameSearch
+      ? grouped.filter(g => g.name.toLowerCase().includes(nameSearch.toLowerCase()))
+      : grouped
+    if (!sortKey) return filtered
+    const sorted = [...filtered].sort((a, b) => {
+      const va = a[sortKey], vb = b[sortKey]
+      const cmp = typeof va === "number" && typeof vb === "number"
+        ? va - vb
+        : String(va ?? "").localeCompare(String(vb ?? ""))
+      return sortDir === "asc" ? cmp : -cmp
+    })
+    return sorted
+  }, [grouped, nameSearch, sortKey, sortDir])
 
   const toggleExpand = (empId: string) => {
     setExpanded(prev => {
@@ -673,6 +697,9 @@ export default function Vacations() {
               <option value="Agents">Agents</option>
               <option value="Overhead">Overhead</option>
             </select>
+            <input placeholder="Search agent..." value={nameSearch} onChange={e => setNameSearch(e.target.value)}
+              style={{ padding: "7px 12px", borderRadius: 6, fontSize: 12, outline: "none", width: 200 }}
+              className="bg-raised border border-line-subtle text-ink" />
           </div>
 
           <div className="bg-raised border border-line-subtle" style={{ borderRadius:8, overflow:"hidden" }}>
@@ -680,11 +707,18 @@ export default function Vacations() {
               padding:"9px 12px",
               fontSize:10, fontWeight:500, textTransform:"uppercase", letterSpacing:".07em" }}>
               <div/>
-              <div>Name</div>
-              <div>Team Lead</div>
-              <div style={{ textAlign:"center" }}>Periods</div>
-              <div style={{ textAlign:"center" }}>Days</div>
-              <div>Next Vacation</div>
+              {([
+                { label: "Name", key: "name" as const },
+                { label: "Team Lead", key: "teamLead" as const },
+                { label: "Periods", key: "periodCount" as const, center: true },
+                { label: "Days", key: "totalDays" as const, center: true },
+                { label: "Next Vacation", key: "nextVacation" as const },
+              ]).map(col => (
+                <div key={col.label} onClick={() => toggleSort(col.key)}
+                  style={{ cursor: "pointer", userSelect: "none", textAlign: col.center ? "center" : "left" }}>
+                  {col.label}{sortKey === col.key && (sortDir === "asc" ? " ▲" : " ▼")}
+                </div>
+              ))}
             </div>
 
             {isLoading && Array.from({length: 8}).map((_, i) => (
@@ -693,7 +727,7 @@ export default function Vacations() {
               </div>
             ))}
 
-            {grouped.map(grp => {
+            {visibleGrouped.map(grp => {
               const isOpen = expanded.has(grp.empId)
               return (
                 <div key={grp.empId} className="border-b border-line-subtle">
@@ -762,7 +796,7 @@ export default function Vacations() {
             })}
 
             <div className="font-mono text-ink-soft border-t border-line-subtle" style={{ padding:"8px 12px", fontSize:11 }}>
-              {grouped.length} employees · {(data as any[])?.length ?? 0} periods
+              {visibleGrouped.length} employees{nameSearch ? ` (of ${grouped.length})` : ""} · {(data as any[])?.length ?? 0} periods
             </div>
           </div>
         </>

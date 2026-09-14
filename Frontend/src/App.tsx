@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { AppShell } from "./layout/AppShell"
 import Overview from "./pages/Overview"
+import { OverviewErrorBoundary } from "./components/OverviewErrorBoundary"
 import Employees from "./pages/Employees"
 import SickLeave from "./pages/SickLeave"
 import Vacations from "./pages/Vacations"
@@ -24,18 +25,19 @@ import BoList from "./pages/BoList"
 import WicAnnualLeave from "./pages/WicAnnualLeave"
 import BulkRtm from "./pages/BulkRtm"
 import WicAssistant from "./pages/WicAssistant"
+import Export from "./pages/Export"
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route element={<AppShell />}>
-          <Route index element={<Overview />} />
+          <Route index element={<OverviewErrorBoundary><Overview /></OverviewErrorBoundary>} />
           <Route path="/shifts"          element={<Shifts />} />
           <Route path="/wic-shifts"      element={<WicShifts />} />
           <Route path="/vwic"            element={<VWICPage />} />
           <Route path="/breaks"          element={<BreakPlanner />} />
-          <Route path="/wic-attendance"  element={<WicAttendance />} />
+          <Route path="/wic-attendance"  element={<OverviewErrorBoundary><WicAttendance /></OverviewErrorBoundary>} />
           <Route path="/wic-schedule"    element={<WicSchedule />} />
           <Route path="/pipeline"        element={<Pipeline />} />
           <Route path="/training"        element={<Training />} />
@@ -52,6 +54,7 @@ export default function App() {
           <Route path="/wic-assistant"   element={<Navigate to="/assistant" replace />} />
           <Route path="/bo-list"         element={<BoList />} />
           <Route path="/bulk-rtm"        element={<BulkRtm />} />
+          <Route path="/export"          element={<Export />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -22,11 +22,12 @@
     "pipeline": "Pipeline",
     "training": "Schulungen",
     "alCalendar": "Urlaubskalender",
-    "wicCoverage": "WIC-Abdeckung",
+    "wicCoverage": "WIC-Zuweisungen",
     "wicAnnualLeave": "WIC-Urlaub",
     "assistant": "Pulse-Assistent",
     "boList": "BO-Liste",
     "bulkRtm": "RTM-Sammeleingabe",
+    "export": "HR-Export",
     "collapseSidebar": "Einklappen",
     "expandSidebar": "Ausklappen",
     "navThemeToLight": "Zu heller Seitenleiste wechseln",
@@ -103,6 +104,10 @@
     },
     "coverageRisk": {
       "title": "Abdeckungsrisiko"
+    },
+    "error": {
+      "title": "Übersicht konnte nicht geladen werden",
+      "detail": "Beim Rendern ist ein Fehler aufgetreten — bitte laden Sie die Seite neu."
     },
     "conflicts": {
       "count_one": "{{count}} widersprüchliche Zuweisung",
@@ -288,7 +293,8 @@
     }
   },
   "wicCoverage": {
-    "title": "WIC-Belegung",
+    "title": "WIC-Zuweisungen",
+    "subtitle": "Statisches Zuweisungsverzeichnis — kein täglicher Abdeckungsstatus.",
     "tabWics": "WIC-Standorte",
     "tabAgents": "Agenten",
     "searchWics": "WIC suchen...",
@@ -332,6 +338,16 @@
       "saving": "Wird erstellt...",
       "cancel": "Abbrechen",
       "success": "Schicht für {{name}} erstellt"
+    },
+    "moveToBacklog": {
+      "button": "Zu GSD-Backlog verschieben",
+      "moving": "Wird verschoben…",
+      "confirmTitle": "Standort bleibt unbesetzt",
+      "confirmBody": "Das Verschieben von {{agent}} lässt {{location}} am {{date}} unbesetzt.",
+      "cancel": "Abbrechen",
+      "moveAnyway": "Trotzdem verschieben",
+      "success": "{{agent}} zu GSD-Backlog verschoben",
+      "error": "Verschieben fehlgeschlagen"
     }
   },
   "topbar": {
@@ -356,6 +372,24 @@
     "alHistoryDays": "Tage",
     "alHistoryStatus": "Status",
     "alHistoryNote": "Notiz"
+  },
+  "export": {
+    "title": "HR-Datenexport",
+    "from": "Von",
+    "to": "Bis",
+    "employee": "Mitarbeiter (optional)",
+    "teamLead": "Teamleiter (optional)",
+    "types": "Datenbereiche",
+    "format": "Format",
+    "exportBtn": "Exportieren",
+    "shiftPlan": "Schichtplan",
+    "sickLeave": "Krankmeldung",
+    "annualLeave": "Urlaub",
+    "attendance": "Anwesenheit",
+    "alBalance": "Urlaubssaldo",
+    "training": "Schulungen",
+    "excel": "Excel (.xlsx)",
+    "csv": "CSV (.zip)"
   },
   "assistant": {
     "search": "Vorschläge suchen…",

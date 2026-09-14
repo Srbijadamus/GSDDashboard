@@ -514,7 +514,10 @@ export default function WicCoverage() {
 
       {/* Header */}
       <div className="flex flex-col gap-3 pb-4">
-        <h2 className="m-0 text-[17px] font-bold text-ink">{t("wicCoverage.title")}</h2>
+        <div>
+          <h2 className="m-0 text-[17px] font-bold text-ink">{t("wicCoverage.title")}</h2>
+          <p className="m-0 mt-1 text-[11px] text-ink-muted">{t("wicCoverage.subtitle")}</p>
+        </div>
 
         {/* Tab toggle */}
         <div className="flex gap-1 bg-sunken p-0.5 rounded-lg w-fit">

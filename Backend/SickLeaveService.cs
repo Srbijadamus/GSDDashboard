@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 using SickLeaveModel = GSDDashboard.API.Data.Models.SickLeave;
 using GSDDashboard.API.Services;
@@ -59,7 +60,9 @@ public class SickLeaveService
 {
     private readonly GSDContext _db;
     private readonly ShiftSyncService _shiftSync;
-    public SickLeaveService(GSDContext db, ShiftSyncService shiftSync) { _db = db; _shiftSync = shiftSync; }
+    private readonly ILogger<SickLeaveService> _logger;
+    public SickLeaveService(GSDContext db, ShiftSyncService shiftSync, ILogger<SickLeaveService> logger)
+    { _db = db; _shiftSync = shiftSync; _logger = logger; }
 
     public async Task<List<SickLeaveDto>> GetSickLeavesAsync(
         string? from, string? to, string? teamLead, string? type, bool? activeOnly)
@@ -239,9 +242,22 @@ public class SickLeaveService
         if (req.StartDate != null && DateOnly.TryParse(req.StartDate, out var newStart)) { entry.FirstDay = newStart; entry.DurationDays = (entry.LastDay.DayNumber  - entry.FirstDay.DayNumber) + 1; }
         if (req.Type      != null) entry.LeaveType = req.Type;
         if (req.Notes     != null) entry.Comments  = req.Notes;
-        await _db.SaveChangesAsync();
-        await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId ?? "", oldFrom, oldTo, entry.Id);
-        await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id);
+        PatchSickLeaveResult? strategyError = null;
+        var strategy = _db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () => {
+            await using var tx = await _db.Database.BeginTransactionAsync();
+            try {
+                await _db.SaveChangesAsync();
+                await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId ?? "", oldFrom, oldTo, entry.Id);
+                await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id);
+                await tx.CommitAsync();
+            } catch (Exception ex) {
+                await tx.RollbackAsync();
+                _logger.LogError(ex, "PatchAsync failed for SickLeave {Id}", id);
+                strategyError = new PatchSickLeaveResult(null, "Ein Datenbankfehler ist aufgetreten. / A database error occurred.");
+            }
+        });
+        if (strategyError != null) return strategyError;
         return new PatchSickLeaveResult(new SickLeaveDto(entry.Id, entry.EmployeeId, entry.FirstName, entry.LastName,
             ((entry.FirstName ?? "") + " " + (entry.LastName ?? "")).Trim(),
             entry.TeamLeadName, entry.FirstDay.ToString("yyyy-MM-dd"), entry.LastDay.ToString("yyyy-MM-dd"),
@@ -252,10 +268,21 @@ public class SickLeaveService
     {
         var entry = await _db.SickLeaves.FindAsync(id);
         if (entry == null) return false;
-        _db.SickLeaves.Remove(entry);
-        await _db.SaveChangesAsync();
-        if (entry.EmployeeId != null)
-            await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId, entry.FirstDay, entry.LastDay, entry.Id);
+        var strategy = _db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () => {
+            await using var tx = await _db.Database.BeginTransactionAsync();
+            try {
+                _db.SickLeaves.Remove(entry);
+                await _db.SaveChangesAsync();
+                if (entry.EmployeeId != null)
+                    await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId, entry.FirstDay, entry.LastDay, entry.Id);
+                await tx.CommitAsync();
+            } catch (Exception ex) {
+                await tx.RollbackAsync();
+                _logger.LogError(ex, "DeleteAsync failed for SickLeave {Id}", id);
+                throw;
+            }
+        });
         return true;
     }
 

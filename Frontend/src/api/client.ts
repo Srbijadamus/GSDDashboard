@@ -66,6 +66,14 @@ export const api = {
     create:        (body: any)             => apiFetch<any>("/api/sickleave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     patch:         (id: number, body: any)  => apiFetch<any>(`/api/sickleave/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     remove:        (id: number)             => fetch(`${API_BASE}/api/sickleave/${id}`, { method: "DELETE" }),
+    delete: async (id: number) => {
+      const res = await fetch(`${API_BASE}/api/sickleave/${id}`, { method: "DELETE" })
+      if (!res.ok) {
+        let msg = `API error ${res.status}`
+        try { const body = await res.json(); if (body?.error) msg = body.error } catch {}
+        throw new Error(msg)
+      }
+    },
     endActive:     (employeeId: string)     => apiFetch<{ closed: number }>(`/api/sickleave/end-active/${employeeId}`, { method: "POST" }),
   },
   vacations: {

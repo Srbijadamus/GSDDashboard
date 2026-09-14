@@ -8,9 +8,13 @@ const statusText  = { covered: "rgb(var(--st-good-solid))", partial: "rgb(var(--
 const statusDot   = { covered: "rgb(var(--st-good-solid))", partial: "rgb(var(--st-warn-solid))", uncovered: "rgb(var(--st-crit-solid))" }
 const statusBd    = { covered: "rgb(var(--st-good-bd))",    partial: "rgb(var(--st-warn-bd))",    uncovered: "rgb(var(--st-crit-bd))" }
 
-export default function LocationCard({ location, onAgentClick, onDrop, dragAgent, setDragAgent }) {
+export default function LocationCard({ location, onAgentClick, onDrop, dragAgent, setDragAgent, onActionSuccess, shiftDate }) {
   const [isDragOver, setIsDragOver] = useState(false)
-  const s = location.status || "uncovered"
+  const effectiveCoverage = location.agents.filter(a => !a.absent).length
+  const rawStatus = location.status || "uncovered"
+  const s = (effectiveCoverage === 0 && location.agents.length > 0 && rawStatus !== "uncovered")
+    ? "uncovered"
+    : rawStatus
 
   return (
     <div
@@ -75,13 +79,16 @@ export default function LocationCard({ location, onAgentClick, onDrop, dragAgent
           </div>
         ) : (
           location.agents.map(agent => (
-            <AgentRow
-              key={agent.id}
-              agent={agent}
-              onDragStart={a => setDragAgent(a)}
-              onDragEnd={() => setDragAgent(null)}
-              onClick={onAgentClick}
-            />
+            <div key={agent.id} style={agent.absent ? { opacity: 0.45 } : undefined}>
+              <AgentRow
+                agent={agent}
+                onDragStart={a => setDragAgent(a)}
+                onDragEnd={() => setDragAgent(null)}
+                onClick={onAgentClick}
+                onActionSuccess={onActionSuccess}
+                shiftDate={shiftDate}
+              />
+            </div>
           ))
         )}
       </div>

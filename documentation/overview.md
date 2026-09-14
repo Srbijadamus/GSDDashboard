@@ -81,7 +81,7 @@ Approximately **130 employees**, **43 WIC locations** (41 DE, 2 NL).
 ### Employees `/employees`
 **Write.** Create employees, delete employees, edit AL balance.
 
-### WIC Coverage `/wic-coverage`
+### WIC Assignments `/wic-coverage`
 **Write.** Agent-centric WIC coverage management. Shows each agent's KID pair, emails, HasCar flag, GroupRegion, reachable cities, and WIC roles. Per-WIC view shows Main, BackupA (assigned backups), BackupB (reachable-city pool), and BackupC (regional assignments). Pin a BackupB agent to promote them to a formal BACKUP assignment.
 
 ---

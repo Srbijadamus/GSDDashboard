@@ -32,7 +32,7 @@
 - [B14. AL Balance (`/albalance`)](#b14-al-balance)
 - [B15. AL Calendar (`/alcalendar`)](#b15-al-calendar)
 - [B16. Employees (`/employees`)](#b16-employees)
-- [B17. WIC Coverage (`/wic-coverage`)](#b17-wic-coverage)
+- [B17. WIC Assignments (`/wic-coverage`)](#b17-wic-assignments)
 - [B18. WIC Annual Leave (`/wic-al`)](#b18-wic-annual-leave)
 - [B19. Pulse Assistant (`/assistant`)](#b19-pulse-assistant)
 - [B20. BO Liste (`/bo-list`)](#b20-bo-liste)
@@ -145,7 +145,7 @@
 | 14 | AL Balance | Urlaubssaldo | `/albalance` | Scale |
 | 15 | AL Calendar | AL Calendar | `/alcalendar` | Calendar |
 | 16 | Employees | Mitarbeiter | `/employees` | Users |
-| 17 | WIC Coverage | WIC Coverage | `/wic-coverage` | ShieldCheck |
+| 17 | WIC Assignments | WIC-Zuweisungen | `/wic-coverage` | ShieldCheck |
 | 18 | WIC Annual Leave | WIC Annual Leave | `/wic-al` | CalendarOff |
 | 19 | Pulse Assistant | Pulse Assistant | `/assistant` | Bot |
 | 20 | BO Liste | BO Liste | `/bo-list` | ListChecks |
@@ -1706,11 +1706,13 @@ Opens for create and edit. Fields:
 
 ---
 
-## B17. WIC Coverage
+## B17. WIC Assignments
+
+> **Display name changed 2026-09-03:** "WIC Coverage" → "WIC Assignments" (EN) / "WIC-Zuweisungen" (DE). Route `/wic-coverage` preserved.
 
 **File:** `Frontend/src/pages/WicCoverage.tsx` (602 lines)  
 **Route:** `/wic-coverage`  
-**Purpose:** Manage WIC agent assignments to locations, and maintain the list of WIC-capable agents.  
+**Purpose:** Static assignment directory — view and edit WIC agent assignments to locations (Main/BackupA/BackupB/BackupC). Also maintains agent attributes (HasCar, GroupRegion). Not a daily coverage status page.  
 **IMPORTANT:** This is the **ONLY** page in the entire application that uses Tailwind CSS (`className=`). All other pages use inline `style={{}}`.
 
 ### Tab Bar

@@ -1,13 +1,17 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
+import { MoveToGsdBacklogAction } from "../../components/MoveToGsdBacklogAction"
 
-const SPECIAL = ["SL", "AL", "Training", "OFF", "GSD"]
+const SPECIAL = ["SL", "AL", "Training", "OFF", "GSD", "GSD Backlog"]
 
-export default function ReassignModal({ agent, currentLocation, locations, onSave, onClose }) {
+export default function ReassignModal({ agent, currentLocation, locations, onSave, onClose, shiftDate }) {
+  const { t } = useTranslation()
   const [newLoc, setNewLoc] = useState(currentLocation)
   const [role, setRole] = useState(agent.role || "primary")
   const [error, setError] = useState("")
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState("")
+  const [uncoveredWarn, setUncoveredWarn] = useState(null)
 
   const filteredLocs = locations.filter(l => l.name.toLowerCase().includes(search.toLowerCase()))
   const filteredSpecial = SPECIAL.filter(s => s.toLowerCase().includes(search.toLowerCase()))
@@ -28,7 +32,7 @@ export default function ReassignModal({ agent, currentLocation, locations, onSav
     return "rgb(var(--st-info-bg))"
   }
 
-  const save = async () => {
+  const doSave = async () => {
     setSaving(true)
     setError("")
     try {
@@ -38,6 +42,18 @@ export default function ReassignModal({ agent, currentLocation, locations, onSav
     } finally {
       setSaving(false)
     }
+  }
+
+  const save = async () => {
+    // Check if moving agent to a special status leaves source WIC location uncovered
+    if (SPECIAL.includes(newLoc) && !SPECIAL.includes(currentLocation)) {
+      const sourceAgentCount = locations.find(l => l.name === currentLocation)?.agents?.filter(a => !a.absent)?.length ?? 0
+      if (sourceAgentCount <= 1) {
+        setUncoveredWarn({ agent: agent.name, location: currentLocation, date: "" })
+        return
+      }
+    }
+    await doSave()
   }
 
   return (
@@ -95,9 +111,48 @@ export default function ReassignModal({ agent, currentLocation, locations, onSav
         </div>
         <div style={{ display:"flex", gap:8, padding:"14px 20px", borderTop:"1px solid rgb(var(--line-subtle))", justifyContent:"flex-end" }}>
           <button onClick={onClose} style={{ padding:"8px 16px", borderRadius:6, border:"1px solid rgb(var(--line-subtle))", background:"transparent", color:"rgb(var(--text-secondary))", cursor:"pointer", fontSize:12 }}>Cancel</button>
-          <button onClick={save} disabled={saving} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"rgb(var(--st-info-solid))", color:"#fff", cursor:"pointer", fontSize:12, fontWeight:600, opacity: saving ? .6 : 1 }}>{saving ? "Saving..." : "Save"}</button>
+          {newLoc === "GSD Backlog" ? (
+            <MoveToGsdBacklogAction
+              employeeId={agent.employeeId}
+              agentName={agent.name}
+              shiftDate={shiftDate}
+              onSuccess={onClose}
+            >
+              {({ onClick, isPending }) => (
+                <button onClick={onClick} disabled={isPending} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"rgb(var(--st-info-solid))", color:"#fff", cursor:"pointer", fontSize:12, fontWeight:600, opacity: isPending ? .6 : 1 }}>
+                  {isPending ? t("wicShifts.moveToBacklog.moving") : t("wicShifts.moveToBacklog.button")}
+                </button>
+              )}
+            </MoveToGsdBacklogAction>
+          ) : (
+            <button onClick={save} disabled={saving} style={{ padding:"8px 16px", borderRadius:6, border:"none", background:"rgb(var(--st-info-solid))", color:"#fff", cursor:"pointer", fontSize:12, fontWeight:600, opacity: saving ? .6 : 1 }}>{saving ? "Saving..." : "Save"}</button>
+          )}
         </div>
       </div>
+      {uncoveredWarn && (
+        <div style={{ position:"fixed", inset:0, zIndex:3000, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <div style={{ background:"rgb(var(--surface-raised))", border:"1px solid rgb(var(--st-warn-bd))", borderRadius:12, padding:24, width:400 }}>
+            <div style={{ fontWeight:600, fontSize:14, color:"rgb(var(--text-primary))", marginBottom:12 }}>
+              Location will be uncovered / Standort bleibt unbesetzt
+            </div>
+            <p style={{ fontSize:13, color:"rgb(var(--text-secondary))", marginBottom:20 }}>
+              Moving <strong style={{ color:"rgb(var(--text-primary))" }}>{uncoveredWarn.agent}</strong> leaves{" "}
+              <strong style={{ color:"rgb(var(--text-primary))" }}>{uncoveredWarn.location}</strong> uncovered
+              {uncoveredWarn.date ? <> on <strong style={{ color:"rgb(var(--text-primary))", fontFamily:"monospace" }}>{uncoveredWarn.date}</strong></> : null}.
+            </p>
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+              <button onClick={() => setUncoveredWarn(null)}
+                style={{ padding:"8px 18px", borderRadius:6, background:"rgb(var(--st-info-solid))", border:"none", color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                Cancel / Abbrechen
+              </button>
+              <button onClick={() => { setUncoveredWarn(null); doSave() }}
+                style={{ padding:"8px 18px", borderRadius:6, border:"1px solid rgb(var(--st-warn-bd))", background:"transparent", color:"rgb(var(--st-warn-solid))", fontSize:12, cursor:"pointer" }}>
+                Move anyway / Trotzdem
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

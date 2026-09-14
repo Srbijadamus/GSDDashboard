@@ -1,4 +1,10 @@
-export default function AgentRow({ agent, onDragStart, onDragEnd, onClick }) {
+import { useState } from "react"
+import { useTranslation } from "react-i18next"
+import { MoveToGsdBacklogAction } from "../../components/MoveToGsdBacklogAction"
+
+export default function AgentRow({ agent, onDragStart, onDragEnd, onClick, onActionSuccess, shiftDate }) {
+  const { t } = useTranslation()
+  const [menuOpen, setMenuOpen] = useState(false)
   const s = agent.agentStatus || (agent.al === true ? "AL" : null)
   const badges = {
     AL:          { bg: "rgb(var(--st-good-bg))",    border: "rgb(var(--st-good-solid))",    color: "rgb(var(--st-good-solid))",    label: "AL" },
@@ -11,6 +17,7 @@ export default function AgentRow({ agent, onDragStart, onDragEnd, onClick }) {
   }
   const badge = s ? badges[s] : null
   const showTime = !badge
+  const showKebab = !agent.absent && agent.employeeId
 
   return (
     <div
@@ -19,7 +26,7 @@ export default function AgentRow({ agent, onDragStart, onDragEnd, onClick }) {
       onDragEnd={onDragEnd}
       onClick={() => onClick(agent)}
       className="hover:bg-hovered"
-      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 12px", borderRadius: 6, cursor: "grab", transition: "background .15s" }}>
+      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 12px", borderRadius: 6, cursor: "grab", transition: "background .15s", position: "relative" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 12, color: "rgb(var(--text-primary))", fontWeight: 500 }}>{agent.name}</span>
         <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 600,
@@ -38,7 +45,40 @@ export default function AgentRow({ agent, onDragStart, onDragEnd, onClick }) {
         {showTime && (
           <span className="font-mono" style={{ fontSize: 10, color: "rgb(var(--text-secondary))" }}>{agent.time ?? "—"}</span>
         )}
+        {showKebab && (
+          <button
+            onClick={e => { e.stopPropagation(); setMenuOpen(o => !o) }}
+            style={{ background: "none", border: "none", color: "rgb(var(--text-secondary))", fontSize: 14, cursor: "pointer", padding: "2px 4px", lineHeight: 1 }}
+            title={t("wicShifts.moveToBacklog.button")}
+          >
+            ⋮
+          </button>
+        )}
       </div>
+      {menuOpen && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ position: "absolute", top: "100%", right: 8, zIndex: 10, background: "rgb(var(--surface-raised))", border: "1px solid rgb(var(--line-subtle))", borderRadius: 6, boxShadow: "0 4px 16px rgba(0,0,0,0.35)", minWidth: 180, overflow: "hidden" }}
+        >
+          <MoveToGsdBacklogAction
+            employeeId={agent.employeeId}
+            agentName={agent.name}
+            shiftDate={shiftDate}
+            onSuccess={() => { setMenuOpen(false); onActionSuccess?.() }}
+          >
+            {({ onClick: onMove, isPending }) => (
+              <button
+                onClick={e => { e.stopPropagation(); onMove() }}
+                disabled={isPending}
+                className="hover:bg-hovered"
+                style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: "rgb(var(--st-warn-solid))", fontSize: 12, padding: "8px 12px", cursor: isPending ? "not-allowed" : "pointer", opacity: isPending ? 0.6 : 1 }}
+              >
+                {isPending ? t("wicShifts.moveToBacklog.moving") : t("wicShifts.moveToBacklog.button")}
+              </button>
+            )}
+          </MoveToGsdBacklogAction>
+        </div>
+      )}
     </div>
   )
 }

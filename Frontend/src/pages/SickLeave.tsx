@@ -149,17 +149,131 @@ function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved:
   )
 }
 
+function EditSickLeaveModal({ id, entry, onClose, onSaved }: { id: number; entry: any; onClose: () => void; onSaved: () => void }) {
+  const isOpenEnded = (entry.lastDay ?? "") >= "2099-01-01"
+  const [firstDay, setFirstDay] = useState<string>(entry.firstDay ?? "")
+  const [lastDay, setLastDay] = useState<string>(isOpenEnded ? "" : (entry.lastDay ?? ""))
+  const [comments, setComments] = useState<string>(entry.comments ?? "")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+
+  const calcDuration = () => {
+    if (!firstDay) return "?"
+    if (!lastDay) return "open"
+    const s = new Date(firstDay), e = new Date(lastDay)
+    if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return "?"
+    return (Math.floor((e.getTime() - s.getTime()) / 86400000) + 1) + "d"
+  }
+
+  const save = async () => {
+    if (!firstDay) { setError("Startdatum fehlt"); return }
+    setSaving(true); setError("")
+    try {
+      await api.sickLeave.patch(id, { startDate: firstDay, endDate: lastDay || "2099-12-31", notes: comments })
+      onSaved(); onClose()
+    } catch (err: any) { setError(err?.message || "Fehler beim Speichern") }
+    finally { setSaving(false) }
+  }
+
+  const inpCls = "bg-sunken border border-line-subtle text-ink py-2 px-3 rounded-md text-[13px] outline-none w-full"
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+      <div style={{ borderRadius: 10, width: 440, overflow: "hidden" }} className="bg-raised border border-line-subtle" onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px" }} className="border-b border-line-subtle">
+          <span style={{ fontWeight: 600, fontSize: 15 }}>Krankmeldung bearbeiten</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer" }} className="text-ink-muted">✕</button>
+        </div>
+        <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }} className="text-ink-soft">Agent</label>
+            <div style={{ fontSize: 13, fontWeight: 500 }} className="text-ink">{entry.fullName || ("ID " + entry.employeeId)}</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div>
+              <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }} className="text-ink-soft">Start</label>
+              <input type="date" value={firstDay} onChange={e => setFirstDay(e.target.value)} className={inpCls} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }} className="text-ink-soft">Ende (leer = offen)</label>
+              <input type="date" value={lastDay} onChange={e => setLastDay(e.target.value)} className={inpCls} />
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 6 }} className="text-ink-soft">Notizen</label>
+            <input value={comments} onChange={e => setComments(e.target.value)} placeholder="optional..." className={inpCls} />
+          </div>
+          <div style={{ borderRadius: 6, padding: "10px 14px", fontSize: 12 }} className="bg-sunken text-ink-muted">
+            Dauer: <strong className="text-ink font-mono">{calcDuration()}</strong>
+          </div>
+          {error && <div style={{ fontSize: 12 }} className="text-crit-fg">{error}</div>}
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "14px 20px" }} className="border-t border-line-subtle">
+          <button onClick={onClose} style={{ padding: "8px 18px", fontSize: 13 }} className="rounded-md border border-line-subtle bg-transparent text-ink-muted cursor-pointer">Abbrechen</button>
+          <button onClick={save} disabled={saving} style={{ padding: "8px 18px", fontSize: 13, fontWeight: 600, opacity: saving ? .6 : 1 }} className="rounded-md border-none bg-info-solid text-white cursor-pointer">{saving ? "Speichern..." : "Speichern"}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DeleteSickLeaveModal({ id, entry, onClose, onDeleted }: { id: number; entry: any; onClose: () => void; onDeleted: () => void }) {
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState("")
+
+  const isOpenEnded = (entry.lastDay ?? "") >= "2099-01-01"
+  const agentName = entry.fullName || ("ID " + entry.employeeId)
+  const dateRange = `${entry.firstDay} – ${isOpenEnded ? "offen" : entry.lastDay}`
+  const duration = isOpenEnded ? "offen" : (entry.durationDays != null ? `${entry.durationDays}d` : "?")
+
+  const doDelete = async () => {
+    setDeleting(true); setError("")
+    try {
+      await api.sickLeave.delete(id)
+      onDeleted(); onClose()
+    } catch (err: any) { setError(err?.message || "Fehler beim Loeschen") }
+    finally { setDeleting(false) }
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+      <div style={{ borderRadius: 10, width: 400, overflow: "hidden" }} className="bg-raised border border-line-subtle" onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px" }} className="border-b border-line-subtle">
+          <span style={{ fontWeight: 600, fontSize: 15 }}>Krankmeldung loeschen</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer" }} className="text-ink-muted">✕</button>
+        </div>
+        <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ fontSize: 13 }} className="text-ink-muted">Soll dieser Eintrag wirklich geloescht werden?</div>
+          <div style={{ borderRadius: 8, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 6 }} className="bg-sunken border border-line-subtle">
+            <div style={{ fontWeight: 600, fontSize: 14 }} className="text-ink">{agentName}</div>
+            <div style={{ fontSize: 12 }} className="text-ink-muted font-mono">{dateRange}</div>
+            <div style={{ fontSize: 11 }} className="text-ink-soft">Dauer: {duration}</div>
+          </div>
+          {error && <div style={{ fontSize: 12 }} className="text-crit-fg">{error}</div>}
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "14px 20px" }} className="border-t border-line-subtle">
+          <button onClick={onClose} disabled={deleting} style={{ padding: "8px 18px", fontSize: 13 }} className="rounded-md bg-sunken border border-line-subtle text-ink cursor-pointer">Abbrechen</button>
+          <button onClick={doDelete} disabled={deleting} style={{ padding: "8px 18px", fontSize: 13, fontWeight: 600, opacity: deleting ? .6 : 1 }} className="rounded-md bg-crit-solid text-white border-none cursor-pointer">{deleting ? "Loeschen..." : "Loeschen"}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DrillDownModal({ title, entries, onClose, onEnd }: { title: string; entries: any[]; onClose: () => void; onEnd?: () => void }) {
   const today = new Date().toLocaleDateString("en-CA")
   const [endingEmpId, setEndingEmpId] = useState<string | null>(null)
+  const [endConfirm, setEndConfirm] = useState<{ empId: string; count: number } | null>(null)
 
   const activeCountForEmp = (empId: string) =>
     entries.filter(e => String(e.employeeId) === String(empId)).length
 
-  const endAgent = async (empId: string) => {
+  const endAgent = (empId: string) => {
     const count = activeCountForEmp(empId)
-    const msg = count > 1 ? `${count} aktive Krankmeldungen beenden?` : "Krankmeldung heute beenden?"
-    if (!confirm(msg)) return
+    setEndConfirm({ empId, count })
+  }
+
+  const doEndAgent = async (empId: string) => {
+    setEndConfirm(null)
     setEndingEmpId(empId)
     try {
       await api.sickLeave.endActive(String(empId))
@@ -170,6 +284,23 @@ function DrillDownModal({ title, entries, onClose, onEnd }: { title: string; ent
   }
 
   return (
+    <>
+    {endConfirm && (
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:1100, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div style={{ borderRadius:10, width:360, padding:24 }} className="bg-raised border border-warn-bd" onClick={e => e.stopPropagation()}>
+          <div style={{ fontWeight:600, fontSize:14, marginBottom:10 }} className="text-warn-fg">
+            {endConfirm.count > 1 ? `${endConfirm.count} Krankmeldungen beenden / End ${endConfirm.count} sick leaves` : "Krankmeldung beenden / End sick leave"}
+          </div>
+          <div style={{ fontSize:12, marginBottom:20 }} className="text-ink-muted">
+            Die Krankmeldung wird heute beendet. / The sick leave will be ended today.
+          </div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <button onClick={() => setEndConfirm(null)} style={{ padding:"8px 16px", fontSize:12 }} className="rounded border border-line-subtle bg-transparent text-ink-muted cursor-pointer">Abbrechen / Cancel</button>
+            <button onClick={() => doEndAgent(endConfirm.empId)} style={{ padding:"8px 16px", fontSize:12, fontWeight:600 }} className="rounded border-none bg-warn-solid text-white cursor-pointer">Beenden / End</button>
+          </div>
+        </div>
+      </div>
+    )}
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
       <div style={{ borderRadius: 10, width: 860, maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column" }} className="bg-raised border border-line-subtle" onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px" }} className="border-b border-line-subtle">
@@ -226,6 +357,7 @@ function DrillDownModal({ title, entries, onClose, onEnd }: { title: string; ent
         </div>
       </div>
     </div>
+    </>
   )
 }
 
@@ -306,16 +438,29 @@ function DayGrid({ days }: { days: number }) {
 }
 
 // ─── Grouped table ───────────────────────────────────────────────────────────
-function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
-  data: any[]; commentCache: Record<number, string>; setCommentCache: (fn: (prev: Record<number, string>) => Record<number, string>) => void; onEnd: () => void
+function GroupedSickTable({ data, commentCache, setCommentCache, onEnd, onEdit, onDelete }: {
+  data: any[]; commentCache: Record<number, string>; setCommentCache: (fn: (prev: Record<number, string>) => Record<number, string>) => void; onEnd: () => void;
+  onEdit: (id: number, entry: any) => void;
+  onDelete: (id: number, entry: any) => void;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [endingEmpId, setEndingEmpId] = useState<string | null>(null)
+  const [endConfirm, setEndConfirm] = useState<{ empId: string; count: number } | null>(null)
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
   const todayStr = new Date().toLocaleDateString("en-CA")
 
-  const endAgent = async (empId: string, activeCount: number) => {
-    const msg = activeCount > 1 ? `${activeCount} aktive Krankmeldungen beenden?` : "Krankmeldung heute beenden?"
-    if (!confirm(msg)) return
+  const toggleSort = (key: string) => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc")
+    else { setSortKey(key); setSortDir("asc") }
+  }
+
+  const endAgent = (empId: string, activeCount: number) => {
+    setEndConfirm({ empId, count: activeCount })
+  }
+
+  const doEndAgent = async (empId: string) => {
+    setEndConfirm(null)
     setEndingEmpId(empId)
     try {
       await api.sickLeave.endActive(empId)
@@ -341,22 +486,78 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
 
   const dayColor = (d: number) => d > 30 ? "text-crit-fg" : d >= 14 ? "text-warn-fg" : d >= 7 ? "[color:var(--yellow)]" : "text-ink-muted"
 
+  const rowSortValue = (empId: string, key: string): string | number => {
+    const grp = groups[empId]
+    const first = grp[0]
+    if (key === "name") return resolveName(first).toLowerCase()
+    if (key === "teamLead") return (first.teamLeadName ?? "").toLowerCase()
+    const seen = new Map<string, any>()
+    grp.forEach((p: any) => {
+      const k = p.firstDay + "|" + p.lastDay
+      if (!seen.has(k) || p.leaveType !== "SL") seen.set(k, p)
+    })
+    const periods = Array.from(seen.values()).sort((a, b) => a.firstDay.localeCompare(b.firstDay))
+    if (key === "totalDays") return periods.reduce((sum, p) => sum + (p.durationDays ?? 0), 0)
+    if (key === "periods") return periods.length
+    if (key === "lastSick") return periods[periods.length - 1]?.lastDay ?? ""
+    return ""
+  }
+
+  const sortedOrder = sortKey
+    ? [...order].sort((a, b) => {
+        const va = rowSortValue(a, sortKey), vb = rowSortValue(b, sortKey)
+        const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb))
+        return sortDir === "asc" ? cmp : -cmp
+      })
+    : order
+
+  const columns: { label: string; key: string | null }[] = [
+    { label: "Name", key: "name" },
+    { label: "Team Lead", key: "teamLead" },
+    { label: "Total Days", key: "totalDays" },
+    { label: "Periods", key: "periods" },
+    { label: "Last Sick Leave", key: "lastSick" },
+    { label: "Notes", key: null },
+    { label: "Actions", key: null },
+  ]
+
   return (
+    <>
+    {endConfirm && (
+      <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:1100, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <div style={{ borderRadius:10, width:360, padding:24 }} className="bg-raised border border-warn-bd" onClick={e => e.stopPropagation()}>
+          <div style={{ fontWeight:600, fontSize:14, marginBottom:10 }} className="text-warn-fg">
+            {endConfirm.count > 1 ? `${endConfirm.count} Krankmeldungen beenden / End ${endConfirm.count} sick leaves` : "Krankmeldung beenden / End sick leave"}
+          </div>
+          <div style={{ fontSize:12, marginBottom:20 }} className="text-ink-muted">
+            Die Krankmeldung wird heute beendet. / The sick leave will be ended today.
+          </div>
+          <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <button onClick={() => setEndConfirm(null)} style={{ padding:"8px 16px", fontSize:12 }} className="rounded border border-line-subtle bg-transparent text-ink-muted cursor-pointer">Abbrechen / Cancel</button>
+            <button onClick={() => doEndAgent(endConfirm.empId)} style={{ padding:"8px 16px", fontSize:12, fontWeight:600 }} className="rounded border-none bg-warn-solid text-white cursor-pointer">Beenden / End</button>
+          </div>
+        </div>
+      </div>
+    )}
     <div style={{ borderRadius: 8, overflow: "hidden" }} className="bg-raised border border-line-subtle">
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
             <tr className="bg-sunken">
-              {["Name", "Team Lead", "Total Days", "Periods", "Last Sick Leave", "Notes"].map(h => (
-                <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", whiteSpace: "nowrap" }} className="text-ink-soft border-b border-line-subtle">{h}</th>
+              {columns.map(col => (
+                <th key={col.label} onClick={col.key ? () => toggleSort(col.key!) : undefined}
+                  style={{ padding: "10px 12px", textAlign: "left", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".07em", whiteSpace: "nowrap", cursor: col.key ? "pointer" : "default", userSelect: "none" }}
+                  className="text-ink-soft border-b border-line-subtle">
+                  {col.label}{sortKey === col.key && (sortDir === "asc" ? " ▲" : " ▼")}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {order.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 24, textAlign: "center" }} className="text-ink-soft">No sick leave records found</td></tr>
+              <tr><td colSpan={columns.length} style={{ padding: 24, textAlign: "center" }} className="text-ink-soft">No sick leave records found</td></tr>
             )}
-            {order.map(empId => {
+            {sortedOrder.map(empId => {
               const first = groups[empId][0]
               const isExp = expanded.has(empId)
 
@@ -431,6 +632,24 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
                           onSaved={val => setCommentCache(prev => ({ ...prev, [first.id]: val }))} />
                       )}
                     </td>
+
+                    {/* Actions — Edit + Delete on summary row for single-period agents */}
+                    <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
+                      {!multi && (
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button onClick={e => { e.stopPropagation(); onEdit(first.id, first) }}
+                            className="bg-sunken border border-line-subtle text-ink rounded cursor-pointer"
+                            style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
+                            Edit
+                          </button>
+                          <button onClick={e => { e.stopPropagation(); onDelete(first.id, first) }}
+                            className="bg-crit-bg border border-crit-bd text-crit-fg rounded cursor-pointer"
+                            style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
+                            Del
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
 
                   {/* Expanded detail rows — one per deduplicated period */}
@@ -459,6 +678,20 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
                           initial={commentCache[p.id] !== undefined ? commentCache[p.id] : p.comments}
                           onSaved={val => setCommentCache(prev => ({ ...prev, [p.id]: val }))} />
                       </td>
+                      <td style={{ padding: "5px 8px", whiteSpace: "nowrap" }}>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button onClick={e => { e.stopPropagation(); onEdit(p.id, p) }}
+                            className="bg-sunken border border-line-subtle text-ink rounded cursor-pointer"
+                            style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
+                            Edit
+                          </button>
+                          <button onClick={e => { e.stopPropagation(); onDelete(p.id, p) }}
+                            className="bg-crit-bg border border-crit-bd text-crit-fg rounded cursor-pointer"
+                            style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
+                            Del
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </Fragment>
@@ -471,6 +704,7 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd }: {
         {order.length} agents / {data.length} records
       </div>
     </div>
+    </>
   )
 }
 
@@ -478,12 +712,15 @@ export default function SickLeave() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [teamLead, setTeamLead] = useState("")
+  const [nameSearch, setNameSearch] = useState("")
   const [type, setType] = useState("")
   const [activeOnly, setActiveOnly] = useState(false)
   const [modal, setModal] = useState<null | { title: string; entries: any[] }>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [view, setView] = useState<"today" | "7d" | "14d">("today")
   const [commentCache, setCommentCache] = useState<Record<number, string>>({})
+  const [editModal, setEditModal] = useState<{ id: number; entry: any } | null>(null)
+  const [deleteModal, setDeleteModal] = useState<{ id: number; entry: any } | null>(null)
 
   const params = (activeOnly ? "activeOnly=true" : "from=2026-01-01&to=2026-12-31") + (teamLead ? "&teamLead=" + teamLead : "") + (type ? "&type=" + type : "")
   const { data, isLoading } = useQuery({ queryKey: ["sl", params], queryFn: () => api.sickLeave.get(params) })
@@ -504,6 +741,8 @@ export default function SickLeave() {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {modal && <DrillDownModal title={modal.title} entries={modal.entries} onClose={() => setModal(null)} onEnd={() => { queryClient.invalidateQueries(); setModal(null) }} />}
       {showAdd && <AddSickLeaveModal onClose={() => setShowAdd(false)} onSaved={() => queryClient.invalidateQueries()} />}
+      {editModal && <EditSickLeaveModal id={editModal.id} entry={editModal.entry} onClose={() => setEditModal(null)} onSaved={() => queryClient.invalidateQueries()} />}
+      {deleteModal && <DeleteSickLeaveModal id={deleteModal.id} entry={deleteModal.entry} onClose={() => setDeleteModal(null)} onDeleted={() => queryClient.invalidateQueries()} />}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1 style={{ fontSize: 22, fontWeight: 600 }} className="text-ink">{t("nav.sickLeave")}</h1>
@@ -556,6 +795,9 @@ export default function SickLeave() {
             <input placeholder="Team Lead..." value={teamLead} onChange={e => setTeamLead(e.target.value)}
               style={{ padding: "7px 12px", borderRadius: 6, fontSize: 12, outline: "none", width: 200 }}
               className="bg-raised border border-line-subtle text-ink" />
+            <input placeholder="Search agent..." value={nameSearch} onChange={e => setNameSearch(e.target.value)}
+              style={{ padding: "7px 12px", borderRadius: 6, fontSize: 12, outline: "none", width: 200 }}
+              className="bg-raised border border-line-subtle text-ink" />
             <select value={type} onChange={e => setType(e.target.value)}
               style={{ padding: "7px 12px", borderRadius: 6, fontSize: 12 }}
               className="bg-raised border border-line-subtle text-ink-muted">
@@ -571,7 +813,7 @@ export default function SickLeave() {
 
           {isLoading
             ? <div style={{ padding: 24, textAlign: "center" }} className="text-ink-soft">Loading...</div>
-            : <GroupedSickTable data={data ?? []} commentCache={commentCache} setCommentCache={setCommentCache} onEnd={() => queryClient.invalidateQueries()} />
+            : <GroupedSickTable data={(data ?? []).filter((e: any) => !nameSearch || resolveName(e).toLowerCase().includes(nameSearch.toLowerCase()))} commentCache={commentCache} setCommentCache={setCommentCache} onEnd={() => queryClient.invalidateQueries()} onEdit={(id, entry) => setEditModal({ id, entry })} onDelete={(id, entry) => setDeleteModal({ id, entry })} />
           }
         </div>
       )}

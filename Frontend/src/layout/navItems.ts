@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, ClipboardList, Building2, Headphones, Coffee,
   Calendar, MapPin, ShieldCheck, Users, Scale, Heart,
-  Bot, ListChecks, FileText, CalendarOff,
+  Bot, ListChecks, FileText, CalendarOff, Download,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -69,6 +69,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/assistant', icon: Bot,        i18nKey: 'nav.assistant' },
       { to: '/bo-list',   icon: ListChecks, i18nKey: 'nav.boList' },
       { to: '/bulk-rtm',  icon: FileText,   i18nKey: 'nav.bulkRtm' },
+      { to: '/export',    icon: Download,   i18nKey: 'nav.export' },
     ],
   },
 ]

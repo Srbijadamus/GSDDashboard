@@ -512,6 +512,7 @@ export default function Shifts() {
   const [legalModal, setLegalModal] = useState<{violations:any[]; pendingUpdate:()=>void} | null>(null)
   const [assignError, setAssignError] = useState<string | null>(null)
   const [showAlModal, setShowAlModal] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
 
   const dates: string[] = []
   for (let i = 0; i < days; i++) {
@@ -631,6 +632,89 @@ export default function Shifts() {
     return `${dow} ${dt.getDate().toString().padStart(2,"0")}.${(dt.getMonth()+1).toString().padStart(2,"0")}`
   }
 
+  const handleExcelExport = () => {
+    const p = new URLSearchParams()
+    if (from)     p.set("from", from)
+    if (to)       p.set("to", to)
+    if (teamLead) p.set("teamLead", teamLead)
+    if (role)     p.set("role", role)
+    window.open(`/api/shifts/download?${p.toString()}`, "_blank")
+  }
+
+  const handlePdfExport = () => {
+    const orientation = days <= 7 ? "portrait" : "landscape"
+    const now = new Date().toLocaleString()
+
+    const cellLabel = (s: any): string => {
+      if (!s || s.shiftType === "EMPTY") return ""
+      if ((s.shiftType === "WORKING" || s.shiftType === "WIC_DUTY") && s.shiftStart && s.shiftEnd) {
+        const abbr = s.shiftType === "WORKING" ? "WORK" : "WIC"
+        return `${abbr} ${s.shiftStart}–${s.shiftEnd}`
+      }
+      return s.shiftType.replace("_", " ")
+    }
+
+    const cellClass = (type: string): string => {
+      switch (type) {
+        case "WORKING":     return "type-WORKING"
+        case "WIC_DUTY":    return "type-WIC_DUTY"
+        case "SL":          return "type-SL"
+        case "AL":
+        case "HALF_AL":     return "type-AL"
+        case "OFF":         return "type-OFF"
+        case "OFF_WEEKEND": return "type-OFF_WEEKEND"
+        default:            return ""
+      }
+    }
+
+    const dateHeaders = dates.map(d => `<th>${dayLabel(d)}</th>`).join("")
+
+    const bodyRows = orderedEmps.map(({ emp, shifts: empShifts }) => {
+      const cells = dates.map(d => {
+        const s = empShifts[d]
+        const cls = cellClass(s?.shiftType ?? "")
+        const label = cellLabel(s)
+        return `<td class="${cls}">${label}</td>`
+      }).join("")
+      return `<tr><td style="text-align:left;font-weight:500">${emp.name ?? emp.id}</td><td style="text-align:left">${emp.teamLead ?? ""}</td>${cells}</tr>`
+    }).join("")
+
+    const html = `<!DOCTYPE html><html>
+<head>
+<title>Shift Plan ${from} – ${to}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 10px; color: black; }
+  @page { size: ${orientation}; margin: 1cm; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #333; padding: 3px 5px; text-align: center; font-size: 9px; }
+  th { background: #eee; font-weight: bold; }
+  .header { margin-bottom: 12px; }
+  .legend { margin-top: 12px; font-size: 8px; }
+  .type-WORKING { } .type-WIC_DUTY { background: #e0f0ff; }
+  .type-SL { background: #ffe4e4; } .type-AL { background: #fff3cd; }
+  .type-OFF, .type-OFF_WEEKEND { color: #666; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h2 style="margin:0 0 4px">Shift Plan: ${from} – ${to}</h2>
+  <div>Generated: ${now}</div>
+</div>
+<table>
+  <thead><tr><th style="text-align:left">Agent</th><th style="text-align:left">Team Lead</th>${dateHeaders}</tr></thead>
+  <tbody>${bodyRows}</tbody>
+</table>
+<div class="legend">WORK = Working | WIC = WIC Duty | AL = Annual Leave | SL = Sick Leave | OFF = Off Day</div>
+</body></html>`
+
+    const w = window.open("", "_blank")
+    if (!w) return
+    w.document.write(html)
+    w.document.close()
+    w.print()
+    w.close()
+  }
+
   const inputStyle = { background:"rgb(var(--surface-raised))", border:"1px solid rgb(var(--border-subtle))", color:"rgb(var(--text-primary))",
     padding:"6px 10px", borderRadius:6, fontSize:12, outline:"none", fontFamily:"IBM Plex Sans" }
 
@@ -645,6 +729,33 @@ export default function Shifts() {
             {t("vacations.addAl")}
           </button>
           <DownloadButtons onToday={api.shifts.downloadToday} on7Days={api.shifts.download7} on30Days={api.shifts.download30} />
+          <div style={{ position:"relative" }}>
+            <button
+              onClick={() => setExportOpen(p => !p)}
+              className="bg-sunken border border-line-subtle text-ink"
+              style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:6, fontSize:12, cursor:"pointer" }}
+            >
+              Export ▾
+            </button>
+            {exportOpen && (
+              <div
+                className="bg-raised border border-line-subtle"
+                style={{ position:"absolute", top:"100%", right:0, marginTop:4, borderRadius:8, minWidth:160, zIndex:50, boxShadow:"0 4px 16px rgba(0,0,0,0.2)" }}
+                onMouseLeave={() => setExportOpen(false)}
+              >
+                <button onClick={() => { handleExcelExport(); setExportOpen(false) }}
+                  className="w-full text-left text-ink hover:bg-hovered"
+                  style={{ padding:"10px 14px", fontSize:12, background:"none", border:"none", cursor:"pointer", display:"block" }}>
+                  📊 Excel (.xlsx)
+                </button>
+                <button onClick={() => { handlePdfExport(); setExportOpen(false) }}
+                  className="w-full text-left text-ink hover:bg-hovered"
+                  style={{ padding:"10px 14px", fontSize:12, background:"none", border:"none", cursor:"pointer", display:"block", borderTop:"1px solid rgb(var(--line-subtle))" }}>
+                  🖨 PDF (print)
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {assignError && (

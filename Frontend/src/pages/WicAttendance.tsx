@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Search, AlertTriangle, UserCheck, Users, Clock, Calendar, Settings, Edit2, RefreshCw, CheckCircle2 } from "lucide-react"
+import { Search, AlertTriangle, UserCheck, Users, Clock, Calendar, Settings, Edit2, RefreshCw, CheckCircle2, MoreVertical } from "lucide-react"
 import { apiFetch } from "../api/client"
 import { CoverageBadge } from "../components/CoverageBadge"
 import { NppBadge } from "../components/NppBadge"
@@ -13,6 +13,7 @@ import { AssignAgentModal } from "./AssignAgentModal"
 import { ManualCheckinModal } from "./ManualCheckinModal"
 import { Panel } from "../components/Panel"
 import { DataTable, type DataColumn } from "../components/DataTable"
+import { MoveToGsdBacklogAction } from "../components/MoveToGsdBacklogAction"
 
 // ── API types ──────────────────────────────────────────────────────────────────
 
@@ -703,7 +704,7 @@ export default function WicAttendance() {
   const [countryFilter, setCountryFilter] = useState("")
 
   const { data: forecast, isLoading: forecastLoading } = useQuery({
-    queryKey: ["wic-forecast", horizonDays],
+    queryKey: ["wic-attendance-forecast", horizonDays],
     queryFn: (): Promise<ForecastResponse> =>
       fetch(`/api/wic/forecast?horizon=${horizonDays}`).then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -1416,8 +1417,32 @@ export default function WicAttendance() {
                       <div key={agent.employeeId} style={{
                         background: mc.bg, border: `1px solid ${mc.color}44`,
                         borderRadius: 8, padding: "9px 12px", minWidth: 130,
-                        display: "flex", flexDirection: "column", gap: 4,
+                        display: "flex", flexDirection: "column", gap: 4, position: "relative",
                       }}>
+                        {agent.employeeId && (
+                          <MoveToGsdBacklogAction
+                            employeeId={agent.employeeId}
+                            agentName={agent.name}
+                            shiftDate={selectedDate}
+                            onSuccess={() => queryClient.invalidateQueries({ queryKey: ["wic-cards", selectedDate] })}
+                          >
+                            {({ onClick, isPending }) => (
+                              <button
+                                onClick={e => { e.stopPropagation(); onClick() }}
+                                disabled={isPending}
+                                title={t("wicShifts.moveToBacklog.button") as string}
+                                className="text-ink-soft hover:bg-hovered"
+                                style={{
+                                  position: "absolute", top: 4, right: 4, background: "none", border: "none",
+                                  borderRadius: 4, padding: 2, cursor: isPending ? "not-allowed" : "pointer",
+                                  opacity: isPending ? 0.5 : 1, display: "flex",
+                                }}
+                              >
+                                <MoreVertical size={13} />
+                              </button>
+                            )}
+                          </MoveToGsdBacklogAction>
+                        )}
                         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                           {kiosk?.attendance_status === "ACTIVE" && (
                             <span style={{

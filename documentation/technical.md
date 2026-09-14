@@ -639,6 +639,15 @@ These are the common day-to-day operational changes and their system effects, fo
 
 **Note:** If the agent should be absent from WIC for an extended period, also update the WicShiftEntries row (`IsOnSite=false`) via `PATCH /api/wic/shifts/{id}` to keep the two tables consistent.
 
+**UI action (added 2026-09):** The manual steps above are no longer required for a same-day move to GSD backlog — a **"Move to GSD Backlog" / "Zu GSD-Backlog verschieben"** action is available in three places:
+- `/wic-shifts` — the "⋮" kebab menu on each agent row in a location card.
+- `/wic-attendance` — the icon button on each agent chip in the location detail's "Agent chips" section.
+- `AssignAgentModal` — as an alternative action below the normal Assign form.
+
+All three call the shared `MoveToGsdBacklogAction` component (`Frontend/src/components/MoveToGsdBacklogAction.tsx`), which posts to `POST /api/wic/move-to-gsd` (`WicShiftService.cs`). That endpoint runs inside a `CreateExecutionStrategy` transaction and sets, in one operation: `ShiftEntries.ShiftType='WORKING'`, `AgentTask='GSD'`, `IsWicDuty=0`, and — on every `WicShiftEntries` row where the agent was on-site that day — `IsOnSite=0`, `IsGSDDay=1`. No row is ever deleted, so the historical WIC assignment stays visible. If the move would leave the agent's WIC location with no other available agent, the action shows a warning dialog (`Cancel` primary / `Move anyway` secondary) before proceeding — this is a warning, not a hard block.
+
+The reverse action (`POST /api/wic/assignments`, used by `AssignAgentModal`'s main Assign form) explicitly sets `IsOnSite=true`, `IsGSDDay=false`, `Task='WIC'` on `WicShiftEntries` and `ShiftType='WIC_DUTY'` on `ShiftEntries`.
+
 ---
 
 ### Q2 — Planned WIC agent needs to work BO instead
@@ -688,6 +697,7 @@ If one path writes only one table (e.g. a shift import runs after Assign Agent),
 1. A `WicShiftEntry` can exist with `IsOnSite=true` while `ShiftEntries` says `WORKING` — happens when a shift import overwrites the `ShiftEntry` after Assign Agent set it to `WIC_DUTY`.
 2. Agents with no `ShiftEntry` at all (5 505 WIC agents in the historical import) correctly receive `GetWicContribution = 1.0` — the null case is treated as "no evidence of absence, assume on duty."
 3. `IsWicDuty` on `ShiftEntries` is a stale legacy flag. It was previously used to detect WIC duty but could remain `true` after a `ShiftType` change. All write paths now reset it. Coverage no longer reads `IsWicDuty` — it reads `ShiftType` exclusively.
+4. **Flagged, not yet fixed (found 2026-09):** of 881 `(EmployeeId, ShiftDate)` groups with more than one `WicShiftEntries` row, 87 are legitimate multi-location coverage (`COUNT(DISTINCT SupportLocation) > 1`), but 831 are a same-key contradiction — one row `IsOffDay=1`, another `IsOnSite=1` for the same employee/date. Coverage code is not affected today (it filters per-location `IsOnSite=true` rows rather than assuming one row per key), but this is stale/duplicate data that should be cleaned up in a future pass.
 
 ---
 
@@ -749,3 +759,104 @@ Absence keywords ("absent", "absence", "away", "abwesend") only score for WicLea
 
 `HandleAsync` detects long-sick queries via: "longer than", "more than", "21 day", "langzeitkrank", "long-term", "laenger als". When detected, it filters to employees sick for ≥21 calendar days (or the number parsed from the question). The Langzeitkrank threshold (21 days) matches the `crit` tone on the Sick Leave page.
 - Raw "OFFWE" from the upstream sheet maps to `OFF_WEEKEND` in ShiftTypes.Parse().
+
+---
+
+## Frontend Resilience
+
+### TanStack Query — cache key convention
+
+**Rule:** A `queryKey` must uniquely identify a data **shape**, not just an endpoint. Two components MAY share a key only if their `queryFn` returns the identical runtime object structure (same fields, same types). If one `queryFn` unwraps a nested property, transforms the response, or strips fields before returning, it MUST use a distinct key.
+
+**Why:** TanStack Query stores one value per key in a shared in-process cache. When component A populates key `K` with shape `X`, component B reading key `K` gets shape `X` regardless of what type B declared for that key. TypeScript generics are compile-time only; they do not protect against runtime shape mismatches.
+
+**Canonical failure (2026-09-04):** `Overview.tsx` and `WicAttendance.tsx` both queried `["wic-forecast", N]`. Overview's queryFn unwrapped `.locations` → cached `LocationForecast[]`. WicAttendance's queryFn returned the full response object → cached `ForecastResponse`. After WicAttendance ran a stale-data refetch, the cache held `ForecastResponse`. On navigate-back to Overview, `forecast.filter(...)` threw `TypeError: forecast.filter is not a function`.
+
+**Fixed 2026-09-04:** WicAttendance now uses key `["wic-attendance-forecast", N]`.
+
+**Audit result (2026-09-04):** every `useQuery` in `Frontend/src` was inspected. One additional collision found and fixed:
+
+| queryKey | File | queryFn shape | Collision type |
+|----------|------|--------------|----------------|
+| `["wic-forecast", N]` | `Overview.tsx` | `LocationForecast[]` (unwrapped) | **FIXED** — WicAttendance moved to `["wic-attendance-forecast", N]` |
+| `["wic-locations"]` | `AssignAgentModal.tsx` | stripped `{locationCode, displayName}[]` only | **FIXED** — strip removed; full response cached |
+| `["wic-locations"]` | 5 other consumers | full API response | all compatible once strip removed |
+| `["employees-active"]` | 3 consumers | identical runtime shape; TS annotations differ only | no risk — not fixed |
+
+---
+
+### TanStack Query cache key collision — `["wic-forecast", N]`
+
+**Symptom:** Navigate Overview → WicAttendance → Overview → blank white screen (error card after boundary was added). Same white screen on WicAttendance when navigating after Overview populated the cache.
+
+**Root cause:** `Overview` and `WicAttendance` both registered a `useQuery` with key `["wic-forecast", horizonDays]` against the same `/api/wic/forecast?horizon=N` endpoint, but their `queryFn` returned different shapes:
+
+- Overview: `return r.locations ?? []` → cached value is `LocationForecast[]`
+- WicAttendance: `return r.json()` → cached value is `ForecastResponse` (object with `.locations`, `.generatedAt`, `.locationCount`, `.totalAtRiskDays`)
+
+When WicAttendance ran its `queryFn` (on stale-data refetch after the first 5-minute `staleTime` window), it overwrote the shared cache entry with `ForecastResponse`. On navigate-back to Overview, TanStack Query returned `ForecastResponse` from cache. Overview's render immediately hit:
+
+```tsx
+const totalOpen = forecast != null ? forecast.filter(lf => ...).length : null
+//                                           ^^^^^^
+// TypeError: forecast.filter is not a function
+// ForecastResponse is an object, not an array
+```
+
+React error boundary caught this synchronous render throw. Without the boundary, the full tree unmounts silently (white screen).
+
+**Fix:** Gave WicAttendance a distinct cache key (`"wic-attendance-forecast"`) so it never writes into Overview's cache slot:
+
+```tsx
+// WicAttendance.tsx — line 706
+queryKey: ["wic-attendance-forecast", horizonDays],
+```
+
+Overview keeps `["wic-forecast", horizonDays]` unchanged. The two queries are now independent; no cache poisoning possible.
+
+**Verification:** 5 consecutive Overview → WicAttendance → Overview SPA navigations, then Ctrl+F5 — zero `[Overview crash]` entries, zero page errors, boundary never triggered.
+
+### Overview Error Boundary (`OverviewErrorBoundary`)
+
+**File:** `Frontend/src/components/OverviewErrorBoundary.tsx`
+
+**Why it exists:** Safety net for any future synchronous render throw on Overview or WicAttendance. Without a boundary, a render-time throw unmounts the full React tree silently (white screen). TanStack Query catches async throws in `queryFn` but cannot catch synchronous throws inside JSX evaluation.
+
+**Scope:** Wraps `<Overview />` and `<WicAttendance />` at route level in `App.tsx`:
+
+```tsx
+<Route index element={<OverviewErrorBoundary><Overview /></OverviewErrorBoundary>} />
+<Route path="/wic-attendance" element={<OverviewErrorBoundary><WicAttendance /></OverviewErrorBoundary>} />
+```
+
+Must be placed as a **true parent at route level** — a boundary inside the component's own return block does not catch throws from that component's render function (JSX expressions are evaluated before being passed as `children`).
+
+**Implementation pattern:** React error boundaries require class components; `useTranslation()` cannot be used in class components. Solution: the functional wrapper `OverviewErrorBoundary` calls the hook and passes `t` as a prop to `OverviewErrorBoundaryCore` (class component).
+
+**Error logging:** On catch, `componentDidCatch` logs `[Overview crash]` + component stack (first 600 chars) to `console.error` and POSTs the full stack to `/api/debug/client-error` (appends to `client-errors.log` in the backend output directory).
+
+**Error UI:** Uses crit-tone CSS tokens (`--st-crit-bg`, `--st-crit-bd`, `--st-crit-solid`) — no hardcoded hex. The message is i18n-keyed (`overview.error.title`, `overview.error.detail`) in both EN and DE.
+
+### Debug endpoint — `/api/debug/client-error`
+
+**Purpose:** Receives frontend crash reports from `OverviewErrorBoundary.componentDidCatch` and appends them to `client-errors.log` in the backend output directory.
+
+**Authentication:** None. Intended exclusively for the internal network and dev tunnel.
+
+**Constraints (added 2026-09-04):**
+- Request body read limited to first **8 KB** — larger payloads are silently truncated, not rejected.
+- Log file capped at **5 MB** — new writes are silently discarded once the limit is reached.
+
+**Log location:** `C:\GSDDashboard\Backend\bin\Release\net8.0\client-errors.log`
+
+**To reset the log:** delete or truncate the file; the endpoint creates it on first write.
+
+---
+
+## Display Name Changes
+
+Changes to visible UI text only — routes, API paths, and i18n keys are never renamed.
+
+| Date | Route | Old display name | New display name (EN) | New display name (DE) | Notes |
+|------|-------|------------------|-----------------------|-----------------------|-------|
+| 2026-09-03 | `/wic-coverage` | WIC Coverage | WIC Assignments | WIC-Zuweisungen | Route and all `wicCoverage.*` i18n keys preserved. Added subtitle: "Static assignment directory — not a daily coverage status." / "Statisches Zuweisungsverzeichnis — kein täglicher Abdeckungsstatus." Changed keys: `nav.wicCoverage`, `wicCoverage.title`. Added key: `wicCoverage.subtitle`. |

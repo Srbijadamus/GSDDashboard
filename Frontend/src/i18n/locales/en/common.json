@@ -22,11 +22,12 @@
     "pipeline": "Pipeline",
     "training": "Training",
     "alCalendar": "AL Calendar",
-    "wicCoverage": "WIC Coverage",
+    "wicCoverage": "WIC Assignments",
     "wicAnnualLeave": "WIC Annual Leave",
     "assistant": "Pulse Assistant",
     "boList": "BO List",
     "bulkRtm": "Bulk RTM Entry",
+    "export": "HR Export",
     "collapseSidebar": "Collapse",
     "expandSidebar": "Expand",
     "navThemeToLight": "Switch to light sidebar",
@@ -103,6 +104,10 @@
     },
     "coverageRisk": {
       "title": "Coverage Risk"
+    },
+    "error": {
+      "title": "Overview failed to load",
+      "detail": "A rendering error occurred — please refresh the page to continue."
     },
     "conflicts": {
       "count_one": "{{count}} conflicting assignment",
@@ -288,7 +293,8 @@
     }
   },
   "wicCoverage": {
-    "title": "WIC Coverage",
+    "title": "WIC Assignments",
+    "subtitle": "Static assignment directory — not a daily coverage status.",
     "tabWics": "WIC Locations",
     "tabAgents": "Agents",
     "searchWics": "Search WIC...",
@@ -332,6 +338,16 @@
       "saving": "Creating...",
       "cancel": "Cancel",
       "success": "Shift created for {{name}}"
+    },
+    "moveToBacklog": {
+      "button": "Move to GSD Backlog",
+      "moving": "Moving…",
+      "confirmTitle": "Location will be uncovered",
+      "confirmBody": "Moving {{agent}} leaves {{location}} uncovered on {{date}}.",
+      "cancel": "Cancel",
+      "moveAnyway": "Move anyway",
+      "success": "{{agent}} moved to GSD Backlog",
+      "error": "Failed to move agent"
     }
   },
   "topbar": {
@@ -356,6 +372,24 @@
     "alHistoryDays": "Days",
     "alHistoryStatus": "Status",
     "alHistoryNote": "Note"
+  },
+  "export": {
+    "title": "HR Export",
+    "from": "From",
+    "to": "To",
+    "employee": "Employee (optional)",
+    "teamLead": "Team Lead (optional)",
+    "types": "Data types",
+    "format": "Format",
+    "exportBtn": "Export",
+    "shiftPlan": "Shift plan",
+    "sickLeave": "Sick leave",
+    "annualLeave": "Annual leave",
+    "attendance": "Attendance",
+    "alBalance": "AL balance",
+    "training": "Training",
+    "excel": "Excel (.xlsx)",
+    "csv": "CSV (.zip)"
   },
   "assistant": {
     "search": "Search suggestions…",

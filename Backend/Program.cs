@@ -22,6 +22,8 @@ using GSDDashboard.API.Modules.BoList;
 using GSDDashboard.API.Modules.BulkRtm;
 using GSDDashboard.API.Modules.WicAssistant;
 using GSDDashboard.API.Modules.Assistant;
+using GSDDashboard.API.Modules.Admin;
+using GSDDashboard.API.Modules.HrExport;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,6 +68,8 @@ builder.Services.AddScoped<BulkRtmService>();
 builder.Services.AddScoped<WicAssistantService>();
 builder.Services.AddScoped<WicMigrationDryRunService>();
 builder.Services.AddScoped<WicConflictDetector>();
+builder.Services.AddScoped<DemoDataAdminService>();
+builder.Services.AddScoped<HrExportService>();
 
 // Full-dashboard assistant — domain handlers + router
 builder.Services.AddScoped<IDomainHandler, WicLeaveHandler>();
@@ -370,6 +374,8 @@ app.MapBulkRtmEndpoints();
 app.MapWicAssistantEndpoints();
 app.MapAssistantEndpoints();
 app.MapWicMigrationEndpoints();
+app.MapDemoDataAdminEndpoints();
+app.MapHrExportEndpoints();
 
 // Manual one-shot cleanup: removes WicShiftEntries rows where SupportLocation IS NULL
 // and a non-NULL sibling exists for the same (EmployeeId, ShiftDate).
@@ -399,6 +405,21 @@ app.MapGet("/api/wic/conflicts", async (string? from, string? to, bool? includeS
     var toDate   = to   != null && DateOnly.TryParse(to,   out var t) ? t : DateOnly.FromDateTime(DateTime.Today);
     return Results.Ok(await svc.GetConflictsAsync(fromDate, toDate, includeSplitShifts ?? false));
 }).WithTags("WIC");
+
+app.MapPost("/api/debug/client-error", async (HttpContext ctx) =>
+{
+    const int maxBodyBytes = 8_192;
+    const long maxLogBytes = 5 * 1024 * 1024;
+    var buf = new byte[maxBodyBytes];
+    var read = await ctx.Request.Body.ReadAsync(buf.AsMemory(0, maxBodyBytes));
+    var body = System.Text.Encoding.UTF8.GetString(buf, 0, read);
+    var logPath = Path.Combine(AppContext.BaseDirectory, "client-errors.log");
+    var fi = new FileInfo(logPath);
+    if (fi.Exists && fi.Length >= maxLogBytes) return Results.Ok();
+    await File.AppendAllTextAsync(logPath,
+        $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}]\n{body}\n---\n");
+    return Results.Ok();
+}).WithTags("Debug");
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.MapFallbackToFile("index.html", staticFileOptions);

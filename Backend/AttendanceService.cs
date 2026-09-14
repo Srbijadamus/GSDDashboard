@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
 using GSDDashboard.API.Data;
+using GSDDashboard.API.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Modules.Attendance;
@@ -8,6 +9,19 @@ public record AttendanceDto(
     int Id, string LocationName, string? Country,
     string AttendanceDate, string? RawValue,
     string? AttendanceType, string? AssignedEmployeeId
+);
+
+public record AgentAttendanceDto(
+    string EmployeeId,
+    string? FullName,
+    string? TeamLeadName,
+    string? PrimaryRole,
+    string? WicLocation,
+    string ShiftDate,
+    string? PlannedStart,
+    string? PlannedEnd,
+    string? ShiftType,
+    string? AgentTask
 );
 
 public class AttendanceService
@@ -43,6 +57,72 @@ public class AttendanceService
         if (!string.IsNullOrWhiteSpace(country))
             q = q.Where(a => a.Country == country);
         return await q.Select(a => a.LocationName).Distinct().OrderBy(x => x).ToListAsync();
+    }
+
+    public async Task<List<AgentAttendanceDto>> GetDailyAgentsAsync(
+        string? date, string? teamLead, string? location)
+    {
+        var shiftDate = date != null && DateOnly.TryParse(date, out var sd)
+            ? sd
+            : DateOnly.FromDateTime(DateTime.Today);
+
+        var shifts = await _db.ShiftEntries
+            .Where(se => se.ShiftDate == shiftDate)
+            .Join(
+                _db.Employees.Where(e => e.IsActive),
+                se => se.EmployeeId,
+                emp => emp.EmployeeId,
+                (se, emp) => new { se, emp })
+            .ToListAsync();
+
+        var wicEntries = await _db.WicShiftEntries
+            .Where(w => w.IsOnSite && w.ShiftDate == shiftDate)
+            .ToListAsync();
+
+        var wicByEmp = wicEntries
+            .GroupBy(w => w.EmployeeId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var q = shifts.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(teamLead))
+            q = q.Where(x => x.emp.TeamLeadName == teamLead);
+
+        if (!string.IsNullOrWhiteSpace(location))
+            q = q.Where(x =>
+                wicByEmp.TryGetValue(x.se.EmployeeId, out var w) &&
+                (w.SupportLocation ?? "").Contains(location, StringComparison.OrdinalIgnoreCase));
+
+        return q
+            .OrderBy(x => x.emp.TeamLeadName ?? "")
+            .ThenBy(x => x.emp.FullName ?? "")
+            .Select(x =>
+            {
+                wicByEmp.TryGetValue(x.se.EmployeeId, out var wicEntry);
+                return new AgentAttendanceDto(
+                    x.se.EmployeeId,
+                    x.emp.FullName,
+                    x.emp.TeamLeadName,
+                    x.emp.PrimaryRole,
+                    wicEntry?.SupportLocation,
+                    x.se.ShiftDate.ToString("yyyy-MM-dd"),
+                    x.se.ShiftStart,
+                    x.se.ShiftEnd,
+                    x.se.ShiftType,
+                    x.se.AgentTask
+                );
+            })
+            .ToList();
+    }
+
+    public async Task<List<string>> GetTeamLeadsAsync()
+    {
+        return await _db.Employees
+            .Where(e => e.IsActive && e.TeamLeadName != null)
+            .Select(e => e.TeamLeadName!)
+            .Distinct()
+            .OrderBy(x => x)
+            .ToListAsync();
     }
 
     public async Task<byte[]> ExportToExcelAsync(string? from, string? to)
@@ -94,5 +174,11 @@ public static class AttendanceEndpointMapper
             ctx.Response.Headers["Content-Disposition"] = $"attachment; filename=\"{filename}\"";
             return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         });
+
+        grp.MapGet("/agents", async (string? date, string? teamLead, string? location, AttendanceService svc) =>
+            Results.Ok(await svc.GetDailyAgentsAsync(date, teamLead, location)));
+
+        grp.MapGet("/teamleads", async (AttendanceService svc) =>
+            Results.Ok(await svc.GetTeamLeadsAsync()));
     }
 }

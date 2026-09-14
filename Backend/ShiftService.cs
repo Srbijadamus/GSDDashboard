@@ -260,34 +260,105 @@ public record CoverageResponse(string Date, List<CoverageSlot> Slots, int Thresh
     public async Task<byte[]> ExportToExcelAsync(ShiftFilterParams f)
     {
         var rows = await GetShiftsAsync(f);
+
+        var from = f.From != null && DateOnly.TryParse(f.From, out var fd) ? fd : DateOnly.FromDateTime(DateTime.Today);
+        var to   = f.To   != null && DateOnly.TryParse(f.To,   out var td) ? td : from;
+
+        var dates = new List<DateOnly>();
+        for (var d = from; d <= to; d = d.AddDays(1)) dates.Add(d);
+
+        var agents = rows
+            .GroupBy(r => r.EmployeeId)
+            .Select(g => new {
+                EmployeeId   = g.Key,
+                FullName     = g.First().FullName,
+                TeamLead     = g.First().TeamLeadName,
+                Role         = g.First().PrimaryRole,
+                ShiftsByDate = g.ToDictionary(r => r.ShiftDate)
+            })
+            .OrderBy(a => a.TeamLead)
+            .ThenBy(a => a.FullName)
+            .ToList();
+
         using var wb = new XLWorkbook();
-        var ws = wb.Worksheets.Add("Shift Report");
-        var headers = new[] { "ID", "Employee ID", "Full Name", "Engagement", "Primary Role", "Secondary Role", "Team Lead", "Date", "Shift Type", "Start", "End", "WIC Duty", "Task", "Raw Value" };
-        for (var i = 0; i < headers.Length; i++)
+        var ws = wb.Worksheets.Add("Shift Plan");
+
+        // Fixed header columns
+        var fixedCols = new[] { "Name", "Team Lead", "Role" };
+        for (var c = 0; c < fixedCols.Length; c++)
         {
-            ws.Cell(1, i + 1).Value = headers[i];
-            ws.Cell(1, i + 1).Style.Font.Bold = true;
-            ws.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#1e40af");
-            ws.Cell(1, i + 1).Style.Font.FontColor = XLColor.White;
+            var hCell = ws.Cell(1, c + 1);
+            hCell.Value = fixedCols[c];
+            hCell.Style.Font.Bold = true;
+            hCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#1e40af");
+            hCell.Style.Font.FontColor = XLColor.White;
         }
-        for (var r = 0; r < rows.Count; r++)
+        // Date header columns
+        for (var i = 0; i < dates.Count; i++)
         {
-            var row = rows[r]; var er = r + 2;
-            ws.Cell(er, 1).Value  = row.Id;
-            ws.Cell(er, 2).Value  = row.EmployeeId;
-            ws.Cell(er, 3).Value  = row.FullName ?? "";
-            ws.Cell(er, 4).Value  = row.Engagement ?? "";
-            ws.Cell(er, 5).Value  = row.PrimaryRole ?? "";
-            ws.Cell(er, 6).Value  = row.SecondaryRole ?? "";
-            ws.Cell(er, 7).Value  = row.TeamLeadName ?? "";
-            ws.Cell(er, 8).Value  = row.ShiftDate.ToString("yyyy-MM-dd");
-            ws.Cell(er, 9).Value  = row.ShiftType;
-            ws.Cell(er, 10).Value = row.ShiftStart ?? "";
-            ws.Cell(er, 11).Value = row.ShiftEnd ?? "";
-            ws.Cell(er, 12).Value = row.IsWicDuty ? "Yes" : "No";
-            ws.Cell(er, 13).Value = row.AgentTask ?? "";
-            ws.Cell(er, 14).Value = row.RawValue ?? "";
+            var hCell = ws.Cell(1, 4 + i);
+            hCell.Value = dates[i].ToString("ddd dd.MM");
+            hCell.Style.Font.Bold = true;
+            hCell.Style.Fill.BackgroundColor = XLColor.FromHtml("#1e40af");
+            hCell.Style.Font.FontColor = XLColor.White;
+            hCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         }
+
+        // Data rows — one row per agent, one column per date
+        for (var r = 0; r < agents.Count; r++)
+        {
+            var agent = agents[r];
+            var er = r + 2;
+            ws.Cell(er, 1).Value = agent.FullName ?? agent.EmployeeId;
+            ws.Cell(er, 2).Value = agent.TeamLead ?? "";
+            ws.Cell(er, 3).Value = agent.Role ?? "";
+
+            for (var i = 0; i < dates.Count; i++)
+            {
+                var cell = ws.Cell(er, 4 + i);
+                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                if (!agent.ShiftsByDate.TryGetValue(dates[i], out var shift)) continue;
+
+                var label = shift.ShiftType switch
+                {
+                    ShiftTypes.Working      => shift.ShiftStart != null && shift.ShiftEnd != null
+                        ? $"WORK {shift.ShiftStart}-{shift.ShiftEnd}" : "WORK",
+                    ShiftTypes.WicDuty      => shift.ShiftStart != null && shift.ShiftEnd != null
+                        ? $"WIC {shift.ShiftStart}-{shift.ShiftEnd}" : "WIC",
+                    ShiftTypes.AnnualLeave  => "AL",
+                    ShiftTypes.HalfAL       => "HALF AL",
+                    ShiftTypes.SickLeave    => "SL",
+                    ShiftTypes.UnpaidLeave  => "UL",
+                    ShiftTypes.Training     => "TRAINING",
+                    ShiftTypes.Off          => "OFF",
+                    ShiftTypes.OffWeekend   => "WE",
+                    ShiftTypes.PublicHol    => "PH",
+                    ShiftTypes.LocalPH      => "LPH",
+                    ShiftTypes.CompDay      => "CD",
+                    ShiftTypes.CompOff      => "CO",
+                    ShiftTypes.Resigned     => "RESIGNED",
+                    ShiftTypes.Empty        => "",
+                    _                       => shift.ShiftType
+                };
+                cell.Value = label;
+
+                switch (shift.ShiftType)
+                {
+                    case ShiftTypes.Working:
+                        cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#dcfce7"); break;
+                    case ShiftTypes.WicDuty:
+                        cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#e0f0ff"); break;
+                    case ShiftTypes.AnnualLeave:
+                    case ShiftTypes.HalfAL:
+                        cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#fff3cd"); break;
+                    case ShiftTypes.SickLeave:
+                        cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#ffe4e4"); break;
+                    case ShiftTypes.Training:
+                        cell.Style.Fill.BackgroundColor = XLColor.FromHtml("#ede9fe"); break;
+                }
+            }
+        }
+
         ws.Columns().AdjustToContents();
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
@@ -446,9 +517,9 @@ public static class ShiftEndpointMapper
             });
         });
 
-        grp.MapGet("/download", async (string? from, string? to, string? teamLead, string? role, ShiftService svc, HttpContext ctx) =>
+        grp.MapGet("/download", async (string? from, string? to, string? teamLead, string? role, string? engagement, string? shiftType, ShiftService svc, HttpContext ctx) =>
         {
-            var f = new ShiftFilterParams(from, to, teamLead, role, null, null);
+            var f = new ShiftFilterParams(from, to, teamLead, role, engagement, shiftType);
             var bytes = await svc.ExportToExcelAsync(f);
             var filename = $"ShiftReport_{DateTime.Today:yyyy-MM-dd}.xlsx";
             ctx.Response.Headers["Content-Disposition"] = $"attachment; filename=\"{filename}\"";
