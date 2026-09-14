@@ -175,18 +175,27 @@ function WarningBanner({ msg }: { msg: string }) {
   )
 }
 
+const cartoKey = import.meta.env.VITE_CARTO_KEY
+let cartoKeyWarned = false
+
 function ThemedTileLayer() {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
+
+  useEffect(() => {
+    if (!cartoKey && !cartoKeyWarned) {
+      cartoKeyWarned = true
+      console.warn("VITE_CARTO_KEY is not set — CARTO basemap tiles will show a watermark.")
+    }
+  }, [])
+
   return (
     <TileLayer
       key={isDark ? "dark" : "light"}
-      url={isDark
-        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"}
-      attribution={isDark
-        ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}
+      url={`https://{s}.basemaps.cartocdn.com/${isDark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png?key=${cartoKey}`}
+      subdomains="abcd"
+      maxZoom={19}
+      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     />
   )
 }
