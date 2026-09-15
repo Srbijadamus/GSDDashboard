@@ -364,6 +364,29 @@ Base path: `/api/wic`
 | POST | `/api/wic/shifts` | Body: `{ employeeId, date, shiftType, shiftStart?, shiftEnd?, agentTask?, locationCode? }` | `{ success, employeeName, shiftDate, shiftType }` | Create or update a ShiftEntry; if ShiftType=WIC_DUTY also upserts WicShiftEntry |
 | POST | `/api/wic/assignments` | Body: `{ employeeId, locationCode, date, shiftStart?, shiftEnd? }` | `{ success, skipped?, reason?, nppWarning? }` | Full WIC assignment: creates/updates ShiftEntry + WicShiftEntry; checks NPP qualification, time conflicts, and blocking shift types |
 
+### `POST /api/wic/assignments` — which rows count as a time conflict
+
+`WicShiftService.CreateAssignmentAsync` blocks the new assignment on overlapping hours
+only against the agent's existing `WicShiftEntries` rows for that date where
+**`IsOnSite == true`**. `IsOnSite == false` rows for the same agent+date are never
+compared, because they don't represent a live commitment:
+
+- **Move-to-GSD history** (`POST /api/wic/move-to-gsd`) sets `IsOnSite=0`,
+  `IsGSDDay=1` on the agent's prior on-site row and keeps it as a record — see
+  Q1 in `technical.md`.
+- **Manual reassignment to Voice/Backlog** (`PATCH /api/wic/{id}` with
+  `task="Voice"` or `"Backlog"`) sets `IsOnSite=0` because the agent is doing
+  other GSD work that day, not because they're unavailable.
+- **Excel-import `SupportLocation='Global Service Desk'` rows** are written with
+  `IsOnSite=0` for days an imported WIC agent worked the GSD office instead of a
+  WIC site — harmless history, per `technical.md` "Known Data Patterns".
+
+Absences (AL/SL/PH/etc.) are never represented by an `IsOnSite=false`
+`WicShiftEntries` row in the first place — they are blocked earlier in the same
+handler by a separate check against `ShiftEntries.ShiftType` (the
+"blocking shift types" set: `AL, HALF_AL, SL, UL, PH, LPH, OFF, OFF_WEEKEND, OL,
+RESIGNED`), before the overlap loop runs at all.
+
 ---
 
 ## 7.3 WIC Cards

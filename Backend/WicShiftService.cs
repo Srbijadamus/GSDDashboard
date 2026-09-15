@@ -447,6 +447,188 @@ public class WicShiftService
             sb.AppendLine(r.Date + "," + r.EmployeeId + "," + r.Name + "," + r.TeamLead + "," + r.Location + "," + r.WicOpenTime + "-" + r.WicCloseTime + "," + r.AgentStartTime + "-" + r.AgentEndTime + "," + r.FreeHours + "h," + r.Status);
         return System.Text.Encoding.UTF8.GetBytes(sb.ToString());
     }
+
+    public async Task<IResult> CreateAssignmentAsync(CreateAssignmentRequest req, GSDContext db)
+    {
+        if (string.IsNullOrWhiteSpace(req.EmployeeId) || string.IsNullOrWhiteSpace(req.LocationCode))
+            return Results.BadRequest(new { error = "EmployeeId and LocationCode are required." });
+        if (!DateOnly.TryParse(req.Date, out var date))
+            return Results.BadRequest(new { error = "Invalid date format. Expected yyyy-MM-dd." });
+
+        var employee = await db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId);
+        if (employee == null)
+            return Results.NotFound(new { error = $"Employee '{req.EmployeeId}' not found." });
+
+        var location = await db.WicLocations
+            .FirstOrDefaultAsync(l => l.LocationCode == req.LocationCode && l.IsActive);
+        if (location == null)
+            return Results.NotFound(new { error = $"Location '{req.LocationCode}' not found." });
+
+        string? nppWarning = (location.IsNpp && !employee.NppQualified)
+            ? $"{employee.FullName ?? req.EmployeeId} is not NPP-qualified for NPP site {location.DisplayName}."
+            : null;
+
+        int dow = (int)date.DayOfWeek;
+        var allHours = await db.WicOpeningHours.ToListAsync();
+        var hours    = WicHoursResolver.Resolve(allHours, req.LocationCode, dow, date);
+        if (hours?.IsClosed == true)
+            return Results.Ok(new
+            {
+                success = true,
+                skipped = true,
+                reason  = $"WIC location is closed on {date:yyyy-MM-dd}",
+                date    = date.ToString("yyyy-MM-dd"),
+            });
+        string openTime  = hours?.OpenTime  ?? req.ShiftStart ?? "08:00";
+        string closeTime = hours?.CloseTime ?? req.ShiftEnd   ?? "17:00";
+
+        var agentTask = (location.DisplayName?.Length ?? 0) > 20
+            ? location.DisplayName![..20]
+            : location.DisplayName ?? req.LocationCode[..Math.Min(20, req.LocationCode.Length)];
+
+        var shift = await db.ShiftEntries
+            .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+
+        // Skip dates where the agent is on a non-working shift; never overwrite AL/SL/OFF/PH etc.
+        if (shift != null)
+        {
+            var blockingTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                { "AL", "HALF_AL", "SL", "UL", "PH", "LPH", "OFF", "OFF_WEEKEND", "OL", "RESIGNED" };
+            if (blockingTypes.Contains(shift.ShiftType ?? ""))
+                return Results.Ok(new
+                {
+                    success = true,
+                    skipped = true,
+                    reason  = $"Agent has shift type '{shift.ShiftType}' on {date:yyyy-MM-dd}",
+                    date    = date.ToString("yyyy-MM-dd"),
+                });
+        }
+
+        if (shift != null)
+        {
+            shift.ShiftType    = ShiftTypes.WicDuty;
+            shift.IsWicDuty    = true;
+            shift.AgentTask    = agentTask;
+            shift.ShiftStart   = req.ShiftStart ?? openTime;
+            shift.ShiftEnd     = req.ShiftEnd   ?? closeTime;
+            shift.SourceModule = "ASSIGN";
+        }
+        else
+        {
+            db.ShiftEntries.Add(new ShiftEntry
+            {
+                EmployeeId   = req.EmployeeId,
+                ShiftDate    = date,
+                ShiftType    = ShiftTypes.WicDuty,
+                IsWicDuty    = true,
+                AgentTask    = agentTask,
+                ShiftStart   = req.ShiftStart ?? openTime,
+                ShiftEnd     = req.ShiftEnd   ?? closeTime,
+                SourceSheet  = "ASSIGN",
+                SourceModule = "ASSIGN",
+            });
+        }
+
+        // Check for time-range overlap with existing WicShiftEntries for this agent+date.
+        // Two assignments are allowed on the same day only if their times do not overlap.
+        // NULL or unparseable times are treated as "unknown — don't block".
+        var existingWicShifts = await db.WicShiftEntries
+            .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date)
+            .ToListAsync();
+
+        static (TimeSpan? start, TimeSpan? end) ParseShift(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return (null, null);
+            var parts = s.Split('-');
+            if (parts.Length < 2) return (null, null);
+            return TimeSpan.TryParse(parts[0].Trim(), out var a) && TimeSpan.TryParse(parts[1].Trim(), out var b)
+                ? (a, b) : (null, null);
+        }
+        var (newStart, newEnd) = ParseShift($"{openTime}-{closeTime}");
+
+        // Only IsOnSite=true rows represent a real, currently-active WIC commitment.
+        // IsOnSite=false rows are history (move-to-gsd), reassignment-to-other-task
+        // markers (PATCH Voice/Backlog), or harmless Excel-import "Global Service Desk"
+        // rows — none of them a live time conflict. See BLUEPRINT_LOGIC.md §7.2.
+        var conflictCandidates = existingWicShifts.Where(w => w.IsOnSite).ToList();
+
+        foreach (var existing in conflictCandidates)
+        {
+            // Same location → update in-place (no conflict)
+            if (string.Equals(existing.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var (exStart, exEnd) = ParseShift(existing.WorkingShift);
+            // If either side has unknown times, allow the assignment
+            if (newStart == null || newEnd == null || exStart == null || exEnd == null)
+                continue;
+            // Overlap: [newStart, newEnd) intersects [exStart, exEnd)
+            if (newStart < exEnd && exStart < newEnd)
+                return Results.Ok(new
+                {
+                    success = true,
+                    skipped = true,
+                    reason  = $"Time conflict: agent already assigned to {existing.SupportLocation} ({existing.WorkingShift}) on {date:yyyy-MM-dd}",
+                    date    = date.ToString("yyyy-MM-dd"),
+                });
+        }
+
+        // Upsert the WicShiftEntry for this specific location (others stay intact)
+        var existingForLoc = existingWicShifts
+            .FirstOrDefault(w => string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase));
+        if (existingForLoc != null)
+        {
+            existingForLoc.WorkingShift = $"{openTime}-{closeTime}";
+            existingForLoc.LocationCode = req.LocationCode;
+            existingForLoc.IsOnSite     = true;
+            existingForLoc.IsGSDDay     = false;
+            existingForLoc.Task         = "WIC";
+        }
+        else
+        {
+            db.WicShiftEntries.Add(new WicShiftEntry
+            {
+                EmployeeId      = req.EmployeeId,
+                ShiftDate       = date,
+                DayOfWeek       = date.DayOfWeek.ToString(),
+                SupportLocation = location.DisplayName,
+                LocationCode    = req.LocationCode,
+                IsOnSite        = true,
+                IsGSDDay        = false,
+                IsOffDay        = false,
+                WorkingShift    = $"{openTime}-{closeTime}",
+                Task            = "WIC",
+            });
+        }
+
+        // Update ShiftEntry time to span all WIC assignments for the day (earliest start → latest end)
+        if (existingWicShifts.Count > 0)
+        {
+            var allShifts = existingWicShifts
+                .Where(w => !string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase))
+                .Select(w => ParseShift(w.WorkingShift))
+                .Append((newStart, newEnd))
+                .Where(t => t.Item1 != null && t.Item2 != null)
+                .ToList();
+            if (allShifts.Count > 1 && shift != null)
+            {
+                var minStart = allShifts.Select(t => t.Item1!.Value).Min();
+                var maxEnd   = allShifts.Select(t => t.Item2!.Value).Max();
+                shift.ShiftStart = minStart.ToString(@"hh\:mm");
+                shift.ShiftEnd   = maxEnd.ToString(@"hh\:mm");
+            }
+        }
+
+        await db.SaveChangesAsync();
+        return Results.Ok(new
+        {
+            success      = true,
+            employeeName = employee.FullName ?? req.EmployeeId,
+            displayName  = location.DisplayName,
+            date         = date.ToString("yyyy-MM-dd"),
+            nppWarning,
+        });
+    }
 }
 
 public static class WicEndpointMapper
@@ -587,181 +769,8 @@ public static class WicEndpointMapper
             });
         });
 
-        grp.MapPost("/assignments", async (CreateAssignmentRequest req, GSDContext db) =>
-        {
-            if (string.IsNullOrWhiteSpace(req.EmployeeId) || string.IsNullOrWhiteSpace(req.LocationCode))
-                return Results.BadRequest(new { error = "EmployeeId and LocationCode are required." });
-            if (!DateOnly.TryParse(req.Date, out var date))
-                return Results.BadRequest(new { error = "Invalid date format. Expected yyyy-MM-dd." });
-
-            var employee = await db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId);
-            if (employee == null)
-                return Results.NotFound(new { error = $"Employee '{req.EmployeeId}' not found." });
-
-            var location = await db.WicLocations
-                .FirstOrDefaultAsync(l => l.LocationCode == req.LocationCode && l.IsActive);
-            if (location == null)
-                return Results.NotFound(new { error = $"Location '{req.LocationCode}' not found." });
-
-            string? nppWarning = (location.IsNpp && !employee.NppQualified)
-                ? $"{employee.FullName ?? req.EmployeeId} is not NPP-qualified for NPP site {location.DisplayName}."
-                : null;
-
-            int dow = (int)date.DayOfWeek;
-            var allHours = await db.WicOpeningHours.ToListAsync();
-            var hours    = WicHoursResolver.Resolve(allHours, req.LocationCode, dow, date);
-            if (hours?.IsClosed == true)
-                return Results.Ok(new
-                {
-                    success = true,
-                    skipped = true,
-                    reason  = $"WIC location is closed on {date:yyyy-MM-dd}",
-                    date    = date.ToString("yyyy-MM-dd"),
-                });
-            string openTime  = hours?.OpenTime  ?? req.ShiftStart ?? "08:00";
-            string closeTime = hours?.CloseTime ?? req.ShiftEnd   ?? "17:00";
-
-            var agentTask = (location.DisplayName?.Length ?? 0) > 20
-                ? location.DisplayName![..20]
-                : location.DisplayName ?? req.LocationCode[..Math.Min(20, req.LocationCode.Length)];
-
-            var shift = await db.ShiftEntries
-                .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
-
-            // Skip dates where the agent is on a non-working shift; never overwrite AL/SL/OFF/PH etc.
-            if (shift != null)
-            {
-                var blockingTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                    { "AL", "HALF_AL", "SL", "UL", "PH", "LPH", "OFF", "OFF_WEEKEND", "OL", "RESIGNED" };
-                if (blockingTypes.Contains(shift.ShiftType ?? ""))
-                    return Results.Ok(new
-                    {
-                        success = true,
-                        skipped = true,
-                        reason  = $"Agent has shift type '{shift.ShiftType}' on {date:yyyy-MM-dd}",
-                        date    = date.ToString("yyyy-MM-dd"),
-                    });
-            }
-
-            if (shift != null)
-            {
-                shift.ShiftType    = ShiftTypes.WicDuty;
-                shift.IsWicDuty    = true;
-                shift.AgentTask    = agentTask;
-                shift.ShiftStart   = req.ShiftStart ?? openTime;
-                shift.ShiftEnd     = req.ShiftEnd   ?? closeTime;
-                shift.SourceModule = "ASSIGN";
-            }
-            else
-            {
-                db.ShiftEntries.Add(new ShiftEntry
-                {
-                    EmployeeId   = req.EmployeeId,
-                    ShiftDate    = date,
-                    ShiftType    = ShiftTypes.WicDuty,
-                    IsWicDuty    = true,
-                    AgentTask    = agentTask,
-                    ShiftStart   = req.ShiftStart ?? openTime,
-                    ShiftEnd     = req.ShiftEnd   ?? closeTime,
-                    SourceSheet  = "ASSIGN",
-                    SourceModule = "ASSIGN",
-                });
-            }
-
-            // Check for time-range overlap with existing WicShiftEntries for this agent+date.
-            // Two assignments are allowed on the same day only if their times do not overlap.
-            // NULL or unparseable times are treated as "unknown — don't block".
-            var existingWicShifts = await db.WicShiftEntries
-                .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date)
-                .ToListAsync();
-
-            static (TimeSpan? start, TimeSpan? end) ParseShift(string? s)
-            {
-                if (string.IsNullOrWhiteSpace(s)) return (null, null);
-                var parts = s.Split('-');
-                if (parts.Length < 2) return (null, null);
-                return TimeSpan.TryParse(parts[0].Trim(), out var a) && TimeSpan.TryParse(parts[1].Trim(), out var b)
-                    ? (a, b) : (null, null);
-            }
-            var (newStart, newEnd) = ParseShift($"{openTime}-{closeTime}");
-
-            foreach (var existing in existingWicShifts)
-            {
-                // Same location → update in-place (no conflict)
-                if (string.Equals(existing.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var (exStart, exEnd) = ParseShift(existing.WorkingShift);
-                // If either side has unknown times, allow the assignment
-                if (newStart == null || newEnd == null || exStart == null || exEnd == null)
-                    continue;
-                // Overlap: [newStart, newEnd) intersects [exStart, exEnd)
-                if (newStart < exEnd && exStart < newEnd)
-                    return Results.Ok(new
-                    {
-                        success = true,
-                        skipped = true,
-                        reason  = $"Time conflict: agent already assigned to {existing.SupportLocation} ({existing.WorkingShift}) on {date:yyyy-MM-dd}",
-                        date    = date.ToString("yyyy-MM-dd"),
-                    });
-            }
-
-            // Upsert the WicShiftEntry for this specific location (others stay intact)
-            var existingForLoc = existingWicShifts
-                .FirstOrDefault(w => string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase));
-            if (existingForLoc != null)
-            {
-                existingForLoc.WorkingShift = $"{openTime}-{closeTime}";
-                existingForLoc.LocationCode = req.LocationCode;
-                existingForLoc.IsOnSite     = true;
-                existingForLoc.IsGSDDay     = false;
-                existingForLoc.Task         = "WIC";
-            }
-            else
-            {
-                db.WicShiftEntries.Add(new WicShiftEntry
-                {
-                    EmployeeId      = req.EmployeeId,
-                    ShiftDate       = date,
-                    DayOfWeek       = date.DayOfWeek.ToString(),
-                    SupportLocation = location.DisplayName,
-                    LocationCode    = req.LocationCode,
-                    IsOnSite        = true,
-                    IsGSDDay        = false,
-                    IsOffDay        = false,
-                    WorkingShift    = $"{openTime}-{closeTime}",
-                    Task            = "WIC",
-                });
-            }
-
-            // Update ShiftEntry time to span all WIC assignments for the day (earliest start → latest end)
-            if (existingWicShifts.Count > 0)
-            {
-                var allShifts = existingWicShifts
-                    .Where(w => !string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase))
-                    .Select(w => ParseShift(w.WorkingShift))
-                    .Append((newStart, newEnd))
-                    .Where(t => t.Item1 != null && t.Item2 != null)
-                    .ToList();
-                if (allShifts.Count > 1 && shift != null)
-                {
-                    var minStart = allShifts.Select(t => t.Item1!.Value).Min();
-                    var maxEnd   = allShifts.Select(t => t.Item2!.Value).Max();
-                    shift.ShiftStart = minStart.ToString(@"hh\:mm");
-                    shift.ShiftEnd   = maxEnd.ToString(@"hh\:mm");
-                }
-            }
-
-            await db.SaveChangesAsync();
-            return Results.Ok(new
-            {
-                success      = true,
-                employeeName = employee.FullName ?? req.EmployeeId,
-                displayName  = location.DisplayName,
-                date         = date.ToString("yyyy-MM-dd"),
-                nppWarning,
-            });
-        });
+        grp.MapPost("/assignments", async (CreateAssignmentRequest req, GSDContext db, WicShiftService svc) =>
+            await svc.CreateAssignmentAsync(req, db));
 
         grp.MapPost("/move-to-gsd", async (MoveToGsdRequest req, GSDContext db, ILogger<WicShiftService> logger) =>
         {

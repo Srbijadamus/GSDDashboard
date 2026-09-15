@@ -119,7 +119,7 @@ One row per agent per WIC day (and per WIC location if an agent covers two in on
 | WicOpeningHours | NVARCHAR(50) | Opening hours string from the Excel import (e.g. "08:00-17:00") |
 | WorkingShift | NVARCHAR(50) | Agent's working shift at the WIC (e.g. "07:30-15:00") |
 | IsOnSite | BIT NOT NULL DEFAULT 0 | True when the agent is physically present at the WIC. This is the primary flag used by all coverage services. |
-| IsGSDDay | BIT NOT NULL DEFAULT 0 | **FOSSIL.** Previously used for GSD-office days. No longer written or relied upon. |
+| IsGSDDay | BIT NOT NULL DEFAULT 0 | True when a previously on-site WIC assignment was moved to GSD backlog duty for that day. Set to `true` by `POST /api/wic/move-to-gsd` on the agent's prior on-site row (alongside `IsOnSite=0`); set to `false` on rows created by the assignment REST endpoint. Historical Excel-import values may also be non-zero. Not read by any coverage service — informational history only, exported to Excel as the "GSD Day" column. |
 | IsOffDay | BIT NOT NULL DEFAULT 0 | **FOSSIL.** Previously used for off days. No longer written or relied upon. |
 | Task | NVARCHAR(20) DEFAULT 'WIC' | Task badge: "WIC", "Voice", "Backlog", "SL", "AL", etc. Editable from the WicSchedule page. |
 | LocationCode | NVARCHAR(50) | `WicLocations.LocationCode` — set only when row is created via the REST API (not by Excel import). Null on imported rows. |

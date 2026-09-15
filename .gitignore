@@ -4,6 +4,8 @@ Backend/wwwroot/favicon.svg
 Backend/wwwroot/icons.svg
 Backend/obj/
 Backend/bin/
+Backend.Tests/obj/
+Backend.Tests/bin/
 Frontend/node_modules/
 Frontend/dist/
 db-backups/
