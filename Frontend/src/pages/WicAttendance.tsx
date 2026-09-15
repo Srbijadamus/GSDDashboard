@@ -141,15 +141,21 @@ function chunkWeeks(days: ForecastDay[]): ForecastDay[][] {
   return weeks
 }
 
-function checkinDuration(checkinTime: string | null): string {
+// Fix (GRC incident, 2026-09-15): a DONE agent's duration must stop at checkout_time,
+// not keep growing with Date.now() — otherwise a logged-off agent's "duration since
+// check-in" grows forever every time this is re-rendered.
+function checkinDuration(checkinTime: string | null, checkoutTime: string | null, status: KioskRecord["attendance_status"]): string {
   if (!checkinTime) return ""
-  const normalized = checkinTime.replace(/\.(\d{3})\d*/, '.$1')
-  const ms = Date.now() - new Date(normalized).getTime()
+  const normalize = (s: string) => s.replace(/\.(\d{3})\d*/, '.$1')
+  const endMs = status === "DONE" && checkoutTime
+    ? new Date(normalize(checkoutTime)).getTime()
+    : Date.now()
+  const ms = endMs - new Date(normalize(checkinTime)).getTime()
   if (ms < 0) return "0m"
   const totalMin = Math.floor(ms / 60_000)
   const h = Math.floor(totalMin / 60)
   const m = totalMin % 60
-  return h > 0 ? `${h}h ${m}m` : `${m}m`
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
 }
 
 function kioskActiveAt(records: KioskRecord[], displayName: string): KioskRecord[] {
@@ -809,24 +815,24 @@ export default function WicAttendance() {
   const notYetInList   = workingAgents.filter(a => !checkedInIds.has(a.employeeId))
   const notYetInCount  = notYetInList.length
 
-  type KioskDrawerRow = { key: string; name: string; location: string | null; checkinTime: string | null; status: KioskRecord["attendance_status"]; shiftStart?: string | null }
+  type KioskDrawerRow = { key: string; name: string; location: string | null; checkinTime: string | null; checkoutTime: string | null; status: KioskRecord["attendance_status"]; shiftStart?: string | null }
   const kioskDrawerRows: KioskDrawerRow[] = (() => {
     if (kioskDrawerFilter === "checkedIn") {
       return [...kioskData]
         .filter(r => r.attendance_status === "ACTIVE" || r.attendance_status === "DONE")
         .sort((a, b) => (a.checkin_time ?? "").localeCompare(b.checkin_time ?? ""))
-        .map(r => ({ key: r.employee_id, name: r.full_name, location: r.location, checkinTime: r.checkin_time, status: r.attendance_status }))
+        .map(r => ({ key: r.employee_id, name: r.full_name, location: r.location, checkinTime: r.checkin_time, checkoutTime: r.checkout_time ?? null, status: r.attendance_status }))
     }
     if (kioskDrawerFilter === "expected") {
       return workingAgents.map(a => {
         const k = kioskMap.get(a.employeeId)
-        return { key: a.employeeId, name: a.name, location: k?.location ?? null, checkinTime: k?.checkin_time ?? null, status: (k?.attendance_status ?? "NOT_CHECKED_IN") as KioskRecord["attendance_status"], shiftStart: a.shiftStart }
+        return { key: a.employeeId, name: a.name, location: k?.location ?? null, checkinTime: k?.checkin_time ?? null, checkoutTime: k?.checkout_time ?? null, status: (k?.attendance_status ?? "NOT_CHECKED_IN") as KioskRecord["attendance_status"], shiftStart: a.shiftStart }
       })
     }
     if (kioskDrawerFilter === "notYetIn") {
       return notYetInList.map(a => {
         const k = kioskMap.get(a.employeeId)
-        return { key: a.employeeId, name: a.name, location: k?.location ?? null, checkinTime: null, status: "NOT_CHECKED_IN" as KioskRecord["attendance_status"], shiftStart: a.shiftStart }
+        return { key: a.employeeId, name: a.name, location: k?.location ?? null, checkinTime: null, checkoutTime: null, status: "NOT_CHECKED_IN" as KioskRecord["attendance_status"], shiftStart: a.shiftStart }
       })
     }
     return []
@@ -1738,7 +1744,7 @@ export default function WicAttendance() {
                 </div>
                 {/* duration */}
                 <div className="font-mono text-sm text-ink-muted" style={{ flexShrink: 0, minWidth: 48, textAlign: "right" }}>
-                  {checkinDuration(row.checkinTime)}
+                  {checkinDuration(row.checkinTime, row.checkoutTime, row.status)}
                 </div>
                 {/* status badge */}
                 <StatusBadge tone={row.status === "ACTIVE" ? "good" : "mutedst"}>
