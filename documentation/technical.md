@@ -531,25 +531,31 @@ TanStack Query stale times: locations 10 min, forecast/briefing 5 min, static da
 
 ## Build & Deploy
 
-The backend is a self-contained .NET executable managed by Windows Task Scheduler (`GSDDashboard-Backend`). The frontend is a Vite SPA whose build output lives inside the backend's `wwwroot/`. Both must be built before a restart will pick up any changes.
+The backend is a framework-dependent .NET build (`dotnet build -c Release`, not `dotnet publish`) launched by the watchdog script and supervised by Windows Task Scheduler (`GSDDashboard-Backend`) — see `PROJECT_BLUEPRINT.md` § Windows Scheduled Task for the watchdog/health-check/tunnel layering. The frontend is a Vite SPA whose build output lives inside the backend's `wwwroot/`. Both must be built before a restart will pick up any changes. No admin rights are available on this Cloud PC, so the task itself is never Disabled — only its processes are stopped by exact PID.
 
 ### Mandatory procedure — no exceptions
 
 ```
-1.  schtasks /End /TN "GSDDashboard-Backend"
-2.  timeout /t 3
-3.  tasklist | findstr /I "GSDDashboard"   ← if still running, taskkill /PID <pid> /F
-4.  cd C:\GSDDashboard\Backend  && dotnet build -c Release
-5.  cd C:\GSDDashboard\Frontend && npm run build
-6.  schtasks /Run /TN "GSDDashboard-Backend"
-7.  sleep 10 → GET https://d2jn94qg-5000.euw.devtunnels.ms/ → confirm new JS hash
+1.  git add <explicit files> && git commit           (never `.` or `-A`)
+2.  git worktree add <path> <exact commit sha>        (pin the build to what's being deployed)
+3.  cd <worktree>/Frontend && npm ci && npm run build (tsc -b, vite build, copies dist into worktree Backend/wwwroot + bin/.../wwwroot)
+4.  cd <worktree>/Backend  && dotnet build -c Release
+5.  cd <worktree>/Backend.Tests && dotnet test        → must pass before continuing
+6.  robocopy live Backend/bin/Release/net8.0 and Backend/wwwroot to a timestamped backup folder (/E, exit code 8+ = failure)
+7.  Identify current watchdog + API PIDs by exact CommandLine match (`-File *watchdog_gsd_backend.ps1*`, exclude `-Command` matches on your own shell)
+8.  Stop-Process the watchdog PID, then the GSDDashboard.API.exe PID (exact PID only, never by name)
+9.  robocopy worktree Backend/bin/Release/net8.0 → live, and worktree Backend/wwwroot → live (/E, no /MIR, no /PURGE, /XF client-errors.log so the live log survives)
+10. Hash-check every copied file (SHA-256) against the worktree source — 0 mismatches required
+11. Start-ScheduledTask GSDDashboard-Backend                     (Disable/Enable are not used — see limitation above)
+12. Wait ~45s (30s watchdog startup delay + API boot), then verify: exactly 1 watchdog + 1 API process, GET /health = 200, smoke-test the API/page endpoints, GET the tunnel URL = 200
+13. git worktree remove --force <path>
 ```
 
-**Step 3 is a gate**: `dotnet build` fails with "file is locked" if the process is still running. `schtasks /Change /DISABLE` requires elevated privileges and must not be used — use `taskkill /PID` instead if the process lingers.
+**Rollback** (any failure in steps 6-12): stop watchdog + API by exact PID, restore all files from the step-6 backup, `Start-ScheduledTask GSDDashboard-Backend`, verify `/health` = 200, then stop and report — do not retry with changes.
 
-**Step 4 is mandatory even for frontend-only changes**: cost is ~2 seconds; skipping it risks silently deploying stale backend code.
+**Step 10 hash check**: confirms the live files are byte-identical to the tested worktree build before restarting — catches a partial/corrupt robocopy before it's ever served.
 
-**Step 7 hash check**: the `index.html` served at the tunnel root contains the content-hashed JS filename (e.g. `index-BQkiZ_x6.js`). Confirm it changed after a frontend rebuild; if it hasn't, the old bundle is still being served.
+**Step 12 verification**: check the tunnel (`https://d2jn94qg-5000.euw.devtunnels.ms/`) as well as `localhost:5000`, since the tunnel is the production-facing surface.
 
 ### Verification (from tunnel, not localhost)
 

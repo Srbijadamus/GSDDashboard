@@ -155,20 +155,26 @@ The backend serves `wwwroot/` as static files via `app.UseStaticFiles()` + `app.
 ### Backend Run
 
 Development: `cd Backend && dotnet run` (uses `dotnet watch run` for hot reload).
-Production: `dotnet run` or the published binary at `Backend/bin/Release/net8.0/`.
+Production: the framework-dependent build at `Backend/bin/Release/net8.0/GSDDashboard.API.exe`, produced by `dotnet build -c Release` (not `dotnet publish` — publish would generate a `web.config` the app never uses, since it runs standalone, not under IIS). Launched and supervised by the watchdog described below, not run directly.
 
 ### Windows Scheduled Task (Production Deploy)
 
 Task name: `GSDDashboard-Backend`. Backup XML at `C:\GSDDashboard\task-backups\GSDDashboard-Backend.xml`.
 
 - **Trigger:** Logon
-- **Action:** `cmd.exe /c cd /d "C:\GSDDashboard\Backend" && "C:\Program Files\dotnet\dotnet.exe" run`
-- **Restart on failure:** 3 retries, 1-minute interval
-- **ExecutionTimeLimit:** PT0S (no timeout — runs indefinitely)
-- **DisallowStartIfOnBatteries:** true
+- **Action:** `powershell.exe -NonInteractive -WindowStyle Hidden -File "C:\HealthCheck\watchdog_gsd_backend.ps1"` — not `dotnet run`, not a self-contained exe launched directly by the task.
+- **RunLevel:** Highest (requires admin to Disable/Enable the task itself; not available on this Cloud PC — see below).
 - **MultipleInstancesPolicy:** IgnoreNew (prevents double-start)
 
 The task runs as the interactive user with highest available privileges.
+
+**Watchdog** (`C:\HealthCheck\watchdog_gsd_backend.ps1`): infinite loop. On start, waits 30s before first launch. Sets its working directory to `C:\GSDDashboard\Backend` and starts `Backend\bin\Release\net8.0\GSDDashboard.API.exe`. If the exe exits for any reason, the watchdog logs it and relaunches 10s later.
+
+**Independent health-check layer** (`C:\HealthCheck\health_check.ps1`, task `ServiceHealthCheck`, every 5 minutes): separately polls `GSDDashboard` on port 5000 (alongside ShiftKiosk:8000 and LaptopTracker:5016, each scoped to its own port/task). After 3 consecutive failed checks it stops the port-5000 listener and calls `Start-ScheduledTask` on `GSDDashboard-Backend` to recover.
+
+**Dev tunnel**: separate task `GSDDashboard-Tunnel-v2`, its own watchdog `watchdog_gsd_tunnel.ps1`, running `devtunnel host gsd-dashboard-v2`. Independent of the backend task — survives backend restarts and is never touched by a backend deploy.
+
+**Admin limitation on this Cloud PC**: no admin rights are available. `Disable-ScheduledTask`/`Enable-ScheduledTask` fail with Access Denied (the task's `RunLevel=Highest` requires elevation to modify the task definition). `Stop-Process` by exact PID and `Start-ScheduledTask` do **not** require admin and are the mechanisms actually used to stop/restart the service during a deploy. Never stop processes by generic name (`powershell`, `dotnet`) — always match the exact PID via `CommandLine` (e.g. `-File *watchdog_gsd_backend.ps1*`), since the same Cloud PC also hosts ShiftKiosk and LaptopTracker.
 
 ---
 
