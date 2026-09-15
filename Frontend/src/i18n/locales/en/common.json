@@ -240,7 +240,21 @@
       "save": "Assign",
       "saving": "Assigning...",
       "cancel": "Cancel",
-      "success": "Agent assigned to {{loc}}"
+      "success": "Agent assigned to {{loc}}",
+      "summaryRange_one": "{{count}} day assigned to {{loc}}",
+      "summaryRange_other": "{{count}} days assigned to {{loc}}",
+      "summaryRangeWithSkips_one": "{{count}} day assigned to {{loc}} ({{skipSummary}})",
+      "summaryRangeWithSkips_other": "{{count}} days assigned to {{loc}} ({{skipSummary}})",
+      "skipReasons": {
+        "closedDay_one": "{{count}} skipped — location closed",
+        "closedDay_other": "{{count}} skipped — location closed",
+        "blockingShift_one": "{{count}} skipped — agent unavailable",
+        "blockingShift_other": "{{count}} skipped — agent unavailable",
+        "timeConflict_one": "{{count}} skipped — time conflict",
+        "timeConflict_other": "{{count}} skipped — time conflicts",
+        "other_one": "{{count}} skipped",
+        "other_other": "{{count}} skipped"
+      }
     },
     "manualCheckin": {
       "button": "Manual Check-in",

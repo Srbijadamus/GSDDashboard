@@ -46,6 +46,18 @@ function buildDateRange(from: string, to: string, skipWeekends: boolean): string
   return dates
 }
 
+type SkipReasonKind = "closedDay" | "blockingShift" | "timeConflict" | "other"
+
+// Classifies the `reason` string returned by POST /api/wic/assignments —
+// see BLUEPRINT_LOGIC.md §7.2 for the three skip reasons this endpoint returns.
+function classifySkipReason(reason: string | undefined): SkipReasonKind {
+  if (!reason) return "other"
+  if (reason.startsWith("WIC location is closed")) return "closedDay"
+  if (reason.startsWith("Agent has shift type")) return "blockingShift"
+  if (reason.startsWith("Time conflict")) return "timeConflict"
+  return "other"
+}
+
 export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, defaultDate }: AssignAgentModalProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -148,6 +160,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
     let failed = 0
     let skipped = 0
     let firstNppWarning: string | null = null
+    const skipCounts: Record<SkipReasonKind, number> = { closedDay: 0, blockingShift: 0, timeConflict: 0, other: 0 }
 
     for (let i = 0; i < dates.length; i++) {
       const d = dates[i]
@@ -169,7 +182,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
           throw new Error(`HTTP ${res.status}${body ? ": " + body : ""}`)
         }
         const data = await res.json()
-        if (data.skipped) { skipped++; continue }
+        if (data.skipped) { skipped++; skipCounts[classifySkipReason(data.reason)]++; continue }
         lastDisplayName = data.displayName ?? lastDisplayName
         if (data.nppWarning && !firstNppWarning) firstNppWarning = data.nppWarning
       } catch (err) {
@@ -184,10 +197,14 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
 
     if (failed === 0) {
       const assigned = dates.length - skipped
+      const skipSummary = (Object.keys(skipCounts) as SkipReasonKind[])
+        .filter(kind => skipCounts[kind] > 0)
+        .map(kind => p(`skipReasons.${kind}`, { count: skipCounts[kind] }))
+        .join(", ")
       const msg = isRange
         ? skipped > 0
-          ? `${assigned} day${assigned !== 1 ? "s" : ""} assigned to ${lastDisplayName} (${skipped} skipped — non-working days)`
-          : `${assigned} day${assigned !== 1 ? "s" : ""} assigned to ${lastDisplayName}`
+          ? p("summaryRangeWithSkips", { count: assigned, loc: lastDisplayName, skipSummary })
+          : p("summaryRange", { count: assigned, loc: lastDisplayName })
         : p("success", { loc: lastDisplayName })
       setSuccess(msg)
       if (firstNppWarning) setNppWarn(firstNppWarning)

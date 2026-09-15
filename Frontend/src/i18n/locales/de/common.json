@@ -240,7 +240,21 @@
       "save": "Zuweisen",
       "saving": "Wird zugewiesen...",
       "cancel": "Abbrechen",
-      "success": "Agent {{loc}} zugewiesen"
+      "success": "Agent {{loc}} zugewiesen",
+      "summaryRange_one": "{{count}} Tag {{loc}} zugewiesen",
+      "summaryRange_other": "{{count}} Tage {{loc}} zugewiesen",
+      "summaryRangeWithSkips_one": "{{count}} Tag {{loc}} zugewiesen ({{skipSummary}})",
+      "summaryRangeWithSkips_other": "{{count}} Tage {{loc}} zugewiesen ({{skipSummary}})",
+      "skipReasons": {
+        "closedDay_one": "{{count}} übersprungen — Standort geschlossen",
+        "closedDay_other": "{{count}} übersprungen — Standort geschlossen",
+        "blockingShift_one": "{{count}} übersprungen — Agent nicht verfügbar",
+        "blockingShift_other": "{{count}} übersprungen — Agent nicht verfügbar",
+        "timeConflict_one": "{{count}} übersprungen — Zeitkonflikt",
+        "timeConflict_other": "{{count}} übersprungen — Zeitkonflikte",
+        "other_one": "{{count}} übersprungen",
+        "other_other": "{{count}} übersprungen"
+      }
     },
     "manualCheckin": {
       "button": "Manuelle Anmeldung",
