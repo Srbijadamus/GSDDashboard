@@ -1734,7 +1734,7 @@ export default function WicAttendance() {
                 </div>
                 {/* since */}
                 <div className="font-mono text-sm text-ink" style={{ flexShrink: 0, minWidth: 36, textAlign: "right" }}>
-                  {row.checkinTime ? row.checkinTime.slice(11, 16) : row.shiftStart ?? "—"}
+                  {row.checkinTime ? row.checkinTime.slice(11, kioskDrawerFilter === "checkedIn" ? 19 : 16) : row.shiftStart ?? "—"}
                 </div>
                 {/* duration */}
                 <div className="font-mono text-sm text-ink-muted" style={{ flexShrink: 0, minWidth: 48, textAlign: "right" }}>
