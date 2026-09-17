@@ -8,6 +8,46 @@
 
 ---
 
+## 4.0 Shift Plan — Coverage per Hour (`GET /api/shifts/coverage`)
+
+**File:** `Backend/ShiftService.cs` → `GetCoverageAsync(date)`. This was previously undocumented
+(not listed in FUNCTIONS.md's ShiftService method table) — added here as part of the vWIC /
+Task-defaults fix (2026-09).
+
+Powers the "Coverage per Hour" chart on the Shift Plan page (`Frontend/src/pages/CoverageBar.jsx`).
+For each hour 07:00–18:00 on the given date:
+
+1. Load all `ShiftEntries` for the date joined to `Employees`, excluding inactive agents and
+   `PrimaryRole = "2nd Level"`.
+2. Per agent, classify by `ShiftType`:
+   - `AL` / `HALF_AL` → **AL** bucket
+   - `SL` → **Sick** bucket
+   - `TRAINING` → **Training** bucket
+   - `OFF` / `OFF_WEEKEND` / `PH` → **Off** bucket
+   - `WORKING` / `WIC_DUTY` → only counted if the hour falls inside `[ShiftStart, ShiftEnd)`
+     (agents outside their shift hours are not counted at all)
+   - Any other `ShiftType` (e.g. `UL`, `CD`, `EMPTY`) is not counted in any bucket.
+3. For `WORKING`/`WIC_DUTY` rows inside their shift window:
+   - `ShiftType = WIC_DUTY` (or legacy `IsWicDuty = 1`) → **WIC** bucket (physical WIC duty).
+   - Otherwise (a `WORKING` row) → bucketed by **effective Task** (`AgentTasks.Resolve`, see
+     BLUEPRINT_DATA_MODEL.md "Task defaults"): `Voice`→**Voice**, `VWIC`→**vWIC**, `WIC`→**WIC**,
+     `Backlog`→**Backlog**, anything else (`Dispatcher`/`SME`/`SSP`, or no task/role match) →
+     **Other**.
+4. `MinRequired(hour)`: <08:00 → 1, 08:00–17:00 → 3, ≥17:00 → 1 (undocumented magic numbers,
+   unchanged by this fix — no source found defining these thresholds beyond this function).
+5. `BelowThreshold = Voice < MinRequired(hour)`. **Only the Voice bucket counts toward the
+   threshold** — vWIC/WIC/Backlog/Other/AL/Sick/Training/Off agents do not, because they are not
+   taking Voice calls.
+
+**Bug fixed 2026-09:** previously every `WORKING` row counted as "Voice" regardless of the
+agent's Task or Role (only `WIC_DUTY` was excluded), and `BelowThreshold` used `(Voice + WIC) <
+Min`. This made the chart show ~44–46 apparent "Voice" agents at 09:00 on 2026-09-16 (all
+WORKING agents: Dispatcher, SME, SSP, Backlog, VWIC, Chat, Chat CRO, Trainer, Booking Tool, Bulk
+PWs, and real Voice agents, combined) versus the corrected 14 real Voice agents for the same
+slot — see PART 1d numbers in the handoff for the full breakdown.
+
+---
+
 ## 4.1 WIC Coverage Calculation
 
 The coverage pipeline runs in `ForecastService.GetForecastAsync()`. The same pipeline is used (with bulk-loaded data) in `WicShiftService.GetOpenAsync()` and `SubstitutionService.GetSubstitutesAsync()`.

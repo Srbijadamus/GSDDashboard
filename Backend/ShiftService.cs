@@ -21,8 +21,42 @@ public record ShiftRowDto(
     string? RawValue,
     string? AgentTask,
     string? LocationId,
-    string? AssignmentStatus
+    string? AssignmentStatus,
+    string? EffectiveTask
 );
+
+// Task badge values selectable on the Shift Plan (ShiftEntries.AgentTask, WORKING shifts only).
+// "WIC"/"VWIC"/"Voice"/"Backlog" are role-independent office tasks; the role-named tasks
+// (Dispatcher/SME/SSP) were added because those roles do not take Voice calls and must not
+// default to "Voice" — see PROJECT_BLUEPRINT / BLUEPRINT_LOGIC "Coverage per hour" section.
+public static class AgentTasks
+{
+    public static readonly string[] All = { "WIC", "VWIC", "Voice", "Backlog", "Dispatcher", "SME", "SSP" };
+
+    // Roles whose PrimaryRole maps 1:1 to a Task of the same name. Only these roles get an
+    // automatic default task; every other role (Chat, Chat CRO, Trainer, Booking Tool, Bulk PWs, ...)
+    // has no default and stays untasked until a team lead sets one manually.
+    private static readonly Dictionary<string, string> RoleDefaultTask = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Voice"]      = "Voice",
+        ["VWIC"]       = "VWIC",
+        ["WIC"]        = "WIC",
+        ["Dispatcher"] = "Dispatcher",
+        ["SME"]        = "SME",
+        ["SSP"]        = "SSP",
+    };
+
+    // Default = the task matching the agent's role, if one exists; otherwise no task.
+    // Never defaults to "Voice" unless the role actually is Voice.
+    public static string? DefaultFor(string? primaryRole) =>
+        primaryRole != null && RoleDefaultTask.TryGetValue(primaryRole, out var t) ? t : null;
+
+    public static string? Resolve(string? agentTask, string? primaryRole) =>
+        agentTask ?? DefaultFor(primaryRole);
+
+    public static bool IsValid(string? task) =>
+        task == null || All.Contains(task, StringComparer.OrdinalIgnoreCase);
+}
 
 public record ShiftFilterParams(
     string? From,
@@ -44,6 +78,7 @@ public record ShiftUpdateDto(
 );
 public record AssignShiftDto(string EmployeeId, string ShiftDate, string ShiftType, string? ShiftStart, string? ShiftEnd);
 public record AssignShiftResult(ShiftRowDto? Row, string? DuplicateError);
+public record ShiftUpdateResult(ShiftRowDto? Row, string? Error);
 public record SwapShiftDto(string NewEmployeeId);
 
 public class ShiftService
@@ -95,7 +130,8 @@ public class ShiftService
             x.Shift.RawValue,
             x.Shift.AgentTask,
             x.Shift.LocationId,
-            x.Shift.AssignmentStatus
+            x.Shift.AssignmentStatus,
+            AgentTasks.Resolve(x.Shift.AgentTask, x.Employee.PrimaryRole)
         )).ToList();
     }
 
@@ -128,14 +164,18 @@ public class ShiftService
             x.Shift.RawValue,
             x.Shift.AgentTask,
             x.Shift.LocationId,
-            x.Shift.AssignmentStatus
+            x.Shift.AssignmentStatus,
+            AgentTasks.Resolve(x.Shift.AgentTask, x.Employee.PrimaryRole)
         )).ToList();
     }
 
-    public async Task<ShiftRowDto?> UpdateShiftAsync(int id, ShiftUpdateDto dto)
+    public async Task<ShiftUpdateResult> UpdateShiftAsync(int id, ShiftUpdateDto dto)
     {
         var shift = await _db.ShiftEntries.FindAsync(id);
-        if (shift == null) return null;
+        if (shift == null) return new(null, "not_found");
+
+        if (dto.AgentTask != null && !AgentTasks.IsValid(dto.AgentTask))
+            return new(null, $"Invalid task: {dto.AgentTask}");
 
         if (dto.ShiftType        != null) shift.ShiftType        = dto.ShiftType;
         if (dto.ShiftType        != null && !string.Equals(dto.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase)) shift.IsWicDuty = false;
@@ -148,15 +188,16 @@ public class ShiftService
         await _db.SaveChangesAsync();
 
         var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == shift.EmployeeId);
-        return new ShiftRowDto(
+        return new(new ShiftRowDto(
             shift.Id,
             shift.EmployeeId,
             emp?.FullName ?? shift.EmployeeId,
             emp?.Engagement, emp?.PrimaryRole, emp?.SecondaryRole, emp?.TeamLeadName,
             shift.ShiftDate, shift.ShiftType, shift.ShiftStart, shift.ShiftEnd,
             shift.IsWicDuty, shift.RawValue,
-            shift.AgentTask, shift.LocationId, shift.AssignmentStatus
-        );
+            shift.AgentTask, shift.LocationId, shift.AssignmentStatus,
+            AgentTasks.Resolve(shift.AgentTask, emp?.PrimaryRole)
+        ), null);
     }
 
     // Assigns a shift type for employee+date. Rejects with a DuplicateError when the
@@ -207,12 +248,17 @@ public class ShiftService
             shift.Id, emp.EmployeeId, emp.FullName ?? emp.EmployeeId,
             emp.Engagement, emp.PrimaryRole, emp.SecondaryRole, emp.TeamLeadName,
             shift.ShiftDate, shift.ShiftType, shift.ShiftStart, shift.ShiftEnd,
-            shift.IsWicDuty, shift.RawValue, shift.AgentTask, shift.LocationId, shift.AssignmentStatus
+            shift.IsWicDuty, shift.RawValue, shift.AgentTask, shift.LocationId, shift.AssignmentStatus,
+            AgentTasks.Resolve(shift.AgentTask, emp.PrimaryRole)
         ), null);
     }
 
-    public record CoverageSlot(string Hour, int Voice, int Wic, int Al, int Sick, int Training, int Off, bool BelowThreshold, int MinRequired);
-public record CoverageResponse(string Date, List<CoverageSlot> Slots, int Threshold);
+    // Per-hour headcount for the Coverage-per-Hour chart on the Shift Plan page.
+    // "Voice" only counts agents whose effective Task (see AgentTasks.Resolve) is "Voice" —
+    // Dispatcher/SME/SSP/Backlog/WIC/VWIC agents do not take calls and are shown as their own
+    // bucket instead, even though they may be on a WORKING shift at the same hour.
+    public record CoverageSlot(string Hour, int Voice, int Vwic, int Wic, int Backlog, int Other, int Al, int Sick, int Training, int Off, bool BelowThreshold, int MinRequired);
+    public record CoverageResponse(string Date, List<CoverageSlot> Slots, int Threshold);
 
     public async Task<CoverageResponse> GetCoverageAsync(DateOnly date)
     {
@@ -230,7 +276,7 @@ public record CoverageResponse(string Date, List<CoverageSlot> Slots, int Thresh
         {
             var hour = $"{h:D2}:00";
             var timeSpan = new TimeSpan(h, 0, 0);
-            int voice = 0, wic = 0, al = 0, sick = 0, training = 0, off = 0;
+            int voice = 0, vwic = 0, wic = 0, backlog = 0, other = 0, al = 0, sick = 0, training = 0, off = 0;
 
             foreach (var x in shifts)
             {
@@ -244,15 +290,22 @@ public record CoverageResponse(string Date, List<CoverageSlot> Slots, int Thresh
                 {
                     if (s.ShiftStart == null || s.ShiftEnd == null) continue;
                     if (!TimeSpan.TryParse(s.ShiftStart, out var start) || !TimeSpan.TryParse(s.ShiftEnd, out var end)) continue;
-                    if (timeSpan >= start && timeSpan < end)
-                    {
-                        if (st == ShiftTypes.WicDuty || s.IsWicDuty) wic++;
-                        else voice++;
-                    }
+                    if (timeSpan < start || timeSpan >= end) continue;
+
+                    if (st == ShiftTypes.WicDuty || s.IsWicDuty) { wic++; continue; }
+
+                    // WORKING shift: bucket by the agent's effective Task, never assume Voice.
+                    var task = AgentTasks.Resolve(s.AgentTask, x.Employee.PrimaryRole);
+                    if (string.Equals(task, "Voice", StringComparison.OrdinalIgnoreCase)) voice++;
+                    else if (string.Equals(task, "VWIC", StringComparison.OrdinalIgnoreCase)) vwic++;
+                    else if (string.Equals(task, "WIC", StringComparison.OrdinalIgnoreCase)) wic++;
+                    else if (string.Equals(task, "Backlog", StringComparison.OrdinalIgnoreCase)) backlog++;
+                    else other++; // Dispatcher, SME, SSP, or no task/role match — not call-taking capacity
                 }
             }
             int min = MinRequired(h);
-            slots.Add(new CoverageSlot(hour, voice, wic, al, sick, training, off, (voice + wic) < min, min));
+            // Threshold reflects real Voice availability only (see feedback: "44 Voice never happened").
+            slots.Add(new CoverageSlot(hour, voice, vwic, wic, backlog, other, al, sick, training, off, voice < min, min));
         }
         return new CoverageResponse(date.ToString("yyyy-MM-dd"), slots, 3);
     }
@@ -387,7 +440,9 @@ public static class ShiftEndpointMapper
         grp.MapPatch("/{id:int}", async (int id, ShiftUpdateDto dto, ShiftService svc) =>
         {
             var result = await svc.UpdateShiftAsync(id, dto);
-            return result == null ? Results.NotFound() : Results.Ok(result);
+            if (result.Error == "not_found") return Results.NotFound();
+            if (result.Error != null) return Results.BadRequest(new { error = result.Error });
+            return Results.Ok(result.Row);
         });
 
         grp.MapPost("/assign", async (AssignShiftDto dto, ShiftService svc) =>

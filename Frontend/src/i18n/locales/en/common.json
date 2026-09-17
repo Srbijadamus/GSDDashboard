@@ -40,6 +40,32 @@
       "tools": "Tools"
     }
   },
+  "shifts": {
+    "coveragePerHour": "Coverage per Hour",
+    "belowMinimum": "Below minimum ({{min}})",
+    "belowMinimumAt": "Coverage below minimum at: {{list}}",
+    "tasks": {
+      "none": "—",
+      "WIC": "WIC",
+      "VWIC": "vWIC",
+      "Voice": "Voice",
+      "Backlog": "Backlog",
+      "Dispatcher": "Dispatcher",
+      "SME": "SME",
+      "SSP": "SSP"
+    },
+    "coverageLegend": {
+      "voice": "Voice",
+      "vwic": "vWIC",
+      "wic": "WIC",
+      "backlog": "Backlog",
+      "other": "Other",
+      "al": "AL",
+      "sick": "Sick",
+      "training": "Training",
+      "off": "Off"
+    }
+  },
   "status": {
     "working": "Working",
     "annualLeave": "Annual Leave (AL)",

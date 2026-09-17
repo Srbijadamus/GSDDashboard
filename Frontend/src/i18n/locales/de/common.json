@@ -40,6 +40,32 @@
       "tools": "Werkzeuge"
     }
   },
+  "shifts": {
+    "coveragePerHour": "Abdeckung pro Stunde",
+    "belowMinimum": "Unter Mindestbesetzung ({{min}})",
+    "belowMinimumAt": "Abdeckung unter Mindestbesetzung um: {{list}}",
+    "tasks": {
+      "none": "—",
+      "WIC": "WIC",
+      "VWIC": "vWIC",
+      "Voice": "Voice",
+      "Backlog": "Backlog",
+      "Dispatcher": "Dispatcher",
+      "SME": "SME",
+      "SSP": "SSP"
+    },
+    "coverageLegend": {
+      "voice": "Voice",
+      "vwic": "vWIC",
+      "wic": "WIC",
+      "backlog": "Backlog",
+      "other": "Sonstige",
+      "al": "Urlaub",
+      "sick": "Krank",
+      "training": "Schulung",
+      "off": "Frei"
+    }
+  },
   "status": {
     "working": "Arbeitet",
     "annualLeave": "Jahresurlaub (AL)",

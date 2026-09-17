@@ -10,7 +10,10 @@ import { maxFutureDateStr } from "../constants"
 import { AddVacationModal } from "./Vacations"
 
 const OVERRIDE_CONFIRM_TYPES = ["OFF_WEEKEND", "PH"]
-const TASKS = ["WIC", "Voice", "Backlog"]
+// Task badge options. VWIC and the role tasks (Dispatcher/SME/SSP) were added because those
+// roles do not take Voice calls and must never default to "Voice" — see documentation/
+// BLUEPRINT_LOGIC.md "Coverage per hour". Keep this in sync with Backend AgentTasks.All.
+const TASKS = ["WIC", "VWIC", "Voice", "Backlog", "Dispatcher", "SME", "SSP"]
 
 const shiftColor = (type: string) => {
   const map: Record<string,{background:string;color:string}> = {
@@ -35,10 +38,15 @@ const shiftColor = (type: string) => {
 }
 
 const taskStyle = (task: string | null) => {
-  if (task === "WIC")     return {background:"rgb(var(--st-wic-bg))",  color:"rgb(var(--st-wic-fg))",  border:"rgb(var(--st-wic-bd))"}
-  if (task === "Voice")   return {background:"rgb(var(--st-good-bg))", color:"rgb(var(--st-good-fg))", border:"rgb(var(--st-good-bd))"}
-  if (task === "Backlog") return {background:"rgb(var(--st-warn-bg))", color:"rgb(var(--st-warn-fg))", border:"rgb(var(--st-warn-bd))"}
-  return {background:"rgb(var(--st-crit-bg))", color:"rgb(var(--st-crit-fg))", border:"rgb(var(--st-crit-bd))"}
+  if (task === "WIC")        return {background:"rgb(var(--st-wic-bg))",     color:"rgb(var(--st-wic-fg))",     border:"rgb(var(--st-wic-bd))"}
+  if (task === "VWIC")       return {background:"rgb(var(--st-holiday-bg))", color:"rgb(var(--st-holiday-fg))", border:"rgb(var(--st-holiday-bd))"}
+  if (task === "Voice")      return {background:"rgb(var(--st-good-bg))",    color:"rgb(var(--st-good-fg))",    border:"rgb(var(--st-good-bd))"}
+  if (task === "Backlog")    return {background:"rgb(var(--st-warn-bg))",    color:"rgb(var(--st-warn-fg))",    border:"rgb(var(--st-warn-bd))"}
+  if (task === "Dispatcher") return {background:"rgb(var(--st-learn-bg))",   color:"rgb(var(--st-learn-fg))",   border:"rgb(var(--st-learn-bd))"}
+  if (task === "SME")        return {background:"rgb(var(--st-info-bg))",    color:"rgb(var(--st-info-fg))",    border:"rgb(var(--st-info-bd))"}
+  if (task === "SSP")        return {background:"rgb(var(--st-neutral-bg))", color:"rgb(var(--text-secondary))",border:"rgb(var(--st-neutral-bd))"}
+  // No task set and no role-based default (e.g. Chat, Trainer) — neutral, not an error state.
+  return {background:"rgb(var(--st-muted-bg))", color:"rgb(var(--st-muted-fg))", border:"rgb(var(--st-muted-bd))"}
 }
 
 const SHIFT_TYPES = ["WORKING","WIC_DUTY","AL","HALF_AL","SL","UL","OL","TRAINING","OFF","OFF_WEEKEND","PH","LPH","CD","CO","RESIGNED"]
@@ -143,9 +151,10 @@ function LocationPicker({ onSelect, onClose }: { onSelect: (locId: string, locNa
   )
 }
 
-function TaskBadge({ shift, onTaskChange }: {
+function TaskBadge({ shift, onTaskChange, t }: {
   shift: any
   onTaskChange: (id: number, task: string, locationId?: string) => void
+  t: (key: string) => string
 }) {
   const [open, setOpen] = useState(false)
   const [showLocPicker, setShowLocPicker] = useState(false)
@@ -156,7 +165,9 @@ function TaskBadge({ shift, onTaskChange }: {
     return () => document.removeEventListener("mousedown", h)
   }, [])
 
-  const task = shift.agentTask ?? "Voice"
+  // Backend resolves the role-aware default (AgentTasks.Resolve): a non-Voice role never
+  // shows "Voice" just because no task was picked yet (see PART 1c/2.3 of the fix).
+  const task = shift.effectiveTask ?? null
   const isUnassigned = task === "WIC" && !shift.locationId
   const ts = isUnassigned
     ? {background:"rgb(var(--st-crit-bg))", color:"rgb(var(--st-crit-fg))", border:"rgb(var(--st-crit-bd))"}
@@ -187,7 +198,7 @@ function TaskBadge({ shift, onTaskChange }: {
           fontWeight:600, cursor:"pointer",
           border:`1px solid ${ts.border}`, whiteSpace:"nowrap"
         }}>
-        {isUnassigned ? <><AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> WIC</> : task}
+        {isUnassigned ? <><AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> WIC</> : (task ? t(`shifts.tasks.${task}`) : t("shifts.tasks.none"))}
       </div>
 
       <button onClick={cycleDown} className="text-ink-soft" style={{ background:"none", border:"none", cursor:"pointer", padding:"1px 2px" }}>
@@ -200,19 +211,19 @@ function TaskBadge({ shift, onTaskChange }: {
           borderRadius:6, padding:4, minWidth:100,
           boxShadow:"0 8px 24px rgba(0,0,0,.4)"
         }}>
-          {TASKS.map(t => {
-            const ts2 = taskStyle(t)
+          {TASKS.map(t2 => {
+            const ts2 = taskStyle(t2)
             return (
-              <div key={t} onClick={() => {
-                if (t === "WIC") setShowLocPicker(true)
-                onTaskChange(shift.id, t)
+              <div key={t2} onClick={() => {
+                if (t2 === "WIC") setShowLocPicker(true)
+                onTaskChange(shift.id, t2)
                 setOpen(false)
               }} className="font-mono" style={{
                 ...ts2, padding:"5px 8px", borderRadius:4, cursor:"pointer",
                 fontSize:11, marginBottom:2,
-                fontWeight: task === t ? 700 : 400,
-                outline: task === t ? "1px solid currentColor" : "none"
-              }}>{t}</div>
+                fontWeight: task === t2 ? 700 : 400,
+                outline: task === t2 ? "1px solid currentColor" : "none"
+              }}>{t(`shifts.tasks.${t2}`)}</div>
             )
           })}
         </div>
@@ -779,6 +790,7 @@ export default function Shifts() {
           <option value="Chat">Chat</option>
           <option value="Dispatcher">Dispatcher</option>
           <option value="WIC">WIC</option>
+          <option value="VWIC">VWIC</option>
         </select>
         <select value={empType} onChange={e => setEmpType(e.target.value)} style={inputStyle}>
           <option value="">All Types</option>
@@ -885,7 +897,7 @@ export default function Shifts() {
                           <td style={{ padding:"6px 10px" }}>
                             {todayShift ? (
                               <div className={isAbsent ? "pointer-events-none" : ""}>
-                                <TaskBadge shift={todayShift} onTaskChange={updateTask} />
+                                <TaskBadge shift={todayShift} onTaskChange={updateTask} t={t} />
                               </div>
                             ) : (
                               <span className="text-ink-soft" style={{ fontSize:10 }}>—</span>

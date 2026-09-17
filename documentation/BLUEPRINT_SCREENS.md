@@ -43,7 +43,7 @@ The ops command centre. Loads a live forecast map and a daily briefing.
 
 ---
 
-## 2. Shifts
+## 2. Shifts (nav label: "Shift Plan")
 
 **Route:** `/shifts`
 **File:** `src/pages/Shifts.tsx`
@@ -51,14 +51,19 @@ The ops command centre. Loads a live forecast map and a daily briefing.
 Weekly/monthly shift plan grid. Shows all agents × all dates.
 
 **Main API calls:**
-- `GET /api/shifts` (with date range) → `ShiftEntry[]`
+- `GET /api/shifts` (with date range) → `ShiftEntry[]` (now includes `effectiveTask`, see below)
+- `GET /api/shifts/coverage?date=` → `CoverageResponse` — powers `CoverageBar.jsx` "Coverage per Hour" chart (BLUEPRINT_LOGIC.md §4.0)
 - `GET /api/employees` → employee list for agent rows
 - `GET /api/vacations` — overlaid on the grid
 - `GET /api/sickleave` — overlaid on the grid
 
 **Key components:**
 - Custom grid table with `shiftColor()` mapping ShiftType to token colours
-- `taskStyle()` badges for AgentTask field (WIC, Voice, Backlog)
+- `taskStyle()` badges for the Task column: `WIC`, `VWIC`, `Voice`, `Backlog`, `Dispatcher`, `SME`,
+  `SSP` (`TASKS` constant, kept in sync with `Backend/ShiftService.cs` → `AgentTasks.All`). The
+  badge displays `shift.effectiveTask` (`AgentTask ?? AgentTasks.DefaultFor(PrimaryRole)`), never a
+  hardcoded "Voice" fallback — see BLUEPRINT_DATA_MODEL.md "Task defaults".
+- `CoverageBar` (`CoverageBar.jsx`) — stacked per-hour chart with legend for Voice/vWIC/WIC/Backlog/Other/AL/Sick/Training/Off; only the Voice bucket counts toward the "below minimum" warning.
 - `OverrideConfirmModal` — shown before overriding OFF_WEEKEND or PH cells (system-generated, require confirmation)
 - `AddVacationModal` (imported from Vacations.tsx) — inline vacation creation from the shifts grid
 
@@ -66,6 +71,13 @@ Weekly/monthly shift plan grid. Shows all agents × all dates.
 - `OVERRIDE_CONFIRM_TYPES = ["OFF_WEEKEND", "PH"]` — editing these triggers the modal
 - Duplicate ShiftEntries per agent+date are resolved by taking the highest Id; a `ShiftDuplicateResolver` class in the backend handles this
 - `maxFutureDateStr` constant prevents booking too far into the future
+- Assigning Task = "WIC" opens `LocationPicker` to choose a **`WicLocations`** record for that
+  day's WIC_DUTY row (`LocationId` FK). This only records which existing WIC location an agent is
+  at that day — it does **not** create or edit WIC location records. Location master data
+  (name, address, opening hours) is maintained on the WIC Locations page (`/wic-locations`, see
+  §10) and, per `documentation/BLUEPRINT_DATA_MODEL.md`, only `WicCoverageImport` (startup seed)
+  and its admin endpoints write `WicLocations` — Shift Plan is a **consumer**, not a source, of
+  WIC location data.
 
 ---
 

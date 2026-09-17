@@ -81,6 +81,7 @@ Complete reference for every backend service method, API endpoint, and significa
 | `ExportToExcelAsync(from, to)` | ClosedXML Excel export of shift plan for the given date range | `DateOnly from, DateOnly to` | `byte[]` | ShiftEntries, Employees |
 | `UpdateShiftAsync(id, dto)` | Updates ShiftType, times, and/or task on an existing ShiftEntry | `int id, ShiftUpdateDto dto` | `ShiftRowDto?` | ShiftEntries |
 | `ValidateShiftAsync(request)` | Delegates working-time rule validation to ShiftValidationService | `ShiftValidateRequest` | `ValidationResult` | ShiftValidationService |
+| `GetCoverageAsync(date)` | Per-hour (07:00-18:00) headcount for the Shift Plan "Coverage per Hour" chart, bucketed by effective Task (Voice/VWIC/WIC/Backlog/Other) plus AL/Sick/Training/Off. `BelowThreshold` compares the Voice bucket only against the hourly minimum. See BLUEPRINT_LOGIC.md §4.0. | `DateOnly date` | `CoverageResponse` | ShiftEntries, Employees |
 
 ---
 
@@ -534,7 +535,8 @@ Single source of truth for resolving free-text location strings to WicLocation r
 | GET | `/api/shifts?from=&to=&teamLead=&role=&engagement=&shiftType=` | ShiftService | Shift plan with filters |
 | GET | `/api/shifts/working-today?date=` | ShiftService | Agents on WORKING shift |
 | GET | `/api/shifts/download?from=&to=` | ShiftService | Excel export of shift plan |
-| PATCH | `/api/shifts/{id}` | ShiftService | Update shift type/times/task |
+| GET | `/api/shifts/coverage?date=` | ShiftService | Coverage per Hour chart data (see BLUEPRINT_LOGIC.md §4.0) |
+| PATCH | `/api/shifts/{id}` | ShiftService | Update shift type/times/task. `agentTask` is validated against `AgentTasks.All` (400 if invalid) |
 | POST | `/api/shifts/validate` | ShiftService → ShiftValidationService | Validate working-time rules |
 | PATCH | `/api/shiftplan/reorder` | ShiftReorderService | **VESTIGIAL — no-op** |
 
