@@ -418,6 +418,9 @@
     "alHistoryStatus": "Status",
     "alHistoryNote": "Notiz"
   },
+  "employees": {
+    "roleVwicLabel": "VWIC – Virtuelles Walk-In-Center"
+  },
   "export": {
     "title": "HR-Datenexport",
     "from": "Von",

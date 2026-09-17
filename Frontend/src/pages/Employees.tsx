@@ -6,7 +6,7 @@ import { Plus, Pencil, Trash2, X, Check, AlertTriangle, XCircle } from "lucide-r
 
 // const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000"
 
-const ROLES = ["Voice","SSP","Chat","Dispatcher","SME","WIC","Bulk PWs"]
+const ROLES = ["Voice","SSP","Chat","Chat CRO","Dispatcher","SME","WIC","Bulk PWs","VWIC","2nd Level","Booking Tool","Trainer"]
 const TEAM_LEADS = ["Karlo Coric","Oliver Schleusen","Tobias Rossberg","Delia Panaitescu","Ion Ciuceanu","Jaroslaw Brzeszkiewicz"]
 const ENGAGEMENTS = ["Full Time","Part-Time","Student"]
 const SOURCES = ["GSD_DE","GSD_NL","GSD_WIC"]
@@ -41,10 +41,13 @@ const badge = (type: string) => {
   </span>
 }
 
+const roleLabel = (r: string, t: (key: string) => string) => r === "VWIC" ? t("employees.roleVwicLabel") : r
+
 const roleBadge = (role: string) => {
   const colors: Record<string,string> = {
     "Voice":"text-wic-fg", "SSP":"text-info-fg", "Chat":"text-learn-fg",
     "Dispatcher":"text-warn-fg", "WIC":"text-wic-fg", "SME":"text-wic-fg",
+    "VWIC":"text-wic-fg",
   }
   return <span className={`font-mono text-[11px] ${colors[role] ?? "text-ink-muted"}`}>{role}</span>
 }
@@ -55,6 +58,8 @@ const selectCls = inputCls
 function EmployeeModal({ emp, onClose, onSave }: {
   emp?: any; onClose: () => void; onSave: (data: any) => void
 }) {
+  const { t } = useTranslation()
+  const roleLabelFn = (r: string) => roleLabel(r, t)
   const [form, setForm] = useState({
     employeeId:   emp?.employeeId ?? "",
     fullName:     emp?.fullName ?? "",
@@ -128,7 +133,8 @@ function EmployeeModal({ emp, onClose, onSave }: {
           <div>
             <label className="text-[11px] text-ink-soft mb-1 block">Primary Role</label>
             <select value={form.primaryRole} onChange={e => handleChange("primaryRole", e.target.value)} className={selectCls}>
-              {ROLES.map(r => <option key={r}>{r}</option>)}
+              {(ROLES.includes(form.primaryRole) || !form.primaryRole ? ROLES : [...ROLES, form.primaryRole])
+                .map(r => <option key={r} value={r}>{roleLabelFn(r)}</option>)}
             </select>
           </div>
 
@@ -306,7 +312,7 @@ export default function Employees() {
         <select value={role} onChange={e => setRole(e.target.value)}
           className="bg-raised border border-line-subtle text-ink-muted py-[7px] px-3 rounded-[6px] text-[12px]">
           <option value="">All Roles</option>
-          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+          {ROLES.map(r => <option key={r} value={r}>{roleLabel(r, t)}</option>)}
         </select>
       </div>
 

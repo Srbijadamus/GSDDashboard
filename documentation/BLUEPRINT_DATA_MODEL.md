@@ -26,7 +26,7 @@ Read by: almost every service.
 | LastName | NVARCHAR(100) | Last name |
 | FullName | NVARCHAR(200) | Denormalised full name. **Critical**: `WicAgentAssignments.EmployeeName` is joined to this field by string equality in code. |
 | Engagement | NVARCHAR(50) | "Full Time", "Part-Time", "Student" |
-| PrimaryRole | NVARCHAR(50) | "Voice", "SSP", "Chat", "Chat CRO", "Dispatcher", "SME", "WIC", "Bulk PWs", "VWIC", "2nd Level", "Booking Tool" |
+| PrimaryRole | NVARCHAR(50) | "Voice", "SSP", "Chat", "Chat CRO", "Dispatcher", "SME", "WIC", "Bulk PWs", "VWIC", "2nd Level", "Booking Tool", "Trainer". Free-text column (no DB check constraint) — the Add/Edit Agent dialog (`Employees.tsx`) dropdown lists exactly this set, but any existing value is preserved and shown even if not in the list. |
 | SecondaryRole | NVARCHAR(50) | Secondary role (optional) |
 | TeamLeadName | NVARCHAR(200) | Name of the agent's team lead |
 | Category | NVARCHAR(50) | Legacy category label (not actively used in logic) |
