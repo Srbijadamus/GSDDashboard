@@ -47,7 +47,11 @@ public record CreateAssignmentRequest(
     string? ShiftEnd
 );
 
-public record MoveToGsdRequest(string EmployeeId, string Date);
+// DateTo/SkipWeekends optional (default: DateTo=Date, SkipWeekends=true) so single-day callers
+// (WIC Schedule kebab menu, WIC Attendance agent-chip icon) are unaffected; the "Assign Agent to
+// Location" dialog's date-range picker passes DateTo/SkipWeekends to move every day in the range.
+public record MoveToGsdRequest(string EmployeeId, string Date, string? DateTo = null, bool SkipWeekends = true);
+public record MoveToGsdDayResult(string Date, bool Moved, string? Reason);
 
 public record WicOpenIntervalDto(string OpenTime, string CloseTime);
 
@@ -776,50 +780,72 @@ public static class WicEndpointMapper
         {
             if (string.IsNullOrWhiteSpace(req.EmployeeId))
                 return Results.BadRequest(new { error = "EmployeeId is required." });
-            if (!DateOnly.TryParse(req.Date, out var date))
+            if (!DateOnly.TryParse(req.Date, out var dateFrom))
                 return Results.BadRequest(new { error = "Invalid date format. Expected yyyy-MM-dd." });
+            var dateToStr = string.IsNullOrWhiteSpace(req.DateTo) ? req.Date : req.DateTo;
+            if (!DateOnly.TryParse(dateToStr, out var dateTo))
+                return Results.BadRequest(new { error = "Invalid dateTo format. Expected yyyy-MM-dd." });
+            if (dateTo < dateFrom)
+                return Results.BadRequest(new { error = "DateTo must not be before Date." });
 
             var employee = await db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId);
             if (employee == null)
                 return Results.NotFound(new { error = $"Employee '{req.EmployeeId}' not found." });
 
+            var allDates = new List<DateOnly>();
+            for (var d = dateFrom; d <= dateTo; d = d.AddDays(1))
+            {
+                if (req.SkipWeekends && (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday))
+                    continue;
+                allDates.Add(d);
+            }
+            if (allDates.Count == 0)
+                return Results.BadRequest(new { error = "No dates to move (range is empty after skipping weekends)." });
+
             IResult? errorResult = null;
+            var movedDates = new List<string>();
             var strategy = db.Database.CreateExecutionStrategy();
             await strategy.ExecuteAsync(async () =>
             {
                 await using var tx = await db.Database.BeginTransactionAsync();
                 try
                 {
-                    var shift = await db.ShiftEntries
-                        .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
-                    if (shift != null)
+                    movedDates.Clear();
+                    foreach (var date in allDates)
                     {
-                        shift.ShiftType    = ShiftTypes.Working;
-                        shift.AgentTask    = "GSD";
-                        shift.IsWicDuty    = false;
-                        shift.SourceModule = "MOVE_TO_GSD";
-                    }
-                    else
-                    {
-                        db.ShiftEntries.Add(new ShiftEntry
+                        var shift = await db.ShiftEntries
+                            .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+                        if (shift != null)
                         {
-                            EmployeeId   = req.EmployeeId,
-                            ShiftDate    = date,
-                            ShiftType    = ShiftTypes.Working,
-                            AgentTask    = "GSD",
-                            IsWicDuty    = false,
-                            SourceSheet  = "MOVE_TO_GSD",
-                            SourceModule = "MOVE_TO_GSD",
-                        });
-                    }
+                            shift.ShiftType    = ShiftTypes.Working;
+                            shift.AgentTask    = "GSD";
+                            shift.IsWicDuty    = false;
+                            shift.SourceModule = "MOVE_TO_GSD";
+                        }
+                        else
+                        {
+                            db.ShiftEntries.Add(new ShiftEntry
+                            {
+                                EmployeeId   = req.EmployeeId,
+                                ShiftDate    = date,
+                                ShiftType    = ShiftTypes.Working,
+                                AgentTask    = "GSD",
+                                IsWicDuty    = false,
+                                SourceSheet  = "MOVE_TO_GSD",
+                                SourceModule = "MOVE_TO_GSD",
+                            });
+                        }
 
-                    var wicEntries = await db.WicShiftEntries
-                        .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date && w.IsOnSite)
-                        .ToListAsync();
-                    foreach (var w in wicEntries)
-                    {
-                        w.IsOnSite = false;
-                        w.IsGSDDay = true;
+                        var wicEntries = await db.WicShiftEntries
+                            .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date && w.IsOnSite)
+                            .ToListAsync();
+                        foreach (var w in wicEntries)
+                        {
+                            w.IsOnSite = false;
+                            w.IsGSDDay = true;
+                        }
+
+                        movedDates.Add(date.ToString("yyyy-MM-dd"));
                     }
 
                     await db.SaveChangesAsync();
@@ -838,7 +864,10 @@ public static class WicEndpointMapper
             {
                 success      = true,
                 employeeName = employee.FullName ?? req.EmployeeId,
-                date         = date.ToString("yyyy-MM-dd"),
+                date         = dateFrom.ToString("yyyy-MM-dd"),
+                dateTo       = dateTo.ToString("yyyy-MM-dd"),
+                movedDates,
+                daysMoved    = movedDates.Count,
             });
         });
     }

@@ -387,6 +387,7 @@
       "cancel": "Cancel",
       "moveAnyway": "Move anyway",
       "success": "{{agent}} moved to GSD Backlog",
+      "successRange": "{{agent}} moved to GSD Backlog for {{count}} days",
       "error": "Failed to move agent"
     }
   },

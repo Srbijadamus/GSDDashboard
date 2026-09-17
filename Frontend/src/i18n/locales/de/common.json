@@ -387,6 +387,7 @@
       "cancel": "Abbrechen",
       "moveAnyway": "Trotzdem verschieben",
       "success": "{{agent}} zu GSD-Backlog verschoben",
+      "successRange": "{{agent}} für {{count}} Tage zu GSD-Backlog verschoben",
       "error": "Verschieben fehlgeschlagen"
     }
   },

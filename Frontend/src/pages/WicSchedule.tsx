@@ -41,12 +41,14 @@ function DayCell({ day }: { day: any }) {
   } else if (day.isOnSite&&day.supportLocation) {
     bgClass="bg-info-bg";colorClass="text-info-fg"
     text=day.supportLocation.length>10?day.supportLocation.slice(0,10)+"…":day.supportLocation
+  } else if (day.isGsdDay) {
+    bgClass="bg-warn-bg";colorClass="text-warn-fg";text="GSD"
   } else if (!day.isOffDay&&ws) {
     bgClass="bg-good-bg";colorClass="text-good-fg";text=ws
   }
   return (
     <td style={{padding:"3px 4px",borderLeft:"1px solid rgb(var(--line-subtle))"}}>
-      <div title={day.isOnSite?`${day.supportLocation}\n${day.wicOpeningHours??""}`:undefined}
+      <div title={day.isOnSite?`${day.supportLocation}\n${day.wicOpeningHours??""}`:day.isGsdDay?"GSD Backlog":undefined}
         className={`font-mono ${bgClass} ${colorClass} text-center flex items-center justify-center`}
         style={{fontSize:9,padding:"2px 3px",borderRadius:3,minHeight:18}}>
         {text}
@@ -215,6 +217,7 @@ export default function WicSchedule() {
                         return <td key={d} style={{...tdStyle,background:isWE?"rgb(var(--surface-sunken))":"transparent",minWidth:80}}>
                           {day.isOffDay?<span className={day.workingShift==="AL"?"text-info-fg":day.workingShift==="SL"?"text-crit-fg":"text-ink-soft"} style={{fontSize:10,fontWeight:600}}>{day.workingShift||"OFF"}</span>
                           :day.isOnSite&&day.supportLocation?<div style={{fontSize:9}}><div style={{fontWeight:600,color:"rgb(var(--st-info-solid))"}}>{day.supportLocation}</div>{day.wicOpeningHours&&<div style={{color:"rgb(var(--text-secondary))"}}>{day.wicOpeningHours}</div>}{day.workingShift&&<div style={{color:"rgb(var(--st-good-solid))"}}>{day.workingShift}</div>}</div>
+                          :day.isGsdDay?<div style={{fontSize:9,fontWeight:600,color:"rgb(var(--st-warn-solid))"}}>GSD Backlog</div>
                           :day.workingShift?<div className="text-good-fg" style={{fontSize:9}}>{day.workingShift}</div>
                           :<span className="text-ink-soft" style={{fontSize:10}}>—</span>}
                         </td>})}

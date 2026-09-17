@@ -14,11 +14,13 @@ interface MoveToGsdBacklogActionProps {
   employeeId: string
   agentName: string
   shiftDate: string
+  shiftDateTo?: string
+  skipWeekends?: boolean
   onSuccess?: () => void
   children: (state: { onClick: () => void; isPending: boolean }) => ReactNode
 }
 
-export function MoveToGsdBacklogAction({ employeeId, agentName, shiftDate, onSuccess, children }: MoveToGsdBacklogActionProps) {
+export function MoveToGsdBacklogAction({ employeeId, agentName, shiftDate, shiftDateTo, skipWeekends = true, onSuccess, children }: MoveToGsdBacklogActionProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const m = (k: string, opts?: Record<string, unknown>): string =>
@@ -41,7 +43,12 @@ export function MoveToGsdBacklogAction({ employeeId, agentName, shiftDate, onSuc
       await apiFetch("/api/wic/move-to-gsd", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, date: shiftDate }),
+        body: JSON.stringify({
+          employeeId,
+          date: shiftDate,
+          dateTo: shiftDateTo ?? shiftDate,
+          skipWeekends,
+        }),
       })
       queryClient.invalidateQueries({ queryKey: ["wic-cards", shiftDate], exact: true })
       queryClient.invalidateQueries({ queryKey: ["wic-cards-v2"] })

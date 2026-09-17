@@ -471,8 +471,13 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
               employeeId={employeeId}
               agentName={employees.find(e => e.employeeId === employeeId)?.fullName ?? employeeId}
               shiftDate={dateFrom}
+              shiftDateTo={dateTo}
+              skipWeekends={skipWeekends}
               onSuccess={() => {
-                setSuccess(String(t("wicShifts.moveToBacklog.success", { agent: employees.find(e => e.employeeId === employeeId)?.fullName ?? employeeId })))
+                const agentLabel = employees.find(e => e.employeeId === employeeId)?.fullName ?? employeeId
+                setSuccess(isRange
+                  ? String(t("wicShifts.moveToBacklog.successRange", { agent: agentLabel, count: dates.length }))
+                  : String(t("wicShifts.moveToBacklog.success", { agent: agentLabel })))
                 setTimeout(() => { setSuccess(null); onClose() }, 1800)
               }}
             >

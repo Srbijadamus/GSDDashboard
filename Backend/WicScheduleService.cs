@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 namespace GSDDashboard.API.Modules.WicSchedule;
 
-public record WicDayDto(string Date, string DayOfWeek, string? SupportLocation, string? WicOpeningHours, string? WorkingShift, bool IsOnSite, bool IsOffDay, string? Task);
+public record WicDayDto(string Date, string DayOfWeek, string? SupportLocation, string? WicOpeningHours, string? WorkingShift, bool IsOnSite, bool IsOffDay, string? Task, bool IsGSDDay);
 public record WicAgentScheduleDto(string EmployeeId, string FullName, string? TeamLeadName, List<string> AssignedLocations, List<WicDayDto> Days);
 public record WicLocationDayDto(string Date, string DayOfWeek, bool IsOpen, string? OpenTime, string? CloseTime, string? OpenTime2, string? CloseTime2, string? RawSchedule, int AgentCount, List<string> AgentNames);
 public record WicLocationScheduleDto(string LocationCode, string DisplayName, string? City, int TotalAssignedAgents, List<WicLocationDayDto> Days);
@@ -90,7 +90,7 @@ public class WicScheduleService
                 empEntries.TryGetValue(d, out var entry);
                 days.Add(new WicDayDto(d.ToString("yyyy-MM-dd"), GetDow(d),
                     entry?.SupportLocation, entry?.WicOpeningHours, entry?.WorkingShift,
-                    entry?.IsOnSite ?? false, entry?.IsOffDay ?? false, entry?.Task));
+                    entry?.IsOnSite ?? false, entry?.IsOffDay ?? false, entry?.Task, entry?.IsGSDDay ?? false));
             }
 
             result.Add(new WicAgentScheduleDto(emp.EmployeeId, emp.FullName ?? emp.EmployeeId,
@@ -149,6 +149,7 @@ public class WicScheduleService
             {
                 string cell = day.IsOffDay ? (day.WorkingShift ?? "OFF") :
                               day.IsOnSite && day.SupportLocation != null ? day.SupportLocation :
+                              day.IsGSDDay ? "GSD Backlog" :
                               day.WorkingShift ?? "";
                 cells.Add($"\"{cell}\"");
             }
