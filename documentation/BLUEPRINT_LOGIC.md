@@ -429,6 +429,21 @@ RESIGNED`), before the overlap loop runs at all.
 
 ---
 
+## OL (Other Leave) date-range entry
+
+`Vacations.tsx` → "Add Vacation" modal has an AL/OL toggle that reuses the same
+From/To range picker (`VacationService.CreateAsync`, `POST /api/vacations` with
+`leaveType: "OL"`). Unlike AL:
+- No `Vacations` row is created and AL balance is untouched — OL is purely a
+  `ShiftEntries.ShiftType = "OL"` marker, one row per working day (Mon–Fri) in
+  the range (`ShiftSyncService.SyncVacationAsync(..., "OL", "OtherLeave")`).
+- Past `firstDay` values are allowed (no "future only" restriction), so OL can
+  be logged retroactively.
+- `Shifts.tsx` treats `OL` as an absence type (grayed-out row) the same as
+  `AL`/`HALF_AL`/`SL`/`UL`.
+
+---
+
 ## 7.3 WIC Cards
 
 | Method | Path | Query | Response |

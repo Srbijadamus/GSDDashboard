@@ -889,7 +889,7 @@ export default function Shifts() {
                       <div className="font-mono text-ink-soft" style={{ fontSize:9 }}>{emp.id}</div>
                     </td>
                     {(() => {
-                      const absentTypes = new Set(["AL", "HALF_AL", "SL", "UL"])
+                      const absentTypes = new Set(["AL", "HALF_AL", "SL", "UL", "OL"])
                       const isAbsent = !!todayShift && absentTypes.has(todayShift.shiftType)
                       return (
                         <>

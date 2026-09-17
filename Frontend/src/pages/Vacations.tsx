@@ -325,6 +325,7 @@ export function AddVacationModal({
   const { t } = useTranslation()
   const today = new Date().toISOString().slice(0, 10)
   const [employeeId, setEmployeeId] = useState(initialEmployeeId ?? "")
+  const [leaveType, setLeaveType]   = useState<"AL" | "OL">("AL")
   const [firstDay, setFirstDay]     = useState(initialDate ?? today)
   const [lastDay, setLastDay]       = useState(initialDate ?? today)
   const [comments, setComments]     = useState("")
@@ -347,10 +348,15 @@ export function AddVacationModal({
     if (half) setLastDay(firstDay)
   }
 
+  const handleLeaveTypeChange = (type: "AL" | "OL") => {
+    setLeaveType(type)
+    if (type === "OL" && isHalfDay) { setIsHalfDay(false); setLastDay(firstDay) }
+  }
+
   const handleSubmit = () => {
     if (!employeeId) { setError("Select an employee"); return }
     if (!isHalfDay && lastDay < firstDay) { setError("To date must be on or after From date"); return }
-    onSave({ employeeId, firstDay, lastDay: isHalfDay ? firstDay : lastDay, comments: comments || null, isHalfDay })
+    onSave({ employeeId, firstDay, lastDay: isHalfDay ? firstDay : lastDay, comments: comments || null, isHalfDay, leaveType })
   }
 
   return (
@@ -360,13 +366,29 @@ export function AddVacationModal({
     }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-raised border border-line-subtle" style={{ borderRadius: 10, padding: 24, width: 420 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-          <h2 className="text-ink" style={{ fontSize: 16, fontWeight: 600 }}>Add Vacation (AL)</h2>
+          <h2 className="text-ink" style={{ fontSize: 16, fontWeight: 600 }}>
+            {leaveType === "OL" ? t("vacations.addOlTitle") : t("vacations.addAlTitle")}
+          </h2>
           <button onClick={onClose} className="text-ink-soft" style={{ background: "none", border: "none", cursor: "pointer" }}>
             <X size={18} />
           </button>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* AL / OL leave type toggle */}
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["AL", "OL"] as const).map(type => (
+              <button
+                key={type}
+                onClick={() => handleLeaveTypeChange(type)}
+                className={leaveType === type ? "bg-info-solid border border-info-bd text-white" : "bg-sunken border border-line-subtle text-ink-muted"}
+                style={{ flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer" }}
+              >
+                {type === "AL" ? t("vacations.leaveTypeAl") : t("vacations.leaveTypeOl")}
+              </button>
+            ))}
+          </div>
+
           <div>
             <label className="text-ink-soft" style={{ fontSize: 11, marginBottom: 4, display: "block" }}>Employee *</label>
             <select value={employeeId} onChange={e => setEmployeeId(e.target.value)} style={modalInputStyle} className={modalInputCls}>
@@ -377,19 +399,21 @@ export function AddVacationModal({
             </select>
           </div>
 
-          {/* Full / Half day toggle */}
-          <div style={{ display: "flex", gap: 6 }}>
-            {[false, true].map(half => (
-              <button
-                key={String(half)}
-                onClick={() => handleHalfDayToggle(half)}
-                className={isHalfDay === half ? "bg-info-solid border border-info-bd text-white" : "bg-sunken border border-line-subtle text-ink-muted"}
-                style={{ flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer" }}
-              >
-                {half ? t("vacations.halfDay") : t("vacations.fullDay")}
-              </button>
-            ))}
-          </div>
+          {/* Full / Half day toggle (AL only) */}
+          {leaveType === "AL" && (
+            <div style={{ display: "flex", gap: 6 }}>
+              {[false, true].map(half => (
+                <button
+                  key={String(half)}
+                  onClick={() => handleHalfDayToggle(half)}
+                  className={isHalfDay === half ? "bg-info-solid border border-info-bd text-white" : "bg-sunken border border-line-subtle text-ink-muted"}
+                  style={{ flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer" }}
+                >
+                  {half ? t("vacations.halfDay") : t("vacations.fullDay")}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 10 }}>
             <div style={{ flex: 1 }}>
@@ -419,7 +443,7 @@ export function AddVacationModal({
             padding: "8px 16px", borderRadius: 6, fontSize: 12, cursor: "pointer",
             display: "flex", alignItems: "center", gap: 4,
           }}>
-            <Check size={14} /> Add Vacation
+            <Check size={14} /> {leaveType === "OL" ? t("vacations.addOl") : t("vacations.addAl")}
           </button>
         </div>
       </div>

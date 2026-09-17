@@ -14,7 +14,7 @@ public record VacationDto(
     string? SourceSheet, bool IsOverhead, string? TeamLeadName
 );
 
-public record CreateVacationDto(string EmployeeId, string FirstDay, string LastDay, string? Comments, bool IsHalfDay = false);
+public record CreateVacationDto(string EmployeeId, string FirstDay, string LastDay, string? Comments, bool IsHalfDay = false, string? LeaveType = null);
 
 public record DailyLeaveCountDto(
     string Date, int MaxLeave, int TotalOff, int AlCount, int SlCount, int Remaining, bool IsFull
@@ -108,6 +108,23 @@ public class VacationService
 
         var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == dto.EmployeeId && e.IsActive);
         if (emp == null) return null;
+
+        var leaveType = string.IsNullOrWhiteSpace(dto.LeaveType) ? "AL" : dto.LeaveType.Trim().ToUpperInvariant();
+
+        // OL (Other Leave) uses the same date-range picker as AL but is a plain
+        // shift-status entry: it does not consume AL balance and is not tracked
+        // in the Vacations table. Past start dates are explicitly allowed
+        // (e.g. retroactive corrections), unlike AL which is future-oriented.
+        if (leaveType == "OL")
+        {
+            await _shiftSync.SyncVacationAsync(dto.EmployeeId, firstDay, lastDay, 0, "OL", "OtherLeave");
+            return new VacationDto(
+                0, dto.EmployeeId, emp.LastName, emp.FirstName,
+                firstDay.ToString("yyyy-MM-dd"), lastDay.ToString("yyyy-MM-dd"),
+                CountWeekdays(firstDay, lastDay), dto.Comments, null, null,
+                emp.SourceSheet, false, emp.TeamLeadName
+            );
+        }
 
         var duplicate = await _db.Vacations.FirstOrDefaultAsync(v =>
             v.EmployeeId == dto.EmployeeId && v.FirstDay == firstDay && v.LastDay == lastDay);

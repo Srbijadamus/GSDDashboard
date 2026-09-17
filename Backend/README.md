@@ -152,10 +152,15 @@ GET    /api/vacations?from=&to=&year=&sheet=&employeeId=
 GET    /api/vacations/active?date=
 GET    /api/vacations/upcoming?days=
 GET    /api/vacations/download?from=&to=    → .xlsx
-POST   /api/vacations
+POST   /api/vacations                       body: { employeeId, firstDay, lastDay, comments?, isHalfDay?, leaveType? }
 PATCH  /api/vacations/{id}
 DELETE /api/vacations/{id}
 ```
+`leaveType` defaults to `"AL"` (Vacation, tracked in the Vacations table + AL balance).
+Pass `leaveType: "OL"` to log Other Leave for the same first/last-day range instead:
+one `ShiftEntry` with `ShiftType = "OL"` is created per working day (Mon–Fri) in the
+range, AL balance is untouched, and no Vacations row is created. Unlike AL, OL
+allows a `firstDay` in the past (e.g. retroactive corrections).
 
 ### Employees
 ```
