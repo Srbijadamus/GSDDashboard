@@ -76,7 +76,8 @@ public class GSDContext : DbContext
              .IsUnique().HasDatabaseName("UQ_Vacations_EmpFirstLastDay");
         });
         modelBuilder.Entity<ALBalance>(e => {
-            e.HasIndex(x => x.EmployeeId).IsUnique();
+            e.HasIndex(x => new { x.EmployeeId, x.Year })
+             .IsUnique().HasDatabaseName("UQ_ALBalance_EmpYear");
         });
         modelBuilder.Entity<WicAgentAssignment>(e => {
             e.HasIndex(x => x.LocationCode).HasDatabaseName("IX_WicAssign_Location");

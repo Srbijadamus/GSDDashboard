@@ -113,17 +113,41 @@ public class EmployeeService
 
     public async Task<EmployeeDto?> UpdateALBalanceAsync(string employeeId, int alUsed)
     {
-        ALBalanceModel? bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == employeeId);
+        var year = DateTime.UtcNow.Year;
+        ALBalanceModel? bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == employeeId && b.Year == year);
         if (bal == null)
         {
             var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == employeeId);
             if (emp == null) return null;
-            bal = new ALBalanceModel { EmployeeId = employeeId, EmployeeName = emp.FullName, EligibleDays = 28 };
+            bal = new ALBalanceModel { EmployeeId = employeeId, EmployeeName = emp.FullName, EligibleDays = 28, Year = year };
             _db.ALBalances.Add(bal);
         }
         bal.PlannedTakenAL = alUsed;
         bal.RemainingAL    = bal.EligibleDays - alUsed;
         bal.LastUpdated    = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return await GetByIdAsync(employeeId);
+    }
+
+    // Validation shared with the PATCH /{employeeId}/albalance/eligible endpoint: eligible
+    // AL days must be non-negative and have at most 2 decimal places.
+    public static bool IsValidEligibleDays(decimal eligibleDays) =>
+        eligibleDays >= 0 && Math.Round(eligibleDays, 2) == eligibleDays;
+
+    public async Task<EmployeeDto?> UpdateALEligibleDaysAsync(string employeeId, decimal eligibleDays)
+    {
+        var year = DateTime.UtcNow.Year;
+        ALBalanceModel? bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == employeeId && b.Year == year);
+        if (bal == null)
+        {
+            var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == employeeId);
+            if (emp == null) return null;
+            bal = new ALBalanceModel { EmployeeId = employeeId, EmployeeName = emp.FullName, EligibleDays = 28, Year = year };
+            _db.ALBalances.Add(bal);
+        }
+        bal.EligibleDays = eligibleDays;
+        bal.RemainingAL  = eligibleDays - bal.PlannedTakenAL;
+        bal.LastUpdated  = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return await GetByIdAsync(employeeId);
     }
@@ -184,6 +208,7 @@ public record UpdateEmployeeDto(
     string? TeamLeadName, string? Category, bool? IsActive
 , string? Bundesland, string? ShiftPattern = null);
 public record ALBalanceUpdateDto(int AlUsed);
+public record ALEligibleDaysUpdateDto(decimal EligibleDays);
 
 public static class EmployeeEndpointMapper
 {
@@ -226,6 +251,14 @@ public static class EmployeeEndpointMapper
         grp.MapPatch("/{employeeId}/albalance", async (string employeeId, ALBalanceUpdateDto dto, EmployeeService svc) =>
         {
             var emp = await svc.UpdateALBalanceAsync(employeeId, dto.AlUsed);
+            return emp == null ? Results.NotFound() : Results.Ok(emp);
+        });
+
+        grp.MapPatch("/{employeeId}/albalance/eligible", async (string employeeId, ALEligibleDaysUpdateDto dto, EmployeeService svc) =>
+        {
+            if (!EmployeeService.IsValidEligibleDays(dto.EligibleDays))
+                return Results.BadRequest("EligibleDays must be >= 0 with at most 2 decimal places");
+            var emp = await svc.UpdateALEligibleDaysAsync(employeeId, dto.EligibleDays);
             return emp == null ? Results.NotFound() : Results.Ok(emp);
         });
 

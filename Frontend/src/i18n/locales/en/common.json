@@ -418,6 +418,20 @@
     "alHistoryStatus": "Status",
     "alHistoryNote": "Note"
   },
+  "alBalance": {
+    "colId": "ID",
+    "colName": "Name",
+    "colEligibleEditable": "Eligible (click to edit)",
+    "colTakenEditable": "Taken (click to edit)",
+    "colRemaining": "Remaining",
+    "colSlDays": "SL Days",
+    "colProgress": "Progress",
+    "clickToEdit": "Click to edit",
+    "footerRecords": "records · click Eligible or Taken value to edit",
+    "errorTakenRange": "Value must be between 0 and 28",
+    "errorEligibleRange": "Value must be 0 or more, with at most 2 decimal places",
+    "errorUpdateFailed": "Failed to update AL balance"
+  },
   "employees": {
     "roleVwicLabel": "VWIC – Virtual Walk-In Center"
   },

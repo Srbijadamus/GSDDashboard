@@ -259,14 +259,14 @@ These two tables are separate and have no foreign key or cascade relationship. T
 | `DailyAttendance` | LocationCode, Date, Status | assigned / WO / closed / PH |
 | `SickLeaves` | EmployeeId, FirstDay, LastDay, LeaveType, DurationDays, ChildName, Comments, SourceSheet | **FirstDay/LastDay** (NOT StartDate/EndDate) |
 | `Vacations` | EmployeeId, FirstDay, LastDay, WorkDaysNet, ApprovedDenied, ApproverName, ApproverDate, Comments, SourceYear, SourceSheet | **FirstDay/LastDay** (NOT StartDate/EndDate). `ApprovedDenied` is always NULL in current data — no approval filtering is applied. |
-| `ALBalance` | EmployeeId, EmployeeName, EligibleDays, PlannedTakenAL, RemainingAL, CountSL, CountUL, CountWorkingSundays, CountFreeSundays | `PlannedTakenAL` and `RemainingAL` are `DECIMAL(10,1)` — allows half-day values (e.g. 14.5). ALTERed from `int` at startup if the column is still `int`. |
+| `ALBalance` | EmployeeId, EmployeeName, Year, EligibleDays, PlannedTakenAL, RemainingAL, CountSL, CountUL, CountWorkingSundays, CountFreeSundays | `EligibleDays` is per employee **and** per year (added 2026; unique constraint `(EmployeeId, Year)`) and is `DECIMAL(10,2)` — editable per employee via `PATCH /api/employees/{id}/albalance/eligible`, allows up to 2 decimals (e.g. 26.5, 22.75); default 28 unchanged for anyone not explicitly edited. `PlannedTakenAL` and `RemainingAL` are `DECIMAL(10,1)` — allows half-day values (e.g. 14.5). All three ALTERed from `int` at startup if still `int`. |
 | `PublicHolidays` | HolidayDate, Name, Bundesland, IsNational | IsNational=true for federal holidays |
 | `TrainingTopics` / `TrainingSessions` | Topic metadata and session assignments | — |
 | `SubstitutionHistory` | EmployeeId, LocationCode, Date, SourceType, AssignedAt, LoadScore | Populated at runtime; 30-day window for fairness penalty |
 | `BreakSlots` | Id, EmployeeId, BreakDate, BreakStart, BreakEnd, ActualStart, ActualEnd, DurationMinutes, Status, AgentRole | Created at startup if absent. Status: SCHEDULED/ON_BREAK/DONE/CANCELLED |
 | `VwicRotationSlots` | Id, EmployeeId, RotationDate, SlotStart, SlotEnd | Created at startup if absent. Persisted rotation plan |
 | `AgentReachableCities` | Id, EmployeeId, EmployeeName, City, Source | Created at startup if absent. Seeded by WicCoverageImport |
-| `LeaveQuota` | EmployeeId, Year, QuotaDays | Annual leave quota override |
+| `LeaveQuota` | Id, QuotaDate, MaxTotalLeave, CurrentLeave, Notes, CreatedBy | Company-wide **daily** leave-capacity cap (max simultaneous leave-takers per date), not per-employee. Unrelated to `ALBalance.EligibleDays` (per-employee/per-year AL entitlement, added 2026 — see `ALBalance` row above). This doc previously (incorrectly) listed its columns as EmployeeId/Year/QuotaDays; corrected to match `Backend/WicModels.cs:55-63`. |
 
 ### Critical Schema Notes
 
@@ -286,6 +286,7 @@ These two tables are separate and have no foreign key or cascade relationship. T
 - 2 new columns added to WicLocations at startup if not exists: OpeningDay, Comment
 - `Vacations.WorkDaysNet` is `DECIMAL(10,1)` — ALTERed from `int` at startup. Half-day AL entries use `WorkDaysNet=0.5`.
 - `ALBalance.PlannedTakenAL` and `ALBalance.RemainingAL` are `DECIMAL(10,1)` — ALTERed from `int` at startup (requires dynamically dropping the auto-named DEFAULT constraint before ALTER, then re-adding it). Threshold checks `≤5` and `≤10` work correctly with decimals.
+- `ALBalance.EligibleDays` is `DECIMAL(10,2)` (added 2026, was `INT DEFAULT 28`) — deliberately `(10,2)`, not `(10,1)` like its siblings, so up to 2 decimal places can be entered per the eligible-days editing feature. `ALBalance.Year` (added 2026) makes eligible days per employee **and** per calendar year; unique constraint is now `(EmployeeId, Year)` (was `(EmployeeId)`). See `Backend/Program.cs` migration blocks and `Backend/EmployeeService.cs` `UpdateALEligibleDaysAsync`/`IsValidEligibleDays`.
 
 ### SSP / Voice Agent Base Location
 

@@ -410,6 +410,9 @@ An open-ended sick leave record (agent has not returned) uses this sentinel valu
 **Vacations.WorkDaysNet column type migration**
 This column was `INT` at initial deployment and was altered to `DECIMAL(10,1)` in a startup migration. On a fresh database the column is already DECIMAL. On a legacy database the migration runs once and widens the column. The same migration exists for `ALBalance.PlannedTakenAL` and `ALBalance.RemainingAL`.
 
+**`ALBalance.EligibleDays` per-employee/per-year migration (2026)**
+`EligibleDays` was `INT DEFAULT 28` (same value for every employee) and is now `DECIMAL(10,2)` (2 decimal places, not the `(10,1)` used by the sibling columns above), plus a new `Year` column (`INT NOT NULL DEFAULT (YEAR(GETDATE()))`) so eligible days can vary per employee **and** per calendar year. The unique constraint moved from `(EmployeeId)` (`UQ_ALBalance_EmpId`) to `(EmployeeId, Year)` (`UQ_ALBalance_EmpYear`). All existing rows were backfilled to the current year, so no one's eligible-days value changed until explicitly edited via `PATCH /api/employees/{id}/albalance/eligible` (AL Balance page → ELIGIBLE column → click to edit). See `Backend/Program.cs` migration blocks.
+
 **`WicAgentAssignments` uses `EmployeeName` string, not `EmployeeId`**
 There is no FK. SubstitutionService joins `WicAgentAssignments.EmployeeName` to `Employees.FullName` by case-insensitive string equality. If an employee's name changes in `Employees`, the assignment record must also be updated manually.
 

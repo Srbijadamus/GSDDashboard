@@ -516,12 +516,15 @@ Post rejects if: invalid dates, lastDay < firstDay, employee not found, exceeds 
 
 Base path: `/api/albalance`
 
-| Method | Path | Response |
-|---|---|---|
-| GET | `/api/albalance/` | `ALBalanceDto[]` |
-| GET | `/api/albalance/{employeeId}` | `ALBalanceDto` or 404 |
+| Method | Path | Params | Response |
+|---|---|---|---|
+| GET | `/api/albalance/` | `year` (optional, default = current year) | `ALBalanceDto[]` |
+| GET | `/api/albalance/{employeeId}` | `year` (optional, default = current year) | `ALBalanceDto` or 404 |
 
-Manual balance adjustment uses `PATCH /api/employees/{employeeId}/albalance` (see Employees).
+Manual balance adjustment uses `PATCH /api/employees/{employeeId}/albalance` (taken days) and
+`PATCH /api/employees/{employeeId}/albalance/eligible` (eligible days, added 2026 — see Employees).
+`ALBalance` rows are now scoped per employee **and** per calendar year (`ALBalance.Year`, unique
+constraint `(EmployeeId, Year)`); both endpoints operate on the current year's row.
 
 ---
 
@@ -536,6 +539,7 @@ Base path: `/api/employees`
 | PUT | `/api/employees/{id}` | Employee body | `Employee` |
 | DELETE | `/api/employees/{id}` | — | `{ deleted: true }` |
 | PATCH | `/api/employees/{employeeId}/albalance` | `{ alUsed: int }` | updated balance |
+| PATCH | `/api/employees/{employeeId}/albalance/eligible` | `{ eligibleDays: decimal }` | updated balance, or 400 if `< 0` / more than 2 decimals |
 
 ---
 

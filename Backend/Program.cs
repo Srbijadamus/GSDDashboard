@@ -306,6 +306,41 @@ app.UseDefaultFiles();
         END
     """);
 
+    // ALBalance.EligibleDays: INT → DECIMAL(10,2) (allows half/2-decimal eligible-day values, e.g. 26.5)
+    db.Database.ExecuteSqlRaw("""
+        IF EXISTS (
+            SELECT 1 FROM sys.columns
+            WHERE object_id = OBJECT_ID('ALBalance') AND name = 'EligibleDays'
+              AND system_type_id = TYPE_ID('int')
+        )
+        BEGIN
+            DECLARE @cn3 NVARCHAR(200)
+            SELECT @cn3 = dc.name FROM sys.default_constraints dc
+            JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
+            WHERE dc.parent_object_id = OBJECT_ID('ALBalance') AND c.name = 'EligibleDays'
+            IF @cn3 IS NOT NULL EXEC('ALTER TABLE ALBalance DROP CONSTRAINT ' + @cn3)
+            ALTER TABLE ALBalance ALTER COLUMN EligibleDays DECIMAL(10,2) NOT NULL
+            ALTER TABLE ALBalance ADD DEFAULT 28 FOR EligibleDays
+        END
+    """);
+
+    // ALBalance.Year: add column so EligibleDays can be tracked per employee per calendar
+    // year. Existing rows default to the current year, so nothing changes for anyone
+    // until a per-year value is explicitly edited.
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('ALBalance') AND name = 'Year')
+            ALTER TABLE ALBalance ADD Year INT NOT NULL DEFAULT (YEAR(GETDATE()))
+    """);
+
+    // ALBalance unique constraint: (EmployeeId) → (EmployeeId, Year), now that a single
+    // employee can have one ALBalance row per year.
+    db.Database.ExecuteSqlRaw("""
+        IF EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = 'UQ_ALBalance_EmpId' AND parent_object_id = OBJECT_ID('ALBalance'))
+            ALTER TABLE ALBalance DROP CONSTRAINT UQ_ALBalance_EmpId
+        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('ALBalance') AND name = 'UQ_ALBalance_EmpYear')
+            CREATE UNIQUE INDEX UQ_ALBalance_EmpYear ON ALBalance (EmployeeId, Year)
+    """);
+
     // Clear IsWicDuty on any non-WIC_DUTY row (safe: sets corrupt 1→0, never removes rows)
     var wicDutyFixed = db.Database.ExecuteSqlRaw("""
         UPDATE ShiftEntries

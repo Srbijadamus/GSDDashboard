@@ -418,6 +418,20 @@
     "alHistoryStatus": "Status",
     "alHistoryNote": "Notiz"
   },
+  "alBalance": {
+    "colId": "ID",
+    "colName": "Name",
+    "colEligibleEditable": "Anspruch (klicken zum Bearbeiten)",
+    "colTakenEditable": "Genommen (klicken zum Bearbeiten)",
+    "colRemaining": "Verbleibend",
+    "colSlDays": "Krankheitstage",
+    "colProgress": "Fortschritt",
+    "clickToEdit": "Klicken zum Bearbeiten",
+    "footerRecords": "Einträge · Anspruch oder Genommen anklicken zum Bearbeiten",
+    "errorTakenRange": "Wert muss zwischen 0 und 28 liegen",
+    "errorEligibleRange": "Wert muss mindestens 0 sein, mit höchstens 2 Nachkommastellen",
+    "errorUpdateFailed": "Aktualisierung des AL-Saldos fehlgeschlagen"
+  },
   "employees": {
     "roleVwicLabel": "VWIC – Virtuelles Walk-In-Center"
   },

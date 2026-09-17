@@ -155,10 +155,11 @@ public class VacationService
 
         if (workDays > 0)
         {
-            var bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == dto.EmployeeId);
+            var year = DateTime.UtcNow.Year;
+            var bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == dto.EmployeeId && b.Year == year);
             if (bal == null)
             {
-                bal = new ALBalanceModel { EmployeeId = dto.EmployeeId, EmployeeName = emp.FullName, EligibleDays = 28 };
+                bal = new ALBalanceModel { EmployeeId = dto.EmployeeId, EmployeeName = emp.FullName, EligibleDays = 28, Year = year };
                 _db.ALBalances.Add(bal);
             }
             bal.PlannedTakenAL = bal.PlannedTakenAL + workDays;
@@ -190,7 +191,8 @@ public class VacationService
         // Restore AL balance
         if (vac.EmployeeId != null && vac.WorkDaysNet.HasValue && vac.WorkDaysNet.Value > 0)
         {
-            var bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == vac.EmployeeId);
+            var year = DateTime.UtcNow.Year;
+            var bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == vac.EmployeeId && b.Year == year);
             if (bal != null)
             {
                 bal.PlannedTakenAL = Math.Max(0m, bal.PlannedTakenAL - vac.WorkDaysNet.Value);

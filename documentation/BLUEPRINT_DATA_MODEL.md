@@ -309,22 +309,39 @@ Read by: VacationService, DashboardService, WicCardsService, WicAnnualLeave page
 
 ## 10. `ALBalance`
 
-Annual leave balance per employee. Written by: VacationService on create/delete, and `PATCH /api/employees/{id}/albalance`.
+Annual leave balance per employee **per calendar year**. Written by: VacationService on create/delete,
+`PATCH /api/employees/{id}/albalance` (taken days), and `PATCH /api/employees/{id}/albalance/eligible`
+(eligible days, added 2026 — see below).
 Read by: ALBalance page, ALCalendar page, VacationsHandler (assistant).
 
 | Column | Type | Description |
 |---|---|---|
 | Id | INT PK IDENTITY | Surrogate key |
-| EmployeeId | NVARCHAR(20) UNIQUE | Agent identifier |
+| EmployeeId | NVARCHAR(20) | Agent identifier |
 | EmployeeName | NVARCHAR(200) | Agent name |
-| EligibleDays | INT NOT NULL DEFAULT 28 | Total AL entitlement |
+| Year | INT NOT NULL DEFAULT `YEAR(GETDATE())` | Calendar year this row applies to. Added 2026 so `EligibleDays` can be set per employee **and** per year (`Backend/Program.cs`, ALBalance.Year migration block). Existing rows were backfilled to the current year on migration, so nothing changed for anyone until an eligible-days edit is made for a future year. |
+| EligibleDays | DECIMAL(10,2) NOT NULL DEFAULT 28 | Total AL entitlement for that employee/year. Editable per employee (was a hardcoded `28` for everyone; see `Backend/EmployeeService.cs` `UpdateALEligibleDaysAsync`). Uses `(10,2)` — not the `(10,1)` used by the sibling `PlannedTakenAL`/`RemainingAL` columns — specifically to support up to 2 decimal places (e.g. `26.5`, `22.75`) per the eligible-days editing feature. |
 | PlannedTakenAL | DECIMAL(10,1) NOT NULL DEFAULT 0 | Days planned or already taken. (Was INT at launch; migrated to DECIMAL.) |
-| RemainingAL | DECIMAL(10,1) NOT NULL DEFAULT 0 | `EligibleDays - PlannedTakenAL`. Can be negative. |
+| RemainingAL | DECIMAL(10,1) NOT NULL DEFAULT 0 | `EligibleDays - PlannedTakenAL`. Can be negative. Recalculated whenever either `EligibleDays` or `PlannedTakenAL` changes. |
 | CountSL | INT NOT NULL DEFAULT 0 | Count of sick leave incidents (not days) |
 | CountUL | INT NOT NULL DEFAULT 0 | Count of unpaid leave incidents |
 | CountWorkingSundays | INT NOT NULL DEFAULT 0 | Sundays worked |
 | CountFreeSundays | INT NOT NULL DEFAULT 0 | Sundays off |
 | LastUpdated | DATETIME2 NOT NULL | Last update timestamp |
+
+**Unique constraint:** `UQ_ALBalance_EmpYear` on (EmployeeId, Year) — replaces the pre-2026 `UQ_ALBalance_EmpId` on (EmployeeId) alone, since a single employee can now have one row per year.
+
+**Editing EligibleDays (UI):** AL Balance page → ELIGIBLE column → click the value (same click-to-edit
+pattern already used for TAKEN) → enter a number ≥ 0 with up to 2 decimal places → Enter/✓ to save.
+Validated client-side (`Frontend/src/pages/ALBalance.tsx`) and server-side
+(`EmployeeService.IsValidEligibleDays`, `Backend/EmployeeService.cs`). REMAINING, the PROGRESS bar and the
+KPI cards (Low/Critical/Negative) on the AL Balance page recompute automatically from the new value since
+they are derived client-side from `eligibleDays`/`remainingAL` on every render.
+
+**No audit log:** the project has no audit-log or user-authentication system (no `AuditLog` table, no
+`ClaimsPrincipal`/`[Authorize]` anywhere in `Backend/`), so an EligibleDays change is not attributed to a
+"who". `LastUpdated` records the "when"; the previous value is only visible via a DB backup/point-in-time
+query, not a built-in history view.
 
 ---
 

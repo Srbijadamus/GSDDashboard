@@ -11,6 +11,8 @@ export default function ALBalance() {
   const [search, setSearch] = useState("")
   const [editId, setEditId] = useState<string | null>(null)
   const [editVal, setEditVal] = useState("")
+  const [eligibleEditId, setEligibleEditId] = useState<string | null>(null)
+  const [eligibleEditVal, setEligibleEditVal] = useState("")
   const [error, setError] = useState("")
   const [historyAgent, setHistoryAgent] = useState<{ id: string; name: string } | null>(null)
 
@@ -32,7 +34,7 @@ export default function ALBalance() {
   const handleEditSave = async (employeeId: string) => {
     const val = parseInt(editVal)
     if (isNaN(val) || val < 0 || val > 28) {
-      setError("Value must be between 0 and 28")
+      setError(t("alBalance.errorTakenRange"))
       return
     }
     try {
@@ -45,7 +47,29 @@ export default function ALBalance() {
       setEditId(null)
       setError("")
     } catch {
-      setError("Failed to update AL balance")
+      setError(t("alBalance.errorUpdateFailed"))
+    }
+  }
+
+  const handleEligibleEditSave = async (employeeId: string) => {
+    const normalized = eligibleEditVal.replace(",", ".")
+    const val = parseFloat(normalized)
+    const decimals = (normalized.split(".")[1] ?? "").length
+    if (isNaN(val) || val < 0 || decimals > 2) {
+      setError(t("alBalance.errorEligibleRange"))
+      return
+    }
+    try {
+      await apiFetch(`/api/employees/${employeeId}/albalance/eligible`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eligibleDays: val })
+      } as any)
+      qc.invalidateQueries({ queryKey: ["albalance"] })
+      setEligibleEditId(null)
+      setError("")
+    } catch {
+      setError(t("alBalance.errorUpdateFailed"))
     }
   }
 
@@ -90,7 +114,7 @@ export default function ALBalance() {
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="bg-sunken">
-                {["ID", "Name", "Eligible", "Taken (click to edit)", "Remaining", "SL Days", "Progress"].map(h => (
+                {[t("alBalance.colId"), t("alBalance.colName"), t("alBalance.colEligibleEditable"), t("alBalance.colTakenEditable"), t("alBalance.colRemaining"), t("alBalance.colSlDays"), t("alBalance.colProgress")].map(h => (
                   <th key={h} className="px-3 py-2.5 text-left text-2xs font-medium uppercase tracking-wide text-ink-soft border-b border-line-subtle">{h}</th>
                 ))}
               </tr>
@@ -135,7 +159,33 @@ export default function ALBalance() {
                       {isNegative && <AlertTriangle size={11} className="inline ml-1.5 text-crit-fg align-text-bottom" />}
                       {isCritical && !isNegative && <AlertCircle size={11} className="inline ml-1.5 text-crit-fg align-text-bottom" />}
                     </td>
-                    <td className="px-3 py-2 font-mono text-center">{a.eligibleDays}</td>
+                    <td className="px-3 py-2 font-mono text-center">
+                      {eligibleEditId === a.employeeId ? (
+                        <div className="flex items-center gap-1 justify-center">
+                          <input
+                            value={eligibleEditVal}
+                            onChange={e => setEligibleEditVal(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") handleEligibleEditSave(a.employeeId); if (e.key === "Escape") setEligibleEditId(null) }}
+                            autoFocus
+                            className="w-14 bg-sunken border border-info-bd text-ink px-1.5 py-0.5 rounded-xs text-xs font-mono outline-none text-center"
+                          />
+                          <button
+                            onClick={() => handleEligibleEditSave(a.employeeId)}
+                            className="bg-info-solid text-white px-1.5 py-0.5 rounded-xs text-2xs cursor-pointer border-0"
+                          >✓</button>
+                          <button
+                            onClick={() => { setEligibleEditId(null); setError("") }}
+                            className="bg-sunken border border-line-subtle text-ink-soft px-1.5 py-0.5 rounded-xs text-2xs cursor-pointer"
+                          >✕</button>
+                        </div>
+                      ) : (
+                        <span
+                          onClick={() => { setEligibleEditId(a.employeeId); setEligibleEditVal(a.eligibleDays.toString()); setError("") }}
+                          title={t("alBalance.clickToEdit")}
+                          className="font-mono text-info-fg cursor-pointer px-2 py-0.5 rounded-xs border border-transparent hover:border-info-bd transition-colors"
+                        >{a.eligibleDays}</span>
+                      )}
+                    </td>
 
                     <td className="px-3 py-2 text-center">
                       {isEditing ? (
@@ -185,7 +235,7 @@ export default function ALBalance() {
           </table>
         </div>
         <div className="px-3 py-2 border-t border-line-subtle text-2xs text-ink-soft font-mono">
-          {filtered.length} records · click Taken value to edit
+          {filtered.length} {t("alBalance.footerRecords")}
         </div>
       </div>
 
