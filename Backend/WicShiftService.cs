@@ -484,8 +484,30 @@ public class WicShiftService
                 reason  = $"WIC location is closed on {date:yyyy-MM-dd}",
                 date    = date.ToString("yyyy-MM-dd"),
             });
-        string openTime  = hours?.OpenTime  ?? req.ShiftStart ?? "08:00";
-        string closeTime = hours?.CloseTime ?? req.ShiftEnd   ?? "17:00";
+
+        // Time source priority for NEW assignments (fixes the Helmstedt/Rendsburg pattern
+        // where the ShiftEntry got the location opening hours instead of the agent's time):
+        //   1. explicit request time (req.ShiftStart/ShiftEnd)
+        //   2. the agent's existing WorkingShift on WicShiftEntries for this date
+        //      (e.g. imported "09:00-17:00" for Helmstedt)
+        //   3. the resolved opening hours FOR THIS DATE (WicHoursResolver)
+        // Handles single-block ("09:00-17:00") and two-block ("07:00-12:00 / 12:30-13:30")
+        // values: the working window spans the first block's start through the last
+        // block's end. Anything with fewer than two HH:MM tokens is "unknown".
+        static (string? start, string? end) SplitWorkingShift(string? ws)
+        {
+            if (string.IsNullOrWhiteSpace(ws)) return (null, null);
+            var times = System.Text.RegularExpressions.Regex.Matches(ws, @"\d{1,2}:\d{2}");
+            return times.Count >= 2 ? (times[0].Value, times[^1].Value) : (null, null);
+        }
+        var priorWicShift = await db.WicShiftEntries
+            .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date)
+            .Select(w => w.WorkingShift)
+            .FirstOrDefaultAsync(ws => ws != null);
+        var (priorStart, priorEnd) = SplitWorkingShift(priorWicShift);
+
+        string openTime  = req.ShiftStart ?? priorStart ?? hours?.OpenTime  ?? "08:00";
+        string closeTime = req.ShiftEnd   ?? priorEnd   ?? hours?.CloseTime ?? "17:00";
 
         var agentTask = (location.DisplayName?.Length ?? 0) > 20
             ? location.DisplayName![..20]
