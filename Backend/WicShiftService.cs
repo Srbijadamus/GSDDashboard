@@ -248,10 +248,9 @@ public class WicShiftService
 
             var dayLocations = locations.Select(loc =>
             {
-                var hours = allHours.FirstOrDefault(h =>
-                    (h.LocationCode == loc.LocationCode ||
-                     (loc.LocationCodeLegacy != null && h.LocationCode == loc.LocationCodeLegacy)) &&
-                    h.DayOfWeek == dow);
+                // Use the EffectiveFrom-aware resolver so future-dated schedule versions
+                // are not picked up early (was plain FirstOrDefault over all rows).
+                var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, dow, date);
 
                 string? bundesland = loc.Bundesland
                     ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
@@ -296,7 +295,9 @@ public class WicShiftService
                 int scheduledCount = dayWic.Count;
                 int effectiveCoverage = (int)Math.Floor(presentDouble);
                 int absentCount = fullAbsentCount;
-                int minReq = loc.MinAgentsRequired ?? 1;
+                // Per-schedule MinRequired takes precedence (matches ForecastService.cs:105);
+                // fall back to the location default.
+                int minReq = hours?.MinRequired ?? loc.MinAgentsRequired ?? 1;
 
                 string coverageStatus = CoverageEvaluator.Classify(isClosed, effectiveCoverage, minReq, closedReason).Status.ToString();
 
@@ -304,7 +305,7 @@ public class WicShiftService
                     loc.LocationCode, loc.DisplayName, loc.City ?? "", loc.Country ?? "DE",
                     !isClosed, closedReason, intervals,
                     coverageStatus, scheduledCount, absentCount, effectiveCoverage,
-                    loc.MinAgentsRequired);
+                    minReq);
             }).ToList();
 
             result.Add(new WicOpenDayDto(date.ToString("yyyy-MM-dd"), date.DayOfWeek.ToString(), dayLocations));

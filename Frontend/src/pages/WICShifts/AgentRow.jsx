@@ -43,7 +43,14 @@ export default function AgentRow({ agent, onDragStart, onDragEnd, onClick, onAct
           </span>
         )}
         {showTime && (
-          <span className="font-mono" style={{ fontSize: 10, color: "rgb(var(--text-secondary))" }}>{agent.time ?? "—"}</span>
+          <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.2 }}>
+            <span className="font-mono" style={{ fontSize: 10, color: "rgb(var(--text-secondary))" }}>{agent.time ?? "—"}</span>
+            {agent.plannedTime && (
+              <span className="font-mono" style={{ fontSize: 9, color: "rgb(var(--text-secondary))", opacity: 0.7, fontStyle: "italic" }}>
+                planned {agent.plannedTime}
+              </span>
+            )}
+          </span>
         )}
         {showKebab && (
           <button

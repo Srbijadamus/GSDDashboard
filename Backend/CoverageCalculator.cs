@@ -47,6 +47,42 @@ public static class CoverageCalculator
     }
 
     // Calculate total open minutes for a location (handles two blocks)
+    // Union-merge a list of [start,end] minute intervals into disjoint blocks
+    public static List<(int Start, int End)> MergeIntervals(IEnumerable<(int Start, int End)> intervals)
+    {
+        var sorted = intervals.Where(i => i.End > i.Start).OrderBy(i => i.Start).ToList();
+        var merged = new List<(int, int)>();
+        foreach (var (s, e) in sorted)
+        {
+            if (merged.Count > 0 && s <= merged[^1].Item2)
+            {
+                var last = merged[^1];
+                merged[^1] = (last.Item1, Math.Max(last.Item2, e));
+            }
+            else
+            {
+                merged.Add((s, e));
+            }
+        }
+        return merged;
+    }
+
+    // Total minutes of `merged` intervals that fall inside the opening windows
+    public static int CoveredByUnion(
+        List<(int Start, int End)> mergedAgentIntervals,
+        string? open1, string? close1, string? open2, string? close2)
+    {
+        var total = 0;
+        foreach (var (s, e) in mergedAgentIntervals)
+        {
+            if (!string.IsNullOrWhiteSpace(open1) && !string.IsNullOrWhiteSpace(close1))
+                total += Overlap(s, e, ToMinutes(open1), ToMinutes(close1));
+            if (!string.IsNullOrWhiteSpace(open2) && !string.IsNullOrWhiteSpace(close2))
+                total += Overlap(s, e, ToMinutes(open2), ToMinutes(close2));
+        }
+        return total;
+    }
+
     public static int CalcOpenMinutes(string? open1, string? close1, string? open2, string? close2)
     {
         var mins = 0;
@@ -108,8 +144,13 @@ public static class CoverageCalculator
                 a.IsMain, match, covered, totalOpen, note);
         }).ToList();
 
-        var totalCovered = agentResults.Sum(a => a.CoveredMinutes);
-        // Pool: cap at totalOpen (multiple agents can cover same slot)
+        // Union of agent intervals (not summed minutes): two agents covering the same
+        // slot no longer inflate coverage -> removes the false COVERED (Essenbach pattern).
+        var merged = MergeIntervals(
+            agents
+                .Select(a => (ToMinutes(a.ShiftStart), ToMinutes(a.ShiftEnd)))
+                .Where(i => i.Item2 > 0));
+        var totalCovered = CoveredByUnion(merged, open1, close1, open2, close2);
         var pooled = Math.Min(totalCovered, totalOpen);
         var pct = totalOpen > 0 ? (pooled * 100 / totalOpen) : 0;
 

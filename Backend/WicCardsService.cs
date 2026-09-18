@@ -36,6 +36,7 @@ public record AssignedAgentDto(
     string? TeamLead,
     string? ShiftStart,
     string? ShiftEnd,
+    string? WorkingShift,
     bool IsMain,
     string CoverageMatch,
     int CoveredMinutes,
@@ -154,6 +155,7 @@ public class WicCardsService
                     x.e.FullName ?? x.e.EmployeeId,
                     x.e.TeamLeadName,
                     shiftStart, shiftEnd,
+                    x.w.WorkingShift,
                     isMain, match, covered,
                     todaySchedule.TotalOpenMinutes,
                     note

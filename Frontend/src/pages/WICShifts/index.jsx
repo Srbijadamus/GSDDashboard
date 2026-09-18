@@ -37,6 +37,12 @@ export default function WICShifts() {
       const shifts = await shiftsRes.json()
 
       const ABSENT_TYPES = ['SL','AL','UL','OL','PH','LPH','RESIGNED','OFF','OFF_WEEKEND']
+      // Index the card agents by employeeId so the WIC Shifts list can prefer the
+      // ShiftEntry time (the time the coverage status actually uses) over WorkingShift.
+      const cardAgentById = {}
+      cards.forEach(c => (c.assignedAgents ?? []).forEach(a => {
+        if (a.employeeId) cardAgentById[a.employeeId] = a
+      }))
       const agentsByLoc = {}
       shifts.forEach(s => {
         if (!s.supportLocation) return
@@ -44,12 +50,18 @@ export default function WICShifts() {
         if (!agentsByLoc[s.supportLocation]) agentsByLoc[s.supportLocation] = []
         const absent = ABSENT_TYPES.includes(s.agentStatus) ||
           (s.agentStatus === 'WORKING' && (s.task === 'GSD' || s.task === 'Backlog'))
+        const cardAgent = s.employeeId ? cardAgentById[s.employeeId] : null
+        const statusStart = cardAgent?.shiftStart
+        const statusEnd = cardAgent?.shiftEnd
+        const hasStatusTime = statusStart && statusEnd && statusStart !== 'SICK' && statusStart !== 'AL' && statusStart !== 'GSD'
         agentsByLoc[s.supportLocation].push({
           id: s.id,
           employeeId: s.employeeId ?? null,
           name: s.fullName ?? s.employeeId,
           role: "primary",
-          time: s.workingShift ?? null,
+          time: hasStatusTime ? statusStart + ' - ' + statusEnd : (s.workingShift ?? null),
+          plannedTime: hasStatusTime && s.workingShift && s.workingShift.replace(/\s/g, '') !== (statusStart + '-' + statusEnd)
+            ? s.workingShift : null,
           al: s.agentStatus === 'AL',
           agentStatus: absent ? (s.agentStatus || s.task || 'OFF') : null,
           absent,
@@ -62,14 +74,20 @@ export default function WICShifts() {
         .filter(c => !c.todaySchedule?.isClosed)
         .map(c => {
           const shiftAgents = agentsByLoc[c.displayName] ?? []
-          const cardAgents = (c.assignedAgents ?? []).map(a => ({
-            id: a.employeeId ?? a.name,
-            employeeId: a.employeeId ?? null,
-            name: a.name,
-            role: a.isMain ? 'primary' : 'backup',
-            time: a.shiftStart === 'SICK' ? null : (a.shiftStart && a.shiftEnd ? a.shiftStart + ' - ' + a.shiftEnd : null),
-            al: false, agentStatus: a.shiftStart === 'SICK' ? 'SL' : a.shiftStart === 'AL' ? 'AL' : null, assignedTo: c.displayName
-          }))
+          const cardAgents = (c.assignedAgents ?? []).map(a => {
+            const hasTime = a.shiftStart && a.shiftEnd && a.shiftStart !== 'SICK' && a.shiftStart !== 'AL' && a.shiftStart !== 'GSD'
+            const planned = hasTime && a.workingShift && a.workingShift.replace(/\s/g, '') !== (a.shiftStart + '-' + a.shiftEnd)
+              ? a.workingShift : null
+            return {
+              id: a.employeeId ?? a.name,
+              employeeId: a.employeeId ?? null,
+              name: a.name,
+              role: a.isMain ? 'primary' : 'backup',
+              time: hasTime ? a.shiftStart + ' - ' + a.shiftEnd : null,
+              plannedTime: planned,
+              al: false, agentStatus: a.shiftStart === 'SICK' ? 'SL' : a.shiftStart === 'AL' ? 'AL' : null, assignedTo: c.displayName
+            }
+          })
           const agents = shiftAgents.length > 0 ? shiftAgents : cardAgents
           const status = c.coverageStatus?.toLowerCase() === 'covered' ? 'covered'
             : c.coverageStatus?.toLowerCase() === 'partial' ? 'partial' : 'uncovered'
