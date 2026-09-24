@@ -29,6 +29,13 @@ public class AvailabilityResolver
     public static readonly HashSet<string> FullAbsenceTypes =
         new(StringComparer.OrdinalIgnoreCase) { "SL", "AL", "UL", "OL", "PH", "LPH", "RESIGNED" };
 
+    // Blocking absence set used by the WIC assignment endpoint (WicShiftService.AssignAgent)
+    // and by the coverage card calculation (WicCardsService). Superset of FullAbsenceTypes:
+    // also treats HALF_AL, OFF and OFF_WEEKEND as absent. Single source of truth — do not
+    // re-declare this list elsewhere.
+    public static readonly HashSet<string> BlockingAbsenceTypes =
+        new(StringComparer.OrdinalIgnoreCase) { "AL", "HALF_AL", "SL", "UL", "PH", "LPH", "OL", "OFF", "OFF_WEEKEND", "RESIGNED" };
+
     // Reusable as a List<string> for EF Core IN-clause translation.
     private static readonly List<string> FullAbsenceTypesList = FullAbsenceTypes.ToList();
 

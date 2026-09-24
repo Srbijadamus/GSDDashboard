@@ -1,4 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import { AuthProvider } from "./auth/AuthContext"
+import { RequireAuth } from "./auth/RequireAuth"
+import Login from "./pages/Login"
+import AgentHome from "./pages/AgentHome"
 import { AppShell } from "./layout/AppShell"
 import Overview from "./pages/Overview"
 import { OverviewErrorBoundary } from "./components/OverviewErrorBoundary"
@@ -15,6 +19,7 @@ import WicAttendance from "./pages/WicAttendance"
 // @ts-ignore
 import WicSchedule from "./pages/WicSchedule"
 import Shifts from "./pages/Shifts"
+import Roster from "./pages/Roster"
 import ALBalance from "./pages/ALBalance"
 import Attendance from "./pages/Attendance"
 import ALCalendar from "./pages/ALCalendar"
@@ -30,10 +35,14 @@ import Export from "./pages/Export"
 export default function App() {
   return (
     <BrowserRouter>
+      <AuthProvider>
       <Routes>
-        <Route element={<AppShell />}>
+        <Route path="/login" element={<Login />} />
+        <Route element={<RequireAuth><AppShell /></RequireAuth>}>
           <Route index element={<OverviewErrorBoundary><Overview /></OverviewErrorBoundary>} />
+          <Route path="/my"             element={<AgentHome />} />
           <Route path="/shifts"          element={<Shifts />} />
+          <Route path="/roster"          element={<Roster />} />
           <Route path="/wic-shifts"      element={<WicShifts />} />
           <Route path="/vwic"            element={<VWICPage />} />
           <Route path="/breaks"          element={<BreakPlanner />} />
@@ -57,6 +66,7 @@ export default function App() {
           <Route path="/export"          element={<Export />} />
         </Route>
       </Routes>
+      </AuthProvider>
     </BrowserRouter>
   )
 }

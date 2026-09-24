@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, ClipboardList, Building2, Headphones, Coffee,
   Calendar, MapPin, ShieldCheck, Users, Scale, Heart,
-  Bot, ListChecks, FileText, CalendarOff, Download,
+  Bot, ListChecks, FileText, CalendarOff, Download, User, CalendarPlus,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -30,6 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
     groupKey: 'nav.group.planning',
     items: [
       { to: '/shifts',     icon: ClipboardList, i18nKey: 'nav.shifts' },
+      { to: '/roster',     icon: CalendarPlus,  i18nKey: 'nav.roster' },
       { to: '/wic-shifts', icon: Building2,     i18nKey: 'nav.wicShifts' },
       { to: '/vwic',       icon: Headphones,    i18nKey: 'nav.vwic' },
       { to: '/breaks',     icon: Coffee,        i18nKey: 'nav.breaks' },
@@ -70,6 +71,15 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/bo-list',   icon: ListChecks, i18nKey: 'nav.boList' },
       { to: '/bulk-rtm',  icon: FileText,   i18nKey: 'nav.bulkRtm' },
       { to: '/export',    icon: Download,   i18nKey: 'nav.export' },
+    ],
+  },
+]
+
+/** AGENT sessions see only their own read-only view — nothing else. */
+export const AGENT_NAV: NavGroup[] = [
+  {
+    items: [
+      { to: '/my', icon: User, i18nKey: 'nav.myView' },
     ],
   },
 ]

@@ -68,7 +68,7 @@ Before GSDDashboard, the team relied on Excel files and email to track who was w
 | LPH | Local Public Holiday | Regional holiday (Bundesland-specific). The relevant WIC is closed. |
 | CD | Compensation Day | Day off earned by working a holiday or weekend. |
 | CO | Compensation Off | Similar to CD; legacy terminology. |
-| RTM | Return to Main | Agent returning from WIC or special duty back to the main GSD workflow. The BulkRtm page processes RTM batches. |
+| RTM | Return to Main | Agent returning from WIC or special duty back to the main GSD workflow. The BulkRtm page processes RTM batches. **⚠ Name collision:** `auth_rbac.md` uses RTM as an access **role** (full read/write, same rights as TEAM_LEAD). Same three letters, two unrelated meanings — this glossary entry documents the shift-workflow one. Both are established in code (`RtmEntries` vs `AppRoles.Rtm`) and are not being renamed. |
 
 ---
 

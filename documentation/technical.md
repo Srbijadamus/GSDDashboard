@@ -70,7 +70,8 @@ C:\GSDDashboard\
 |           VacationService.cs, ALBalanceService.cs, EmployeeService.cs,
 |           AttendanceService.cs, PublicHolidayService.cs, TrainingService.cs,
 |           PipelineService.cs, WicScheduleService.cs, OverviewService.cs,
-|           ALCalendarService.cs, DashboardService.cs, ShiftReorderService.cs
+|           ALCalendarService.cs, DashboardService.cs, ShiftReorderService.cs,
+|           RosterService.cs, RosterBatch.cs
 |
 +-- Frontend/
 |   +-- package.json
@@ -165,6 +166,7 @@ Catch `Exception`, not `DbUpdateException` — the strategy conflict exception i
 | `WicScheduleService` | Scoped | WIC opening hours |
 | `OverviewService` | Scoped | Cross-module overview aggregation |
 | `ALCalendarService` | Scoped | Annual leave calendar view |
+| `RosterService` | Scoped | Roster Generator: preview/generate roster batches (plain + WIC mode), batch delete with snapshot restore, missing-roster check (`/api/roster/*`, gated by `RosterAccess` — RTM/TEAM_LEAD/DEV only, always enforced) |
 | `WicLocationMatcher` | Static | 30-entry alias dict, legacy code matching |
 | `PlzBundesland` | Static | PLZ to Bundesland fallback (38-entry map) |
 | `CoverageCalculator` | Static | Minute-based coverage overlap (dual open blocks) |
@@ -179,7 +181,7 @@ Three distinct services compute WIC coverage. They use different absence signals
 |---------|---------------|-----------|---------------------------|-------|
 | `ForecastService` | `ShiftEntries.ShiftType` (AL, SL, etc.) via `GetWicContribution` | Multi-day forecast | Yes — via `CoverageEvaluator` | Authoritative for risk forecasting. Reads `WicOpeningHours` at load (L62) — closed days return `IsAtRisk=false`, skipped entirely. Verified correct 2026-09-03: 190 at-risk on open days, 0 on closed days. |
 | `OverviewService` | `ShiftEntries.ShiftType` via `GetAbsentIdsAsync` pre-filter | Today snapshot | Yes — via `CoverageEvaluator` | Feeds the Overview page daily KPIs. |
-| `WicCardsService` | `Vacations` table (FirstDay ≤ date ≤ LastDay, no status filter) + `SickLeaves` | Single date | Yes — via `CoverageCalculator` (minute-based) | Feeds `/api/dashboard/wic-cards`. Uses Vacations for AL detection — diverges from ShiftEntries. 72 vacation rows in 2026-06-01–2026-12-31 have no matching AL ShiftEntry; 8 AL ShiftEntries have no matching Vacation. Impact on WIC on-site agents for specific dates is zero for 2026-09-08/2026-09-15. |
+| `WicCardsService` | `Vacations` table (FirstDay ≤ date ≤ LastDay, no status filter) + `SickLeaves` + **`ShiftEntries` via `AvailabilityResolver.BlockingAbsenceTypes`** (since 2026-09) | Single date | Yes — via `CoverageCalculator` (minute-based) | Feeds `/api/dashboard/wic-cards`. An agent whose `ShiftEntry` for the date is a blocking absence stays visible on the card, marked absent (`SICK`/`AL`/`HALF_AL`/`OFF`/… marker), but is **excluded from the coverage calculation**. Previously only `SickLeaves`/`Vacations` were checked, so an SL that existed only as a ShiftEntry wrongly counted as covering. |
 | `WicCoverageService` | None | No date | Static roles only | Serves `/api/wic-coverage/*`. Returns MAIN/BACKUP/REGIONAL assignment directory. **Never** computes COVERED/PARTIAL/UNCOVERED. |
 
 ### Vacations / AL ShiftEntries divergence
@@ -196,7 +198,7 @@ These two tables are separate and have no foreign key or cascade relationship. T
 
 | Table | Source of truth for | Populated by |
 |-------|--------------------|-----------| 
-| `ShiftEntries` | Shift type (WORKING, AL, SL, WIC_DUTY, HALF_AL, etc.) and shift times | Excel import via `ShiftService`; SickLeave/Vacation creation via `ShiftSyncService` |
+| `ShiftEntries` | Shift type (WORKING, AL, SL, WIC_DUTY, HALF_AL, etc.) and shift times | **Roster Generator via `RosterService`** (the supported way to create rosters; the June Excel import via `ShiftService` is dead and must never be re-run); SickLeave/Vacation creation via `ShiftSyncService` |
 | `WicShiftEntries` | WIC duty details: which location (`SupportLocation`), on-site vs. remote, agent task | Excel import; `SubstitutionModule` (when a substitute is accepted) |
 
 **Source of truth for "where is who today":** `ShiftEntries.ShiftType` determines if an agent is present, absent, or on WIC duty. `WicShiftEntries.SupportLocation` determines which WIC location they cover. Both tables are read in parallel for coverage calculations — mismatches produce artifacts.
@@ -387,6 +389,19 @@ All routes registered in `Program.cs` (Minimal API syntax).
 | PATCH | `/api/shifts/{id}` | Update ShiftType/times/task |
 | POST | `/api/shifts/validate` | Validate shift change against labour law rules |
 
+### Roster
+
+All routes are gated server-side by `RosterAccess` (RTM / TEAM_LEAD / DEV only, **always enforced** — independent of `Auth:EnforceAuthorization`; AGENT gets 403). See the Operational Workflow "Setting up a new employee or a new WIC agent" below.
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| POST | `/api/roster/preview` | Dry-run plan: rows to create, skipped weekends/holidays, collisions, and (with `overwrite=true`) the rows that would be replaced |
+| POST | `/api/roster/generate` | Write the roster in one transaction; records a `RosterBatches` row; all generated `ShiftEntries` carry `SourceModule="Roster"`, `SourceId=<batch id>` |
+| GET | `/api/roster/locations` | Active WIC locations with resolved opening days, for the WIC-mode dropdown |
+| GET | `/api/roster/batches` | Batch history (employee, range, rows, skipped, replaced, creator, snapshot flag) |
+| GET | `/api/roster/missing?days=` | Missing-roster check: active employees with zero shifts in the next N days (default 14) + shift rows whose EmployeeId has no active Employees row |
+| DELETE | `/api/roster/batches/{id}` | Delete the batch's rows (and its `WicShiftEntries` upserts), soft-delete the batch, and restore overwritten originals from `ReplacedRowsJson` |
+
 ### Employees
 
 | Method | URL | Description |
@@ -483,6 +498,7 @@ Horizon selector (7 or 14 days) only visible on the Overview page.
 |-------|---------------|-----------|
 | `/` | Overview.tsx | None |
 | `/shifts` | Shifts.tsx | None |
+| `/roster` | Roster.tsx | Roster Generator — preview/generate/delete roster batches (RTM/TEAM_LEAD/DEV only, enforced server-side) |
 | `/wic-shifts` | WicShifts_old.tsx | Reassign agents, new shift modal |
 | `/vwic` | VWICPage.tsx | Assign/manage agents, rotation plan, save |
 | `/breaks` | BreakPlanner.tsx | Auto-distribute, start/end/cancel, manual |
@@ -558,6 +574,26 @@ The backend is a framework-dependent .NET build (`dotnet build -c Release`, not 
 
 **Step 12 verification**: check the tunnel (`https://d2jn94qg-5000.euw.devtunnels.ms/`) as well as `localhost:5000`, since the tunnel is the production-facing surface.
 
+### Watchdog deploy sentinel — `C:\HealthCheck\DEPLOY_IN_PROGRESS`
+
+Added 2026-09-21 after the watchdog silently relaunched the old exe mid-copy during a deploy. The watchdog (`C:\HealthCheck\watchdog_gsd_backend.ps1`) is the only process allowed to start `GSDDashboard.API.exe` outside a controlled deploy, and it checks the sentinel at the top of every loop:
+
+- Sentinel exists and is **younger than 30 minutes** → logs `DEPLOY PAUSED (sentinel present)`, sleeps 30s, checks again — it does NOT launch or relaunch the exe.
+- Sentinel is **30 minutes or older** (stale valve) → logs `DEPLOY SENTINEL STALE (age Xm > 30m) - removed, resuming`, deletes it and resumes normally. A forgotten sentinel can never leave the backend down.
+
+`PS1_19_FinalBuildVerify.ps1` creates the sentinel **before** any build/stop/copy step and removes it in a `finally` block, after stopping its temporary verification server. Order matters: removing the sentinel while the script's server still holds port 5000 would make the watchdog launch the exe into a port conflict (the 2026-09-01 crash-loop).
+
+**Manual build/deploy sequence** (when building by hand instead of running PS1_19):
+
+```powershell
+New-Item C:\HealthCheck\DEPLOY_IN_PROGRESS -ItemType File -Force   # 1. pause the watchdog
+# 2. stop the API process (scheduled task + GSDDashboard.API.exe, by exact PID)
+# 3. build / copy files
+Remove-Item C:\HealthCheck\DEPLOY_IN_PROGRESS                      # 4. resume the watchdog
+```
+
+Skip step 1 and the watchdog will resurrect the old exe mid-work. Full contract and verification evidence: `DEPLOYMENT_AND_VERIFICATION.md`, Rule 8 (repo root).
+
 ### Verification (from tunnel, not localhost)
 
 All verification runs against `https://d2jn94qg-5000.euw.devtunnels.ms/`, never `localhost:5173`. The tunnel is the production surface; the dev server bypasses the backend.
@@ -613,6 +649,8 @@ Canonical full-absence set (AvailabilityResolver.FullAbsenceTypes): `SL, AL, UL,
 `HALF_AL` = 0.5 coverage contribution (not in full-absence set; fractional credit via `Math.Floor`).
 `TRAINING` is NOT in the full-absence set (agent is present at training, not absent from WIC).
 
+Blocking absence set (`AvailabilityResolver.BlockingAbsenceTypes`): `AL, HALF_AL, SL, UL, PH, LPH, OL, OFF, OFF_WEEKEND, RESIGNED` — superset of the full-absence set that also treats `HALF_AL`, `OFF` and `OFF_WEEKEND` as absent. Single source of truth used by the WIC assignment endpoint (`WicShiftService.CreateAssignmentAsync`) and the coverage cards (`WicCardsService`); do not re-declare it elsewhere. `RosterService.ProtectedAbsenceTypes` (the overwrite-mode "never touch" list) is this set plus `CD`.
+
 ---
 
 ---
@@ -620,6 +658,27 @@ Canonical full-absence set (AvailabilityResolver.FullAbsenceTypes): `SL, AL, UL,
 ## Operational Workflows
 
 These are the common day-to-day operational changes and their system effects, for anyone who needs to make such changes without reading the full service code.
+
+---
+
+### Q0 — Setting up a new employee or a new WIC agent (Roster Generator)
+
+**Scenario:** A new hire needs a roster, an existing employee has no upcoming shifts, or an agent becomes a WIC agent at a location.
+
+**This is now done with the Roster Generator (`/roster`, nav group "Planning") — RTM, TEAM_LEAD and DEV only** (enforced server-side by `RosterAccess` on every `/api/roster/*` endpoint). The Overview page surfaces candidates automatically via the missing-roster warning and deep-links here.
+
+**Steps:**
+
+1. Open `/roster` and pick the employee.
+2. Choose the mode:
+   - **Plain** — date range, shift times, working days → generates `WORKING` ShiftEntries.
+   - **WIC** — pick the WIC location + date range → days the centre is open (per `WicOpeningHours`, resolved by `WicHoursResolver`, EffectiveFrom- and legacy-code aware) become `WIC_DUTY` at the centre's opening hours; every other working day becomes `BO` (`ShiftType=WORKING`, `RawValue="BO"`). WorkingDays/AgentTask are ignored in this mode. If the agent has no active `WicAgentAssignments` row for the location, one is created (MAIN) so the agent appears in the WIC coverage views — no other screen can do that.
+3. Weekends and public holidays (national + the employee's Bundesland, resolved exactly like `PublicHolidayService.GetAgentHolidaysAsync`) are always skipped. The date range is capped at 366 days.
+4. **Always run Preview first** — it lists every row that would be written, skipped holidays, and collisions with existing rows, before anything is committed.
+5. Every run is recorded as a batch (`RosterBatches`; generated rows carry `SourceModule="Roster"`, `SourceId=<batch id>`, `SourceSheet="ROSTER"`). Deleting the batch removes its rows again (and its `WicShiftEntries` upserts); the batch row itself is soft-deleted so the audit trail survives.
+6. **Overwrite mode is off by default.** When on, existing `WORKING`/`BO`/`WIC_DUTY`/empty rows are replaced — but absences are **never** touched (`RosterService.ProtectedAbsenceTypes`: `AL, HALF_AL, SL, UL, PH, LPH, OL, OFF, OFF_WEEKEND, RESIGNED, CD`). Every replaced row is snapshotted to `RosterBatches.ReplacedRowsJson` first, so deleting the batch restores what was there before. A date that another module has since claimed is skipped during restore and reported (`RestoreSkipped`), never overwritten.
+
+**The June Excel import is dead — never re-run it.** It predates batches, collision handling and the restore path: re-running it would bypass all of the above and can silently double-book or overwrite live rows. If anyone needs a roster, this page is the way.
 
 ---
 
@@ -857,6 +916,31 @@ Must be placed as a **true parent at route level** — a boundary inside the com
 **Log location:** `C:\GSDDashboard\Backend\bin\Release\net8.0\client-errors.log`
 
 **To reset the log:** delete or truncate the file; the endpoint creates it on first write.
+
+---
+
+## Known Issues (open) — recorded 2026-09-24
+
+Known, verified problems, listed so nobody rediscovers them the hard way.
+
+### 4 RosterServiceTests fail — test environment, not an application bug
+
+`Backend.Tests/RosterServiceTests.cs`: 4 tests fail with `System.InvalidOperationException` — `Transaction.TransactionIgnoredWarning: Transactions are not supported by the in-memory store`. `RosterService.GenerateAsync` and `DeleteBatchAsync` deliberately run inside a real EF Core transaction (`BeginTransactionAsync` under `CreateExecutionStrategy()`), which the EF Core **InMemory** provider does not support. The code works against real SQL Server; the failures are an artefact of the test provider. Fixing this means configuring the test context to ignore `InMemoryEventId.TransactionIgnoredWarning` (or moving these tests to a real relational provider) — no production code change.
+
+### "RTM" means two different things
+
+- `auth_rbac.md`: **RTM is an access role** (full read/write, same rights as TEAM_LEAD).
+- `PROJECT_BLUEPRINT.md` § Acronym Glossary: **RTM = "Return to Main"** — a shift-workflow term (agent returning from WIC/special duty), used by the `/bulk-rtm` page and the `RtmEntries` table.
+
+Same three letters, two unrelated meanings. Flagged in both files; not "fixed" by renaming — both usages are established in code (`AppRoles.Rtm` vs `RtmEntries`).
+
+### Resigned-cleanup scripts list two ACTIVE employees — data hazard
+
+`check_resigned.ps1` and `PS1_70_HardDeleteResigned.ps1` include **3193178 (Samantha Buys)** and **3193180 (Cortneigh Halim)** in their resigned-ID lists. Both employees are **active**. Running `PS1_70_HardDeleteResigned.ps1` as-is would hard-delete them. **Do not run PS1_70 until those two IDs are removed from the list.**
+
+### Essen - BP1 always shows PARTIAL in headcount-based views
+
+`Essen - BP1` has `MinAgentsRequired = 3` but only two agents assigned. Every headcount-based view (WIC cards, forecast, briefing) therefore shows the location as PARTIAL even when both agents are present. Either lower the minimum or assign a third agent — until then, PARTIAL is the expected status there, not a bug.
 
 ---
 

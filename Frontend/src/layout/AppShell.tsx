@@ -5,6 +5,7 @@ import { Topbar } from './Topbar'
 import { CommandPalette } from '../components/CommandPalette'
 import { WicChatWidget } from '../components/WicChatWidget'
 import { useSidebarCollapse } from './useSidebarCollapse'
+import { useAuth } from '../auth/AuthContext'
 
 const FULL_BLEED = new Set(['/wic-attendance'])
 
@@ -12,9 +13,13 @@ export function AppShell() {
   const location = useLocation()
   const [cmdOpen, setCmdOpen] = useState(false)
   const { collapsed, toggle } = useSidebarCollapse()
+  const { session } = useAuth()
+  // AGENT: command palette and chat widget call staff-only APIs — keep them off.
+  const isAgent = session?.role === 'AGENT'
   const isFullBleed = FULL_BLEED.has(location.pathname)
 
   useEffect(() => {
+    if (isAgent) return
     const h = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
@@ -23,7 +28,7 @@ export function AppShell() {
     }
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
-  }, [])
+  }, [isAgent])
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-page text-ink flex">
@@ -42,8 +47,8 @@ export function AppShell() {
           </div>
         </main>
       </div>
-      <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
-      <WicChatWidget />
+      {!isAgent && <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />}
+      {!isAgent && <WicChatWidget />}
     </div>
   )
 }

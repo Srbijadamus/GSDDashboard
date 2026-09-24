@@ -12,6 +12,21 @@ $tunnelUrl   = "https://8nh5k5g1-5000.euw.devtunnels.ms"
 Write-Host ""
 Write-Host "=== PS1_19: Final Build + Verification ===" -ForegroundColor Yellow
 
+# -- 0. Deploy sentinel: pause the watchdog for the entire build+verify --------
+# The watchdog (C:\HealthCheck\watchdog_gsd_backend.ps1) checks for this file at
+# the top of every loop and will NOT relaunch the exe while it exists, so it can
+# never resurrect the old exe mid-copy. It auto-ignores a sentinel older than
+# 30 minutes, so a crash here can never leave the backend down indefinitely.
+# The finally block at the end of this script always removes it.
+
+$sentinel   = "C:\HealthCheck\DEPLOY_IN_PROGRESS"
+$serverProc = $null
+New-Item -Path $sentinel -ItemType File -Force | Out-Null
+Write-Host "Watchdog sentinel created: $sentinel" -ForegroundColor Cyan
+Write-Host "  (watchdog paused; stale valve auto-resumes after 30 min)" -ForegroundColor DarkCyan
+
+try {
+
 # ── 1. npm run build ─────────────────────────────────────────────────────────
 
 Write-Host ""
@@ -216,3 +231,25 @@ Write-Host "  $tunnelUrl/wic-attendance" -ForegroundColor DarkCyan
 Write-Host "  $tunnelUrl/api/wic/briefing" -ForegroundColor DarkCyan
 Write-Host ""
 Write-Host "=== PS1_19 complete ===" -ForegroundColor Green
+
+} finally {
+    # -- Cleanup: stop the script-started verification server, then remove the ---
+    # -- sentinel. Order matters: server first, sentinel second - otherwise the ---
+    # -- watchdog could launch the Release exe while this server still holds     ---
+    # -- port 5000 (the 2026-09-01 crash-loop). After this, the watchdog is the ---
+    # -- single supervisor that brings the final exe up.                         ---
+    Write-Host ""
+    Write-Host "--- Cleanup: stop script-started server, remove watchdog sentinel ---" -ForegroundColor Cyan
+    if ($serverProc) {
+        Stop-Process -Id $serverProc.Id -Force -ErrorAction SilentlyContinue
+        Write-Host "  Stopped script-started server (dotnet PID $($serverProc.Id))." -ForegroundColor Green
+    }
+    $apiProc = Get-Process -Name "GSDDashboard.API" -ErrorAction SilentlyContinue
+    if ($apiProc) {
+        $apiProc | Stop-Process -Force -ErrorAction SilentlyContinue
+        Write-Host "  Stopped GSDDashboard.API child process(es)." -ForegroundColor Green
+    }
+    Start-Sleep -Seconds 2
+    Remove-Item -Path $sentinel -Force -ErrorAction SilentlyContinue
+    Write-Host "  Sentinel removed. Watchdog is now the sole supervisor and will relaunch the Release exe within ~30s." -ForegroundColor Green
+}

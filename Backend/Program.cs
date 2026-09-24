@@ -1,4 +1,5 @@
-using GSDDashboard.API.Data;
+﻿using GSDDashboard.API.Data;
+using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.ALCalendar;
 using GSDDashboard.API.Modules.Overview;
 using GSDDashboard.API.Modules.Shifts;
@@ -20,11 +21,18 @@ using GSDDashboard.API.Modules.Backup;
 using GSDDashboard.API.Modules.SubstituteAccept;
 using GSDDashboard.API.Modules.BoList;
 using GSDDashboard.API.Modules.BulkRtm;
+using GSDDashboard.API.Modules.Roster;
 using GSDDashboard.API.Modules.WicAssistant;
 using GSDDashboard.API.Modules.Assistant;
 using GSDDashboard.API.Modules.Admin;
 using GSDDashboard.API.Modules.HrExport;
+using GSDDashboard.API.Modules.Auth;
+using GSDDashboard.API.Middleware;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,11 +73,54 @@ builder.Services.AddScoped<ALPlanningService>();
 builder.Services.AddScoped<WicCoverageService>();
 builder.Services.AddScoped<BoListService>();
 builder.Services.AddScoped<BulkRtmService>();
+builder.Services.AddScoped<RosterService>();
 builder.Services.AddScoped<WicAssistantService>();
 builder.Services.AddScoped<WicMigrationDryRunService>();
 builder.Services.AddScoped<WicConflictDetector>();
 builder.Services.AddScoped<DemoDataAdminService>();
 builder.Services.AddScoped<HrExportService>();
+builder.Services.AddScoped<AuthService>();
+
+// KID-only cookie login. SecurePolicy.SameAsRequest: the session cookie is Secure
+// over the https devtunnel URL and plain on http://localhost:5000, so login works
+// over BOTH (hard requirement — see documentation/auth_rbac.md).
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name         = "gsd_auth";
+        options.Cookie.HttpOnly     = true;
+        options.Cookie.SameSite     = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.SlidingExpiration   = true;
+        options.ExpireTimeSpan      = TimeSpan.FromHours(12);
+        // API, not MVC: never redirect to a login page — answer with status codes.
+        options.Events.OnRedirectToLogin = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = ctx =>
+        {
+            ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
+    });
+builder.Services.AddAuthorization();
+
+// Per-IP rate limit for anonymous, abuse-prone endpoints (login, client-error log).
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(RateLimitPolicies.Auth, httpCtx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpCtx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window      = TimeSpan.FromMinutes(1),
+                QueueLimit  = 0,
+            }));
+});
 
 // Full-dashboard assistant — domain handlers + router
 builder.Services.AddScoped<IDomainHandler, WicLeaveHandler>();
@@ -90,6 +141,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "EON GSD Dashboard API", Version = "v1" });
+    // WicAssistant and Assistant both declare an AskRequest record — without this,
+    // Swashbuckle throws a schemaId clash and swagger.json returns 500.
+    c.CustomSchemaIds(t => t.FullName);
 });
 
 builder.Services.AddCors(options =>
@@ -111,6 +165,24 @@ app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
     await ctx.Response.WriteAsJsonAsync(new { error = "An unexpected error occurred." });
 }));
 
+// /swagger is NOT under /api, so RbacMiddleware never sees it — over the devtunnel it
+// would publish the full endpoint map to anyone. Gate it explicitly: DEV role only,
+// ALWAYS enforced (independent of the Auth:EnforceAuthorization rollout flag).
+// Everyone else gets 404, not 401/403, so the endpoint map's existence is not leaked.
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.Path.StartsWithSegments("/swagger"))
+    {
+        var auth = await ctx.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        if (!auth.Succeeded || auth.Principal?.FindFirst(AuthClaims.Role)?.Value != AppRoles.Dev)
+        {
+            ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+    }
+    await next();
+});
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -119,6 +191,10 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseCors();
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseRbac();
 app.UseDefaultFiles();
 
 // Ensure BoEntries table exists (idempotent)
@@ -217,6 +293,43 @@ app.UseDefaultFiles();
     db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Rtm_Emp')  CREATE INDEX IX_Rtm_Emp  ON RtmEntries (EmployeeId)");
 }
 
+// RosterBatches table (idempotent) — roster generation audit; ShiftEntries rows
+// point back via SourceModule='Roster' + SourceId=RosterBatches.Id.
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'RosterBatches')
+        CREATE TABLE RosterBatches (
+            Id              INT           IDENTITY(1,1) PRIMARY KEY,
+            EmployeeId      NVARCHAR(20)  NOT NULL,
+            FullName        NVARCHAR(200) NULL,
+            DateFrom        DATE          NOT NULL,
+            DateTo          DATE          NOT NULL,
+            ShiftStart      NVARCHAR(10)  NOT NULL DEFAULT '08:00',
+            ShiftEnd        NVARCHAR(10)  NOT NULL DEFAULT '17:00',
+            WorkingDays     NVARCHAR(30)  NOT NULL DEFAULT '1,2,3,4,5',
+            AgentTask       NVARCHAR(20)  NULL,
+            LocationCode    NVARCHAR(50)  NULL,
+            [RowCount]        INT           NOT NULL DEFAULT 0,
+            SkippedExisting INT           NOT NULL DEFAULT 0,
+            SkippedHolidays INT           NOT NULL DEFAULT 0,
+            CreatedByKid    NVARCHAR(20)  NULL,
+            CreatedByName   NVARCHAR(200) NULL,
+            CreatedAt       DATETIME2     NOT NULL DEFAULT GETUTCDATE(),
+            DeletedAt       DATETIME2     NULL
+        )
+    """);
+    // Existing databases created before WIC rosters: add the column idempotently.
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('RosterBatches') AND name='LocationCode') ALTER TABLE RosterBatches ADD LocationCode NVARCHAR(50) NULL");
+    // Overwrite mode (roster generator): replaced-row count + JSON snapshot used
+    // by DELETE /api/roster/batches/{id} to restore the pre-batch state.
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('RosterBatches') AND name='ReplacedExisting') ALTER TABLE RosterBatches ADD ReplacedExisting INT NOT NULL DEFAULT 0");
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('RosterBatches') AND name='ReplacedRowsJson') ALTER TABLE RosterBatches ADD ReplacedRowsJson NVARCHAR(MAX) NULL");
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_RosterBatch_Emp')     CREATE INDEX IX_RosterBatch_Emp     ON RosterBatches (EmployeeId)");
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_RosterBatch_Created') CREATE INDEX IX_RosterBatch_Created ON RosterBatches (CreatedAt)");
+}
+
 // WIC Coverage — add columns to Employees and WicLocations, create AgentReachableCities (all idempotent)
 {
     using var scope = app.Services.CreateScope();
@@ -251,6 +364,80 @@ app.UseDefaultFiles();
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
     await WicCoverageImport.RunAsync(db);
+}
+
+// ── Auth: AppUserRoles table + idempotent seed ────────────────────────────────
+// LOCKOUT PROTECTION (hard requirement): the app refuses to start unless at least
+// one ACTIVE DEV row with a non-empty Kid exists in AppUserRoles.
+{
+    using var scope = app.Services.CreateScope();
+    var db     = scope.ServiceProvider.GetRequiredService<GSDContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'AppUserRoles')
+        CREATE TABLE AppUserRoles (
+            Id          INT            IDENTITY(1,1) PRIMARY KEY,
+            Kid         NVARCHAR(20)   NOT NULL DEFAULT '',
+            Role        NVARCHAR(20)   NOT NULL,
+            EmployeeId  NVARCHAR(20)   NULL,
+            DisplayName NVARCHAR(200)  NOT NULL,
+            IsActive    BIT            NOT NULL DEFAULT 1,
+            CreatedAt   DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+            UpdatedAt   DATETIME2      NULL
+        )
+    """);
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_AppUserRoles_Kid' AND object_id = OBJECT_ID('AppUserRoles'))
+            CREATE UNIQUE INDEX UX_AppUserRoles_Kid ON AppUserRoles (Kid) WHERE Kid <> ''
+    """);
+
+    // Seed: DEV + RTMs (idempotent). These KIDs exist in NEITHER Employees.PrimaryKid
+    // NOR Employees.SecondaryKid — AppUserRoles is their only login path (rule a).
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM AppUserRoles WHERE Kid = 'S69307')
+            INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
+            VALUES ('S69307', 'DEV', '9074466', 'Stojnic Nebojsa', 1);
+        IF NOT EXISTS (SELECT 1 FROM AppUserRoles WHERE Kid = 'S60028')
+            INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
+            VALUES ('S60028', 'RTM', NULL, 'Silvija Angelova', 1);
+        IF NOT EXISTS (SELECT 1 FROM AppUserRoles WHERE Kid = 'Y6525')
+            INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
+            VALUES ('Y6525', 'RTM', NULL, 'Yiting Qiang', 1);
+    """);
+
+    // TEAM_LEAD placeholders: Kid = '' AND IsActive = 0 → can NEVER authenticate.
+    // Fill Kid + IsActive = 1 once the real KIDs are provided (see documentation/auth_rbac.md).
+    var teamLeads = new[]
+    {
+        "Tobias Rossberg", "Delia Panaitescu", "Oliver Schleusen",
+        "Karlo Coric", "Ion Ciuceanu", "Jaroslaw Brzeszkiewicz",
+    };
+    foreach (var name in teamLeads)
+        db.Database.ExecuteSqlRaw(
+            """
+            IF NOT EXISTS (SELECT 1 FROM AppUserRoles WHERE Role = 'TEAM_LEAD' AND DisplayName = {0})
+                INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
+                VALUES ('', 'TEAM_LEAD', NULL, {0}, 0);
+            """, name);
+
+    // Hard invariant: an AGENT session must always carry a real employeeId.
+    var badAgents = db.Database
+        .SqlQuery<int>($"SELECT COUNT(*) AS Value FROM AppUserRoles WHERE Role = 'AGENT' AND (EmployeeId IS NULL OR EmployeeId = '')")
+        .Single();
+    if (badAgents > 0)
+        throw new InvalidOperationException(
+            $"AppUserRoles contains {badAgents} AGENT row(s) without EmployeeId. " +
+            "An AGENT session must always carry a real employeeId. Fix or delete those rows; the app will not start.");
+
+    // Lockout protection: never start with no active DEV login.
+    var activeDevs = db.Database
+        .SqlQuery<int>($"SELECT COUNT(*) AS Value FROM AppUserRoles WHERE Role = 'DEV' AND IsActive = 1 AND Kid <> ''")
+        .Single();
+    if (activeDevs == 0)
+        throw new InvalidOperationException(
+            "No active DEV row in AppUserRoles. Run the recovery INSERT from documentation/auth_rbac.md; the app will not start.");
+    logger.LogInformation("Auth seed OK: {DevCount} active DEV login(s) present", activeDevs);
 }
 
 // Schema migrations (idempotent — safe on every startup)
@@ -377,6 +564,7 @@ var staticFileOptions = new StaticFileOptions
 };
 app.UseStaticFiles(staticFileOptions);
 
+app.MapAuthEndpoints();
 app.MapDashboardEndpoints();
 app.MapShiftEndpoints();
 app.MapWicEndpoints();
@@ -406,6 +594,7 @@ app.MapBreakEndpoints();
 app.MapWicCoverageEndpoints();
 app.MapBoListEndpoints();
 app.MapBulkRtmEndpoints();
+app.MapRosterEndpoints();
 app.MapWicAssistantEndpoints();
 app.MapAssistantEndpoints();
 app.MapWicMigrationEndpoints();
@@ -454,7 +643,7 @@ app.MapPost("/api/debug/client-error", async (HttpContext ctx) =>
     await File.AppendAllTextAsync(logPath,
         $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}]\n{body}\n---\n");
     return Results.Ok();
-}).WithTags("Debug");
+}).WithTags("Debug").RequireRateLimiting(RateLimitPolicies.Auth);
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.MapFallbackToFile("index.html", staticFileOptions);

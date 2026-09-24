@@ -1,8 +1,9 @@
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Search } from 'lucide-react'
+import { Search, LogOut } from 'lucide-react'
 import { ThemeToggle } from '../components/ThemeToggle'
-import { NAV_GROUPS } from './navItems'
+import { NAV_GROUPS, AGENT_NAV } from './navItems'
+import { useAuth } from '../auth/AuthContext'
 
 function LangToggle() {
   const { i18n, t } = useTranslation()
@@ -25,6 +26,8 @@ export function Topbar({ onOpenCmd }: TopbarProps) {
   const { t, i18n } = useTranslation()
   const location = useLocation()
   const [params, setParams] = useSearchParams()
+  const { session, logout } = useAuth()
+  const isAgent = session?.role === 'AGENT'
 
   const isOverview = location.pathname === '/'
   const horizonParam = params.get('horizon') ?? '28'
@@ -41,7 +44,7 @@ export function Topbar({ onOpenCmd }: TopbarProps) {
   })
 
   // Longest path first so /wic-attendance wins over /wic on prefix match
-  const allItems = [...NAV_GROUPS.flatMap(g => g.items)]
+  const allItems = [...(isAgent ? AGENT_NAV : NAV_GROUPS).flatMap(g => g.items)]
     .sort((a, b) => b.to.length - a.to.length)
   const currentItem = allItems.find(item =>
     item.to === '/'
@@ -82,7 +85,9 @@ export function Topbar({ onOpenCmd }: TopbarProps) {
           </div>
         )}
 
-        {/* Search — full trigger on xl+, icon-only below */}
+        {/* Search — staff only; AGENT sessions have no cross-agent search */}
+        {!isAgent && (
+        <>
         <button onClick={onOpenCmd}
           aria-label={t('topbar.search')}
           className="h-8 pl-2.5 pr-2 rounded-md border border-line-default bg-raised hidden xl:flex items-center gap-2 text-sm text-ink-soft hover:border-line-strong transition-colors duration-fast w-56"
@@ -99,6 +104,27 @@ export function Topbar({ onOpenCmd }: TopbarProps) {
         >
           <Search className="h-4 w-4" />
         </button>
+        </>
+        )}
+
+        {session && (
+          <>
+            <span className="text-xs text-ink-muted truncate max-w-[220px]" title={session.kid}>
+              {session.name}
+              <span className="ml-1.5 rounded-xs bg-sunken border border-line-subtle px-1.5 py-0.5 text-2xs font-semibold text-ink-soft">
+                {session.role}
+              </span>
+            </span>
+            <button
+              onClick={logout}
+              aria-label={t('auth.logout')}
+              title={t('auth.logout')}
+              className="h-8 w-8 rounded-md flex items-center justify-center text-ink-muted hover:bg-hovered transition-colors duration-fast"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </>
+        )}
 
         <div className="h-5 w-px bg-line-subtle mx-1" />
         <LangToggle />

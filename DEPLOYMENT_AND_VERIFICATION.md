@@ -87,9 +87,12 @@ The canonical build+deploy script is:
 C:\GSDDashboard\PS1_19_FinalBuildVerify.ps1
 ```
 
-Do not invent a new deploy process. This script: builds frontend → stops any
-running API process → copies dist to wwwroot → builds backend → starts server →
-runs API and page verification.
+Do not invent a new deploy process. This script: **creates the watchdog
+sentinel first (see Rule 8)** → builds frontend → stops any running API
+process → copies dist to wwwroot → builds backend → starts a temporary
+verification server → runs API and page verification → **finally block always
+stops the script-started server and removes the sentinel**, so the watchdog is
+the single supervisor that brings the final exe up.
 
 For a quick frontend-only rebuild (no C# changes):
 
@@ -137,6 +140,47 @@ Backend changes (`.cs` files) require:
 The watchdog script (`C:\HealthCheck\watchdog_gsd_backend.ps1`) runs the EXE
 with working directory `C:\GSDDashboard\Backend`, so `Backend/wwwroot` is always
 the correct static-files root.
+
+---
+
+## Rule 8 — Watchdog deploy sentinel (`C:\HealthCheck\DEPLOY_IN_PROGRESS`)
+
+Added 2026-09-21 after a deploy was silently overtaken by the watchdog
+relaunching the old exe mid-copy. The watchdog is the only process allowed to
+start `GSDDashboard.API.exe` outside of a controlled deploy.
+
+**Watchdog behavior** (`C:\HealthCheck\watchdog_gsd_backend.ps1`, top of loop):
+
+- If `C:\HealthCheck\DEPLOY_IN_PROGRESS` exists and is **younger than 30 min**:
+  logs `DEPLOY PAUSED (sentinel present)`, sleeps 30s, checks again — it does
+  NOT launch or relaunch the exe.
+- If the sentinel is **30 min or older** (stale valve): logs
+  `DEPLOY SENTINEL STALE (age Xm > 30m) - removed, resuming`, deletes the
+  sentinel and resumes normally. A forgotten sentinel can never leave the
+  backend down indefinitely.
+
+**Deploy script contract** (`PS1_19_FinalBuildVerify.ps1`):
+
+1. Creates the sentinel **before** any build/stop/copy step.
+2. Wraps the whole build+verify in `try`, with a `finally` that:
+   - stops the script-started verification server (dotnet PID **and** any
+     `GSDDashboard.API` child) **first**,
+   - **then** removes the sentinel.
+   - Order matters: removing the sentinel while the script's server still holds
+     port 5000 would make the watchdog launch the exe into a port conflict —
+     the 2026-09-01 crash-loop (`APP EXIT code=-532462766` every ~15s).
+3. The watchdog then relaunches the Release exe within ~30s — it is the sole
+   supervisor of the final process.
+
+**Manual deploys:** if you stop the API exe by hand, create the sentinel first
+(`New-Item C:\HealthCheck\DEPLOY_IN_PROGRESS -ItemType File -Force`), and
+remove it when done — or the watchdog will resurrect the old exe mid-work.
+
+**Verified 2026-09-21:** pause test (sentinel present → exe killed → no
+relaunch across multiple watchdog cycles), resume test (sentinel removed →
+`APP START` next cycle, HTTP 200), stale-valve test (sentinel backdated 31 min
+→ stale log line → watchdog removed it → relaunch). Backup of the pre-change
+watchdog: `C:\HealthCheck\watchdog_gsd_backend.ps1.bak-20260921-190800`.
 
 ---
 

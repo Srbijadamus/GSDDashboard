@@ -27,7 +27,9 @@
     "assistant": "Pulse Assistant",
     "boList": "BO List",
     "bulkRtm": "Bulk RTM Entry",
+    "roster": "Roster Generator",
     "export": "HR Export",
+    "myView": "My View",
     "collapseSidebar": "Collapse",
     "expandSidebar": "Expand",
     "navThemeToLight": "Switch to light sidebar",
@@ -435,6 +437,37 @@
   },
   "employees": {
     "roleVwicLabel": "VWIC – Virtual Walk-In Center"
+  },
+  "auth": {
+    "title": "Sign in",
+    "subtitle": "Sign in with your KID to continue.",
+    "kidLabel": "KID",
+    "kidPlaceholder": "e.g. K37144",
+    "kidHelp": "Your employee number (e.g. 9074573) also works.",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "logout": "Sign out"
+  },
+  "my": {
+    "profile": "My Profile",
+    "name": "Name",
+    "employeeId": "Employee ID",
+    "role": "Primary role",
+    "teamLead": "Team lead",
+    "engagement": "Engagement",
+    "alBalance": "Annual leave balance",
+    "alEligible": "Eligible days",
+    "alTaken": "Planned / taken",
+    "alRemaining": "Remaining",
+    "upcomingShifts": "My upcoming shifts",
+    "noShifts": "No upcoming shifts found.",
+    "date": "Date",
+    "shiftType": "Shift type",
+    "time": "Time",
+    "wicDuty": "WIC",
+    "sickLeaves": "My sick leaves",
+    "vacations": "My vacations",
+    "none": "None"
   },
   "export": {
     "title": "HR Export",

@@ -119,6 +119,22 @@ const STATUS_RANK: Record<string, number> = {
   CLOSED:    3,
 }
 
+// Absence markers sent by /api/wic/cards (WicCardsService): absent agents carry their
+// absence type in shiftStart/shiftEnd instead of times. They stay visible but never
+// count as expected/covering.
+const ABSENT_MARKERS = new Set([
+  "SICK", "SL", "AL", "HALF_AL", "UL", "OL", "PH", "LPH", "OFF", "OFF_WEEKEND", "RESIGNED",
+])
+
+function absentMarkerLabel(start: string | null, end: string | null): string {
+  const m = start ?? end ?? ""
+  if (m === "SICK") return "SL"
+  if (m === "HALF_AL") return "½AL"
+  if (m === "OFF_WEEKEND") return "OFF"
+  if (ABSENT_MARKERS.has(m)) return m
+  return `${start ?? ""}–${end ?? ""}`
+}
+
 const SOURCE_COLORS: Record<string, { bg: string; color: string }> = {
   BACKUP:    { bg: "rgb(var(--st-learn-bg) / 0.15)",  color: "rgb(var(--st-learn-fg))" },
   SSP:       { bg: "rgb(var(--st-info-bg) / 0.15)",   color: "rgb(var(--st-info-fg))"  },
@@ -801,7 +817,7 @@ export default function WicAttendance() {
   const seenEmpIds = new Set<string>()
   const workingAgents = allTodayAgents.filter(a => {
     if (seenEmpIds.has(a.employeeId)) return false
-    if (!a.shiftStart || a.shiftStart === "SICK" || a.shiftStart === "SL" || a.shiftStart === "AL") return false
+    if (!a.shiftStart || ABSENT_MARKERS.has(a.shiftStart)) return false
     seenEmpIds.add(a.employeeId)
     return true
   })
@@ -1483,11 +1499,7 @@ export default function WicAttendance() {
                         </div>
                         {(agent.shiftStart || agent.shiftEnd) && (
                           <div className="text-ink-soft font-mono" style={{ fontSize: 9 }}>
-                            {agent.shiftStart === "SICK" || agent.shiftEnd === "SICK"
-                              ? "SL"
-                              : agent.shiftStart === "AL" || agent.shiftEnd === "AL"
-                              ? "AL"
-                              : `${agent.shiftStart ?? ""}–${agent.shiftEnd ?? ""}`}
+                            {absentMarkerLabel(agent.shiftStart, agent.shiftEnd)}
                           </div>
                         )}
                         {kiosk?.attendance_status === "ACTIVE" && (

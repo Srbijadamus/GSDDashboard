@@ -4,13 +4,14 @@ import infosys1 from '../assets/infosys-1.webp'
 import infosys2 from '../assets/infosys-2.webp'
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { useState, useEffect } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useState, useEffect, type CSSProperties } from "react"
+import { useSearchParams, Link } from "react-router-dom"
 import { useTheme } from "next-themes"
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet"
 import { AlertTriangle, Users } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { api, apiFetch } from "../api/client"
+import { useAuth } from "../auth/AuthContext"
 import { statusColor } from "../lib/tokenColor"
 import { Sheet } from "../components/Sheet"
 import { NppBadge } from "../components/NppBadge"
@@ -68,7 +69,7 @@ interface WicCardTodaySchedule {
 }
 interface WicCardAssignedAgent {
   employeeId: string; name: string
-  shiftStart: string   // "06:00" or sentinel "SL" | "AL" | "SICK"
+  shiftStart: string   // "06:00" or absence marker "SL" | "SICK" | "AL" | "HALF_AL" | "UL" | "OL" | "PH" | "LPH" | "OFF" | "OFF_WEEKEND" | "RESIGNED" | "GSD"
   shiftEnd: string; coverageMatch: "FULL" | "PARTIAL"
 }
 interface WicCardDto {
@@ -171,6 +172,96 @@ function WarningBanner({ msg }: { msg: string }) {
     }}>
       <AlertTriangle size={13} style={{ flexShrink: 0 }} />
       {msg}
+    </div>
+  )
+}
+
+// ── Missing-roster warning ────────────────────────────────────────────────────
+// Mirrors the records in Backend/RosterService.cs (GET /api/roster/missing).
+// RTM / TEAM_LEAD / DEV only — the query is not even fired for AGENT, and the
+// server enforces the same gate (RosterAccess → 403) regardless of the global
+// Auth:EnforceAuthorization rollout flag.
+// i18n exception: operational warning, same hardcoded-EN approach as Roster.tsx.
+interface MissingRosterAgent {
+  employeeId: string; fullName: string | null; teamLeadName: string | null
+  primaryRole: string | null; lastShiftDate: string | null
+}
+interface OrphanShiftEntryGroup {
+  employeeId: string; rowCount: number; firstDate: string; lastDate: string
+  hasInactiveEmployeeRow: boolean
+}
+interface MissingRosterResult {
+  days: number; from: string; to: string
+  missingRoster: MissingRosterAgent[]; orphanEntries: OrphanShiftEntryGroup[]
+}
+
+const rosterPill: CSSProperties = {
+  display: "inline-block", padding: "3px 10px", borderRadius: 999,
+  background: "rgb(var(--surface-raised))", border: "1px solid rgb(var(--st-warn-bd))",
+  color: "inherit", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap",
+}
+
+function MissingRosterBanner() {
+  const { session } = useAuth()
+  const allowed = session != null && ["RTM", "TEAM_LEAD", "DEV"].includes(session.role)
+  const { data, error } = useQuery({
+    queryKey: ["roster-missing"],
+    queryFn: () => apiFetch<MissingRosterResult>("/api/roster/missing?days=14"),
+    staleTime: 5 * 60 * 1000,
+    enabled: allowed,
+    retry: false,
+  })
+  if (error) console.warn("[Overview] missing-roster check failed:", error)
+  if (!allowed || !data) return null
+  if (data.missingRoster.length === 0 && data.orphanEntries.length === 0) return null
+
+  return (
+    <div style={{
+      background: STATUS_TOKEN_BG["PARTIAL"], border: `1px solid rgb(var(--st-warn-bd))`,
+      borderRadius: 8, padding: "12px 16px", fontSize: 12, color: STATUS_TOKEN_FG["PARTIAL"],
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, marginBottom: 8 }}>
+        <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+        Roster gaps ({data.from} → {data.to})
+      </div>
+
+      {data.missingRoster.length > 0 && (
+        <div style={{ marginBottom: data.orphanEntries.length > 0 ? 10 : 0 }}>
+          <div style={{ fontWeight: 600, marginBottom: 5 }}>
+            {data.missingRoster.length} active employee(s) with no roster in the next {data.days} days
+            — click a name to fix it in the Roster Generator:
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {data.missingRoster.map(a => (
+              <Link key={a.employeeId}
+                to={`/roster?employeeId=${encodeURIComponent(a.employeeId)}`}
+                title={a.lastShiftDate ? `Last rostered: ${a.lastShiftDate}` : "Never rostered"}
+                style={rosterPill}>
+                {a.fullName ?? a.employeeId}{a.teamLeadName ? ` (${a.teamLeadName})` : ""}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data.orphanEntries.length > 0 && (
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 5 }}>
+            {data.orphanEntries.length} employee ID(s) have ShiftEntries but no active employee row:
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {data.orphanEntries.map(o => (
+              <Link key={o.employeeId} to="/employees"
+                title={o.hasInactiveEmployeeRow
+                  ? "Employee row exists but is inactive — reactivate or clean up on the Employees page"
+                  : "No Employees row at all — check the Employees page"}
+                style={rosterPill}>
+                {o.employeeId} · {o.rowCount} row(s) · {o.firstDate} → {o.lastDate}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -515,12 +606,14 @@ function TLCard({ tl }: { tl: any }) {
 function WicCard({ card }: { card: WicCardDto }) {
   const st = card.coverageStatus
 
-  const getAgentReason = (a: WicCardAssignedAgent): string | null => {
-    if (a.shiftStart === "SICK" || a.shiftEnd === "SICK" || a.shiftStart === "SL" || a.shiftEnd === "SL") return "SL"
-    if (a.shiftStart === "AL" || a.shiftEnd === "AL") return "AL"
-    if (a.shiftStart === "GSD" || a.shiftEnd === "GSD") return "GSD"
-    return null
+  // Absence markers sent by /api/wic/cards (WicCardsService): the shift fields carry the
+  // absence type instead of times. Agents with a marker render as absent, never as covering.
+  const ABSENCE_LABELS: Record<string, string> = {
+    SICK: "SL", SL: "SL", AL: "AL", HALF_AL: "½AL", UL: "UL", OL: "OL",
+    PH: "PH", LPH: "PH", OFF: "OFF", OFF_WEEKEND: "OFF", RESIGNED: "RESIGNED", GSD: "GSD",
   }
+  const getAgentReason = (a: WicCardAssignedAgent): string | null =>
+    ABSENCE_LABELS[a.shiftStart ?? ""] ?? ABSENCE_LABELS[a.shiftEnd ?? ""] ?? null
 
   const activeAgents   = card.assignedAgents?.filter(a => getAgentReason(a) === null) ?? []
   const inactiveAgents = card.assignedAgents?.filter(a => getAgentReason(a) !== null) ?? []
@@ -715,6 +808,9 @@ export default function Overview() {
           value={coveragePct}
         />
       </div>
+
+      {/* ── Missing-roster warning (RTM / TEAM_LEAD / DEV only) ── */}
+      <MissingRosterBanner />
 
       {/* ── Coverage Risk — §1.1 day strip + §1.2 exception list ── */}
       <Panel title={t("overview.coverageRisk.title")}>

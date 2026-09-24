@@ -13,7 +13,7 @@ All routes are defined in `Frontend/src/App.tsx` and rendered inside the `AppShe
 - `Topbar` — contains the `ThemeToggle`, `CommandPalette` trigger, and date display
 - `<Outlet>` — the active page
 
-**`Sidebar`** reads nav token colours from CSS. Nav items are grouped into sections (Shifts, WIC, Leave/HR, Admin). The sidebar is always dark, independent of the app light/dark theme.
+**`Sidebar`** reads nav token colours from CSS. Nav items are defined in `src/layout/navItems.ts` and grouped into sections (Planning, WIC Operations, Absence, People, Tools); AGENT sessions see a separate minimal nav (`AGENT_NAV`, only `/my`). The sidebar is always dark, independent of the app light/dark theme.
 
 ---
 
@@ -28,6 +28,7 @@ The ops command centre. Loads a live forecast map and a daily briefing.
 - `GET /api/wic/forecast?horizon=28` → `ForecastResponse` — 28-day coverage forecast for all locations, powers the map markers and the DayStrip
 - `GET /api/wic/briefing` → `Briefing` — today's absences, coverage gaps, and next at-risk days
 - `GET /api/wic/cards?date=today` → `WicCardDto2[]` — per-location coverage cards
+- `GET /api/roster/missing?days=14` → `MissingRosterResult` — roster-gap warning (RTM / TEAM_LEAD / DEV only; the query is not even fired for AGENT and the server enforces the same gate)
 
 **Key components:**
 - `MapContainer` (react-leaflet) with `CircleMarker` per WIC location — colour from `statusColor()` based on `todayStatus`
@@ -40,6 +41,7 @@ The ops command centre. Loads a live forecast map and a daily briefing.
 - Uses Leaflet `CircleMarker` with popup on click, not a custom icon, to avoid Leaflet icon path issues in Vite
 - The briefing data drives the "At Risk" exception list in the top section
 - `useSearchParams()` is used to support deep-linking to a specific location via `?loc=DE_Essen_BP1`
+- `MissingRosterBanner` (subcomponent) shows roster gaps: active employees with no shifts in the next 14 days (pills deep-link to `/roster?employeeId=…` to fix it in the Roster Generator) and shift rows whose EmployeeId has no active Employees row (pills link to `/employees`). Renders nothing for AGENT or when both lists are empty.
 
 ---
 
@@ -495,6 +497,35 @@ Paste-in bulk shift management tool. Parses free-text blocks with headers like "
 - Valid headers: `AL`, `SL`, `OFF`, `CD`, `NIGHT`, `BO`, `WIC`
 - Each header block replaces the corresponding shift type for all agents listed under it
 - The `BO` header replaces today's BO List entries entirely
+
+---
+
+## 22. Roster Generator
+
+**Route:** `/roster`
+**File:** `src/pages/Roster.tsx`
+**Nav:** Planning group (`CalendarPlus` icon, i18n key `nav.roster` = "Roster Generator"). Deep link `/roster?employeeId=<id>` preselects the employee — used by the Overview missing-roster banner.
+
+Creates an employee's roster in one batch. RTM / TEAM_LEAD / DEV only — the page-level role check is cosmetic; `RosterAccess` enforces the gate server-side on every endpoint (AGENT gets 403 even while `Auth:EnforceAuthorization` is off).
+
+**Two modes:**
+- **Plain** — employee + date range + shift times + working days → `WORKING` ShiftEntries.
+- **WIC** — employee + WIC location (dropdown from `/api/roster/locations`, opening days shown read-only) + date range → WIC duty on the centre's open days (times from the location's opening hours), `BO` on the other working days. `WorkingDays`/`AgentTask` are ignored in this mode; a MAIN `WicAgentAssignments` row is created if none exists.
+
+Weekends and public holidays are always skipped; range capped at 366 days.
+
+**Main API calls:**
+- `POST /api/roster/preview` → `PreviewResult` — full plan (rows, skipped weekends/holidays, collisions, overwrite replacements) before anything is written
+- `POST /api/roster/generate` → `GenerateResult` — writes the batch in one transaction
+- `GET /api/roster/locations` → `Location[]` — active WIC locations with resolved opening days
+- `GET /api/roster/batches` → `Batch[]` — batch history table (employee, range, rows, skipped, replaced, creator, snapshot flag)
+- `DELETE /api/roster/batches/{id}` → `DeleteResult` — removes the batch's rows and restores overwritten originals from the batch snapshot
+
+**Notable behaviour:**
+- **Preview before writing** is mandatory workflow: the generate button only makes sense after reviewing the preview (rows, collisions, replacements).
+- **Overwrite toggle (off by default):** replaces existing WORKING/BO/WIC_DUTY/EMPTY rows but never absences (`ProtectedAbsenceTypes`); originals are snapshotted to `RosterBatches.ReplacedRowsJson`, so deleting the batch restores them. Batches with `replacedExisting > 0` explain this in the Replaced column tooltip.
+- Hardcoded-EN UI strings (operational tool — same i18n exception as the missing-roster banner on Overview).
+- **This is now the supported way to set up a new employee or a new WIC agent. The June Excel import is dead and must never be re-run.**
 
 ---
 

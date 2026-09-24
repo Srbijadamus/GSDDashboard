@@ -48,7 +48,18 @@ Tunnels expire every 4 days and auto-restart via Task Scheduler.
 powershell -ExecutionPolicy Bypass -File C:\GSDDashboard\PS1_19_FinalBuildVerify.ps1
 ```
 
-This script builds the React frontend, copies the output to `Backend/wwwroot/`, builds the backend, starts the server, and runs smoke tests on all key endpoints.
+This script first creates the **watchdog deploy sentinel** (`C:\HealthCheck\DEPLOY_IN_PROGRESS`) so the watchdog cannot relaunch the old exe mid-build, then builds the React frontend, copies the output to `Backend/wwwroot/`, builds the backend, starts the server, and runs smoke tests on all key endpoints. A `finally` block always removes the sentinel when the script ends.
+
+**Manual builds:** if you build/deploy by hand, do the same sequence yourself —
+
+```powershell
+New-Item C:\HealthCheck\DEPLOY_IN_PROGRESS -ItemType File -Force   # 1. pause the watchdog
+# 2. stop the API process (scheduled task + GSDDashboard.API.exe)
+# 3. build / copy files
+Remove-Item C:\HealthCheck\DEPLOY_IN_PROGRESS                      # 4. resume the watchdog
+```
+
+Skip step 1 and the watchdog (`C:\HealthCheck\watchdog_gsd_backend.ps1`) will resurrect the old exe mid-copy. A sentinel older than 30 minutes is treated as stale and auto-removed by the watchdog, so a forgotten sentinel can never leave the backend down. Full contract: `DEPLOYMENT_AND_VERIFICATION.md`, Rule 8.
 
 ---
 

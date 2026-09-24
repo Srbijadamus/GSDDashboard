@@ -84,6 +84,12 @@ public class WicCardsService
         var shiftEntries = await _db.ShiftEntries
             .Where(s => s.ShiftDate == date)
             .ToListAsync();
+        // Duplicate ShiftEntries per employee+date are possible (multiple import sources);
+        // resolve to the most current row like the other services do.
+        var shiftByEmp = shiftEntries
+            .Where(s => s.EmployeeId != null)
+            .GroupBy(s => s.EmployeeId!)
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
 
         var cards = locations.Select(loc =>
         {
@@ -113,21 +119,35 @@ public class WicCardsService
                 .Where(a => WicLocationMatcher.MatchesAssignmentCode(a.LocationCode, loc) && a.AssignmentType == "BACKUP")
                 .Select(a => a.EmployeeName).ToList();
 
-            var agentList = locShifts.Select(x =>
+            var agentList = new List<AssignedAgentDto>();
+            var coveringInputs = new List<(string EmployeeId, string Name, string? ShiftStart, string? ShiftEnd, bool IsMain)>();
+            foreach (var x in locShifts)
             {
-                var shiftEntry = shiftEntries.FirstOrDefault(s => s.EmployeeId == x.e.EmployeeId);
-                var isSick = sickToday.Contains(x.e.EmployeeId);
-                var isAL = !isSick && alToday.Contains(x.e.EmployeeId);
+                shiftByEmp.TryGetValue(x.e.EmployeeId, out var shiftEntry);
+                // Absence detection mirrors the WIC assignment endpoint's blocking list
+                // (AvailabilityResolver.BlockingAbsenceTypes): an agent whose ShiftEntry for
+                // this date is an absence stays visible on the card (marked absent) but is
+                // excluded from the coverage maths entirely.
+                var absentType = shiftEntry?.ShiftType != null
+                    && AvailabilityResolver.BlockingAbsenceTypes.Contains(shiftEntry.ShiftType)
+                    ? shiftEntry.ShiftType.ToUpperInvariant() : null;
+                var isSick = absentType == "SL" || sickToday.Contains(x.e.EmployeeId);
+                var isAL = !isSick && (absentType is "AL" or "HALF_AL" || alToday.Contains(x.e.EmployeeId));
+                var isAbsent = isSick || isAL || absentType != null;
                 // Non-WIC work: agent has a ShiftEntry that is neither absence nor WIC_DUTY/HALF_AL
                 // (e.g. WORKING with IsWicDuty=false → doing GSD work, not WIC duty)
                 var isNonWic = !isSick && !isAL && shiftEntry != null
                     && !AvailabilityResolver.FullAbsenceTypes.Contains(shiftEntry.ShiftType)
                     && !string.Equals(shiftEntry.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase)
                     && !string.Equals(shiftEntry.ShiftType, "WIC_DUTY", StringComparison.OrdinalIgnoreCase);
-                var shiftStart = isSick ? "SICK" : isAL ? "AL" : isNonWic ? "GSD"
-                    : (shiftEntry?.ShiftStart ?? x.w.WorkingShift?.Split('-').FirstOrDefault()?.Trim());
-                var shiftEnd   = isSick ? "SICK" : isAL ? "AL" : isNonWic ? "GSD"
-                    : (shiftEntry?.ShiftEnd   ?? x.w.WorkingShift?.Split('-').LastOrDefault()?.Trim());
+                // Absent agents get their absence type as marker (SICK/AL/HALF_AL/OFF/...)
+                // so RTM can see they are out; the frontend renders these as absent labels.
+                var marker = isSick ? "SICK" : absentType == "HALF_AL" ? "HALF_AL" : isAL ? "AL"
+                    : absentType ?? (isNonWic ? "GSD" : null);
+                var shiftStart = marker
+                    ?? (shiftEntry?.ShiftStart ?? x.w.WorkingShift?.Split('-').FirstOrDefault()?.Trim());
+                var shiftEnd   = marker
+                    ?? (shiftEntry?.ShiftEnd   ?? x.w.WorkingShift?.Split('-').LastOrDefault()?.Trim());
                 var isMain = mainAgentNames.Contains(x.e.FullName ?? "");
 
                 var covered = todaySchedule.IsClosed ? 0 :
@@ -150,7 +170,7 @@ public class WicCardsService
                         note = $"Misses {hours.OpenTime}-{shiftStart} ({aStart - cStart} min)";
                 }
 
-                return new AssignedAgentDto(
+                var dto = new AssignedAgentDto(
                     x.e.EmployeeId,
                     x.e.FullName ?? x.e.EmployeeId,
                     x.e.TeamLeadName,
@@ -160,10 +180,14 @@ public class WicCardsService
                     todaySchedule.TotalOpenMinutes,
                     note
                 );
-            }).ToList();
+                agentList.Add(dto);
+                // Absent agents stay on the card (marked absent) but are excluded from the
+                // coverage calculation entirely: they neither cover nor drag the status down.
+                if (!isAbsent)
+                    coveringInputs.Add((dto.EmployeeId, dto.Name, dto.ShiftStart, dto.ShiftEnd, dto.IsMain));
+            }
 
-            var agentInputs = agentList.Select(a =>
-                (a.EmployeeId, a.Name, a.ShiftStart, a.ShiftEnd, a.IsMain)).ToList();
+            var agentInputs = coveringInputs;
 
             var coverageResult = CoverageCalculator.Calculate(
                 todaySchedule.IsClosed,

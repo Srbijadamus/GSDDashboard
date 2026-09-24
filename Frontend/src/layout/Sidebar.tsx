@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Sun, Moon } from 'lucide-react'
-import { NAV_GROUPS } from './navItems'
+import { NAV_GROUPS, AGENT_NAV } from './navItems'
 import { useNavTheme } from './useNavTheme'
+import { useAuth } from '../auth/AuthContext'
 
 declare const __APP_VERSION__: string
 
@@ -14,6 +15,9 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { t } = useTranslation()
   const { navTheme, toggle: toggleNavTheme } = useNavTheme()
+  const { session } = useAuth()
+  // AGENT: only the own read-only view. Enforcement is server-side; this is just the UI.
+  const groups = session?.role === 'AGENT' ? AGENT_NAV : NAV_GROUPS
 
   return (
     <aside className={[
@@ -39,7 +43,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav groups */}
       <div className="flex-1 nav-scroll overflow-y-auto py-2 px-2 space-y-3">
-        {NAV_GROUPS.map((group, gi) => (
+        {groups.map((group, gi) => (
           <nav key={gi}>
             {group.groupKey && (
               collapsed

@@ -2,7 +2,7 @@
 
 Complete reference for every backend service method, API endpoint, and significant frontend component.
 
-**Last updated:** 2026-07-03
+**Last updated:** 2026-09-24
 
 ---
 
@@ -42,6 +42,7 @@ Complete reference for every backend service method, API endpoint, and significa
    - [PipelineService](#pipelineservice)
    - [ALCalendarService](#alcalendarservice)
    - [OverviewService](#overviewservice)
+   - [RosterService](#rosterservice)
    - [ShiftReorderService](#shiftreorderservice)
    - [PlzBundesland](#plzbundesland)
 2. [API Endpoints](#api-endpoints)
@@ -494,6 +495,27 @@ Single source of truth for resolving free-text location strings to WicLocation r
 
 ---
 
+### RosterService
+
+**DI Lifetime:** Scoped
+**File:** `Backend/RosterService.cs` (+ `Backend/RosterBatch.cs` for the `RosterBatches` entity)
+**Namespace:** `Modules.Roster`
+
+Roster Generator backend. Every `/api/roster/*` endpoint is gated by the static `RosterAccess` helper (RTM / TEAM_LEAD / DEV only, **always enforced** — independent of `Auth:EnforceAuthorization`; AGENT gets 403).
+
+| Method | Purpose | Inputs | Outputs | Tables/Services |
+|--------|---------|--------|---------|-----------------|
+| `PreviewAsync(req)` | Builds the plan without writing: rows, skipped weekends/holidays, collisions, overwrite replacements | `RosterRequest` | `RosterPreviewResult` | Employees, ShiftEntries, PublicHolidays, WicOpeningHours |
+| `GenerateAsync(req, kid, name)` | Writes the roster in one transaction (plan rebuilt inside the transaction); records the batch | `RosterRequest` + session identity | `RosterGenerateResult` | ShiftEntries, WicShiftEntries, WicAgentAssignments, RosterBatches |
+| `GetLocationsAsync()` | Active WIC locations with resolved opening days for the dropdown | — | `List<RosterLocationDto>` | WicLocations, WicOpeningHours (`WicHoursResolver`) |
+| `GetBatchesAsync()` | Batch history | — | `List<RosterBatchDto>` | RosterBatches |
+| `GetMissingRosterAsync(days)` | Active employees with zero ShiftEntries in the next N days (default 14) + shift rows with no active Employees row | `int days` | `MissingRosterResult` | Employees, ShiftEntries |
+| `DeleteBatchAsync(id)` | Removes the batch's rows + WicShiftEntries upserts, soft-deletes the batch, restores overwrite snapshots | `int batchId` | `RosterDeleteResult` | ShiftEntries, WicShiftEntries, RosterBatches |
+
+Key rules: weekends and public holidays (national + employee's Bundesland) always skipped; range capped at 366 days (`MaxRangeDays`); generated rows carry `SourceModule="Roster"`, `SourceId=<batch id>`, `SourceSheet="ROSTER"`; overwrite mode never touches `ProtectedAbsenceTypes` (`AL, HALF_AL, SL, UL, PH, LPH, OL, OFF, OFF_WEEKEND, RESIGNED, CD`) and snapshots replaced rows to `ReplacedRowsJson` for restore-on-delete.
+
+---
+
 ### ShiftReorderService
 
 **DI Lifetime:** Static handler
@@ -691,6 +713,19 @@ Single source of truth for resolving free-text location strings to WicLocation r
 | GET | `/api/overview/wic-status?date=&horizon=` | OverviewService | Per-location per-day coverage status (up to 7 days) |
 | GET | `/api/overview/detail?type=&date=` | OverviewService | Agents by shift type for a date |
 
+### Roster
+
+All routes gated by `RosterAccess` (RTM / TEAM_LEAD / DEV only, always enforced).
+
+| Method | Route | Handler | Description |
+|--------|-------|---------|-------------|
+| POST | `/api/roster/preview` | RosterService | Dry-run roster plan (rows, skips, collisions, replacements) |
+| POST | `/api/roster/generate` | RosterService | Write roster batch in one transaction |
+| GET | `/api/roster/locations` | RosterService | Active WIC locations + opening days |
+| GET | `/api/roster/batches` | RosterService | Roster batch history |
+| GET | `/api/roster/missing?days=` | RosterService | Missing-roster check (default 14 days) + orphan shift rows |
+| DELETE | `/api/roster/batches/{id}` | RosterService | Delete batch rows; restore overwritten originals |
+
 ---
 
 ## Frontend Pages and Components
@@ -701,6 +736,7 @@ Single source of truth for resolving free-text location strings to WicLocation r
 |-------|-----------|------|-----------------|---------------|
 | `/` | Overview | `pages/Overview.tsx` | None | `/api/wic/forecast`, `/api/wic/briefing`, `/api/wic/substitutes` |
 | `/shifts` | Shifts | `pages/Shifts.tsx` | None | `/api/shifts` |
+| `/roster` | Roster | `pages/Roster.tsx` | Generate/preview/delete roster batches (RTM/TEAM_LEAD/DEV only, enforced server-side) | `/api/roster/*` |
 | `/wic-shifts` | WicShifts | `pages/WicShifts_old.tsx` | Reassign agents, create new shift | `/api/wic`, `/api/wic/shifts` |
 | `/vwic` | VWICPage | `pages/VWICPage.tsx` | Assign/manage agents, generate and save rotation plan | `/api/vwic/*` |
 | `/breaks` | BreakPlanner | `pages/BreakPlanner.tsx` | Auto-distribute, start/end/cancel breaks | `/api/breaks/*` |
@@ -743,3 +779,8 @@ Single source of truth for resolving free-text location strings to WicLocation r
 | **INCONSISTENCY** | `CoverageEvaluator.EvaluateAsync` — `Backend/Services/CoverageEvaluator.cs` | Treats HALF_AL as fully absent (0.0 coverage credit). All other services — including SubstitutionService, ForecastService, and VwicService — give HALF_AL a 0.5 coverage credit. Only SubstitutionService calls EvaluateAsync directly, making it the one consumer affected by this inconsistency. |
 | **DUPLICATE_LOGIC** | `BackupService` vs `SubstitutionService` | Both services rank substitute candidates for WIC coverage gaps. `BackupService` (`Backend/BackupService.cs`) uses simpler scoring and predates `SubstitutionService` (`Backend/Services/SubstitutionService.cs`). `SubstitutionService` is the canonical engine. `BackupService` is retained but should be treated as legacy. |
 | **MISLEADING_NAME** | `pages/WicShifts_old.tsx` | The filename contains "old" but this is the live, actively used WicShifts page component served at `/wic-shifts`. It is not an archived or deprecated file. |
+| **TEST_ENV** | `Backend.Tests/RosterServiceTests.cs` (4 tests) | Fail with `TransactionIgnoredWarning`: the EF Core InMemory provider does not support the transactions `RosterService.GenerateAsync`/`DeleteBatchAsync` use. Test-environment problem, not an application bug — the code works against real SQL Server. |
+| **NAME_COLLISION** | "RTM" | Access role in `auth_rbac.md` (full read/write) vs "Return to Main" shift-workflow term in `PROJECT_BLUEPRINT.md` (`/bulk-rtm` page, `RtmEntries` table). Same three letters, two unrelated meanings; both established in code, not being renamed. |
+| **DATA_HAZARD** | `check_resigned.ps1`, `PS1_70_HardDeleteResigned.ps1` | Both list employees 3193178 (Samantha Buys) and 3193180 (Cortneigh Halim) as resigned although they are active. Running the hard-delete script as-is would remove them. Do not run until the list is corrected. |
+| **DATA** | `Essen - BP1` (`WicLocations`) | `MinAgentsRequired = 3` but only two agents assigned — headcount-based views (WIC cards, forecast, briefing) permanently show PARTIAL. Expected until staffing or the minimum changes; not a bug. |
+| **DEAD_IMPORT** | June Excel roster import | Superseded by the Roster Generator (`/roster`). The import predates batches, collision handling and the restore path — it must never be re-run. |

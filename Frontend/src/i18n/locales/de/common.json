@@ -27,7 +27,9 @@
     "assistant": "Pulse-Assistent",
     "boList": "BO-Liste",
     "bulkRtm": "RTM-Sammeleingabe",
+    "roster": "Dienstplan-Generator",
     "export": "HR-Export",
+    "myView": "Meine Ansicht",
     "collapseSidebar": "Einklappen",
     "expandSidebar": "Ausklappen",
     "navThemeToLight": "Zu heller Seitenleiste wechseln",
@@ -435,6 +437,37 @@
   },
   "employees": {
     "roleVwicLabel": "VWIC – Virtuelles Walk-In-Center"
+  },
+  "auth": {
+    "title": "Anmelden",
+    "subtitle": "Melde dich mit deiner KID an, um fortzufahren.",
+    "kidLabel": "KID",
+    "kidPlaceholder": "z. B. K37144",
+    "kidHelp": "Deine Mitarbeiternummer (z. B. 9074573) funktioniert auch.",
+    "signIn": "Anmelden",
+    "signingIn": "Anmeldung läuft…",
+    "logout": "Abmelden"
+  },
+  "my": {
+    "profile": "Mein Profil",
+    "name": "Name",
+    "employeeId": "Mitarbeiternummer",
+    "role": "Primärrolle",
+    "teamLead": "Teamleiter",
+    "engagement": "Beschäftigung",
+    "alBalance": "Urlaubssaldo",
+    "alEligible": "Anspruch Tage",
+    "alTaken": "Geplant / genommen",
+    "alRemaining": "Verbleibend",
+    "upcomingShifts": "Meine kommenden Schichten",
+    "noShifts": "Keine kommenden Schichten gefunden.",
+    "date": "Datum",
+    "shiftType": "Schichttyp",
+    "time": "Zeit",
+    "wicDuty": "WIC",
+    "sickLeaves": "Meine Krankmeldungen",
+    "vacations": "Meine Urlaube",
+    "none": "Keine"
   },
   "export": {
     "title": "HR-Datenexport",

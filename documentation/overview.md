@@ -30,6 +30,7 @@ Approximately **130 employees**, **43 WIC locations** (41 DE, 2 NL).
 - WIC map (react-leaflet + OpenStreetMap, CircleMarkers coloured by coverage status)
 - Recommendations panel with best-substitute name per gap
 - Command palette (Ctrl+K) — search locations, navigate to WIC Attendance
+- Missing-roster warning (visible to RTM, TEAM_LEAD and DEV only; enforced server-side): active employees with **no shifts in the next 14 days**, and shift rows belonging to employee IDs with **no active employee row**. Each entry deep-links into the Roster Generator (`/roster?employeeId=…`) or the Employees page to fix it.
 
 ### Shift Plan `/shifts`
 **Read only.** Full shift plan calendar, filterable by team lead, role, date range. Colour-coded by shift type.
@@ -84,6 +85,13 @@ Approximately **130 employees**, **43 WIC locations** (41 DE, 2 NL).
 ### WIC Assignments `/wic-coverage`
 **Write.** Agent-centric WIC coverage management. Shows each agent's KID pair, emails, HasCar flag, GroupRegion, reachable cities, and WIC roles. Per-WIC view shows Main, BackupA (assigned backups), BackupB (reachable-city pool), and BackupC (regional assignments). Pin a BackupB agent to promote them to a formal BACKUP assignment.
 
+### Roster Generator `/roster`
+**Write — RTM, TEAM_LEAD and DEV only (enforced server-side on every `/api/roster/*` endpoint).** Creates an employee's roster in one batch. Two modes:
+- **Plain** — employee + date range + shift times + working days → `WORKING` rows.
+- **WIC** — employee + WIC location + date range → WIC duty on the centre's open days (per `WicOpeningHours`), `BO` on the other working days; weekends and public holidays are skipped automatically.
+
+Preview shows exactly what would be written before anything is committed; every run is recorded as a batch and deleting the batch removes its rows again. Overwrite mode (off by default) replaces existing rows but **never absences**, and the originals are snapshotted so deleting the batch restores them. **This is now the way to set up a new employee or a new WIC agent — the June Excel import is dead and must never be re-run.**
+
 ---
 
 ## Backend Services
@@ -94,9 +102,9 @@ Approximately **130 employees**, **43 WIC locations** (41 DE, 2 NL).
 | `ShiftService` | Implemented | Shift plan queries, Excel export, shift updates |
 | `ShiftSyncService` | Implemented | Bidirectional SickLeave/Vacation to ShiftEntries propagation with revert support |
 | `ShiftValidationService` | Implemented | Validates shift changes against German labour law rules |
-| `AvailabilityResolver` | Implemented | Canonical single-employee and bulk absence resolver; defines `FullAbsenceTypes` |
+| `AvailabilityResolver` | Implemented | Canonical single-employee and bulk absence resolver; defines `FullAbsenceTypes` and `BlockingAbsenceTypes` |
 | `WicShiftService` | Implemented | WIC-specific shifts, on-site vs. office, assignment management |
-| `WicCardsService` | Implemented | Per-location coverage status cards using CoverageCalculator |
+| `WicCardsService` | Implemented | Per-location coverage status cards using CoverageCalculator; absence detection also reads `ShiftEntries` via `BlockingAbsenceTypes` — an absent agent stays on the card, marked absent, but is excluded from the coverage calculation |
 | `CoverageEvaluator` | Implemented | Canonical COVERED/PARTIAL/UNCOVERED/CLOSED classifier (static + instance variants) |
 | `CoverageCalculator` | Implemented | Minute-based coverage overlap calculation for split-hours schedules |
 | `WicLocationMatcher` | Implemented | Static helper — 30-entry alias map, matches old-style codes via `LocationCodeLegacy` |
@@ -121,6 +129,7 @@ Approximately **130 employees**, **43 WIC locations** (41 DE, 2 NL).
 | `PipelineService` | Implemented | Pipeline event CRUD |
 | `WicScheduleService` | Implemented | WIC opening hours |
 | `OverviewService` | Implemented | Cross-module overview aggregation; wic-status and detail endpoints |
+| `RosterService` | Implemented | Roster Generator: preview/generate roster batches (plain + WIC mode), batch delete with snapshot restore, missing-roster check |
 | `PlzBundesland` | Implemented | Static PLZ to Bundesland fallback (38-entry map) |
 
 ---

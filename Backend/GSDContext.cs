@@ -28,6 +28,8 @@ public class GSDContext : DbContext
     public DbSet<AgentReachableCity>  AgentReachableCities { get; set; }
     public DbSet<BoEntry>             BoEntries            { get; set; }
     public DbSet<RtmEntry>            RtmEntries           { get; set; }
+    public DbSet<AppUserRole>         AppUserRoles         { get; set; }
+    public DbSet<RosterBatch>         RosterBatches        { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -114,6 +116,16 @@ public class GSDContext : DbContext
         modelBuilder.Entity<RtmEntry>(e => {
             e.HasIndex(x => x.EntryDate).HasDatabaseName("IX_Rtm_Date");
             e.HasIndex(x => x.EmployeeId).HasDatabaseName("IX_Rtm_Emp");
+        });
+        modelBuilder.Entity<RosterBatch>(e => {
+            e.HasIndex(x => x.EmployeeId).HasDatabaseName("IX_RosterBatch_Emp");
+            e.HasIndex(x => x.CreatedAt).HasDatabaseName("IX_RosterBatch_Created");
+        });
+        modelBuilder.Entity<AppUserRole>(e => {
+            // A non-empty KID identifies exactly one login row; placeholder rows (Kid='')
+            // may repeat and never authenticate (AuthService requires a non-empty Kid).
+            e.HasIndex(x => x.Kid).IsUnique().HasFilter("[Kid] <> ''")
+             .HasDatabaseName("UX_AppUserRoles_Kid");
         });
         base.OnModelCreating(modelBuilder);
     }

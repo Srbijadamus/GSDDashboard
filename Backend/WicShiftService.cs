@@ -517,11 +517,11 @@ public class WicShiftService
             .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
 
         // Skip dates where the agent is on a non-working shift; never overwrite AL/SL/OFF/PH etc.
+        // Canonical blocking list lives in AvailabilityResolver.BlockingAbsenceTypes (shared
+        // with the coverage card calculation in WicCardsService).
         if (shift != null)
         {
-            var blockingTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                { "AL", "HALF_AL", "SL", "UL", "PH", "LPH", "OFF", "OFF_WEEKEND", "OL", "RESIGNED" };
-            if (blockingTypes.Contains(shift.ShiftType ?? ""))
+            if (AvailabilityResolver.BlockingAbsenceTypes.Contains(shift.ShiftType ?? ""))
                 return Results.Ok(new
                 {
                     success = true,
