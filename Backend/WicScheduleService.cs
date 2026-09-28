@@ -33,6 +33,22 @@ public record UpdateScheduleResponseDto(
     bool Saved, string EffectiveFrom, int RowsInserted,
     List<ScheduleConsequenceDto> Consequences);
 
+public record CleanupClosedDaysRequestDto(string EffectiveFrom);
+
+public record CleanupAgentDayDto(string EmployeeId, string? FullName, string Date, string Weekday);
+
+public record CleanupClosedDaysResponseDto(
+    bool Success, string LocationCode, string Cutoff,
+    int WicShiftEntriesRemoved, int ShiftEntriesRemoved,
+    List<CleanupAgentDayDto> AgentsLeftWithNothing,
+    List<CleanupAgentDayDto> SplitDutyKept);
+
+public record ClosedDayDutyDto(
+    string LocationCode, string DisplayName,
+    string EmployeeId, string? FullName,
+    string Date, string Weekday, string? WorkingShift,
+    bool HasShiftEntryWicDuty, string Source);
+
 public class WicScheduleService
 {
     private readonly GSDContext _db;
@@ -156,6 +172,188 @@ public class WicScheduleService
             lines.Add(string.Join(",", cells));
         }
         return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// Read-only check: list every FUTURE (today or later) live WIC duty that falls on a
+    /// day its location is closed, resolving the versioned WicOpeningHours per duty date
+    /// (latest EffectiveFrom &lt;= duty date). Covers WicShiftEntries (IsOnSite) plus orphaned
+    /// ShiftEntries WIC_DUTY rows that have no WicShiftEntries row (matched via AgentTask =
+    /// location DisplayName, truncated to 20 chars as WicShiftService writes it).
+    /// Never returns absences — only WIC duties are considered.
+    /// </summary>
+    public async Task<List<ClosedDayDutyDto>> GetClosedDayDutiesAsync(string? locationCode)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        var locations = await _db.WicLocations.Where(l => l.IsActive).ToListAsync();
+        if (!string.IsNullOrEmpty(locationCode))
+            locations = locations.Where(l => l.LocationCode == locationCode).ToList();
+
+        var allHours = await _db.WicOpeningHours.ToListAsync();
+
+        var wicEntries = await _db.WicShiftEntries
+            .Where(w => w.IsOnSite && w.ShiftDate >= today)
+            .ToListAsync();
+
+        var futureDutyEntries = await _db.ShiftEntries
+            .Where(s => s.ShiftDate >= today && s.ShiftType == ShiftTypes.WicDuty)
+            .ToListAsync();
+
+        var byCode = locations.ToDictionary(l => l.LocationCode, l => l);
+        var byName = locations
+            .GroupBy(l => l.DisplayName)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var result  = new List<ClosedDayDutyDto>();
+        var covered = new HashSet<(string Emp, DateOnly Date, string Code)>();
+
+        foreach (var w in wicEntries)
+        {
+            WicLocation? loc = null;
+            if (w.LocationCode != null) byCode.TryGetValue(w.LocationCode, out loc);
+            if (loc == null && w.SupportLocation != null)
+                byName.TryGetValue(w.SupportLocation, out loc);
+            if (loc == null) continue;
+
+            var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy,
+                (int)w.ShiftDate.DayOfWeek, w.ShiftDate);
+            if (hours is not { IsClosed: true }) continue;
+
+            var hasDuty = futureDutyEntries.Any(d => d.EmployeeId == w.EmployeeId && d.ShiftDate == w.ShiftDate);
+            result.Add(new ClosedDayDutyDto(loc.LocationCode, loc.DisplayName, w.EmployeeId,
+                null, w.ShiftDate.ToString("yyyy-MM-dd"), w.ShiftDate.DayOfWeek.ToString()[..3],
+                w.WorkingShift, hasDuty, "WIC_SHIFT_ENTRY"));
+            covered.Add((w.EmployeeId, w.ShiftDate, loc.LocationCode));
+        }
+
+        // Orphaned WIC_DUTY ShiftEntries (no matching WicShiftEntries row above).
+        foreach (var d in futureDutyEntries)
+        {
+            if (string.IsNullOrEmpty(d.AgentTask)) continue;
+            var loc = byName.Values.FirstOrDefault(l =>
+                string.Equals(l.DisplayName, d.AgentTask, StringComparison.OrdinalIgnoreCase) ||
+                (d.AgentTask.Length == 20 && l.DisplayName.StartsWith(d.AgentTask, StringComparison.OrdinalIgnoreCase)));
+            if (loc == null) continue;
+            if (covered.Contains((d.EmployeeId, d.ShiftDate, loc.LocationCode))) continue;
+
+            var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy,
+                (int)d.ShiftDate.DayOfWeek, d.ShiftDate);
+            if (hours is not { IsClosed: true }) continue;
+
+            result.Add(new ClosedDayDutyDto(loc.LocationCode, loc.DisplayName, d.EmployeeId,
+                null, d.ShiftDate.ToString("yyyy-MM-dd"), d.ShiftDate.DayOfWeek.ToString()[..3],
+                d.ShiftStart != null && d.ShiftEnd != null ? $"{d.ShiftStart}-{d.ShiftEnd}" : null,
+                true, "SHIFTENTRY_ONLY"));
+        }
+
+        var empIds = result.Select(r => r.EmployeeId).Distinct().ToList();
+        var names = await _db.Employees.Where(e => empIds.Contains(e.EmployeeId))
+            .ToDictionaryAsync(e => e.EmployeeId, e => e.FullName);
+
+        return result
+            .OrderBy(r => r.Date).ThenBy(r => r.DisplayName)
+            .Select(r => r with { FullName = names.GetValueOrDefault(r.EmployeeId) })
+            .ToList();
+    }
+
+    /// <summary>
+    /// Confirmed cleanup after an opening-hours change: removes FUTURE duties for this
+    /// location that fall on weekdays that are now closed. Rules:
+    ///  - never touches the past: cutoff = max(effectiveFrom, today);
+    ///  - respects EffectiveFrom: closed status is resolved per duty date from the
+    ///    versioned WicOpeningHours rows (latest EffectiveFrom &lt;= duty date);
+    ///  - removes both the WicShiftEntries rows AND the ShiftEntries WIC_DUTY row;
+    ///  - never removes absences — only ShiftType = WIC_DUTY rows are deleted;
+    ///  - split-duty guard: if the agent still has a live (IsOnSite) duty at ANOTHER
+    ///    location the same day, the shared ShiftEntries row is kept;
+    ///  - otherwise the agent is left with nothing on that day and is reported so RTM
+    ///    knows to add a BO shift.
+    /// </summary>
+    public async Task<CleanupClosedDaysResponseDto> CleanupClosedDayDutiesAsync(
+        string locationCode, DateOnly effectiveFrom)
+    {
+        var today  = DateOnly.FromDateTime(DateTime.Today);
+        var cutoff = effectiveFrom > today ? effectiveFrom : today;
+
+        var location = await _db.WicLocations.FirstOrDefaultAsync(l => l.LocationCode == locationCode)
+            ?? throw new KeyNotFoundException($"Location '{locationCode}' not found.");
+
+        var allHours = await _db.WicOpeningHours.ToListAsync();
+
+        var candidates = await _db.WicShiftEntries
+            .Where(w => w.IsOnSite && w.ShiftDate >= cutoff &&
+                (w.LocationCode == locationCode || w.SupportLocation == location.DisplayName))
+            .ToListAsync();
+
+        var toDelete = candidates.Where(w =>
+        {
+            var hours = WicHoursResolver.Resolve(allHours, location.LocationCode,
+                location.LocationCodeLegacy, (int)w.ShiftDate.DayOfWeek, w.ShiftDate);
+            return hours is { IsClosed: true };
+        }).ToList();
+
+        var agentDays = toDelete.Select(w => (w.EmployeeId, w.ShiftDate)).Distinct().ToList();
+        var deleteIds = toDelete.Select(w => w.Id).ToHashSet();
+
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _db.Database.BeginTransactionAsync();
+
+            _db.WicShiftEntries.RemoveRange(toDelete);
+
+            var leftWithNothing     = new List<CleanupAgentDayDto>();
+            var splitKept           = new List<CleanupAgentDayDto>();
+            var shiftEntriesRemoved = 0;
+
+            foreach (var (empId, date) in agentDays)
+            {
+                // Live duty at another location on the same day? Then the shared
+                // ShiftEntries WIC_DUTY row must survive (split-duty guard).
+                var hasOtherDuty = await _db.WicShiftEntries
+                    .AnyAsync(w => w.EmployeeId == empId && w.ShiftDate == date
+                                && w.IsOnSite && !deleteIds.Contains(w.Id));
+
+                // Absence safety: only WIC_DUTY rows are ever removed here. AL/SL/OFF/PH/
+                // TRAINING etc. are never touched.
+                var dutyRows = await _db.ShiftEntries
+                    .Where(s => s.EmployeeId == empId && s.ShiftDate == date
+                             && s.ShiftType == ShiftTypes.WicDuty)
+                    .ToListAsync();
+
+                var name = await _db.Employees.Where(e => e.EmployeeId == empId)
+                    .Select(e => e.FullName).FirstOrDefaultAsync();
+                var dto = new CleanupAgentDayDto(empId, name, date.ToString("yyyy-MM-dd"),
+                    date.DayOfWeek.ToString()[..3]);
+
+                if (hasOtherDuty)
+                {
+                    splitKept.Add(dto);
+                    continue;
+                }
+
+                if (dutyRows.Count > 0)
+                {
+                    _db.ShiftEntries.RemoveRange(dutyRows);
+                    shiftEntriesRemoved += dutyRows.Count;
+                    leftWithNothing.Add(dto);
+                }
+            }
+
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            _log.LogInformation(
+                "CleanupClosedDayDuties {Location}: removed {Wic} WicShiftEntries + {Shift} ShiftEntries (cutoff {Cutoff})",
+                locationCode, toDelete.Count, shiftEntriesRemoved, cutoff);
+
+            return new CleanupClosedDaysResponseDto(
+                true, locationCode, cutoff.ToString("yyyy-MM-dd"),
+                toDelete.Count, shiftEntriesRemoved,
+                leftWithNothing.OrderBy(x => x.Date).ToList(),
+                splitKept.OrderBy(x => x.Date).ToList());
+        });
     }
 }
 
@@ -316,6 +514,27 @@ public static class WicScheduleEndpointMapper
 
             return Results.Ok(new UpdateScheduleResponseDto(
                 true, req.EffectiveFrom, newRows.Count, consequences));
+        });
+
+        // Read-only check: future WIC duties that fall on a day their location is closed.
+        grp.MapGet("/closed-day-duties", async (string? locationCode, WicScheduleService svc) =>
+            Results.Ok(await svc.GetClosedDayDutiesAsync(locationCode)));
+
+        // Confirmed cleanup: remove future duties on now-closed days for one location.
+        // Called from the Opening Hours editor AFTER the user has seen the consequence list.
+        grp.MapPost("/opening-hours/{locationCode}/cleanup-closed-days",
+            async (string locationCode, CleanupClosedDaysRequestDto req, WicScheduleService svc) =>
+        {
+            if (!DateOnly.TryParse(req.EffectiveFrom, out var effectiveFrom))
+                return Results.BadRequest(new { error = "Invalid effectiveFrom date." });
+            try
+            {
+                return Results.Ok(await svc.CleanupClosedDayDutiesAsync(locationCode, effectiveFrom));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
         });
 
         grp.MapGet("/export/agents/csv", async (string? from, string? to, WicScheduleService svc, HttpContext ctx) =>

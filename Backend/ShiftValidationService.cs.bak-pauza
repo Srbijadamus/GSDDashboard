@@ -61,8 +61,8 @@ public class ShiftValidationService
         // R4 — No work on Sunday
         if (date.DayOfWeek == DayOfWeek.Sunday)
             violations.Add(new ValidationViolation("R4",
-                $"Sunday work ({date}). Sunday is normally a rest day.",
-                "§9 ArbZG", false));
+                $"Cannot schedule work on Sunday ({date}). Sunday must be a rest day.",
+                "§9 ArbZG", true));
 
         // Load nearby shifts for R1, R3, R5, R6
         var windowFrom = date.AddDays(-7);
@@ -110,18 +110,15 @@ public class ShiftValidationService
             }
         }
 
-        // Pauza: svaka smena preko 6h ukljucuje pauzu (neto = bruto - 1h)
-        static double NetHours(double gross) => gross > 6 ? gross - 1 : gross;
-
         // R3 — Max 48h per week
         var weekFrom = date.AddDays(-(int)date.DayOfWeek + 1);
         var weekTo   = weekFrom.AddDays(6);
         var weekShifts = nearbyShifts.Where(s => s.ShiftDate >= weekFrom && s.ShiftDate <= weekTo).ToList();
-        double weekHours = NetHours(durationHours);
+        double weekHours = durationHours;
         foreach (var ws in weekShifts)
         {
             if (!TimeSpan.TryParse(ws.ShiftStart, out var ws1) || !TimeSpan.TryParse(ws.ShiftEnd, out var we1)) continue;
-            weekHours += NetHours(we1 > ws1 ? (we1 - ws1).TotalHours : (TimeSpan.FromHours(24) - ws1 + we1).TotalHours);
+            weekHours += we1 > ws1 ? (we1 - ws1).TotalHours : (TimeSpan.FromHours(24) - ws1 + we1).TotalHours;
         }
         if (weekHours > 48)
             violations.Add(new ValidationViolation("R3",

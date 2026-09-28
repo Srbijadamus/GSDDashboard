@@ -1,4 +1,4 @@
-using GSDDashboard.API.Data;
+﻿using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -61,8 +61,8 @@ public class ShiftValidationService
         // R4 — No work on Sunday
         if (date.DayOfWeek == DayOfWeek.Sunday)
             violations.Add(new ValidationViolation("R4",
-                $"Sunday work ({date}). Sunday is normally a rest day.",
-                "§9 ArbZG", false));
+                $"Cannot schedule work on Sunday ({date}). Sunday must be a rest day.",
+                "§9 ArbZG", true));
 
         // Load nearby shifts for R1, R3, R5, R6
         var windowFrom = date.AddDays(-7);
