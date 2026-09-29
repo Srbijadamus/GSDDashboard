@@ -317,7 +317,7 @@ public class RosterService
                     // WIC day: times come from the location's opening hours for this
                     // date, exactly like WicShiftService.CreateAssignmentAsync sets them.
                     ? new PlanRow(d, "WIC",
-                        input.Start ?? hours.OpenTime, input.End ?? hours.CloseTime)
+                        hours.OpenTime ?? input.Start, hours.CloseTime ?? input.End)
                     : new PlanRow(d, "BO", input.Start, input.End);
             }
 

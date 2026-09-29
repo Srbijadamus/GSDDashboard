@@ -38,8 +38,8 @@ public class ShiftValidationService
             if (ph != null && newShiftType != ShiftTypes.PublicHol && newShiftType != ShiftTypes.LocalPH)
             {
                 violations.Add(new ValidationViolation("R7",
-                    $"Agent has public holiday on {date}: {ph.Name}{(ph.IsNational ? " (National)" : $" ({ph.Bundesland})")}. Normally a non-working day.",
-                    "§ Public Holiday Law", false));
+                    $"Agent has public holiday on {date}: {ph.Name}{(ph.IsNational ? " (National)" : $" ({ph.Bundesland})")}. Cannot schedule work on this day.",
+                    "§ Public Holiday Law", true));
             }
         }
 
