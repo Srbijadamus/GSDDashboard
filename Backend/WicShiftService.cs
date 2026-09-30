@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Modules.Shifts;
 using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -453,7 +454,137 @@ public class WicShiftService
         return System.Text.Encoding.UTF8.GetBytes(sb.ToString());
     }
 
-    public async Task<IResult> CreateAssignmentAsync(CreateAssignmentRequest req, GSDContext db)
+    /// <summary>
+    /// Creates or updates a single ShiftEntry (and, for WIC_DUTY, its
+    /// WicShiftEntries row) — the generic shift-creation route the "+ New
+    /// Shift" modal and the coverage-gaps "Assign" button both post to.
+    /// Validated through ShiftValidationService (R1-R7) BEFORE anything is
+    /// persisted: a hard block (R1/R2/R3/R5) is refused with nothing saved; a
+    /// soft violation (R4 Sunday, R7 public holiday, R6 student hours) is
+    /// returned alongside the now-saved shift, never blocking.
+    /// </summary>
+    public async Task<IResult> CreateShiftAsync(CreateShiftRequest req, GSDContext db, ShiftValidationService validationSvc)
+    {
+        if (string.IsNullOrWhiteSpace(req.EmployeeId))
+            return Results.BadRequest(new { error = "EmployeeId is required." });
+        if (!DateOnly.TryParse(req.Date, out var date))
+            return Results.BadRequest(new { error = "Invalid date format. Expected yyyy-MM-dd." });
+        if (string.IsNullOrWhiteSpace(req.ShiftType))
+            return Results.BadRequest(new { error = "ShiftType is required." });
+
+        var employee = await db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId);
+        if (employee == null)
+            return Results.NotFound(new { error = $"Employee '{req.EmployeeId}' not found." });
+
+        var shift = await db.ShiftEntries
+            .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+        if (shift != null)
+        {
+            shift.ShiftType    = req.ShiftType;
+            shift.ShiftStart   = req.ShiftStart;
+            shift.ShiftEnd     = req.ShiftEnd;
+            shift.AgentTask    = req.AgentTask;
+            shift.SourceModule = "MANUAL";
+        }
+        else
+        {
+            shift = new ShiftEntry
+            {
+                EmployeeId   = req.EmployeeId,
+                ShiftDate    = date,
+                ShiftType    = req.ShiftType,
+                ShiftStart   = req.ShiftStart,
+                ShiftEnd     = req.ShiftEnd,
+                AgentTask    = req.AgentTask,
+                SourceSheet  = "MANUAL",
+                SourceModule = "MANUAL",
+            };
+            db.ShiftEntries.Add(shift);
+        }
+
+        // Validate BEFORE anything is persisted — a hard block leaves nothing
+        // saved since SaveChangesAsync is never reached (see
+        // ShiftValidationService.ValidateAsync entity overload).
+        var validation = await validationSvc.ValidateAsync(shift, req.ShiftType, req.ShiftStart, req.ShiftEnd);
+        if (!validation.Valid)
+        {
+            return Results.Ok(new
+            {
+                success = false,
+                blocked = true,
+                violations = validation.Violations,
+            });
+        }
+
+        if (!string.IsNullOrWhiteSpace(req.LocationCode) && req.ShiftType == ShiftTypes.WicDuty)
+        {
+            var location = await db.WicLocations
+                .FirstOrDefaultAsync(l => l.LocationCode == req.LocationCode && l.IsActive);
+            if (location != null)
+            {
+                int dow = (int)date.DayOfWeek;
+                var hours = await db.WicOpeningHours
+                    .FirstOrDefaultAsync(h => h.LocationCode == req.LocationCode && h.DayOfWeek == dow);
+                string openTime  = hours?.OpenTime  ?? req.ShiftStart ?? "08:00";
+                string closeTime = hours?.CloseTime ?? req.ShiftEnd   ?? "17:00";
+
+                // Backfill the ShiftEntries row itself, not just WicShiftEntries.
+                // Found while verifying the "Assign" button: a caller (like the
+                // gap-assign modal) that omits ShiftStart/ShiftEnd — expecting
+                // the centre's own hours to fill them in — previously got a
+                // WIC_DUTY row with blank times and IsWicDuty still false.
+                shift.IsWicDuty = true;
+                if (string.IsNullOrEmpty(shift.ShiftStart)) shift.ShiftStart = openTime;
+                if (string.IsNullOrEmpty(shift.ShiftEnd))   shift.ShiftEnd   = closeTime;
+
+                var wicShift = await db.WicShiftEntries
+                    .FirstOrDefaultAsync(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date);
+                if (wicShift != null)
+                {
+                    wicShift.SupportLocation = location.DisplayName;
+                    wicShift.IsOnSite        = true;
+                    wicShift.IsOffDay        = false;
+                    wicShift.IsGSDDay        = false;
+                    wicShift.WorkingShift    = $"{openTime}-{closeTime}";
+                    wicShift.Task            = "WIC";
+                }
+                else
+                {
+                    db.WicShiftEntries.Add(new WicShiftEntry
+                    {
+                        EmployeeId      = req.EmployeeId,
+                        ShiftDate       = date,
+                        DayOfWeek       = date.DayOfWeek.ToString(),
+                        SupportLocation = location.DisplayName,
+                        IsOnSite        = true,
+                        IsGSDDay        = false,
+                        IsOffDay        = false,
+                        WorkingShift    = $"{openTime}-{closeTime}",
+                        Task            = "WIC",
+                    });
+                }
+            }
+        }
+
+        await db.SaveChangesAsync();
+        return Results.Ok(new
+        {
+            success      = true,
+            employeeName = employee.FullName ?? req.EmployeeId,
+            shiftDate    = date.ToString("yyyy-MM-dd"),
+            shiftType    = req.ShiftType,
+            violations   = validation.Violations, // soft warnings only — shift is already saved
+        });
+    }
+
+    /// <summary>
+    /// sourceModule/sourceId let a caller other than the interactive "assign"
+    /// click (e.g. RosterService's MAIN/BACKUP walk) tag the rows it creates so
+    /// they belong to an undoable RosterBatch, same as any other generated row.
+    /// Defaults preserve the existing manual-assignment behaviour exactly.
+    /// </summary>
+    public async Task<IResult> CreateAssignmentAsync(CreateAssignmentRequest req, GSDContext db,
+        string sourceModule = "ASSIGN", int? sourceId = null)
     {
         if (string.IsNullOrWhiteSpace(req.EmployeeId) || string.IsNullOrWhiteSpace(req.LocationCode))
             return Results.BadRequest(new { error = "EmployeeId and LocationCode are required." });
@@ -500,8 +631,18 @@ public class WicShiftService
             var times = System.Text.RegularExpressions.Regex.Matches(ws, @"\d{1,2}:\d{2}");
             return times.Count >= 2 ? (times[0].Value, times[^1].Value) : (null, null);
         }
+        // Same location, OR an imported/historical row that was never a live
+        // on-site commitment (IsOnSite=false — e.g. the Helmstedt "Global
+        // Service Desk" import, which SHOULD still inform the time; see
+        // CreateAssignmentTimePriorityTests). Bug found while verifying the
+        // Demmin dual-centre case: without this, an ACTIVE on-site row at a
+        // DIFFERENT live centre (IsOnSite=true) was picked up too, reusing its
+        // time for a second, unrelated location's assignment — which then
+        // trivially "overlapped" itself in the conflict check below and
+        // silently blocked the second centre.
         var priorWicShift = await db.WicShiftEntries
-            .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date)
+            .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date &&
+                        (w.SupportLocation == location.DisplayName || !w.IsOnSite))
             .Select(w => w.WorkingShift)
             .FirstOrDefaultAsync(ws => ws != null);
         var (priorStart, priorEnd) = SplitWorkingShift(priorWicShift);
@@ -516,12 +657,17 @@ public class WicShiftService
         var shift = await db.ShiftEntries
             .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
 
-        // Skip dates where the agent is on a non-working shift; never overwrite AL/SL/OFF/PH etc.
-        // Canonical blocking list lives in AvailabilityResolver.BlockingAbsenceTypes (shared
-        // with the coverage card calculation in WicCardsService).
+        // Skip dates where the agent is on a non-working shift; never overwrite AL/SL/OFF/PH
+        // etc. (AvailabilityResolver.BlockingAbsenceTypes, shared with WicCardsService), nor
+        // TRAINING, nor a WORKING shift explicitly tasked VWIC — same "unavailable" set the
+        // permanent WIC-priority rule uses (RosterService.IsProtectedFromOverwrite).
         if (shift != null)
         {
-            if (AvailabilityResolver.BlockingAbsenceTypes.Contains(shift.ShiftType ?? ""))
+            bool isBlocked = AvailabilityResolver.BlockingAbsenceTypes.Contains(shift.ShiftType ?? "") ||
+                string.Equals(shift.ShiftType, ShiftTypes.Training, StringComparison.OrdinalIgnoreCase) ||
+                (string.Equals(shift.ShiftType, ShiftTypes.Working, StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(shift.AgentTask, "VWIC", StringComparison.OrdinalIgnoreCase));
+            if (isBlocked)
                 return Results.Ok(new
                 {
                     success = true,
@@ -538,7 +684,8 @@ public class WicShiftService
             shift.AgentTask    = agentTask;
             shift.ShiftStart   = req.ShiftStart ?? openTime;
             shift.ShiftEnd     = req.ShiftEnd   ?? closeTime;
-            shift.SourceModule = "ASSIGN";
+            shift.SourceModule = sourceModule;
+            if (sourceId != null) shift.SourceId = sourceId;
         }
         else
         {
@@ -551,8 +698,9 @@ public class WicShiftService
                 AgentTask    = agentTask,
                 ShiftStart   = req.ShiftStart ?? openTime,
                 ShiftEnd     = req.ShiftEnd   ?? closeTime,
-                SourceSheet  = "ASSIGN",
-                SourceModule = "ASSIGN",
+                SourceSheet  = sourceModule,
+                SourceModule = sourceModule,
+                SourceId     = sourceId,
             });
         }
 
@@ -707,94 +855,8 @@ public static class WicEndpointMapper
             return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         });
 
-        grp.MapPost("/shifts", async (CreateShiftRequest req, GSDContext db) =>
-        {
-            if (string.IsNullOrWhiteSpace(req.EmployeeId))
-                return Results.BadRequest(new { error = "EmployeeId is required." });
-            if (!DateOnly.TryParse(req.Date, out var date))
-                return Results.BadRequest(new { error = "Invalid date format. Expected yyyy-MM-dd." });
-            if (string.IsNullOrWhiteSpace(req.ShiftType))
-                return Results.BadRequest(new { error = "ShiftType is required." });
-
-            var employee = await db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId);
-            if (employee == null)
-                return Results.NotFound(new { error = $"Employee '{req.EmployeeId}' not found." });
-
-            var shift = await db.ShiftEntries
-                .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
-            if (shift != null)
-            {
-                shift.ShiftType    = req.ShiftType;
-                shift.ShiftStart   = req.ShiftStart;
-                shift.ShiftEnd     = req.ShiftEnd;
-                shift.AgentTask    = req.AgentTask;
-                shift.SourceModule = "MANUAL";
-            }
-            else
-            {
-                shift = new ShiftEntry
-                {
-                    EmployeeId   = req.EmployeeId,
-                    ShiftDate    = date,
-                    ShiftType    = req.ShiftType,
-                    ShiftStart   = req.ShiftStart,
-                    ShiftEnd     = req.ShiftEnd,
-                    AgentTask    = req.AgentTask,
-                    SourceSheet  = "MANUAL",
-                    SourceModule = "MANUAL",
-                };
-                db.ShiftEntries.Add(shift);
-            }
-
-            if (!string.IsNullOrWhiteSpace(req.LocationCode) && req.ShiftType == ShiftTypes.WicDuty)
-            {
-                var location = await db.WicLocations
-                    .FirstOrDefaultAsync(l => l.LocationCode == req.LocationCode && l.IsActive);
-                if (location != null)
-                {
-                    int dow = (int)date.DayOfWeek;
-                    var hours = await db.WicOpeningHours
-                        .FirstOrDefaultAsync(h => h.LocationCode == req.LocationCode && h.DayOfWeek == dow);
-                    string openTime  = hours?.OpenTime  ?? req.ShiftStart ?? "08:00";
-                    string closeTime = hours?.CloseTime ?? req.ShiftEnd   ?? "17:00";
-                    var wicShift = await db.WicShiftEntries
-                        .FirstOrDefaultAsync(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date);
-                    if (wicShift != null)
-                    {
-                        wicShift.SupportLocation = location.DisplayName;
-                        wicShift.IsOnSite        = true;
-                        wicShift.IsOffDay        = false;
-                        wicShift.IsGSDDay        = false;
-                        wicShift.WorkingShift    = $"{openTime}-{closeTime}";
-                        wicShift.Task            = "WIC";
-                    }
-                    else
-                    {
-                        db.WicShiftEntries.Add(new WicShiftEntry
-                        {
-                            EmployeeId      = req.EmployeeId,
-                            ShiftDate       = date,
-                            DayOfWeek       = date.DayOfWeek.ToString(),
-                            SupportLocation = location.DisplayName,
-                            IsOnSite        = true,
-                            IsGSDDay        = false,
-                            IsOffDay        = false,
-                            WorkingShift    = $"{openTime}-{closeTime}",
-                            Task            = "WIC",
-                        });
-                    }
-                }
-            }
-
-            await db.SaveChangesAsync();
-            return Results.Ok(new
-            {
-                success      = true,
-                employeeName = employee.FullName ?? req.EmployeeId,
-                shiftDate    = date.ToString("yyyy-MM-dd"),
-                shiftType    = req.ShiftType,
-            });
-        });
+        grp.MapPost("/shifts", async (CreateShiftRequest req, GSDContext db, ShiftValidationService validationSvc, WicShiftService svc) =>
+            await svc.CreateShiftAsync(req, db, validationSvc));
 
         grp.MapPost("/assignments", async (CreateAssignmentRequest req, GSDContext db, WicShiftService svc) =>
             await svc.CreateAssignmentAsync(req, db));

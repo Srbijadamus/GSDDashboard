@@ -1,4 +1,4 @@
-﻿using GSDDashboard.API.Data;
+using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.ALCalendar;
 using GSDDashboard.API.Modules.Overview;
@@ -46,6 +46,8 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ShiftService>();
 builder.Services.AddScoped<WicShiftService>();
 builder.Services.AddScoped<WicCardsService>();
+builder.Services.AddScoped<WicCoverageGapService>();
+builder.Services.AddScoped<WicAssignCandidatesService>();
 builder.Services.AddScoped<VwicService>();
 builder.Services.AddScoped<BreakService>();
 builder.Services.AddScoped<SickLeaveService>();
@@ -569,6 +571,8 @@ app.MapDashboardEndpoints();
 app.MapShiftEndpoints();
 app.MapWicEndpoints();
 app.MapWicCardsEndpoints();
+app.MapWicCoverageGapEndpoints();
+app.MapWicAssignCandidatesEndpoints();
 app.MapVwicDailyEndpoints();
 app.MapAttendanceEndpoints();
 app.MapSickLeaveEndpoints();
@@ -647,6 +651,22 @@ app.MapPost("/api/debug/client-error", async (HttpContext ctx) =>
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
 app.MapFallbackToFile("index.html", staticFileOptions);
+// Vacations imported straight into the table never triggered the shift sync -
+// reconcile future leave days with the roster at startup.
+using (var vacScope = app.Services.CreateScope())
+{
+    try
+    {
+        var vacSync = vacScope.ServiceProvider.GetRequiredService<GSDDashboard.API.Services.ShiftSyncService>();
+        var vacFixed = await vacSync.ReconcileFutureVacationsAsync();
+        Console.WriteLine("Vacation reconcile: " + vacFixed + " future leave day(s) corrected");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Vacation reconcile failed: " + ex.Message);
+    }
+}
+
 app.Run();
 
 

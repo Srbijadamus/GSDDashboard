@@ -3,6 +3,8 @@ using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Auth;
 using GSDDashboard.API.Modules.Roster;
+using GSDDashboard.API.Modules.WicShifts;
+using GSDDashboard.API.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
@@ -27,7 +29,8 @@ public class RosterServiceTests
         return new GSDContext(options);
     }
 
-    private static RosterService NewSvc(GSDContext db) => new(db);
+    private static RosterService NewSvc(GSDContext db) =>
+        new(db, new WicShiftService(db, new AvailabilityResolver(db)), new WicCoverageGapService(db));
 
     private static Employee SeedEmployee(GSDContext db, string id, string? bundesland = null)
     {
@@ -183,6 +186,54 @@ public class RosterServiceTests
         using var db = NewDb();
         await Assert.ThrowsAsync<RosterValidationException>(
             () => NewSvc(db).GenerateAsync(Req("NOPE", "2026-09-21", "2026-09-25"), null, null));
+    }
+
+    // -- location coverage: MAIN/BACKUP walk ------------------------------------
+    // Reproduces the Hamburg bug: MAIN is already on WIC duty at a different
+    // centre with overlapping hours (unavailable); BACKUP is free (a plain
+    // working shift with no task, same shape as the real PATTERN_FILL rows).
+    // GenerateLocationCoverageAsync must walk past the unavailable MAIN and
+    // assign the free BACKUP instead of leaving the day a gap.
+
+    [Fact]
+    public async Task GenerateLocationCoverage_AssignsFreeBackup_WhenMainIsUnavailable()
+    {
+        using var db = NewDb();
+        var monday = new DateOnly(2026, 9, 21); // Monday, see helper comment above
+
+        var target = new WicLocation { LocationCode = "TARGET", DisplayName = "Target Centre", IsActive = true };
+        var other  = new WicLocation { LocationCode = "OTHER",  DisplayName = "Other Centre",  IsActive = true };
+        db.WicLocations.AddRange(target, other);
+        // Target open Mon 09:00-17:00; Other open Mon 08:00-12:00 (overlaps Target's hours).
+        db.WicOpeningHours.Add(new WicOpeningHour { LocationCode = "TARGET", DayOfWeek = 1, OpenTime = "09:00", CloseTime = "17:00" });
+        db.WicOpeningHours.Add(new WicOpeningHour { LocationCode = "OTHER",  DayOfWeek = 1, OpenTime = "08:00", CloseTime = "12:00" });
+
+        var main = SeedEmployee(db, "MAIN1");
+        main.FullName = "Main Agent";
+        var backup = SeedEmployee(db, "BACKUP1");
+        backup.FullName = "Backup Agent";
+        db.WicAgentAssignments.Add(new WicAgentAssignment { LocationCode = "TARGET", EmployeeName = "Main Agent", AssignmentType = "MAIN", IsActive = true });
+        db.WicAgentAssignments.Add(new WicAgentAssignment { LocationCode = "TARGET", EmployeeName = "Backup Agent", AssignmentType = "BACKUP", IsActive = true });
+
+        // MAIN already on WIC duty elsewhere, overlapping Target's hours -> unavailable.
+        db.ShiftEntries.Add(new ShiftEntry { EmployeeId = "MAIN1", ShiftDate = monday, ShiftType = ShiftTypes.WicDuty, AgentTask = "Other Centre", IsWicDuty = true });
+        db.WicShiftEntries.Add(new WicShiftEntry { EmployeeId = "MAIN1", ShiftDate = monday, SupportLocation = "Other Centre", IsOnSite = true, WorkingShift = "08:00-12:00", Task = "WIC" });
+        // BACKUP free: plain working shift, no task.
+        db.ShiftEntries.Add(new ShiftEntry { EmployeeId = "BACKUP1", ShiftDate = monday, ShiftType = ShiftTypes.Working, RawValue = "08:00 - 16:30" });
+        await db.SaveChangesAsync();
+
+        var result = await NewSvc(db).GenerateLocationCoverageAsync("TARGET", monday, monday, "K1", "Tester");
+
+        Assert.Equal(0, result.DaysStillGap);
+        Assert.False(result.CountMismatch);
+        var assigned = Assert.Single(result.Assignments);
+        Assert.Equal("BACKUP1", assigned.EmployeeId);
+        Assert.Equal("BACKUP", assigned.AssignmentType);
+        Assert.Equal(1, assigned.DaysAssigned);
+
+        var backupShift = await db.ShiftEntries.SingleAsync(x => x.EmployeeId == "BACKUP1" && x.ShiftDate == monday);
+        Assert.Equal(ShiftTypes.WicDuty, backupShift.ShiftType);
+        Assert.Equal("Target Centre", backupShift.AgentTask);
     }
 
     // -- delete a batch --------------------------------------------------------

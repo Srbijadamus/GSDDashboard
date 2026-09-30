@@ -3,6 +3,7 @@ using System.Text.Json;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Auth;
+using GSDDashboard.API.Modules.WicShifts;
 using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -151,10 +152,20 @@ public class RosterService
     public const int MaxRangeDays = 366;
 
     private readonly GSDContext _db;
-    public RosterService(GSDContext db) => _db = db;
+    private readonly WicShiftService _wicShiftService;
+    private readonly WicCoverageGapService _gapService;
+    public RosterService(GSDContext db, WicShiftService wicShiftService, WicCoverageGapService gapService)
+    {
+        _db = db;
+        _wicShiftService = wicShiftService;
+        _gapService = gapService;
+    }
 
+    // Start/End are nullable: WIC mode (Location != null) normally leaves them
+    // null so BuildPlanAsync's per-day centre hours drive the actual times —
+    // required only in plain mode, or as an explicit WIC-mode override.
     private sealed record PlanInput(Employee Emp, DateOnly From, DateOnly To,
-        string Start, string End, HashSet<int> WorkingDays, string? AgentTask,
+        string? Start, string? End, HashSet<int> WorkingDays, string? AgentTask,
         WicLocation? Location);
 
     private sealed record PlanRow(DateOnly Date, string Kind, string Start, string End);
@@ -177,6 +188,37 @@ public class RosterService
         new(StringComparer.OrdinalIgnoreCase)
         { "AL", "HALF_AL", "SL", "UL", "PH", "LPH", "OFF", "OFF_WEEKEND", "OL",
           "RESIGNED", "CD" };
+
+    /// <summary>
+    /// WIC-priority rule (permanent): an existing row the generator must never
+    /// replace even with Overwrite=true, beyond ProtectedAbsenceTypes —
+    ///   - WIC duty at a DIFFERENT centre than the one being generated (never
+    ///     overwrite a WIC commitment elsewhere just because this generate call
+    ///     is for a different location or plain mode);
+    ///   - TRAINING, and a WORKING row explicitly tasked VWIC — "training or
+    ///     VWIC if explicitly scheduled" outranks BO/GSD and must survive a
+    ///     regenerate the same way an absence does.
+    /// Matches AgentTask the same way WicCoverageGapService/WicScheduleService
+    /// do: exact DisplayName, or the 20-char-truncated prefix
+    /// WicShiftService.CreateAssignmentAsync writes for long names.
+    /// </summary>
+    private static bool IsProtectedFromOverwrite(string existingShiftType, string? existingAgentTask, WicLocation? targetLocation)
+    {
+        if (ProtectedAbsenceTypes.Contains(existingShiftType)) return true;
+        if (string.Equals(existingShiftType, ShiftTypes.Training, StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.Equals(existingShiftType, ShiftTypes.Working, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(existingAgentTask, "VWIC", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (string.Equals(existingShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase))
+        {
+            if (targetLocation == null || string.IsNullOrWhiteSpace(existingAgentTask)) return true;
+            bool sameCentre =
+                string.Equals(targetLocation.DisplayName, existingAgentTask, StringComparison.OrdinalIgnoreCase) ||
+                (existingAgentTask.Length == 20 && targetLocation.DisplayName.StartsWith(existingAgentTask, StringComparison.OrdinalIgnoreCase));
+            return !sameCentre;
+        }
+        return false;
+    }
 
     // Snapshot of a replaced ShiftEntry (plus its WicShiftEntries rows when it
     // was a WIC_DUTY) so DeleteBatchAsync can restore the pre-batch state.
@@ -213,9 +255,6 @@ public class RosterService
         if (to.DayNumber - from.DayNumber + 1 > MaxRangeDays)
             throw new RosterValidationException($"Date range must not exceed {MaxRangeDays} days");
 
-        var start = NormalizeTime(req.ShiftStart, "shiftStart");
-        var end   = NormalizeTime(req.ShiftEnd,   "shiftEnd");
-
         var days = (req.WorkingDays == null || req.WorkingDays.Length == 0)
             ? new HashSet<int> { 1, 2, 3, 4, 5 }
             : req.WorkingDays.ToHashSet();
@@ -237,6 +276,39 @@ public class RosterService
             if (location == null)
                 throw new RosterValidationException("Unknown or inactive WIC location: " + code);
         }
+        else if (emp.FullName != null)
+        {
+            // WIC priority (permanent rule): an agent who is MAIN for an active WIC
+            // location is scheduled there on that location's open days — GSD/BO is
+            // the fallback for a WIC agent, never the default, regardless of
+            // whether the caller remembered to pass locationCode. Auto-detected
+            // only when the caller left LocationCode blank; an explicit
+            // LocationCode (e.g. a deliberate REGIONAL/BACKUP support day) is
+            // always honoured as given.
+            var mainAssignment = await _db.WicAgentAssignments
+                .FirstOrDefaultAsync(a => a.IsActive && a.AssignmentType == "MAIN" && a.EmployeeName == emp.FullName);
+            if (mainAssignment != null)
+            {
+                var code = mainAssignment.LocationCode;
+                location = await _db.WicLocations
+                    .FirstOrDefaultAsync(l => l.IsActive && (l.LocationCode == code || l.LocationCodeLegacy == code));
+            }
+        }
+
+        // Plain mode always requires an explicit shift time. WIC mode (location
+        // resolved, explicit or auto-detected) leaves start/end null unless the
+        // caller explicitly overrides both — BuildPlanAsync then prioritises the
+        // centre's OWN per-day opening hours over any fallback, so a location
+        // with different hours on different weekdays (e.g. Fürstenwalde: Mon/Wed
+        // 08:00-15:00, Tue 08:00-12:00, Thu 08:30-12:00) gets each day's actual
+        // hours instead of one fixed time smeared across every day.
+        string? start = null, end = null;
+        bool hasExplicitTime = !string.IsNullOrWhiteSpace(req.ShiftStart) || !string.IsNullOrWhiteSpace(req.ShiftEnd);
+        if (location == null || hasExplicitTime)
+        {
+            start = NormalizeTime(req.ShiftStart, "shiftStart");
+            end   = NormalizeTime(req.ShiftEnd,   "shiftEnd");
+        }
 
         return new PlanInput(emp, from, to, start, end, days, task, location);
     }
@@ -255,19 +327,20 @@ public class RosterService
     {
         // Public holidays exactly the way PublicHolidayService resolves them for
         // an agent: national holidays plus the employee's own Bundesland.
-        var holidayQuery = _db.PublicHolidays
-            .Where(h => h.HolidayDate >= input.From && h.HolidayDate <= input.To);
-        holidayQuery = string.IsNullOrWhiteSpace(input.Emp.Bundesland)
-            ? holidayQuery.Where(h => h.IsNational)
-            : holidayQuery.Where(h => h.IsNational || h.Bundesland == input.Emp.Bundesland);
-        var holidays = (await holidayQuery.ToListAsync())
+        // Filtered in-memory via PublicHolidayResolver.Applies (Mojibake-
+        // resistant) rather than a SQL-translated `==` — see Mojibake.cs.
+        var holidaysInRange = await _db.PublicHolidays
+            .Where(h => h.HolidayDate >= input.From && h.HolidayDate <= input.To)
+            .ToListAsync();
+        var holidays = holidaysInRange
+            .Where(h => PublicHolidayResolver.Applies(h, input.Emp.Bundesland))
             .GroupBy(h => h.HolidayDate)
             .ToDictionary(g => g.Key, g => g.First().Name);
 
         var existingDates = (await _db.ShiftEntries
                 .Where(x => x.EmployeeId == input.Emp.EmployeeId
                          && x.ShiftDate >= input.From && x.ShiftDate <= input.To)
-                .Select(x => new { x.Id, x.ShiftDate, x.ShiftType, x.SourceModule })
+                .Select(x => new { x.Id, x.ShiftDate, x.ShiftType, x.SourceModule, x.AgentTask })
                 .ToListAsync())
             .GroupBy(x => x.ShiftDate)
             .ToDictionary(g => g.Key, g => g.First());
@@ -306,7 +379,7 @@ public class RosterService
             PlanRow generated;
             if (input.Location == null)
             {
-                generated = new PlanRow(d, "WORKING", input.Start, input.End);
+                generated = new PlanRow(d, "WORKING", input.Start ?? "08:00", input.End ?? "17:00");
             }
             else
             {
@@ -314,19 +387,24 @@ public class RosterService
                     input.Location.LocationCode, input.Location.LocationCodeLegacy,
                     (int)d.DayOfWeek, d);
                 generated = hours is { IsClosed: false }
-                    // WIC day: times come from the location's opening hours for this
-                    // date, exactly like WicShiftService.CreateAssignmentAsync sets them.
+                    // WIC day: the centre's OWN opening hours for this date win —
+                    // an explicit request override is only a last-resort fallback,
+                    // same as WicShiftService.CreateAssignmentAsync's time-source
+                    // priority. A single fixed input.Start smeared across every
+                    // day would be wrong for a location with different hours on
+                    // different weekdays.
                     ? new PlanRow(d, "WIC",
-                        input.Start ?? hours.OpenTime, input.End ?? hours.CloseTime)
-                    : new PlanRow(d, "BO", input.Start, input.End);
+                        hours.OpenTime ?? input.Start ?? "08:00", hours.CloseTime ?? input.End ?? "17:00")
+                    : new PlanRow(d, "BO", input.Start ?? "08:00", input.End ?? "17:00");
             }
 
             if (existingDates.TryGetValue(d, out var existing))
             {
                 // Default: never touch an existing row. Overwrite mode replaces
-                // everything EXCEPT protected absences (ProtectedAbsenceTypes) —
-                // those stay skipped and are reported as collisions either way.
-                if (!overwrite || ProtectedAbsenceTypes.Contains(existing.ShiftType))
+                // everything EXCEPT protected rows (IsProtectedFromOverwrite —
+                // absences, training/VWIC, WIC duty elsewhere) — those stay
+                // skipped and are reported as collisions either way.
+                if (!overwrite || IsProtectedFromOverwrite(existing.ShiftType, existing.AgentTask, input.Location))
                 {
                     collisions.Add(new RosterCollision(
                         d.ToString("yyyy-MM-dd"), existing.ShiftType, existing.SourceModule));
@@ -397,8 +475,10 @@ public class RosterService
                 FullName        = input.Emp.FullName,
                 DateFrom        = input.From,
                 DateTo          = input.To,
-                ShiftStart      = input.Start,
-                ShiftEnd        = input.End,
+                // Informational only (RosterBatch.ShiftStart/End are non-nullable) —
+                // WIC-mode rows themselves carry each day's own centre hours.
+                ShiftStart      = input.Start ?? "08:00",
+                ShiftEnd        = input.End ?? "17:00",
                 WorkingDays     = string.Join(",", input.WorkingDays.OrderBy(d => d)),
                 AgentTask       = input.AgentTask,
                 LocationCode    = input.Location?.LocationCode,
@@ -605,6 +685,207 @@ public class RosterService
                 allKinds.Count(k => k == "BO"),
                 assignmentCreated, replaced);
         });
+    }
+
+    public record LocationCoverageAgentResult(
+        string EmployeeId, string EmployeeName, string AssignmentType, int DaysAssigned, int BatchId);
+
+    public record LocationCoverageResult(
+        string LocationCode, string LocationName, int DaysConsidered, int DaysAlreadyCovered,
+        List<LocationCoverageAgentResult> Assignments, int DaysStillGap,
+        bool CountMismatch = false);
+
+    private static (TimeOnly s, TimeOnly e)? ParseWorkingShift(string? ws)
+    {
+        if (string.IsNullOrWhiteSpace(ws)) return null;
+        var parts = ws.Split('-');
+        if (parts.Length < 2) return null;
+        return TimeOnly.TryParse(parts[0].Trim(), out var s) && TimeOnly.TryParse(parts[1].Trim(), out var e) ? (s, e) : null;
+    }
+
+    private static List<(TimeOnly s, TimeOnly e)> HoursIntervals(WicOpeningHour? h)
+    {
+        var list = new List<(TimeOnly, TimeOnly)>();
+        if (h == null || h.IsClosed) return list;
+        if (TimeOnly.TryParse(h.OpenTime, out var s1) && TimeOnly.TryParse(h.CloseTime, out var e1)) list.Add((s1, e1));
+        if (TimeOnly.TryParse(h.OpenTime2, out var s2) && TimeOnly.TryParse(h.CloseTime2, out var e2)) list.Add((s2, e2));
+        return list;
+    }
+
+    /// <summary>
+    /// Permanent WIC-priority rule, extended to the whole assignment list: for
+    /// every open day at this location that isn't already covered, walk the
+    /// assigned agents in order — MAIN first, then BACKUP in assignment order
+    /// — and roster the first one who is actually available. A generic GSD/BO/
+    /// no-task WORKING shift counts as available and gets moved to WIC duty,
+    /// same as the single-MAIN priority rule in BuildPlanAsync. Absence,
+    /// TRAINING, a VWIC-tasked WORKING shift, and WIC duty elsewhere at
+    /// overlapping hours count as unavailable — WIC duty elsewhere at
+    /// NON-overlapping hours does not (the Demmin dual-centre case), so an
+    /// agent can end up holding two WIC commitments the same day.
+    ///
+    /// Reuses WicShiftService.CreateAssignmentAsync per (agent, day) for the
+    /// actual write — it already resolves the day's opening hours and checks
+    /// overlap against the agent's other on-site WIC commitments that day, so
+    /// the dual-centre case falls out of the existing, already-tested logic
+    /// rather than a second copy of it here. One RosterBatch is created per
+    /// agent who actually receives a row (never one for an agent who gets
+    /// nothing), tagged SourceModule="Roster" so DeleteBatchAsync can undo it
+    /// exactly like any other generated batch.
+    /// </summary>
+    public async Task<LocationCoverageResult> GenerateLocationCoverageAsync(
+        string locationCode, DateOnly from, DateOnly to, string? createdByKid, string? createdByName)
+    {
+        var location = await _db.WicLocations.FirstOrDefaultAsync(l => l.LocationCode == locationCode && l.IsActive);
+        if (location == null)
+            throw new RosterValidationException("Unknown or inactive WIC location: " + locationCode);
+
+        var assignments = await _db.WicAgentAssignments
+            .Where(a => a.IsActive && (a.AssignmentType == "MAIN" || a.AssignmentType == "BACKUP") &&
+                        (a.LocationCode == location.LocationCode ||
+                         (location.LocationCodeLegacy != null && a.LocationCode == location.LocationCodeLegacy)))
+            .OrderBy(a => a.AssignmentType == "MAIN" ? 0 : 1)
+            .ThenBy(a => a.Id) // assignment order among BACKUPs
+            .ToListAsync();
+
+        var candidates = new List<(WicAgentAssignment Assignment, Employee Emp)>();
+        foreach (var a in assignments)
+        {
+            var emp = await _db.Employees.FirstOrDefaultAsync(e => e.FullName == a.EmployeeName && e.IsActive);
+            if (emp != null) candidates.Add((a, emp));
+        }
+        if (candidates.Count == 0)
+            return new LocationCoverageResult(location.LocationCode, location.DisplayName, 0, 0, new(), 0);
+
+        var allHours = await _db.WicOpeningHours.ToListAsync();
+        var nationalHolidays = new HashSet<DateOnly>(
+            await _db.PublicHolidays.Where(h => h.IsNational && h.HolidayDate >= from && h.HolidayDate <= to)
+                .Select(h => h.HolidayDate).ToListAsync());
+
+        // Cover signal — the exact WicCoverageGapService.ComputeCoveredDates helper,
+        // not a second copy of the definition (Part 2: never let the generator's
+        // idea of "covered" drift from the coverage-gaps endpoint's).
+        var onSiteEntries = await _db.WicShiftEntries.Where(w => w.ShiftDate >= from && w.ShiftDate <= to && w.IsOnSite).ToListAsync();
+        var wicDutyElsewhere = await _db.ShiftEntries
+            .Where(s => s.ShiftDate >= from && s.ShiftDate <= to && s.ShiftType == ShiftTypes.WicDuty && s.AgentTask != null && s.AgentTask != "")
+            .ToListAsync();
+        var coveredDates = WicCoverageGapService.ComputeCoveredDates(onSiteEntries, wicDutyElsewhere, location);
+
+        var empIds = candidates.Select(c => c.Emp.EmployeeId).ToList();
+        var shiftByEmpDate = (await _db.ShiftEntries
+                .Where(s => empIds.Contains(s.EmployeeId) && s.ShiftDate >= from && s.ShiftDate <= to).ToListAsync())
+            .GroupBy(s => (s.EmployeeId, s.ShiftDate))
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
+        var wicByEmpDate = (await _db.WicShiftEntries
+                .Where(w => empIds.Contains(w.EmployeeId) && w.ShiftDate >= from && w.ShiftDate <= to && w.IsOnSite).ToListAsync())
+            .GroupBy(w => (w.EmployeeId, w.ShiftDate))
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        bool IsAvailable(string empId, DateOnly date, WicOpeningHour? targetHours)
+        {
+            shiftByEmpDate.TryGetValue((empId, date), out var shift);
+            if (shift == null) return true; // never rostered -> available
+            if (ProtectedAbsenceTypes.Contains(shift.ShiftType)) return false;
+            if (string.Equals(shift.ShiftType, ShiftTypes.Training, StringComparison.OrdinalIgnoreCase)) return false;
+            if (string.Equals(shift.ShiftType, ShiftTypes.Working, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(shift.AgentTask, "VWIC", StringComparison.OrdinalIgnoreCase)) return false;
+            if (!string.Equals(shift.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase))
+                return true; // WORKING (GSD/BO/no-task) -> available, gets moved to WIC duty
+
+            // Already on WIC duty somewhere — available here too only if none of
+            // their existing on-site blocks overlap this location's hours today.
+            if (targetHours == null) return false;
+            var targetIntervals = HoursIntervals(targetHours);
+            if (!wicByEmpDate.TryGetValue((empId, date), out var existingRows)) return true;
+            foreach (var w in existingRows)
+            {
+                var iv = ParseWorkingShift(w.WorkingShift);
+                if (iv == null) continue;
+                foreach (var (ts, te) in targetIntervals)
+                    if (iv.Value.s < te && ts < iv.Value.e) return false; // overlap
+            }
+            return true;
+        }
+
+        var assignedDatesByEmp = new Dictionary<string, List<DateOnly>>();
+        int daysConsidered = 0, daysAlreadyCovered = 0, daysStillGap = 0;
+
+        for (var d = from; d <= to; d = d.AddDays(1))
+        {
+            if (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
+            if (nationalHolidays.Contains(d)) continue;
+            var hours = WicHoursResolver.Resolve(allHours, location.LocationCode, location.LocationCodeLegacy, (int)d.DayOfWeek, d);
+            bool isOpen = hours != null && !hours.IsClosed && !(string.IsNullOrEmpty(hours.OpenTime) && string.IsNullOrEmpty(hours.CloseTime));
+            if (!isOpen) continue;
+            daysConsidered++;
+            if (coveredDates.Contains(d)) { daysAlreadyCovered++; continue; }
+
+            bool assigned = false;
+            foreach (var (_, emp) in candidates)
+            {
+                if (!IsAvailable(emp.EmployeeId, d, hours)) continue;
+                if (!assignedDatesByEmp.TryGetValue(emp.EmployeeId, out var list))
+                    assignedDatesByEmp[emp.EmployeeId] = list = new();
+                list.Add(d);
+                assigned = true;
+                break;
+            }
+            if (!assigned) daysStillGap++;
+        }
+
+        var results = new List<LocationCoverageAgentResult>();
+        foreach (var (empId, dates) in assignedDatesByEmp)
+        {
+            var (assignment, emp) = candidates.First(c => c.Emp.EmployeeId == empId);
+            var batch = new RosterBatch
+            {
+                EmployeeId   = emp.EmployeeId,
+                FullName     = emp.FullName,
+                DateFrom     = dates.Min(),
+                DateTo       = dates.Max(),
+                ShiftStart   = "08:00", // informational — actual rows carry each day's own centre hours
+                ShiftEnd     = "17:00",
+                WorkingDays  = "1,2,3,4,5",
+                LocationCode = location.LocationCode,
+                RowCount     = dates.Count,
+                CreatedByKid  = createdByKid,
+                CreatedByName = createdByName,
+                CreatedAt     = DateTime.UtcNow,
+            };
+            _db.RosterBatches.Add(batch);
+            await _db.SaveChangesAsync(); // batch.Id needed as SourceId below
+
+            foreach (var d in dates.OrderBy(x => x))
+            {
+                var req = new CreateAssignmentRequest(emp.EmployeeId, location.LocationCode, d.ToString("yyyy-MM-dd"), null, null);
+                await _wicShiftService.CreateAssignmentAsync(req, _db, SourceModuleName, batch.Id);
+            }
+
+            results.Add(new LocationCoverageAgentResult(
+                emp.EmployeeId, emp.FullName ?? emp.EmployeeId, assignment.AssignmentType, dates.Count, batch.Id));
+        }
+
+        // Verify the tally just computed against WicCoverageGapService's own
+        // ground truth for this location+range, now that the writes above are
+        // committed — the exact check Part 2 asked for. Both sides share
+        // ComputeCoveredDates/GetOpenDates so they cannot drift on their own,
+        // but if daysStillGap and the endpoint's count ever disagree (e.g. a
+        // future edit to one side and not the other), the endpoint's number
+        // wins and the mismatch is logged loudly rather than silently reported.
+        var verifiedStillGap = await _gapService.GetStillGapCountAsync(location.LocationCode, from, to);
+        bool countMismatch = verifiedStillGap != daysStillGap;
+        if (countMismatch)
+        {
+            Console.Error.WriteLine(
+                $"[RosterService.GenerateLocationCoverageAsync] Coverage count MISMATCH for " +
+                $"{location.DisplayName} ({from:yyyy-MM-dd}..{to:yyyy-MM-dd}): generator counted " +
+                $"{daysStillGap} day(s) still gapped, WicCoverageGapService counts {verifiedStillGap}. " +
+                "Reporting the endpoint's number as the true count.");
+        }
+
+        return new LocationCoverageResult(
+            location.LocationCode, location.DisplayName, daysConsidered, daysAlreadyCovered, results,
+            verifiedStillGap, countMismatch);
     }
 
     /// <summary>
@@ -935,6 +1216,34 @@ public static class RosterEndpointMapper
                 ? Results.NotFound(new { error = "Batch not found or already deleted" })
                 : Results.Ok(result);
         });
+
+        // MAIN/BACKUP coverage walk for one WIC location — was previously only
+        // reachable by directly calling RosterService.GenerateLocationCoverageAsync
+        // (e.g. from a one-off script), never from the running app. That gap was
+        // the actual cause behind "the generator skipped the free backup": there
+        // was no way to run this from the live API at all.
+        grp.MapPost("/generate-location-coverage", async (LocationCoverageRequest req, HttpContext ctx, RosterService svc) =>
+        {
+            if (RosterAccess.DenyResult(ctx) is { } deny) return deny;
+            if (string.IsNullOrWhiteSpace(req.LocationCode))
+                return Results.BadRequest(new { error = "locationCode is required" });
+            if (!DateOnly.TryParse(req.From, out var from) || !DateOnly.TryParse(req.To, out var to))
+                return Results.BadRequest(new { error = "from and to must be valid dates (yyyy-MM-dd)" });
+            if (to < from)
+                return Results.BadRequest(new { error = "to must not be before from" });
+            try
+            {
+                return Results.Ok(await svc.GenerateLocationCoverageAsync(req.LocationCode, from, to,
+                    ctx.User.FindFirst(AuthClaims.Kid)?.Value,
+                    ctx.User.FindFirst(AuthClaims.Name)?.Value));
+            }
+            catch (RosterValidationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        });
     }
 }
+
+public record LocationCoverageRequest(string? LocationCode, string? From, string? To);
 

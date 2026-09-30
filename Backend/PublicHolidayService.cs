@@ -1,5 +1,6 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 namespace GSDDashboard.API.Modules.PublicHolidays;
 
@@ -13,12 +14,11 @@ public class PublicHolidayService
     public async Task<List<PublicHolidayDto>> GetHolidaysAsync(string? bundesland, int? year)
     {
         var y = year ?? DateTime.Today.Year;
-        var q = _db.PublicHolidays.Where(h => h.HolidayDate.Year == y);
-        if (!string.IsNullOrWhiteSpace(bundesland))
-            q = q.Where(h => h.IsNational == true || h.Bundesland == bundesland);
-        else
-            q = q.Where(h => h.IsNational == true);
-        var rows = await q.OrderBy(h => h.HolidayDate).ToListAsync();
+        // Filtered in-memory via PublicHolidayResolver.Applies (Mojibake-
+        // resistant) rather than a SQL-translated `==` — see Mojibake.cs.
+        var yearRows = await _db.PublicHolidays.Where(h => h.HolidayDate.Year == y).ToListAsync();
+        var rows = yearRows.Where(h => PublicHolidayResolver.Applies(h, bundesland))
+            .OrderBy(h => h.HolidayDate).ToList();
         return rows.Select(h => new PublicHolidayDto(h.Id, h.HolidayDate.ToString("yyyy-MM-dd"), h.Name, h.Bundesland, h.IsNational)).ToList();
     }
 
@@ -28,12 +28,9 @@ public class PublicHolidayService
         if (emp == null) return new();
         var fromDate = DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTime.Today);
         var toDate   = DateOnly.TryParse(to,   out var td) ? td : fromDate.AddDays(30);
-        var q = _db.PublicHolidays.Where(h => h.HolidayDate >= fromDate && h.HolidayDate <= toDate);
-        if (!string.IsNullOrWhiteSpace(emp.Bundesland))
-            q = q.Where(h => h.IsNational == true || h.Bundesland == emp.Bundesland);
-        else
-            q = q.Where(h => h.IsNational == true);
-        var rows = await q.OrderBy(h => h.HolidayDate).ToListAsync();
+        var rangeRows = await _db.PublicHolidays.Where(h => h.HolidayDate >= fromDate && h.HolidayDate <= toDate).ToListAsync();
+        var rows = rangeRows.Where(h => PublicHolidayResolver.Applies(h, emp.Bundesland))
+            .OrderBy(h => h.HolidayDate).ToList();
         return rows.Select(h => new PublicHolidayDto(h.Id, h.HolidayDate.ToString("yyyy-MM-dd"), h.Name, h.Bundesland, h.IsNational)).ToList();
     }
 }

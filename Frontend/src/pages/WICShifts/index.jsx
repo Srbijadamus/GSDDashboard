@@ -1,29 +1,39 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 import UncoveredBanner from "./UncoveredBanner"
 import LocationCard from "./LocationCard"
 import MultiSelectFilter from "./MultiSelectFilter"
 import ReassignModal from "./ReassignModal"
 import AvailableHoursPanel from './AvailableHoursPanel'
 import NewShiftModal from "./NewShiftModal"
+import { useAuth } from "../../auth/AuthContext"
 
 const BASE = ""
 const POLL_INTERVAL = 30000
 
 export default function WICShifts() {
   const { t } = useTranslation()
+  const { session } = useAuth()
+  const canAssign = session != null && ["RTM", "TEAM_LEAD", "DEV"].includes(session.role)
   const [locations, setLocations] = useState([])
   const [filtered, setFiltered] = useState([])
   const [selectedLocs, setSelectedLocs] = useState([])
   const [modalAgent, setModalAgent] = useState(null)
   const [newShiftOpen, setNewShiftOpen] = useState(false)
+  const [assignTarget, setAssignTarget] = useState(null)
+  const [candidatesByLoc, setCandidatesByLoc] = useState({})
   const [secondsAgo, setSecondsAgo] = useState(0)
   const [connectionLost, setConnectionLost] = useState(false)
   const [polling, setPolling] = useState(false)
   const [dragAgent, setDragAgent] = useState(null)
   const intervalRef = useRef(null)
   const tickRef = useRef(null)
-  const today = new Date().toISOString().split("T")[0]
+  const [searchParams] = useSearchParams()
+  // Deep-link support (e.g. from the Overview coverage-gaps banner): ?date=yyyy-MM-dd.
+  // Defaults to today, same as before this param existed.
+  const dateParam = searchParams.get("date")
+  const today = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : new Date().toISOString().split("T")[0]
 
   const fetchData = useCallback(async () => {
     setPolling(true)
@@ -100,12 +110,30 @@ export default function WICShifts() {
       setLocations(newLocations)
       setSecondsAgo(0)
       setConnectionLost(false)
+
+      // Whether each uncovered location has a sensible Assign candidate (an
+      // available floater or an available own MAIN/BACKUP agent) — decides
+      // Assign button vs. "Fix assignment" link on its card. RTM/TEAM_LEAD/DEV
+      // only; the endpoint itself also gates, so skip the fetch entirely for
+      // AGENT sessions.
+      if (canAssign) {
+        const uncoveredLocs = newLocations.filter(l => l.status === "uncovered")
+        const entries = await Promise.all(uncoveredLocs.map(async l => {
+          try {
+            const r = await fetch(`${BASE}/api/wic/assign-candidates?locationCode=${encodeURIComponent(l.id)}&date=${today}`)
+            if (!r.ok) return [l.id, null]
+            const d = await r.json()
+            return [l.id, { hasSensibleCandidate: d.hasSensibleCandidate }]
+          } catch { return [l.id, null] }
+        }))
+        setCandidatesByLoc(Object.fromEntries(entries))
+      }
     } catch {
       setConnectionLost(true)
     } finally {
       setPolling(false)
     }
-  }, [today])
+  }, [today, canAssign])
 
   useEffect(() => {
     fetchData()
@@ -207,7 +235,11 @@ export default function WICShifts() {
           <LocationCard key={loc.id} location={loc}
             onAgentClick={agent => setModalAgent({ agent, currentLocation: loc.name })}
             onDrop={handleDrop} dragAgent={dragAgent} setDragAgent={setDragAgent}
-            onActionSuccess={fetchData} shiftDate={today} />
+            onActionSuccess={fetchData} shiftDate={today}
+            canAssign={canAssign}
+            assignInfo={candidatesByLoc[loc.id]}
+            onAssignClick={() => setAssignTarget({ locationCode: loc.id, displayName: loc.name, date: today })}
+          />
         ))}
       </div>
       {modalAgent && (
@@ -215,6 +247,7 @@ export default function WICShifts() {
           locations={locations} onSave={handleReassign} onClose={() => setModalAgent(null)} shiftDate={today} />
       )}
       <NewShiftModal isOpen={newShiftOpen} onClose={() => setNewShiftOpen(false)} onSuccess={fetchData} />
+      <NewShiftModal isOpen={assignTarget != null} onClose={() => setAssignTarget(null)} prefill={assignTarget} onSuccess={fetchData} />
       <AvailableHoursPanel />
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }`}</style>
     </div>

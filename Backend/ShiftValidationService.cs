@@ -1,5 +1,6 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Modules.Shifts;
@@ -14,10 +15,22 @@ public class ShiftValidationService
 
     public async Task<ValidationResult> ValidateAsync(int shiftId, string newShiftType, string? newStart, string? newEnd)
     {
-        var violations = new List<ValidationViolation>();
-
         var shift = await _db.ShiftEntries.FindAsync(shiftId);
-        if (shift == null) return new ValidationResult(true, violations);
+        if (shift == null) return new ValidationResult(true, new List<ValidationViolation>());
+        return await ValidateAsync(shift, newShiftType, newStart, newEnd);
+    }
+
+    /// <summary>
+    /// Entity-based overload — validates a ShiftEntry that may not be saved yet
+    /// (Id may be 0/default), so a caller can check a proposed brand-new shift
+    /// BEFORE committing it, not just an edit to a shift that already exists.
+    /// The nearby-shifts query below excludes `shift.Id`, which is harmless for
+    /// an unsaved entity since no persisted row can share that Id.
+    /// </summary>
+    public async Task<ValidationResult> ValidateAsync(ShiftEntry shift, string newShiftType, string? newStart, string? newEnd)
+    {
+        var violations = new List<ValidationViolation>();
+        var shiftId = shift.Id;
 
         var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == shift.EmployeeId);
         if (emp == null) return new ValidationResult(true, violations);
@@ -31,9 +44,12 @@ public class ShiftValidationService
         // R7 — Public Holiday
         if (newShiftType != ShiftTypes.Off && newShiftType != ShiftTypes.OffWeekend && newShiftType != ShiftTypes.Empty)
         {
-            var ph = await _db.PublicHolidays.FirstOrDefaultAsync(h =>
-                h.HolidayDate == date &&
-                (h.IsNational || (!string.IsNullOrEmpty(bundesland) && h.Bundesland == bundesland)));
+            // Matched in-memory via PublicHolidayResolver (Mojibake-resistant on
+            // both sides) rather than a SQL-translated `==` — a corrupted
+            // Bundesland spelling in either table must not silently disable
+            // this rule the way the 2026 Baden-Württemberg row did.
+            var candidatesOnDate = await _db.PublicHolidays.Where(h => h.HolidayDate == date).ToListAsync();
+            var ph = PublicHolidayResolver.Resolve(candidatesOnDate, bundesland);
 
             if (ph != null && newShiftType != ShiftTypes.PublicHol && newShiftType != ShiftTypes.LocalPH)
             {

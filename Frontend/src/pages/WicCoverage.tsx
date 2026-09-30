@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { MapPin, Users, Car, Search, ChevronRight, Shield, ShieldCheck, ShieldAlert, Globe } from "lucide-react"
@@ -508,6 +509,15 @@ export default function WicCoverage() {
     setSelectedWic(code)
     setSelectedAgent(null)
   }
+
+  // Deep-link support (e.g. from the coverage-gaps "no candidate" link):
+  // ?location=<code> opens that location's assignment sheet directly.
+  const [searchParams] = useSearchParams()
+  useEffect(() => {
+    const loc = searchParams.get("location")
+    if (loc) openWic(loc)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="flex flex-col h-[calc(100vh-60px)] overflow-hidden">

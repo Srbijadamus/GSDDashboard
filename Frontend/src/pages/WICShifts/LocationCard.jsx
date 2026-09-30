@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import AgentRow from "./AgentRow"
 import { NppBadge } from "../../components/NppBadge"
 
@@ -8,13 +9,14 @@ const statusText  = { covered: "rgb(var(--st-good-solid))", partial: "rgb(var(--
 const statusDot   = { covered: "rgb(var(--st-good-solid))", partial: "rgb(var(--st-warn-solid))", uncovered: "rgb(var(--st-crit-solid))" }
 const statusBd    = { covered: "rgb(var(--st-good-bd))",    partial: "rgb(var(--st-warn-bd))",    uncovered: "rgb(var(--st-crit-bd))" }
 
-export default function LocationCard({ location, onAgentClick, onDrop, dragAgent, setDragAgent, onActionSuccess, shiftDate }) {
+export default function LocationCard({ location, onAgentClick, onDrop, dragAgent, setDragAgent, onActionSuccess, shiftDate, canAssign, assignInfo, onAssignClick }) {
   const [isDragOver, setIsDragOver] = useState(false)
   const effectiveCoverage = location.agents.filter(a => !a.absent).length
   const rawStatus = location.status || "uncovered"
   const s = (effectiveCoverage === 0 && location.agents.length > 0 && rawStatus !== "uncovered")
     ? "uncovered"
     : rawStatus
+  const showAssign = canAssign && s === "uncovered"
 
   return (
     <div
@@ -55,6 +57,28 @@ export default function LocationCard({ location, onAgentClick, onDrop, dragAgent
             {s.toUpperCase()}
           </span>
         </div>
+        {showAssign && assignInfo && (
+          <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+            {assignInfo.hasSensibleCandidate ? (
+              <button
+                onClick={onAssignClick}
+                style={{
+                  background: "rgb(var(--st-good-solid))", border: "none", color: "white",
+                  borderRadius: 5, padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                Assign
+              </button>
+            ) : (
+              <Link
+                to={`/wic-coverage?location=${encodeURIComponent(location.id)}`}
+                style={{ fontSize: 11, fontWeight: 600, color: "rgb(var(--text-secondary))", textDecoration: "underline" }}
+              >
+                Fix assignment
+              </Link>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ padding: "4px 0 6px" }}>
