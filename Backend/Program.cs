@@ -1,4 +1,4 @@
-using GSDDashboard.API.Data;
+﻿using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.ALCalendar;
 using GSDDashboard.API.Modules.Overview;
@@ -82,6 +82,11 @@ builder.Services.AddScoped<WicConflictDetector>();
 builder.Services.AddScoped<DemoDataAdminService>();
 builder.Services.AddScoped<HrExportService>();
 builder.Services.AddScoped<AuthService>();
+// Supervisor authentication (password + TOTP) is delegated to the ShiftKiosk
+// account store. ISupervisorAuthProvider is the single seam for a later move to
+// Entra ID, Kerberos or client certificates - swap the implementation here and
+// no authorization code changes.
+builder.Services.AddHttpClient<ISupervisorAuthProvider, ShiftKioskSupervisorAuthProvider>();
 
 // KID-only cookie login. SecurePolicy.SameAsRequest: the session cookie is Secure
 // over the https devtunnel URL and plain on http://localhost:5000, so login works
