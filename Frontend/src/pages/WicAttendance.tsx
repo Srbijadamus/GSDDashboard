@@ -761,14 +761,11 @@ export default function WicAttendance() {
 
   const { data: kioskData = [], isError: kioskError } = useQuery<KioskRecord[]>({
     queryKey: ["kiosk-attendance"],
-    queryFn: (): Promise<KioskRecord[]> => {
-      const url = import.meta.env.VITE_KIOSK_API_URL
-      if (!url) throw new Error("VITE_KIOSK_API_URL not configured")
-      return fetch(`${url}/api/attendance`).then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-    },
+    // Goes through the Pulse backend, not straight to the kiosk server: the
+    // kiosk strips employee_id for unauthenticated callers and this page keys
+    // its maps on it (lines 811, 827, 840, 1312).
+    // See Backend/Services/KioskProxyService.cs.
+    queryFn: (): Promise<KioskRecord[]> => apiFetch<KioskRecord[]>("/api/kiosk/attendance"),
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
     refetchOnMount: 'always',

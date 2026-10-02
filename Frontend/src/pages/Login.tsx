@@ -12,6 +12,14 @@ export default function Login() {
   const from = (location.state as { from?: string } | null)?.from
 
   const [kid, setKid] = useState('')
+  // Supervisor credentials. Auth:SupervisorMode=enforce refuses the KID-only
+  // body, and before this existed there was no way to supply a password or an
+  // authenticator code from the UI at all - flipping the flag would have locked
+  // every user out (independent review, finding 6).
+  const [useCreds, setUseCreds] = useState(false)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [totp, setTotp] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -21,7 +29,11 @@ export default function Login() {
     setBusy(true)
     setError(null)
     try {
-      await login(kid)
+      if (useCreds) {
+        await login('', { username: username.trim(), password, totp: totp.trim() || undefined })
+      } else {
+        await login(kid)
+      }
       navigate(from && from !== '/login' ? from : '/', { replace: true })
     } catch (err) {
       // Neutral by design — the server never reveals whether a KID exists.
@@ -48,6 +60,48 @@ export default function Login() {
         <p className="text-sm text-ink-muted mb-6">{t('auth.subtitle')}</p>
 
         <form onSubmit={onSubmit} className="space-y-4">
+          {useCreds ? (
+            <>
+              <div>
+                <label htmlFor="username" className="block text-xs font-medium text-ink-muted mb-1.5">
+                  Username
+                </label>
+                <input
+                  id="username" type="text" autoComplete="username" autoFocus
+                  value={username} onChange={e => setUsername(e.target.value)}
+                  className="w-full h-9 rounded-md border border-line-default bg-page px-3 text-sm text-ink
+                             focus:outline-none focus:border-line-strong"
+                  placeholder="e.g. t.rossberg"
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="block text-xs font-medium text-ink-muted mb-1.5">
+                  Password
+                </label>
+                <input
+                  id="password" type="password" autoComplete="current-password"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  className="w-full h-9 rounded-md border border-line-default bg-page px-3 text-sm text-ink
+                             focus:outline-none focus:border-line-strong"
+                />
+              </div>
+              <div>
+                <label htmlFor="totp" className="block text-xs font-medium text-ink-muted mb-1.5">
+                  Authenticator code
+                </label>
+                <input
+                  id="totp" type="text" inputMode="numeric" maxLength={6} autoComplete="one-time-code"
+                  value={totp} onChange={e => setTotp(e.target.value)}
+                  className="w-full h-9 rounded-md border border-line-default bg-page px-3 text-sm text-ink
+                             focus:outline-none focus:border-line-strong"
+                  placeholder="6 digits"
+                />
+                <p className="mt-1.5 text-2xs text-ink-soft">
+                  Team Lead, RTM and Developer only.
+                </p>
+              </div>
+            </>
+          ) : (
           <div>
             <label htmlFor="kid" className="block text-xs font-medium text-ink-muted mb-1.5">
               {t('auth.kidLabel')}
@@ -66,6 +120,15 @@ export default function Login() {
             {/* Helper text per decision: the employee number also works. */}
             <p className="mt-1.5 text-2xs text-ink-soft">{t('auth.kidHelp')}</p>
           </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => { setUseCreds(v => !v); setError(null) }}
+            className="text-2xs text-ink-soft underline underline-offset-2 hover:text-ink-muted"
+          >
+            {useCreds ? 'Sign in with KID instead' : 'Sign in with an account and authenticator code'}
+          </button>
 
           {error && (
             <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -73,7 +136,9 @@ export default function Login() {
 
           <button
             type="submit"
-            disabled={busy || kid.trim().length === 0}
+            disabled={busy || (useCreds
+              ? username.trim().length === 0 || password.length === 0
+              : kid.trim().length === 0)}
             className="w-full h-9 rounded-md bg-accent text-white text-sm font-medium
                        hover:opacity-90 disabled:opacity-50 transition-opacity"
           >

@@ -50,7 +50,6 @@ function deriveStatus(
   return "No Check-in"
 }
 
-const KIOSK_URL = import.meta.env.VITE_KIOSK_API_URL as string | undefined
 const COLS = 7
 
 export default function Attendance() {
@@ -75,11 +74,12 @@ export default function Attendance() {
   const { data: kioskRecords = [] } = useQuery<KioskRecord[]>({
     queryKey: ["attendance-kiosk"],
     queryFn: async () => {
-      if (!KIOSK_URL) return []
+      // Goes through the Pulse backend, not straight to the kiosk server. The
+      // kiosk strips employee_id for unauthenticated callers (it is a Pulse
+      // sign-in under AuthService rule (c)), and this map is keyed on it.
+      // See Backend/Services/KioskProxyService.cs.
       try {
-        const res = await fetch(`${KIOSK_URL}/api/attendance`)
-        if (!res.ok) return []
-        return (await res.json()) as KioskRecord[]
+        return await apiFetch<KioskRecord[]>("/api/kiosk/attendance")
       } catch {
         return []
       }

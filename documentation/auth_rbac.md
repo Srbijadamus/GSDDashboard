@@ -170,6 +170,15 @@ before auth existed.
 - The kiosk integration is unaffected: `WicAttendance.tsx` calls the ShiftKiosk
   FastAPI server (port 8000) directly from the browser — no machine-to-machine
   traffic hits this backend, so no service-token exemption was needed.
+  **Scope warning (added 2026-10-02):** that sentence is correct about *this* backend, and
+  has been misread as "the kiosk is out of scope for authentication work". It is not. The
+  ShiftKiosk server on port 8000 has its own, far weaker authentication — one shared key,
+  client-supplied identity, and several endpoints with no authentication at all. None of
+  the roles on this page apply there. See
+  [KIOSK_AUTH_IDENTITY_ASIS.md](KIOSK_AUTH_IDENTITY_ASIS.md) and
+  [KIOSK_ENDPOINT_ACCESS_MATRIX.md](KIOSK_ENDPOINT_ACCESS_MATRIX.md). Traffic does also
+  flow the other way: kiosk `/api/today-holiday` server-side fetches
+  `localhost:5000/api/publicholidays` (`ShiftKiosk/server/server.py:1325-1329`).
 - TEAM_LEAD/RTM are unrestricted on functional endpoints by design; only
   `/api/admin/*` is DEV-only.
 - `/swagger` is served outside `/api`, so the RBAC middleware cannot see it. It is
@@ -189,3 +198,97 @@ before auth existed.
   usages are established in code (`AppRoles.Rtm`, `RtmEntries`) and are not being
   renamed — context decides which meaning applies.
 
+
+---
+
+# UPDATE 2026-10-02 — this page was stale, and the model has changed
+
+## Correction: the TEAM_LEAD rows are no longer placeholders
+
+The table above describes the six `TEAM_LEAD` rows as placeholders with
+`Kid = ''` and `IsActive = 0` that "can never authenticate". **That is no longer
+true.** Read from the live `AppUserRoles` on 2026-10-02 (read-only): there are
+**9 active rows, all with real KIDs**.
+
+| Kid | Role | DisplayName |
+|---|---|---|
+| S69307 | DEV | Stojnic Nebojsa |
+| S60028 | RTM | Silvija Angelova |
+| Y6525 | RTM | Yiting Qiang |
+| T31561 | TEAM_LEAD | Tobias Rossberg |
+| M73784 | TEAM_LEAD | Delia Panaitescu |
+| O7164 | TEAM_LEAD | Oliver Schleusen |
+| K33261 | TEAM_LEAD | Karlo Coric |
+| I15078 | TEAM_LEAD | Ion Ciuceanu |
+| J51904 | TEAM_LEAD | Jaroslaw Brzeszkiewicz |
+
+This is why `tools/create_supervisors.ps1` creates **nine** accounts, not three.
+
+## The KID-only sign-in was a credential chain, and it is being closed
+
+`ResolveLoginAsync` rule (b) accepts a KID and rule (c) accepts a bare
+`EmployeeId` (`Backend/Services/AuthService.cs:63-86`), with **no password and no
+second factor** — the code's own comment at `AuthModule.cs:30-31` says so.
+
+The ShiftKiosk server published every agent's `employee_id` on `/api/attendance`,
+which required **no credential at all**. Read from the test copy: of 123 active
+agents, **122 carry an employee_id and 115 a primary_kid** — all reachable
+anonymously. So anyone who could reach the kiosk server could sign in to Pulse as
+any agent.
+
+Bounded, and stated precisely: a cross-database join of the kiosk `agents` table
+against `AppUserRoles` returns **zero rows**, so the exposure granted **AGENT
+level only**, never DEV, RTM or TEAM_LEAD.
+
+Two independent fixes, both required:
+
+1. The kiosk server strips `employee_id`, KIDs and e-mail addresses for
+   unauthenticated callers (flag `anon_identifiers`). The Pulse frontend now
+   reaches that data through an authenticated server-side proxy,
+   `Backend/Services/KioskProxyService.cs` → `GET /api/kiosk/attendance`.
+2. `Auth:SupervisorMode` governs the KID path itself.
+
+`AuthService.cs` is deliberately **unchanged**, so `SupervisorMode=off` restores
+today's behaviour exactly.
+
+## The new sign-in model
+
+| Setting | Meaning |
+|---|---|
+| `Auth:SupervisorMode = off` | KID-only sign-in, exactly as before |
+| `= shadow` **(default)** | KID-only still works; every use is logged as a would-deny so you can see who would be locked out |
+| `= enforce` | username + password + TOTP only; KID-only refused |
+
+Accounts live in the **ShiftKiosk** database (`sec_accounts`) and are created only
+by `tools/admin_cli.py`, never over HTTP. Pulse does not re-implement credential
+checking: it calls `POST /api/auth/verify` on the kiosk server through
+`ISupervisorAuthProvider` and then issues its existing `gsd_auth` cookie. One
+implementation of PBKDF2 + TOTP + lockout, not two.
+
+`ISupervisorAuthProvider` is the single seam for a later move to Entra ID,
+Kerberos or client certificates — swap the implementation, change no
+authorization code.
+
+Only **TEAM_LEAD, RTM and DEV** may hold a Pulse session at `enforce`. Any other
+role is refused (`AuthModule.cs`).
+
+**Consequence to accept deliberately:** at `enforce`, agents lose the Pulse `/my`
+self-service page, because they have no account and never authenticate.
+
+## Relationship to `Auth:EnforceAuthorization`
+
+Still `false` in both `appsettings.json` files, so `RbacMiddleware` is a no-op and
+Pulse currently blocks nothing regardless of who signed in. **Close the identifier
+leak (step 8 of the runbook) before switching it on**, or it gives false assurance:
+an anonymous reader of the kiosk server could obtain a valid AGENT credential.
+
+## What is NOT implemented
+
+**Team-Lead data scoping.** `sec_accounts.team_leader` is populated and maps to
+`agents.team_leader`, but no read endpoint filters on it yet. A TEAM_LEAD who
+signs in sees the same data an RTM sees. Implementing it means adding
+`WHERE team_leader = @sessionTeamLead` to roughly fifteen query functions. Stated
+plainly rather than implied.
+
+See [LIVE_DEPLOY_RUNBOOK.md](LIVE_DEPLOY_RUNBOOK.md) and
+[KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).

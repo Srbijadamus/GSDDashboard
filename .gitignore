@@ -26,3 +26,4 @@ temp_*.png
 tmp_*.ps1
 write_*.py
 count_lines.py
+Backend/wwwroot/

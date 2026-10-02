@@ -87,6 +87,9 @@ builder.Services.AddScoped<AuthService>();
 // Entra ID, Kerberos or client certificates - swap the implementation here and
 // no authorization code changes.
 builder.Services.AddHttpClient<ISupervisorAuthProvider, ShiftKioskSupervisorAuthProvider>();
+// Server-side proxy so the BROWSER never calls the kiosk server directly. See
+// Services/KioskProxyService.cs for why (employee_id is a Pulse credential).
+builder.Services.AddHttpClient<IKioskProxy, KioskProxy>();
 
 // KID-only cookie login. SecurePolicy.SameAsRequest: the session cookie is Secure
 // over the https devtunnel URL and plain on http://localhost:5000, so login works
@@ -572,6 +575,17 @@ var staticFileOptions = new StaticFileOptions
 app.UseStaticFiles(staticFileOptions);
 
 app.MapAuthEndpoints();
+
+// Kiosk attendance, proxied. Replaces the anonymous browser -> kiosk call in
+// Attendance.tsx and WicAttendance.tsx. Subject to the same RbacMiddleware as
+// every other /api route, so it is never more open than the rest of Pulse.
+app.MapGet("/api/kiosk/attendance", async (string? date, string? tl,
+                                           IKioskProxy proxy, HttpContext ctx,
+                                           CancellationToken ct) =>
+{
+    var (status, body) = await proxy.GetAttendanceAsync(date, tl, ct);
+    return Results.Content(body, "application/json", statusCode: status);
+}).WithTags("Kiosk");
 app.MapDashboardEndpoints();
 app.MapShiftEndpoints();
 app.MapWicEndpoints();
