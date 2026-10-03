@@ -92,7 +92,8 @@ and never echoes submitted content.
 
 ## Enforcement (RbacMiddleware) — gated by `Auth:EnforceAuthorization`
 
-- `false` (current) → middleware is a no-op: login works, nothing is blocked.
+- `false` (current) → this middleware is a no-op; independent proxy, roster and
+  Swagger gates still apply. The secure-copy proxy fix is not yet deployed.
 - `true` → for every `/api/*` request:
   - anonymous allow-list: `/api/auth/login`, `/api/debug/client-error` (both rate-limited);
   - unauthenticated → 401 `{ "error": "Authentication required" }`;
@@ -120,7 +121,12 @@ The frontend AGENT view (`/my`) uses exactly these endpoints. An AGENT cannot re
 another agent's row by changing an id in the URL or query string — verified by
 `PS1_AuthSmokeTest.ps1`.
 
-## Rollout (lockout protection — this order is a hard requirement)
+## General RBAC rollout (historical checks; separate from kiosk profiles)
+
+The current remaining kiosk/Pulse order is in
+[LIVE_DEPLOY_RUNBOOK.md](LIVE_DEPLOY_RUNBOOK.md): Pulse proxy build/service token,
+supervisor accounts/recovery, then dan2/dan3. The checks below describe the older
+general-RBAC rollout, not authorization to run live operations now.
 
 1. **(done)** `AppUserRoles` created + seeded, verified by real query
    (`PS1_Seed_AppUserRoles.ps1`).
@@ -154,8 +160,10 @@ ELSE
 ```
 
 If enforcement itself is the problem, set `"Auth": { "EnforceAuthorization": false }`
-in `bin\Release\net8.0\appsettings.json` and restart — the app behaves exactly as
-before auth existed.
+in `bin\Release\net8.0\appsettings.json` and restart in an authorized window.
+This disables general RBAC only, not independent proxy/roster/Swagger gates.
+The historical KID recovery SQL above is not sufficient to bypass
+`SupervisorMode=enforce`; use the supervisor/break-glass recovery procedure.
 
 ## Scripts
 
@@ -167,14 +175,12 @@ before auth existed.
 
 ## Notes / known limitations
 
-- The kiosk integration is unaffected: `WicAttendance.tsx` calls the ShiftKiosk
-  FastAPI server (port 8000) directly from the browser — no machine-to-machine
-  traffic hits this backend, so no service-token exemption was needed.
-  **Scope warning (added 2026-10-02):** that sentence is correct about *this* backend, and
-  has been misread as "the kiosk is out of scope for authentication work". It is not. The
-  ShiftKiosk server on port 8000 has its own, far weaker authentication — one shared key,
-  client-supplied identity, and several endpoints with no authentication at all. None of
-  the roles on this page apply there. See
+- The old deployed frontend calls ShiftKiosk attendance directly. The prepared,
+  not-yet-deployed frontend instead calls Pulse's authenticated attendance proxy,
+  which uses a service device token. Deploy that build/config before dan2.
+  Kiosk access is a separate surface: dan1 closes session-token status writes,
+  not anonymous session-token history/audit/export reads (open until dan3).
+  The old as-is inventory is historical, not today's deployment state. See
   [KIOSK_AUTH_IDENTITY_ASIS.md](KIOSK_AUTH_IDENTITY_ASIS.md) and
   [KIOSK_ENDPOINT_ACCESS_MATRIX.md](KIOSK_ENDPOINT_ACCESS_MATRIX.md). Traffic does also
   flow the other way: kiosk `/api/today-holiday` server-side fetches
@@ -277,18 +283,53 @@ self-service page, because they have no account and never authenticate.
 
 ## Relationship to `Auth:EnforceAuthorization`
 
-Still `false` in both `appsettings.json` files, so `RbacMiddleware` is a no-op and
-Pulse currently blocks nothing regardless of who signed in. **Close the identifier
+Still `false` in both `appsettings.json` files, so the general `RbacMiddleware`
+is a no-op. `GET /api/kiosk/attendance` has an independent, always-on gate in
+`Backend/Modules/Auth/KioskEndpoints.cs`: anonymous callers get JSON **401**,
+and authenticated callers without DEV, RTM or TEAM_LEAD get JSON **403**.
+Only these three roles may receive the full kiosk feed, even with the flag off.
+This gate does not change `SupervisorMode` or the general RBAC rollout.
+**Close the identifier
 leak (step 8 of the runbook) before switching it on**, or it gives false assurance:
 an anonymous reader of the kiosk server could obtain a valid AGENT credential.
 
+Decision (2026-10-03): finish the pending `Program.cs` authentication change and
+extract the production endpoint mapper so it can be tested without running
+startup migrations. Preserve the existing deployment-note/runbook edits.
+No live deployment, restart, SQL, or kiosk profile change is part of this fix.
+
+One focused HTTP regression test uses real `gsd_auth` cookies, the production
+endpoint mapper and `RbacMiddleware` on **127.0.0.1:5056**, with an in-memory
+kiosk stub and ephemeral cookie keys. It verifies anonymous 401 (no proxy call),
+all three supervisor roles 200 with unchanged JSON and query forwarding, and
+AGENT/missing/unknown roles 403, with the RBAC flag both false and true.
+It does not execute `Program.cs`, connect to any database or contact a kiosk.
+If port 5056 is occupied, the test fails rather than replacing an existing server.
+
+```powershell
+dotnet test C:\GSDDashboard_secure\Backend.Tests\GSDDashboard.Tests.csproj --no-restore --filter FullyQualifiedName~KioskProxyAccessTests --verbosity minimal
+```
+
+Verified on 2026-10-03: **1 passed, 0 failed, 0 skipped**. Backend and test
+assemblies built successfully in the secure copy; no full-suite run or deployment.
+
 ## What is NOT implemented
 
-**Team-Lead data scoping.** `sec_accounts.team_leader` is populated and maps to
-`agents.team_leader`, but no read endpoint filters on it yet. A TEAM_LEAD who
-signs in sees the same data an RTM sees. Implementing it means adding
-`WHERE team_leader = @sessionTeamLead` to roughly fifteen query functions. Stated
-plainly rather than implied.
+**Pulse-wide Team-Lead data scoping is not established by the proxy role gate.**
+Kiosk supervisor Team-Lead scoping is implemented; do not conflate that with
+Pulse-wide filtering or claim the role gate filters attendance by team.
+
+## Recorded live state - 2026-10-03
+
+Operator-supplied facts, not rechecked by this documentation update: live kiosk
+is dan1 (dan0/dan1 and migrations 001/002 applied); legacy kiosks still work.
+Anonymous session tokens still read history/audit-log/exports until dan3.
+The Pulse proxy gate described above is in the secure copy and **not deployed**.
+Required remaining order: Pulse build/proxy/service token, supervisor accounts
+and recovery, then dan2/dan3. Backups: `C:\SQLBackup\` for databases and
+`C:\ShiftKiosk_backup_20261002_221207` for code. Client evidence, installation
+defects and untested BAT additions are recorded in
+`C:\ShiftKiosk_secure\documentation\KIOSK_NG_ROLLOUT.md`.
 
 See [LIVE_DEPLOY_RUNBOOK.md](LIVE_DEPLOY_RUNBOOK.md) and
 [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).

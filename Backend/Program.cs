@@ -576,16 +576,7 @@ app.UseStaticFiles(staticFileOptions);
 
 app.MapAuthEndpoints();
 
-// Kiosk attendance, proxied. Replaces the anonymous browser -> kiosk call in
-// Attendance.tsx and WicAttendance.tsx. Subject to the same RbacMiddleware as
-// every other /api route, so it is never more open than the rest of Pulse.
-app.MapGet("/api/kiosk/attendance", async (string? date, string? tl,
-                                           IKioskProxy proxy, HttpContext ctx,
-                                           CancellationToken ct) =>
-{
-    var (status, body) = await proxy.GetAttendanceAsync(date, tl, ct);
-    return Results.Content(body, "application/json", statusCode: status);
-}).WithTags("Kiosk");
+app.MapKioskEndpoints();
 app.MapDashboardEndpoints();
 app.MapShiftEndpoints();
 app.MapWicEndpoints();
@@ -687,7 +678,6 @@ using (var vacScope = app.Services.CreateScope())
 }
 
 app.Run();
-
 
 
 

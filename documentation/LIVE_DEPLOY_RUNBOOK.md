@@ -1,354 +1,188 @@
 # Live deploy runbook
 
-Follow top to bottom. Every step has: the exact command, the expected output, the
-**stop criterion**, and the rollback. If a stop criterion fires, roll back that
-step and do not continue.
+**State recorded on 2026-10-03, supplied by the operator, not rechecked here.**
+This is an operator runbook for a later authorized maintenance window.
+**Do not execute live commands during the documentation/package task.**
+No deployment, restart, enrollment, SQL or profile change was performed by that
+task. Engineering work stays in the secure copies and test databases/ports.
 
-**Nothing in this branch has been deployed or run against a live system.** All
-verification was against `ShiftKioskTest`, `GSDDashboardTest` and
-`GSDDashboardCopyTest` on test ports.
+## Completed baseline - do not replay
 
-Branch: `security/kiosk-hardening` in `C:\ShiftKiosk_secure` and `C:\GSDDashboard_secure`.
+Live ShiftKiosk is **dan1**, after dan0 then dan1 via `tools\set_profile.ps1`.
+Migrations **001 and 002** are applied. Config backups:
+`C:\ShiftKiosk\server\server_config.ini.bak-*`.
+Code backup: **`C:\ShiftKiosk_backup_20261002_221207`**.
+Database backups: **`C:\SQLBackup\`**; test database copies were made.
+The 60 old kiosks still use the allowed legacy key.
 
-Shorthand used below:
-```
-PY  = C:\Users\S69307\AppData\Local\Programs\Python\Python312-32\python.exe
-SK  = C:\ShiftKiosk_secure
-CFG = C:\ShiftKiosk\server\server_config.ini
-KEY = the current legacy kiosk api_key (read it out of CFG, do not paste it anywhere)
-USR = any real windows_username from the agents table, e.g. one of your own agents
-```
+dan1 blocks session-token access to the six kiosk endpoints, including the
+forged status-write attack, disables docs, and rejects the master key in a query.
+**Anonymous session tokens still read history/audit-log/exports until dan3.**
+Do not mistake legacy-key 403 responses for closure of that exposure.
+dan2 and dan3 are pending.
 
----
+Pulse proxy protection is complete only in `C:\GSDDashboard_secure`:
+`KioskEndpoints.cs`, its `Program.cs` registration, `KioskProxyAccessTests.cs`
+and `auth_rbac.md`. It is **NOT deployed**. The one isolated HTTP test passed:
+anonymous 401, DEV/RTM/TEAM_LEAD 200, other/missing roles 403, RBAC off and on.
+This is not a live integration/deployment result.
 
-## Step 0 — Backups (you said these exist; here is how to confirm)
+## Operator variables and invocation rules
 
-You have already taken the backups. Confirm they are real and restorable:
-
-```powershell
-Get-ChildItem C:\SQLBackup\*.bak | Sort-Object LastWriteTime -Descending |
-    Select-Object Name, Length, LastWriteTime -First 5
-```
-
-**Expected:** a `.bak` for **both** `ShiftKioskDB` and `GSDDashboard`, dated tonight,
-each more than a few MB.
-
-Then verify each one is restorable (this reads the file, not the database):
-
-```powershell
-sqlcmd -S .\SQLEXPRESS -Q "RESTORE VERIFYONLY FROM DISK = N'C:\SQLBackup\<file>.bak' WITH CHECKSUM"
-```
-
-**Expected:** `The backup set on file 1 is valid.`
-**STOP IF:** the file is missing, is from an earlier day, or `VERIFYONLY` fails.
-A backup you have not verified is not a backup.
-
-**Rollback:** n/a — nothing has changed yet.
-
----
-
-## Step 1 — Preflight the scripts
-
-```powershell
-cd C:\ShiftKiosk_secure
-& $PY tools\preflight_guard.py --all
+```text
+SK   = C:\ShiftKiosk_secure
+PULSE= C:\GSDDashboard_secure
+PY   = C:\Users\S69307\AppData\Local\Programs\Python\Python312-32\python.exe
+CFG  = C:\ShiftKiosk\server\server_config.ini
+BAK  = C:\SQLBackup\
+CODE = C:\ShiftKiosk_backup_20261002_221207
 ```
 
-**Expected:** `All clear: no live-database target found.` and one OWNER-ONLY line
-for `backup_live_db.sql`.
-**STOP IF:** any line says `FAIL`. This guard exists because
-`Backend\schema.sql` line 15 is `USE GSDDashboard;` — it targets production
-regardless of `sqlcmd -d`. Never run that file.
+Use **pwsh -NoProfile -File with absolute script paths** for `set_profile.ps1`;
+Windows PowerShell `-File` did not work operationally. After a server restart
+wait about **20 s** before `verify_live`, even if the profile tool returns sooner.
+Avoid pasting multiline if/else fragments into the console; use complete
+blocks without `else`. Do not paste keys into logs or documents.
 
-**How to confirm the guard is really there:** `& $PY tools\preflight_guard.py C:\GSDDashboard\Backend\schema.sql`
-must print `BLOCKED`.
+The profile examples below are **future operator actions**, not commands to run
+as part of this task.
 
----
+## 1. Deploy Pulse first, with the service credential
 
-## Step 2 — Baseline, before anything changes
+Prepare the frontend/backend build containing:
+the frontend calls to Pulse `/api/kiosk/attendance`,
+`Services\KioskProxyService.cs`, the always-on gate in
+`Modules\Auth\KioskEndpoints.cs`, and supervisor login fields.
+Use the existing Pulse build/deploy pipeline in an authorized window, not a new
+ad-hoc pipeline. Frontend assets must reach `Backend\wwwroot`; later deployment
+acceptance must use the tunnel, not only a Vite development server.
 
-```powershell
-& $PY tools\verify_live.py --base http://localhost:8000 --key "<KEY>" --username <USR>
-```
-
-**Expected:** the six kiosk calls `PASS`. The "must not reach" and "docs" blocks
-will FAIL at this point — that is correct, nothing is enforced yet.
-**STOP IF:** any of the six fails *now*. Then the problem predates this work.
-
-Keep this output. It is your before-picture.
-
-**Rollback:** n/a — read-only.
-
----
-
-## Step 3 — Apply the migration
-
-```powershell
-sqlcmd -S .\SQLEXPRESS -d ShiftKioskDB -i C:\ShiftKiosk_secure\sql\001_security_additive.sql -b
-sqlcmd -S .\SQLEXPRESS -d ShiftKioskDB -i C:\ShiftKiosk_secure\sql\002_seed_user_hosts.sql -b
-```
-
-**Expected:** a `+ ... added` / `+ ... created` line per object, then
-`001_security_additive.sql complete.`; then a `seeded_user_host_pairs` count
-(62 on the test copy).
-
-**Confirm it is there:**
-```powershell
-sqlcmd -S .\SQLEXPRESS -d ShiftKioskDB -Q "SELECT COUNT(*) AS sec_tables FROM sys.tables WHERE name LIKE 'sec[_]%'"
-```
-**Expected:** `9`.
-
-**STOP IF:** fewer than 9, or any statement errored.
-**Rollback:** `sqlcmd -S .\SQLEXPRESS -d ShiftKioskDB -i C:\ShiftKiosk_secure\sql\001_security_additive_rollback.sql -b`
-— but see the ordering warning in Step 5.
-
-**Run step 2 again now.** The migration alone must change nothing for a kiosk.
-
----
-
-## Step 4 — Copy the code, flags OFF
-
-Copy from `C:\ShiftKiosk_secure\server\` to `C:\ShiftKiosk\server\`:
-
-- `security\` (the whole folder)
-- `server.py`
-
-Then add the `dan0` profile to `CFG` and restart:
-
-```powershell
-cd C:\ShiftKiosk_secure
-powershell -ExecutionPolicy Bypass -File tools\set_profile.ps1 -Profile dan0 -Config "<CFG>" -WhatIf
-powershell -ExecutionPolicy Bypass -File tools\set_profile.ps1 -Profile dan0 -Config "<CFG>" -Restart
-```
-
-**Expected:** `Backup written: server_config.ini.bak-<stamp>`, `Profile dan0 applied.`,
-`Restart requested.`
-
-**Confirm it is there:**
-```powershell
-Select-String -Path "<CFG>" -Pattern '^\[Security\]' -Context 0,11
-Get-Content C:\ShiftKiosk\server\server.log -Tail 5
-```
-**Expected in the log:** `schema probe: status_log extra columns=True, manual_actions actor columns=True`
-and `security layer active | flags: ... legacy_scope=off ...`
-
-**STOP IF:** the log shows `extra columns=False` — that means step 3 did not
-take and you are about to run the new code against the old schema. (The code
-handles it: the INSERT adapts and `/api/status` keeps working. But fix the cause
-before going on.)
-
-**Then run step 2 again.** All six must still PASS.
-
-**Rollback:** `tools\set_profile.ps1 -Rollback -Config "<CFG>" -Restart`, and
-restore the previous `server.py` / delete `security\`.
-
-> **Ordering rule, do not break it:** code may run against the old schema (it
-> adapts), but the rollback script must NOT run while the new code is live
-> without reverting the code first. Revert code, then roll back SQL.
-
----
-
-## Step 5 — Watch dan0 for a day
-
-```powershell
-cd C:\ShiftKiosk_secure
-& $PY tools\admin_cli.py --config "<CFG>" --i-mean-production legacy-report
-```
-
-**Expected:** a `legacy_key` row per kiosk hostname, with `client_version 2.1.1`
-and a recent `last_seen`. **This is the kiosk inventory that did not exist before.**
-
-**Look at what the next steps would block, before they block it:**
-```sql
-SELECT TOP 50 ts, credential_type, source_ip, hostname, path, rule_id, reason
-FROM sec_observation_log WHERE decision = 'would_block' ORDER BY id DESC;
-```
-
-**STOP IF:** a `would_block` row names one of the six kiosk paths, or a hostname
-you recognise as a kiosk. Investigate before enforcing anything.
-
-**Criterion to continue:** at least 24 h of data, every hostname in the report is
-one you recognise, and no `would_block` on the six paths.
-
----
-
-## Step 6 — dan1 (docs + key-in-URL)
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\set_profile.ps1 -Profile dan1 -Config "<CFG>" -Restart
-& $PY tools\verify_live.py --base http://localhost:8000 --key "<KEY>" --username <USR>
-```
-
-**Expected:** six kiosk calls PASS; the two docs checks now PASS (404).
-**STOP IF:** any of the six fails.
-**Rollback:** `tools\set_profile.ps1 -Rollback -Config "<CFG>" -Restart`.
-
-Also open the dashboard in a browser and click through Live, Hours Report, WIC —
-nothing should have changed.
-
----
-
-## Step 7 — dan2 (scope the legacy credential)
-
-**Precondition:** step 5 clean for 24 h.
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\set_profile.ps1 -Profile dan2 -Config "<CFG>" -Restart
-& $PY tools\verify_live.py --base http://localhost:8000 --key "<KEY>" --username <USR>
-```
-
-**Expected:** six PASS; `/api/history`, `/api/audit-log`,
-`/api/agents/export/csv` now PASS (403).
-**STOP IF:** any of the six fails, or the dashboard stops working.
-
-> The dashboard is **not** affected: its session token is deliberately outside
-> this rule (`security/core.py`, the `legacy_scope` block). That was found the
-> hard way — the first version scoped session tokens too and returned 403 for all
-> ten dashboard GETs. Proven fixed by `tests/test_consumers.py --profile dan2`.
-
-**Rollback:** `-Rollback -Restart`.
-
----
-
-## Step 8 — dan3 (strip identifiers) — **Pulse must be deployed first**
-
-**HARD PRECONDITION.** The old Pulse frontend fetches the kiosk `/api/attendance`
-directly and keys its maps on `employee_id` (`Attendance.tsx:98`,
-`WicAttendance.tsx:811`). This flag removes that field. You must first deploy:
-
-1. the Pulse backend with `Services/KioskProxyService.cs` and the
-   `/api/kiosk/attendance` endpoint, and
-2. the Pulse frontend build that calls it.
-
-And configure the service credential:
-
-```powershell
-cd C:\ShiftKiosk_secure
-& $PY tools\admin_cli.py --config "<CFG>" --i-mean-production device enroll --hostname pulse-backend --out C:\temp\pulse-backend.token.json
-```
-
-Put `device_id` and `device_token` from that file into Pulse's `appsettings.json`:
+Enroll **one** service device using `admin_cli.py device enroll` with hostname
+`pulse-backend`, explicit config and explicit production approval. Store its
+temporary token file in a restricted local directory outside OneDrive.
+Configure Pulse's deployed/runtime settings, not just the source JSON:
 
 ```json
-"Kiosk": { "BaseUrl": "http://localhost:8000", "ServiceDeviceId": "...", "ServiceToken": "..." }
+"Kiosk": {
+  "BaseUrl": "http://localhost:8000",
+  "ServiceDeviceId": "<from the service enrollment>",
+  "ServiceToken": "<from the service enrollment>"
+}
 ```
 
-**Confirm it is there**, before flipping the flag:
-```powershell
-curl.exe -s "http://localhost:5000/api/kiosk/attendance" | Select-String "employee_id" | Select-Object -First 1
-```
-**Expected:** a match. **STOP IF:** empty, or the Pulse log says
-`Kiosk:ServiceToken is not configured` — the proxy refuses to call anonymously
-on purpose, because doing so would silently serve stripped data.
+Never commit or display those credentials. Delete transfer copies after secure
+configuration; retain the required service secret in its restricted runtime
+store. A laptop device token is not the Pulse service credential.
 
-Then:
+**Acceptance before any profile change:** on deployed Pulse, anonymous attendance
+proxy calls return 401; a valid supervisor session returns the full attendance
+feed including `employee_id`. Use a real signed-in browser/cookie, not the old
+anonymous `Invoke-RestMethod` example. Check Attendance and WIC Attendance over
+the tunnel. An AGENT or missing/unknown role must get 403.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\set_profile.ps1 -Profile dan3 -Config "<CFG>" -Restart
-& $PY tools\verify_live.py --base http://localhost:8000 --key "<KEY>" --username <USR>
-```
+**STOP:** missing service token, unexpected 401/403 for supervisors, missing
+identifiers, stale frontend assets or "No Check-in" for everyone. Stay at dan1.
+The isolated regression test is not a substitute for this deployment acceptance.
 
-**Expected:** six PASS. Open Pulse → Attendance and WIC Attendance: check-in times
-and names still render.
-**STOP IF:** either page shows everyone as "No Check-in" — that is the old
-frontend still being served. Roll back immediately.
+## 2. Prepare supervisors and recovery, BEFORE dan2/dan3
 
-**Rollback:** `-Rollback -Restart`.
+Create the nine supervisor accounts and break-glass with the existing
+`tools\create_supervisors.ps1`, explicit config and production approval, under a
+separately authorized operation. Skip existing accounts rather than resetting
+their authenticators. Distribute each person's password, TOTP and recovery
+codes securely; remove the one-time secrets file after handoff.
 
-While `session_auth` is still shadow, the dashboard's Agents tab shows a dash in
-the Employee-ID and Windows-user columns. Expected; they return at dan4.
+Keep `Auth:SupervisorMode` off/shadow during preparation. Prove account sign-in
+on kiosk `/login` and Pulse, including a usable DEV session. Test the documented
+escape/recovery before enforcing supervisor auth; restore intended shadow
+settings afterwards. This preparation does not authorize agents as supervisors.
 
----
+**STOP:** account/TOTP or recovery failure. Keep dan1, do not continue.
+Pulse role protection is always on even while general RBAC is off; a legacy
+AGENT session cannot use the full kiosk proxy.
 
-## Step 9 — Supervisor accounts, and **test the escape first**
+## 3. Apply dan2 only after steps 1 and 2
 
-```powershell
-cd C:\ShiftKiosk_secure\tools
-powershell -ExecutionPolicy Bypass -File create_supervisors.ps1 -Config "<CFG>" -Production
-```
+dan2 enforces `anon_identifiers`; anonymous responses lose identifiers.
+The old Pulse browser path would break, hence the hard dependency on step 1.
+`session_auth`/`supervisor_auth` are still shadow: **history/audit/export reading
+with an anonymous session token remains open at dan2**.
 
-**Expected:** `OK` for 9 accounts + `breakglass`, and
-`Secrets written to: C:\ShiftKiosk\server\SUPERVISOR_SECRETS.txt` with the ACL
-restricted to Administrators + SYSTEM.
-
-Hand out the blocks, then **delete that file**.
-
-### Test the escape BEFORE you enforce anything
-
-This is mandatory and takes two minutes:
-
-1. Edit `CFG`: `session_auth = off`, `supervisor_auth = off`. Restart the task.
-2. Open `http://localhost:8000/dashboard` — it must open with no cookie.
-3. Put them back to `shadow`. Restart.
-
-If step 2 fails, do **not** proceed to dan4. The escape hatch is the only thing
-standing between a misconfiguration and a locked-out dashboard.
-
-### Then sign in yourself
-
-```
-http://localhost:8000/login
-```
-
-**Expected:** a sign-in form; your username + password + 6-digit code gets you to
-the dashboard.
-**STOP IF:** you cannot sign in. Stay at dan3.
-
----
-
-## Step 10 — dan4 (require sign-in) — only when you are ready
-
-**Preconditions:** step 9 done, escape tested, you have signed in yourself, and
-the Pulse frontend with the username/password/TOTP fields is deployed.
+Future operator command:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\set_profile.ps1 -Profile dan4 -Config "<CFG>" -Restart
+pwsh -NoProfile -File C:\ShiftKiosk_secure\tools\set_profile.ps1 -Profile dan2 -Config C:\ShiftKiosk\server\server_config.ini -Restart
 ```
 
-And in Pulse `appsettings.json` (**both** the source and
-`bin\Release\net8.0\appsettings.json`): `"SupervisorMode": "enforce"`.
+Wait about 20 seconds, then run `verify_live.py` with the correct legacy key
+without recording it. All six kiosk operations must remain healthy.
+Check Pulse Attendance and WIC Attendance with a supervisor session.
+Identifier dashes in the kiosk dashboard's Agents tab while session auth is
+shadow are expected; they return for authenticated supervisors at dan3.
 
-**Expected:** `/dashboard` without a cookie redirects to `/login`; Pulse refuses
-KID-only sign-in; the dashboard's Agents tab shows the identifiers again.
+**STOP:** kiosk failure or broken attendance mappings. Restore the preceding
+config backup with profile rollback; do not move on to dan3.
 
-**Consequence, accept it deliberately:** agents lose the Pulse `/my` page. You
-specified three roles only.
+## 4. Apply dan3 only with proven sign-in and recovery
 
-**STOP IF:** you cannot sign in to either. **Rollback:** `-Rollback -Restart` and
-`"SupervisorMode": "off"`.
+Preconditions: Pulse build/service credential accepted, supervisors enrolled,
+account/TOTP sign-in proven, recovery tested, and the supervisor login UI
+deployed. Set Pulse `Auth:SupervisorMode=enforce` in the actual runtime config
+as well as the managed source configuration.
 
----
+Future operator command:
 
-## Step 11 — Leave the rest alone for now
+```powershell
+pwsh -NoProfile -File C:\ShiftKiosk_secure\tools\set_profile.ps1 -Profile dan3 -Config C:\ShiftKiosk\server\server_config.ini -Restart
+```
 
-`kiosk_min_data`, `device_binding` and `rate_limit` stay at `shadow`. They are the
-only flags that can touch the six kiosk endpoints. Promote them only after 14 days
-with zero `would_block` rows belonging to a kiosk hostname.
+Wait about 20 seconds before verification. `/api/session` now requires supervisor
+authentication, and `/dashboard` redirects unauthenticated users to login.
+Verify anonymous history/audit/export access is denied, including previously
+issued session tokens; verify authorized reads still work. Kiosk supervisor
+Team Leads should see only their team; this is not proof of Pulse-wide filtering.
+Pulse refuses KID-only sign-in; agents lose `/my`. Old kiosks must keep working.
 
-Note: `kiosk_min_data` is currently **declared but not implemented** — it is a
-no-op in all three modes. It is a placeholder for scoping the kiosk endpoints to
-the bound user, which needs device binding first.
+**STOP:** any kiosk failure, inability to sign in/recover or remaining anonymous
+reads. Restore the previous profile/config and Pulse SupervisorMode as required;
+keep the failure visible. Do not promote further flags.
 
----
+## 5. Leave kiosk-sensitive flags alone
 
-## Rollback summary
+`device_binding` and `rate_limit` remain shadow until 14 consecutive days with
+no would-block events belonging to known kiosks. `anomaly_detection` is
+observational. `kiosk_min_data` does not exist; neither does a dan4 stage.
+Do not rotate the legacy key while old clients remain. Retirement criterion:
+legacy inventory empty for 30 days.
 
-| What | Command |
+## Rollbacks are separate operations
+
+| Operation | Scope |
 |---|---|
-| Any flag step | `tools\set_profile.ps1 -Rollback -Config "<CFG>" -Restart` |
-| All new behaviour | profile `dan0` |
-| Pulse auth | `"SupervisorMode": "off"` in both appsettings |
-| Pulse proxy | revert the frontend build; the old one calls the kiosk directly and works while `anon_identifiers` is not `enforce` |
-| Server code | restore the previous `server.py`, delete `security\`, restart |
-| Schema | revert the code **first**, then `001_security_additive_rollback.sql` |
-| A kiosk laptop | `uninstall_kiosk_ng.bat` |
-| A device token | `admin_cli.py device revoke --device-id <id>` — the kiosk degrades to the legacy key and keeps working |
+| `pwsh -NoProfile -File C:\ShiftKiosk_secure\tools\set_profile.ps1 -Rollback -Config ... -Restart` | Restores previous config backup/flags; not code, database or Pulse |
+| Code restore | Use `C:\ShiftKiosk_backup_20261002_221207` under an approved code-restore procedure |
+| Schema rollback | Revert dependent code first; do not execute rollback SQL casually |
+| Pulse rollback | Restore known-good build/config; reverting SupervisorMode does not turn off the proxy role gate |
+| NG laptop uninstall | Removes NG tasks/client; restore any deliberately removed old task/shortcut separately |
 
-## The one command you run after every step
+Before future overwrites, take a fresh restricted code/config snapshot. Existing
+backup location is the operator-reported path above, not the old invented
+`C:\CodeBackups` snapshot. `C:\SQLBackup\` is the recorded database-backup
+location, not the SQL Server instance default directory.
 
-```powershell
-& $PY tools\verify_live.py --base http://localhost:8000 --key "<KEY>" --username <USR>
-```
+## Client rollout and operational evidence
 
-If the six kiosk calls are healthy, the 60 installed kiosks are fine. If they are
-not, roll back that step before doing anything else.
+See `C:\ShiftKiosk_secure\documentation\KIOSK_NG_ROLLOUT.md` for package building,
+Downloads/admin cmd/LAPSADMIN installation, old-client replacement, rollback
+and known bugs. The clean-laptop token cycle is proven; the newer log/shortcut
+BAT changes are not clean-machine-tested. One legacy-key POST is unexplained
+and the hotkey is untested.
+
+Never leave a token in OneDrive (including the synced Desktop).
+`device list` does not populate `last_seen`; inspect `sec_observation_log` for
+activity and credential type. Revoking a device does not retire an old client:
+legacy fallback can still work, so remove the old task separately.
+
+Do not rerun `Backend\schema.sql` against any database as part of verification:
+its embedded `USE GSDDashboard` can override a test target. No SQL or live
+verification is authorized by this file-only update.
