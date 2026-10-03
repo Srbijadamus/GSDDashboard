@@ -183,8 +183,11 @@ See `C:\ShiftKiosk_secure\documentation\KIOSK_NG_ROLLOUT.md` for package buildin
 Downloads/admin cmd/LAPSADMIN installation, old-client replacement, rollback
 and known bugs. The clean-laptop token cycle is proven; the current stdlib-only,
 protected-code/per-user-log installer changes are not clean-machine-tested.
-Explicit-offset timer handling is corrected, but the exact naive start-value
-source is not determined. One legacy-key POST is unexplained and the hotkey is
+Timer/start source is now proven: row 1906 contains 11:33:37.952512 local, the
+first ON_SHIFT of the day; row 1907 closes that segment. MIN(agent_timestamp)
+still anchors the kiosk and dashboard elapsed display after later OFF/ON cycles.
+**Namera nepoznata**; no timezone error or server-definition fix is claimed.
+Speculative offset/DST client changes were removed. One legacy-key POST is unexplained and the hotkey is
 untested. Client evidence is maintained only in that canonical client document.
 
 Never leave a token in OneDrive (including the synced Desktop).

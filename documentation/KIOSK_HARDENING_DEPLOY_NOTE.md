@@ -98,18 +98,23 @@ This is the supplied evidence range, not an assertion of four distinct row IDs.
 
 The working package was `C:\ShiftKiosk\KIOSK NOVI SA ZASTITOM\`.
 Current secure-copy client removes unused requests/vendor imports, keeps UI
-logs/queues in the agent's LocalAppData, handles explicit timezone offsets, and
+logs/queues in the agent's LocalAppData, and
 uses a protected code DACL/owner, UI Limited and a separate NG desktop shortcut.
 Builder includes the new runtime helper and PowerShell installer. These changes
 **have not been tested on a clean machine**; focused offline tests/parser passed.
-A legacy-key POST at **11:47:57 UTC**, the exact naive start timestamp source
-and the live Pulse count discrepancy remain unexplained; the hotkey is untested.
+A legacy-key POST at **11:47:57 UTC** and the live Pulse count discrepancy remain
+unexplained; the hotkey is untested.
 The canonical client evidence/defect ledger is the NG rollout document.
 
 Code investigation: `server.py:494-498` returns MIN(agent_timestamp) unchanged,
-not server_received or a UTC conversion. NG now handles Z/offsets correctly but
-does not guess UTC for naive legacy wall times. No server endpoint format was
-changed. The observed 11:33:37 source cannot be established from code alone.
+not server_received. Operator-supplied live evidence identifies row **1906**:
+S69307 ON_SHIFT at **2026-10-03 11:33:37.9525120 local**, received **09:33:35 UTC**,
+v2.1.1; row **1907** OFF at **11:36:21 local**. The server-resumed kiosk timer and
+dashboard Check-in / Im Dienst remain anchored to the first ON_SHIFT after OFF/ON
+cycles. This is **not a timezone defect**; intention of the shift definition is
+unknown (**namera nepoznata**). Server/old-client/API behavior is unchanged.
+The speculative offset/DST timer change and test were removed. Runtime helper
+remains only for per-user files/queue migration. See the canonical NG ledger.
 
 Pulse global CHECKED IN includes ACTIVE/DONE regardless of virtual location;
 0 versus kiosk ACTIVE 1 is not explained by HOME_OFFICE alone for the same feed.
