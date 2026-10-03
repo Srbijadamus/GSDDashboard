@@ -12,7 +12,10 @@ Live ShiftKiosk is **dan1**, after dan0 then dan1 via `tools\set_profile.ps1`.
 Migrations **001 and 002** are applied. Config backups:
 `C:\ShiftKiosk\server\server_config.ini.bak-*`.
 Code backup: **`C:\ShiftKiosk_backup_20261002_221207`**.
-Database backups: **`C:\SQLBackup\`**; test database copies were made.
+Database backups:
+**`C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\Backup\`**;
+test database copies were made. [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md)
+is the canonical live-state record.
 The 60 old kiosks still use the allowed legacy key.
 
 dan1 blocks session-token access to the six kiosk endpoints, including the
@@ -34,7 +37,7 @@ SK   = C:\ShiftKiosk_secure
 PULSE= C:\GSDDashboard_secure
 PY   = C:\Users\S69307\AppData\Local\Programs\Python\Python312-32\python.exe
 CFG  = C:\ShiftKiosk\server\server_config.ini
-BAK  = C:\SQLBackup\
+BAK  = C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\Backup\
 CODE = C:\ShiftKiosk_backup_20261002_221207
 ```
 
@@ -83,6 +86,10 @@ the tunnel. An AGENT or missing/unknown role must get 403.
 **STOP:** missing service token, unexpected 401/403 for supervisors, missing
 identifiers, stale frontend assets or "No Check-in" for everyone. Stay at dan1.
 The isolated regression test is not a substitute for this deployment acceptance.
+The prepared proxy now reports unavailable/timeout as 503/504 and invalid/
+identifier-less feed as 502, not a successful empty list. A virtual-support
+ACTIVE agent is included in the global Pulse CHECKED IN count. The observed
+live 0-versus-1 discrepancy's cause is not established; see the NG evidence ledger.
 
 ## 2. Prepare supervisors and recovery, BEFORE dan2/dan3
 
@@ -167,16 +174,18 @@ legacy inventory empty for 30 days.
 
 Before future overwrites, take a fresh restricted code/config snapshot. Existing
 backup location is the operator-reported path above, not the old invented
-`C:\CodeBackups` snapshot. `C:\SQLBackup\` is the recorded database-backup
-location, not the SQL Server instance default directory.
+`C:\CodeBackups` snapshot. The database-backup directory is the SQL Server
+instance default path recorded above.
 
 ## Client rollout and operational evidence
 
 See `C:\ShiftKiosk_secure\documentation\KIOSK_NG_ROLLOUT.md` for package building,
 Downloads/admin cmd/LAPSADMIN installation, old-client replacement, rollback
-and known bugs. The clean-laptop token cycle is proven; the newer log/shortcut
-BAT changes are not clean-machine-tested. One legacy-key POST is unexplained
-and the hotkey is untested.
+and known bugs. The clean-laptop token cycle is proven; the current stdlib-only,
+protected-code/per-user-log installer changes are not clean-machine-tested.
+Explicit-offset timer handling is corrected, but the exact naive start-value
+source is not determined. One legacy-key POST is unexplained and the hotkey is
+untested. Client evidence is maintained only in that canonical client document.
 
 Never leave a token in OneDrive (including the synced Desktop).
 `device list` does not populate `last_seen`; inspect `sec_observation_log` for

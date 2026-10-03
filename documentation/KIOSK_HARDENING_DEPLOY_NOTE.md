@@ -1,6 +1,6 @@
 # ShiftKiosk hardening - deployment note
 
-**Current record: 2026-10-03.** Live-state and laptop results below were supplied
+**Canonical live-state record: 2026-10-03.** Live-state and laptop results below were supplied
 by the operator; this documentation update did not recheck them or access live
 servers, databases or ports. This replaces the obsolete "nothing deployed",
 day-one four-flags and dan4 instructions.
@@ -17,7 +17,7 @@ Pulse authorization details are in [auth_rbac.md](auth_rbac.md).
 | Live ShiftKiosk | **dan1**; dan0 then dan1 applied using `tools\set_profile.ps1`; previous configs are `server_config.ini.bak-*` |
 | Schema | Migrations **001 and 002 applied** |
 | Code backup | **`C:\ShiftKiosk_backup_20261002_221207`** |
-| Database backups | Created under **`C:\SQLBackup\`**; test copies also created |
+| Database backups | **`C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\Backup\`**; test copies also created |
 | Old kiosks | Approximately **60** still work with `legacy_key`; do not revoke/rotate the shared key now |
 | Pulse secure copy | Attendance proxy gate completed, **NOT deployed** |
 | New kiosk | `3.0.0-ng` proven on `DESKTOP-1302198`; see evidence below |
@@ -97,11 +97,26 @@ This is the supplied evidence range, not an assertion of four distinct row IDs.
 `iNf8-aq1u50U-KGH` is active; `AmSirLHoiQHsOsuY` and `VLOYZdA1vDIm3IIm` were revoked.
 
 The working package was `C:\ShiftKiosk\KIOSK NOVI SA ZASTITOM\`.
-The later BAT additions for writable `kiosk.log` and the public desktop shortcut
-**have not been tested on a clean machine**. A legacy-key POST at **11:47:57 UTC**
-is unexplained; the UI log was unwritable then. The exit hotkey is untested.
-UTC/local timer, vendor ACL and UI RunLevel risks, old-client removal and token
-handling are recorded in the client rollout document, not claimed fixed here.
+Current secure-copy client removes unused requests/vendor imports, keeps UI
+logs/queues in the agent's LocalAppData, handles explicit timezone offsets, and
+uses a protected code DACL/owner, UI Limited and a separate NG desktop shortcut.
+Builder includes the new runtime helper and PowerShell installer. These changes
+**have not been tested on a clean machine**; focused offline tests/parser passed.
+A legacy-key POST at **11:47:57 UTC**, the exact naive start timestamp source
+and the live Pulse count discrepancy remain unexplained; the hotkey is untested.
+The canonical client evidence/defect ledger is the NG rollout document.
+
+Code investigation: `server.py:494-498` returns MIN(agent_timestamp) unchanged,
+not server_received or a UTC conversion. NG now handles Z/offsets correctly but
+does not guess UTC for naive legacy wall times. No server endpoint format was
+changed. The observed 11:33:37 source cannot be established from code alone.
+
+Pulse global CHECKED IN includes ACTIVE/DONE regardless of virtual location;
+0 versus kiosk ACTIVE 1 is not explained by HOME_OFFICE alone for the same feed.
+The actual live cause is not determined. A confirmed prepared-proxy defect
+(network failure becoming 200 []) was fixed: outage/timeout now 503/504 and
+malformed/identifier-less feeds 502. Valid HOME_OFFICE feeds are preserved.
+One new focused handler-stub test passed; it did not contact any kiosk or database.
 
 ## Operational and rollback boundaries
 

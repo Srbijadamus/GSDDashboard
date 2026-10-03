@@ -4,6 +4,12 @@ Internal workforce management dashboard for the **GSD DE (Global Service Desk Ge
 
 **Stack:** ASP.NET Core 8 · React 19 · TypeScript · SQL Server Express · TanStack Query · Tailwind CSS · IBM Plex fonts
 
+**Kiosk documentation authority:** [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md)
+records current server/Pulse state; [LIVE_DEPLOY_RUNBOOK.md](LIVE_DEPLOY_RUNBOOK.md)
+records pending operator actions. Client installation/evidence is maintained in
+`C:\ShiftKiosk_secure\documentation\KIOSK_NG_ROLLOUT.md`. Older kiosk audits are
+historical snapshots, not alternative deployment instructions.
+
 ---
 
 ## Live Tunnel URLs

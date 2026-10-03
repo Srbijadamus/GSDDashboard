@@ -1,4 +1,5 @@
 ﻿using System.Net.Http.Headers;
+using System.Text.Json;
 
 namespace GSDDashboard.API.Services;
 
@@ -95,25 +96,35 @@ public sealed class KioskProxy : IKioskProxy
                                 (int)resp.StatusCode, url);
                 return ((int)resp.StatusCode, body);
             }
-            // A 200 whose rows have no employee_id means our device token was
-            // not accepted (revoked, or the wrong token) and we were served the
-            // anonymous payload. Say so instead of handing the pages data that
-            // will quietly match nothing.
-            if (body.Length > 2 && !body.Contains("\"employee_id\"", StringComparison.Ordinal))
+            using var document = JsonDocument.Parse(body);
+            if (document.RootElement.ValueKind != JsonValueKind.Array ||
+                document.RootElement.EnumerateArray().Any(row =>
+                    row.ValueKind != JsonValueKind.Object ||
+                    !row.TryGetProperty("employee_id", out _)))
             {
-                _log.LogError("Kiosk attendance proxy got a 200 WITHOUT employee_id - the "
-                            + "service device token was not accepted (revoked?). Check "
-                            + "admin_cli.py device list.");
+                _log.LogError("Kiosk attendance proxy returned an invalid feed or rows without employee_id");
+                return (502, "{\"error\":\"Invalid kiosk attendance response\"}");
             }
             return ((int)resp.StatusCode, body);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            // The kiosk server being down must not take a Pulse page down with
-            // it: both callers already treat an error as "no kiosk data" and
-            // render the rest of the page. Return an empty array, not a 500.
-            _log.LogError(ex, "Kiosk attendance proxy failed against {Url}", url);
-            return (200, "[]");
+            throw;
+        }
+        catch (OperationCanceledException ex)
+        {
+            _log.LogError(ex, "Kiosk attendance proxy timed out");
+            return (504, "{\"error\":\"Kiosk attendance request timed out\"}");
+        }
+        catch (HttpRequestException ex)
+        {
+            _log.LogError(ex, "Kiosk attendance proxy is unavailable");
+            return (503, "{\"error\":\"Kiosk attendance service unavailable\"}");
+        }
+        catch (JsonException ex)
+        {
+            _log.LogError(ex, "Kiosk attendance proxy returned malformed JSON");
+            return (502, "{\"error\":\"Invalid kiosk attendance response\"}");
         }
     }
 }

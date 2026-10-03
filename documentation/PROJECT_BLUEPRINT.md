@@ -289,13 +289,16 @@ VITE_KIOSK_API_URL=https://ssr7tm2l-8000.euw.devtunnels.ms
 
 A separate Python/FastAPI application running on the same Windows machine at `http://localhost:8000` (exposed externally via devtunnel `ssr7tm2l-8000`).
 
-**Purpose:** Kiosk terminals at WIC locations (Zone B) check in agents via QR code or card scan. The kiosk server records attendance and exposes it via REST.
+**Purpose:** ShiftKiosk is a Windows laptop client using the logged-on username,
+not QR/card hardware. The kiosk server records attendance and exposes REST.
 
 **Frontend integration:** `WicAttendance.tsx` calls `GET {VITE_KIOSK_API_URL}/api/attendance` directly from the browser (cross-origin call to the devtunnel URL). The request includes no auth — the devtunnel is open.
 
 **Employee matching:** Records are matched by `employee_id` field. **Never match by location name** — names in the kiosk system and in GSDDashboard may differ.
 
-**Current status:** Zone B kiosk hardware is not yet deployed. The attendance page UI is complete but actual live data is absent until the terminals are installed.
+**Current status:** Approximately 60 legacy kiosks operate. Canonical live state
+and pending Pulse proxy deployment: `KIOSK_HARDENING_DEPLOY_NOTE.md`.
+Canonical NG evidence/installation: `C:\ShiftKiosk_secure\documentation\KIOSK_NG_ROLLOUT.md`.
 
 ---
 
@@ -447,7 +450,10 @@ There is no FK. SubstitutionService joins `WicAgentAssignments.EmployeeName` to 
 
 ## Zone B Kiosk Terminals
 
-The `WicAttendance` page has the full UI: live presence dots (pulse-live animation), manual check-in modal, `AssignAgentModal`, and coverage badge display. However, the physical kiosk terminals for Zone B WIC locations have not been deployed. Until they are installed and the ShiftKiosk FastAPI server receives real scan data, `GET /api/attendance` from the kiosk will return empty or test data only.
+The `WicAttendance` page has live presence, manual check-in and coverage displays.
+ShiftKiosk is already operating on laptops; do not assume an empty response means
+uninstalled hardware. Prepared Pulse proxy/error handling is not yet deployed;
+remaining live count/source investigations are in the canonical NG rollout ledger.
 
 ## Assistant Domain Handlers — All Implemented
 

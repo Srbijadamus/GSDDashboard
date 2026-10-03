@@ -1,10 +1,9 @@
 # ShiftKiosk — Gaps and Contradictions (documentation vs. code)
 
-> **STATUS 2026-10-02 — a hardening branch now exists.** This document describes the
-> system AS IT RUNS TODAY, which stays accurate until the branch is deployed. What
-> changes, in what order, with rollback per item, is in
-> [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).
-> Branch `security/kiosk-hardening` in `C:\ShiftKiosk_secure` + `C:\GSDDashboard_secure`.
+> **HISTORICAL AUDIT, not current deployment state or unresolved findings list.**
+> Some cited documentation has since been corrected; retain this as evidence.
+> Canonical current state: [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).
+> Client evidence/install: `C:\ShiftKiosk_secure\documentation\KIOSK_NG_ROLLOUT.md`.
 
 Companion to [KIOSK_AUTH_IDENTITY_ASIS.md](KIOSK_AUTH_IDENTITY_ASIS.md),
 [KIOSK_ENDPOINT_ACCESS_MATRIX.md](KIOSK_ENDPOINT_ACCESS_MATRIX.md),

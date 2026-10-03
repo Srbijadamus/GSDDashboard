@@ -151,10 +151,15 @@ Schedules and tracks agent breaks (VWIC and Voice roles) to ensure coverage duri
 **Route:** `/wic-attendance`
 **File:** `src/pages/WicAttendance.tsx`
 
-Live attendance tracking from the ShiftKiosk terminals. Shows which agents have physically checked in at WIC locations.
+Attendance from the ShiftKiosk Windows laptop client. The global CHECKED IN panel
+counts ACTIVE/DONE IDs including virtual support; per-location coverage lists
+use location matching. See the canonical NG rollout evidence ledger for the
+unexplained live 0-versus-1 observation.
 
 **Main API calls:**
-- `GET {VITE_KIOSK_API_URL}/api/attendance` — calls the **ShiftKiosk** server (FastAPI, port 8000), not the GSDDashboard backend. URL configured via `VITE_KIOSK_API_URL` environment variable.
+- `GET /api/kiosk/attendance` — prepared frontend uses the Pulse authenticated
+  backend proxy. The old deployed frontend still calls ShiftKiosk directly;
+  Pulse replacement is not deployed. State authority: `KIOSK_HARDENING_DEPLOY_NOTE.md`.
 - `GET /api/wic/cards?date=today` — for the scheduled/expected agents list
 
 **Key components:**
@@ -167,8 +172,10 @@ Live attendance tracking from the ShiftKiosk terminals. Shows which agents have 
 
 **Notable behaviour:**
 - Match between kiosk records and GSDDashboard employees is by `employee_id` field, **never** by location name.
-- Zone B kiosk terminals are not yet deployed. The UI is ready but the hardware is pending. Until kiosks are active, data will only show manual check-ins.
-- `VITE_KIOSK_API_URL` is set in `Frontend/.env`. If the devtunnel is recreated, this value must be updated.
+- Approximately 60 old laptop kiosks are operating; NG installation was proven
+  on one clean test laptop. This is not QR/card terminal hardware.
+- The prepared backend's `Kiosk:BaseUrl` and service credential select the
+  upstream; do not configure a direct browser credential.
 
 ---
 

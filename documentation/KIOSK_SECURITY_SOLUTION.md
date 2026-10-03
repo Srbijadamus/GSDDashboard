@@ -1,10 +1,9 @@
 # ShiftKiosk — Security Solution (decided proposal)
 
-> **STATUS 2026-10-02 — a hardening branch now exists.** This document describes the
-> system AS IT RUNS TODAY, which stays accurate until the branch is deployed. What
-> changes, in what order, with rollback per item, is in
-> [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).
-> Branch `security/kiosk-hardening` in `C:\ShiftKiosk_secure` + `C:\GSDDashboard_secure`.
+> **HISTORICAL PROPOSAL, not the current implementation/deployment status.**
+> "Nothing implemented" below describes the original proposal's date only.
+> Canonical current state: [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).
+> Client evidence/install: `C:\ShiftKiosk_secure\documentation\KIOSK_NG_ROLLOUT.md`.
 
 Status: **proposal. Nothing was implemented, built, run, tested or deployed.** Read-only
 source and `git log`/`git show` only. Date: 2026-10-02.

@@ -1,10 +1,9 @@
 # ShiftKiosk — Endpoint Access Matrix (AS-IS)
 
-> **STATUS 2026-10-02 — a hardening branch now exists.** This document describes the
-> system AS IT RUNS TODAY, which stays accurate until the branch is deployed. What
-> changes, in what order, with rollback per item, is in
-> [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).
-> Branch `security/kiosk-hardening` in `C:\ShiftKiosk_secure` + `C:\GSDDashboard_secure`.
+> **HISTORICAL SNAPSHOT (before dan1), not the current access matrix.**
+> Original findings below retain their original evidence/line numbers.
+> Canonical current state: [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).
+> Client evidence/install: `C:\ShiftKiosk_secure\documentation\KIOSK_NG_ROLLOUT.md`.
 
 Every route registered in `C:\ShiftKiosk\server\server.py`, verified by reading the
 decorator and the handler body — **not** read from the OpenAPI schema. The route line

@@ -1,7 +1,10 @@
 # Auth & RBAC — KID-only login and role-based access control
 
-Status: Phase 2 implemented, **enforcement flag still OFF** (see Rollout below).
-Date: 2026-09-21.
+Current deployment state is maintained in
+[KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).
+General enforcement remains OFF; the proxy fixes are secure-copy-only, not deployed.
+The legacy-login/schema description below is historical (2026-09-21);
+supervisor mode and active-role corrections are in the later sections.
 
 ## Roles (exactly four)
 
@@ -290,7 +293,7 @@ and authenticated callers without DEV, RTM or TEAM_LEAD get JSON **403**.
 Only these three roles may receive the full kiosk feed, even with the flag off.
 This gate does not change `SupervisorMode` or the general RBAC rollout.
 **Close the identifier
-leak (step 8 of the runbook) before switching it on**, or it gives false assurance:
+leak (Pulse preparation and dan2 in the current runbook) before switching it on**, or it gives false assurance:
 an anonymous reader of the kiosk server could obtain a valid AGENT credential.
 
 Decision (2026-10-03): finish the pending `Program.cs` authentication change and
@@ -326,10 +329,19 @@ is dan1 (dan0/dan1 and migrations 001/002 applied); legacy kiosks still work.
 Anonymous session tokens still read history/audit-log/exports until dan3.
 The Pulse proxy gate described above is in the secure copy and **not deployed**.
 Required remaining order: Pulse build/proxy/service token, supervisor accounts
-and recovery, then dan2/dan3. Backups: `C:\SQLBackup\` for databases and
+and recovery, then dan2/dan3. Database backups:
+`C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\Backup\`; code:
 `C:\ShiftKiosk_backup_20261002_221207` for code. Client evidence, installation
 defects and untested BAT additions are recorded in
 `C:\ShiftKiosk_secure\documentation\KIOSK_NG_ROLLOUT.md`.
 
 See [LIVE_DEPLOY_RUNBOOK.md](LIVE_DEPLOY_RUNBOOK.md) and
 [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).
+
+Prepared proxy response correction (2026-10-03): valid feeds including virtual
+support are passed through; missing identifier fields/invalid JSON return 502,
+network outage 503 and timeout 504 instead of 200 []. Request cancellation is
+propagated. `KioskProxyResponseTests` is one new focused passing test using an
+HTTP handler stub (no database or actual connection); the previously proven
+authentication test was not rerun. This does not establish the cause of the
+observed live Pulse CHECKED IN 0 versus kiosk Im Dienst 1.
