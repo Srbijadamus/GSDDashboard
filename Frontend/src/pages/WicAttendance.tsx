@@ -1075,7 +1075,11 @@ export default function WicAttendance() {
               </span>
               <span className="text-ink-soft" style={{ fontSize: 9 }}>Anmeldungsstatus</span>
             </div>
-            <div className="border-t border-line-subtle" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
+            {kioskError ? (
+              <div role="alert" className="border-t border-line-subtle text-warn-fg" style={{ padding: "8px 12px", fontSize: 11 }}>
+                {t("attendance.kiosk.offline")}
+              </div>
+            ) : <div className="border-t border-line-subtle" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
               <div
                 onClick={expectedCount > 0 ? () => setKioskDrawerFilter("expected") : undefined}
                 style={{ padding: "7px 6px", textAlign: "center", cursor: expectedCount > 0 ? "pointer" : "default" }}
@@ -1098,7 +1102,7 @@ export default function WicAttendance() {
                 <div className={`font-mono ${notYetInCount > 0 ? "text-warn-fg" : ""}`} style={{ fontSize: 17, fontWeight: 700, color: notYetInCount > 0 ? undefined : "rgb(var(--text-disabled))" }}>{notYetInCount}</div>
                 <div className="text-ink-soft" style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Not Yet In</div>
               </div>
-            </div>
+            </div>}
           </div>
         )}
 

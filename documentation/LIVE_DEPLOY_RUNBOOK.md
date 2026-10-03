@@ -30,6 +30,66 @@ and `auth_rbac.md`. It is **NOT deployed**. The one isolated HTTP test passed:
 anonymous 401, DEV/RTM/TEAM_LEAD 200, other/missing roles 403, RBAC off and on.
 This is not a live integration/deployment result.
 
+## WIC zero-count investigation - 2026-10-03 21:23
+
+No live HTTP, SQL, restart or deployment was performed for this investigation.
+The exact live failure is **not established** without the signed-in browser's
+`/api/kiosk/attendance` response and the deployed runtime settings.
+The recorded not-deployed proxy state above is a deployment prerequisite, not
+proof of which HTTP response the browser received at 21:23.
+
+`Frontend\src\pages\WicAttendance.tsx` reads Pulse `/api/kiosk/attendance`.
+Its global Checked In set includes all ACTIVE and DONE employee IDs, independent
+of roster, country and location. `Virtueller WIC-Support` is not excluded from
+that set. The per-location presence list is separate. Proxy roles gate the
+viewer (DEV/RTM/TEAM_LEAD), not individual agents in the returned feed.
+`Backend\Services\KioskProxyService.cs` reads kiosk `/api/attendance` using the
+dedicated service device token; missing configuration returns 503.
+
+Confirmed frontend defect: failed queries default to an empty feed and the
+Check-in Status panel displayed zero even with `isError=true`. The prepared
+source now replaces that panel's numbers with the existing localized offline
+warning on query failure. It does not fabricate attendance or turn a valid
+empty response into a positive count. TypeScript and Vite completed into the
+**secure** `Backend\wwwroot`; the existing npm command's final `cp` failed under
+Windows cmd. No live acceptance is claimed.
+
+The kiosk query also had a reproducible identity-join defect: one latest row
+per username, OR-joined by agent ID, could return both an old ACTIVE row and a
+new OFF row for one agent. The secure ShiftKiosk fix resolves daily events to
+agent IDs before ranking/aggregating. A single offline synthetic regression
+proves alias OFF gives exactly one DONE row, and a subsequent ON_SHIFT correctly
+reopens it. This is **not proof** that aliases caused the reported live row.
+An old checkout can legitimately remain visible after a newer ON_SHIFT; do not
+force every ACTIVE row with a checkout to DONE. Local first-check-in and the
+existing shift-summary duration semantics are unchanged.
+
+Operator actions in a separately authorized window:
+
+1. Capture the signed-in browser's Network response for `/api/kiosk/attendance`,
+   without exporting cookies, keys or tokens. 401 means no Pulse session; 403
+   means an unauthorized viewer or upstream credential refusal; 404 means
+   route/version mismatch; 503 includes missing service configuration or
+   upstream unavailability; 502/504 mean invalid feed/timeout. A 200 empty array
+   requires comparing the actual same-date kiosk feed. Record status, error
+   message and the agent's non-secret fields; do not infer the cause from zero.
+2. Promote the prepared Pulse backend/frontend commits and configure the
+   **dedicated pulse-backend** service credential as in section 1 below.
+   Before using the existing `C:\GSDDashboard\PS1_19_FinalBuildVerify.ps1`,
+   preflight its Windows-incompatible npm `cp`, obsolete `Frontend\dist`
+   assumption (Vite writes directly to `Backend\wwwroot`) and stale verification
+   URL. Use the existing pipeline after correcting those build/verification
+   assumptions; do not change the tunnel itself or start a Vite server instead.
+3. Promote the ShiftKiosk `server\server.py` attendance-query fix through the
+   normal controlled server deployment, preserving configuration, dan1, keys,
+   schemas and legacy protocol. This is server code, not a laptop hotfix.
+4. After deployment, hard-refresh the real Pulse tunnel page as DEV/RTM/TEAM_LEAD.
+   Require anonymous 401 and signed-in 200 with the employee's ACTIVE/DONE row
+   and employee_id, plus a nonzero global Checked In count without roster.
+   Check the kiosk feed has one row per agent and latest OFF yields DONE with
+   fixed duration. If ACTIVE remains, compare latest event IDs/local timestamps;
+   a newer ON_SHIFT is a reopened shift, not a stopped-clock defect.
+
 ## Operator variables and invocation rules
 
 ```text
