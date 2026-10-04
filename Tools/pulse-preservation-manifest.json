@@ -1437,6 +1437,14 @@
       "Hash": "7F4CA0CCE61BECCF39DD143861EF95F4EDA5095A29EBCC1CF5EAED1B5C3620C8"
     },
     {
+      "Path": "Frontend/src/pages/attendance/kioskAgents.test.ts",
+      "Hash": "CB6C9C8FC36B89BA04651AE064923756F3C7AFF0166DC48B73C8107FD3EC2DA5"
+    },
+    {
+      "Path": "Frontend/src/pages/attendance/kioskAgents.ts",
+      "Hash": "6D42ACDF1BE085000570C0A8E0B392FF11753A1020022E965B0923930E1D42F0"
+    },
+    {
       "Path": "Frontend/src/pages/BoList.tsx",
       "Hash": "7CC885286702F158A38B88369696ED26B61020ED177F5D050319B38CF411DBE7"
     },
@@ -1470,7 +1478,7 @@
     },
     {
       "Path": "Frontend/src/pages/ManualCheckinModal.tsx",
-      "Hash": "6B0F9523CFF3B9F9C7325A9B3D31ACFF1F3BC2BA5D74D0E636341BFAA666821F"
+      "Hash": "0CA06B3A552531317B061242A82C490F11BEEF7CE13E942411B8C392C0A57064"
     },
     {
       "Path": "Frontend/src/pages/Overview.tsx",

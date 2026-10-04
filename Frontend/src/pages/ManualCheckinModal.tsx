@@ -3,16 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Clock } from "lucide-react"
 import { apiFetch } from "../api/client"
-
-
-interface KioskAgent {
-  id: number
-  full_name: string
-  employee_id: string
-  team_leader: string | null
-  location: string | null
-  active: number
-}
+import { INVALID_KIOSK_AGENTS, isKioskAgentList, parseKioskAgents } from "./attendance/kioskAgents"
 
 interface ManualCheckinModalProps {
   isOpen: boolean
@@ -40,12 +31,15 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
     }
   }, [isOpen])
 
-  const { data: agents = [], error: agentsError } = useQuery<KioskAgent[]>({
+  const { data: agentsData, error: agentsError } = useQuery({
     queryKey: ["kiosk-agents"],
-    queryFn: () => apiFetch<KioskAgent[]>("/api/kiosk/agents"),
+    queryFn: async () => parseKioskAgents(await apiFetch<unknown>("/api/kiosk/agents")),
     staleTime: 5 * 60 * 1000,
     enabled: isOpen,
   })
+  const invalidAgents = agentsData !== undefined && !isKioskAgentList(agentsData)
+  const agents = isKioskAgentList(agentsData) ? agentsData : []
+  const agentListError = invalidAgents ? INVALID_KIOSK_AGENTS : agentsError ? String(agentsError) : null
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
@@ -63,7 +57,7 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (agentId === "") return
+    if (agentId === "" || agentListError) return
     setSubmitting(true)
     setError(null)
     setSuccess(null)
@@ -122,11 +116,11 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
             {success}
           </div>
         )}
-        {(error || agentsError) && (
-          <div className="bg-crit-bg border border-crit-bd text-crit-fg" style={{
+        {(error || agentListError) && (
+          <div role="alert" className="bg-crit-bg border border-crit-bd text-crit-fg" style={{
             borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14,
           }}>
-            {error || String(agentsError)}
+            {error || agentListError}
           </div>
         )}
 
@@ -189,7 +183,7 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
             </button>
             <button
               type="submit"
-              disabled={submitting || agentId === ""}
+              disabled={submitting || agentId === "" || Boolean(agentListError)}
               className="bg-info-solid"
               style={{
                 flex: 2, border: "none", color: "#fff",

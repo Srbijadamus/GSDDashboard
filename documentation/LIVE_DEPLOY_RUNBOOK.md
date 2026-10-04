@@ -10,6 +10,12 @@ task. Engineering work stays in the secure copies and test databases/ports.
 
 ### CURRENT candidate: live-source preservation, proxy only
 
+Manual agent-list crash hardening: the candidate validates unknown proxy JSON
+before caching it and also guards cached data before rendering. A non-array or
+malformed agent row produces a visible modal alert and blocks submit, rather
+than reaching agents.map and crashing the WIC page. Valid/empty lists retain
+their behavior. This is a secure-only fix; no live deployment or stage restart.
+
 This section supersedes earlier secure-copy replacement and supervisor-login
 instructions below. The candidate in `C:\GSDDashboard_secure` is based on the
 complete nonignored live source worktree, including its uncommitted WIC/roster
