@@ -8,6 +8,145 @@ task. Engineering work stays in the secure copies and test databases/ports.
 
 ## CURRENT: backend-only kiosk access and isolated Pulse - 2026-10-04
 
+### Data protection completed - 2026-10-04, NO Promote
+
+Explicitly authorized online full backups and read-only table baselines were
+performed; no live Pulse deployment/restart/port request, DML, schema change or
+database restore was performed. SQL BACKUP/VERIFYONLY writes backup history to
+msdb but does not replace or change the application's table data. Both backups
+used `WITH COPY_ONLY, CHECKSUM`, followed by
+`RESTORE VERIFYONLY ... WITH CHECKSUM`. Backup headers confirmed database name,
+IsCopyOnly=true and HasBackupChecksums=true. VERIFYONLY is not a substitute for
+an actual test restore/DBCC CHECKDB in a separate approved environment.
+
+Protected receipt directory:
+`C:\ProgramData\PulseDataProtection\20261004-205109`.
+Folder and every file have protected SYSTEM/Administrators-only DACLs, verified.
+SQL Server's service identity was granted access only during BACKUP/VERIFYONLY
+and removed afterward. No keys, tokens or connection strings were printed.
+
+| Database/file | Bytes | SHA-256 | VERIFYONLY |
+|---|---:|---|---|
+| GSDDashboard.bak | 89710592 | 14BE13654AA1C24CF8106BED34DA29AFF71E9D84A5C4C6A5FE8E955DD037FF16 | PASSED |
+| ShiftKioskDB.bak | 15192064 | 99DEC9591DEA06CD7A8634212F76E210F3A6E45D9570844833FE211FD9A396EC | PASSED |
+
+`backup-manifest.json` records paths/options/UTC times/hashes. Source and Release
+live Pulse appsettings both identify **GSDDashboard**, integrated SQL auth;
+no external production runtime JSON override was present. Do not copy the
+GSDDashboardCopyTest configuration into production.
+
+`Tools\Read-LiveTableBaseline.ps1` issues SELECT only: discovers all non-system
+tables from sys.tables/sys.schemas, then performs COUNT_BIG(*) and, for Pulse,
+CHECKSUM_AGG(BINARY_CHECKSUM(*)) in one SELECT per table. ShiftKiosk gets counts
+only. No SELECT INTO, NOLOCK, stored procedure or DML is used.
+Results:
+`table-baseline-20261004-205115.json` and `.csv` in the protected directory.
+Pulse: **50 tables, 285931 total rows**, checksums requested for all 50
+(5 empty tables have NULL checksum); ShiftKiosk: **14 tables, 24174 rows**.
+Counts sum table rows, not unique business entities.
+
+Repeat the same read-only check immediately before and after an approved cutover:
+
+```powershell
+& 'C:\GSDDashboard_secure\Tools\Read-LiveTableBaseline.ps1' -OutputDirectory 'C:\ProgramData\PulseDataProtection\20261004-205109'
+```
+
+Each run writes a timestamped pair; never overwrites the saved baseline.
+This is per-table default-isolation consistency, **not** a common point-in-time
+snapshot of every table/database. Applications remained live throughout.
+The 32-bit checksum is non-cryptographic: collisions, row updates, column/schema
+changes and ignored/noncomparable types can limit it. Equal count/checksum is
+useful screening, not mathematical proof of no missing or replaced records.
+An increased count can be normal user activity; a decreased count requires
+review against authorized deletion/retention and must not be dismissed as
+cutover noise. Equal count with different checksum means content changed (or
+schema/order changed), not automatically deletion. New inserts can mask deleted
+rows in totals; if suspicious, compare primary keys/rows with a restore of the
+backup to a separately approved test DB, not by overwriting production.
+
+### Promotion database boundary - IMPORTANT before approval
+
+`PS1_19_FinalBuildVerify.ps1:15-17` delegates Promote and returns before build
+or stage startup. `Tools\Invoke-PulsePromotion.ps1` itself contains no SQL
+connection, DB command, migration or restore. It snapshots files at lines 65-71,
+writes **only Kiosk** settings at line 75 and excludes `appsettings*.json` from
+replacement at lines 76-80. Live root/Release appsettings are retained; the new
+external configuration does not contain ConnectionStrings. Output at line 98
+contains only mode/snapshot, not configuration values.
+
+**This does not mean the complete cutover is database-read-only.** Removing the
+sentinel allows the watchdog to start the new application. Existing Program.cs
+startup includes table/index/schema operations, role seeds (lines 414-441),
+WicCoverageImport (383), ShiftEntries UPDATE (549-555) and vacation reconciliation
+(673-684). A later baseline difference therefore cannot automatically be
+attributed to user inserts. Review/approve these startup writes before Promote,
+or separately prepare a controlled startup-write policy; this protection task
+does not change runtime behavior. There is no unconditional guarantee that
+application startup preserves all existing rows/content just because the
+PowerShell file-copy helper has no SQL.
+
+### Proposed order - not executed
+
+1. Review stage UI acceptance and the startup-write boundary above. In the
+   separately approved cutover window, create fresh copy-only/checksum backups
+   and VERIFYONLY receipts; today's files remain an independent recovery point.
+   Use a **new** timestamp path:
+
+```powershell
+& 'C:\GSDDashboard_secure\Tools\Backup-LiveData.ps1' -OutputDirectory 'C:\ProgramData\PulseDataProtection\20261004-210000'
+```
+
+2. Run the same table-baseline script immediately before Promote; ideally arrange
+   an authorized write-quiescence window so expected concurrent user changes
+   can be separated from cutover effects. No quiescence/stop was performed here.
+3. After the operator separately approves Promote, its file snapshot must
+   complete before replacement. Retain the DB backups separately from that
+   snapshot; code rollback does not restore data. Use the documented Promote
+   command below only after approval, never during this protection task.
+4. After startup, before manual acceptance writes, repeat the baseline script
+   and compare by Database/Schema/Table. Review differences against user activity
+   and approved startup transformations; investigate missing tables/decreased
+   counts, do not automatically restore over legitimate newer data.
+5. Complete signed-in production acceptance, preserve both baselines and receipts.
+   Only later consider route-scoped kiosk attendance closure.
+
+### Database rollback - DBA only, separate destructive approval
+
+Only the designated SQL Server DBA/sysadmin, with explicit incident-owner
+approval and an agreed data-loss/recovery point, may restore production.
+Backup creation permission alone is not authorization to replace a database.
+First stop/quiesce all writers in a separately authorized window, capture current
+state and (where recovery model/log chain permits) a tail-log backup. Restoring
+these full backups alone discards all later changes; COPY_ONLY does not reset
+the normal differential base. A code rollback alone does not need a DB restore.
+
+Recheck the SHA-256, temporarily grant the SQL Server service read access to
+the protected backup folder/files, VERIFYONLY again, inspect RESTORE FILELISTONLY
+and preferably perform a restore to a different approved DB first. For a true
+same-database rollback, the DBA executes in master, not an application session.
+The following are **examples for a separately approved DBA operation, NOT
+executed** (RESTORE WITH REPLACE intentionally overwrites newer live data):
+
+```sql
+ALTER DATABASE [GSDDashboard] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+RESTORE DATABASE [GSDDashboard] FROM DISK = N'C:\ProgramData\PulseDataProtection\20261004-205109\GSDDashboard.bak' WITH REPLACE, CHECKSUM, RECOVERY;
+ALTER DATABASE [GSDDashboard] SET MULTI_USER;
+```
+
+```sql
+ALTER DATABASE [ShiftKioskDB] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+RESTORE DATABASE [ShiftKioskDB] FROM DISK = N'C:\ProgramData\PulseDataProtection\20261004-205109\ShiftKioskDB.bak' WITH REPLACE, CHECKSUM, RECOVERY;
+ALTER DATABASE [ShiftKioskDB] SET MULTI_USER;
+```
+
+Restore only the database that actually needs recovery. If paths/instance differ,
+DBA supplies WITH MOVE using inspected logical names; never guess file names.
+If a statement fails, the DBA must resolve database state before restarting
+writers (do not blindly force MULTI_USER on a failed restore). Finish with
+DBCC CHECKDB, the table baseline and application acceptance; remove temporary
+SQL-service file access. This task did not run ALTER DATABASE, full RESTORE,
+DBCC, Promote, rollback or any live service restart.
+
 This section supersedes the earlier "build cp failed"/attendance-only preparation
 notes. No live Pulse deployment, restart, tunnel or ShiftKiosk profile/key change
 was performed. One explicitly requested production **service-device enrollment**
