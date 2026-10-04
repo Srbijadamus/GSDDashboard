@@ -231,9 +231,7 @@ public class WicScheduleService
         foreach (var d in futureDutyEntries)
         {
             if (string.IsNullOrEmpty(d.AgentTask)) continue;
-            var loc = byName.Values.FirstOrDefault(l =>
-                string.Equals(l.DisplayName, d.AgentTask, StringComparison.OrdinalIgnoreCase) ||
-                (d.AgentTask.Length == 20 && l.DisplayName.StartsWith(d.AgentTask, StringComparison.OrdinalIgnoreCase)));
+            var loc = byName.Values.FirstOrDefault(l => WicLocationMatcher.MatchesAgentTask(d.AgentTask, l));
             if (loc == null) continue;
             if (covered.Contains((d.EmployeeId, d.ShiftDate, loc.LocationCode))) continue;
 

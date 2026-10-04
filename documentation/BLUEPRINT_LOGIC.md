@@ -76,15 +76,10 @@ For each location × date:
          Verified correct 2026-09-03: ForecastService loads WicOpeningHours at step 3 (line 62);
          closed days return IsAtRisk=false and are skipped — 190 at-risk on open days, 0 on closed days. ***
   c. If open:
-     dayWic = WicShiftEntries WHERE ShiftDate == date AND IsOnSite == true
-              AND WicLocationMatcher.MatchesSupportLocation(entry.SupportLocation, loc)
-     presentDouble = 0
-     for each entry in dayWic:
-       sh = shiftByEmpDate[(entry.EmployeeId, date)]  // may be null
-       isSick = sickLeaves.Any(sl => sl.EmployeeId == entry.EmployeeId
-                                   && sl.FirstDay <= date && sl.LastDay >= date)
-       contrib = AvailabilityResolver.GetWicContribution(isSick, sh)
-       presentDouble += contrib
+     presence = WicPresenceResolver.Resolve(loc, date, wicEntries, shiftByEmpDate,
+                                            candidateDutyRows, isSick)
+     presentDouble = presence.PresentDouble        // both signals, deduplicated
+     scheduledCount = presence.OnSiteCount + presence.CheckInNotRecordedCount
      effectiveCoverage = (int)Math.Floor(presentDouble)
      minReq = hours.MinRequired ?? loc.MinAgentsRequired ?? 1
      evalResult = CoverageEvaluator.Classify(false, effectiveCoverage, minReq)
@@ -96,7 +91,7 @@ This is the single canonical function for computing an agent's WIC contribution.
 
 ```
 if (isSick)                                          → return 0.0
-if (sh == null)                                      → return 1.0   (WIC-only agent, no ShiftEntry = assume on duty)
+if (sh == null)                                      → return 0.0   (unknown is not present)
 if (sh.ShiftType IN FullAbsenceTypes)                → return 0.0
 if (sh.ShiftType == "HALF_AL")                       → return 0.5
 if (sh.ShiftType == "WIC_DUTY")
@@ -107,9 +102,208 @@ else (WORKING, TRAINING, or other non-WIC type)     → return 0.0   (agent is d
 
 `FullAbsenceTypes = { "SL", "AL", "UL", "OL", "PH", "LPH", "RESIGNED" }`
 
+**Rule changed 2026-09-30:** `sh == null` returns `0.0`, not `1.0`. A missing `ShiftEntry` cannot rule out an absence that was never imported, so unknown is not counted as coverage — same rule as `RosterService.IsAvailable`.
+
 **Rule introduced 2026-09-03:** `WIC_DUTY` with `AgentTask = "GSD"` or `"Backlog"` returns `0.0`. Historical impact: 223 rows (March–June 2026, all in `AgentTask = 'BACKLOG'`), 0 current rows (July 2026 onward). Change is intentionally retroactive — those 223 rows were always miscounted as full coverage. Comparison is case-insensitive (`"BACKLOG"` and `"Backlog"` are equivalent). The check reads `ShiftEntries.AgentTask` — **not** `WicShiftEntries.Task` (which holds "WIC"/"VWIC"/null and never "GSD"/"Backlog").
 
-**Key rule:** An agent scheduled as `WORKING` (doing GSD voice/chat work) counts as `0.0` for WIC coverage — they are not covering the WIC even if they have a `WicShiftEntry` with `IsOnSite=1`. Only `WIC_DUTY` and `null` (no ShiftEntry) count as full contribution.
+**Key rule:** An agent scheduled as `WORKING` (doing GSD voice/chat work) counts as `0.0` for WIC coverage — they are not covering the WIC even if they have a `WicShiftEntry` with `IsOnSite=1`. Only `WIC_DUTY` counts as full contribution.
+
+### `AvailabilityResolver.IsWicDutyAt(sh, loc)` / `GetWicContributionAt(isSick, sh, loc)`
+
+The **location-aware** reading of the same row, and the single definition of "this
+`ShiftEntries` row means the agent is on WIC duty at this centre". Every reader of the
+`ShiftEntries` cover signal calls it instead of testing `ShiftType == "WIC_DUTY"` itself.
+
+```
+IsWicDutyAt(sh, loc):
+  if (sh == null)                                         → false
+  if (!WicLocationMatcher.MatchesAgentTask(sh.AgentTask, loc)) → false
+  if (sh.ShiftType == "WIC_DUTY")                         → true
+  if (sh.ShiftType IN NotOnWicDutyTypes)                  → false
+  if (sh.ShiftType == "WORKING")                          → true    (WIC_DUTY encoding, ShiftType flipped)
+  else                                                    → false   (unknown is not present)
+
+NotOnWicDutyTypes = FullAbsenceTypes + { "HALF_AL", "OFF", "OFF_WEEKEND", "CD", "CO", "TRAINING" }
+
+GetWicContributionAt(isSick, sh, loc) =
+  isSick                  → 0.0
+  IsWicDutyAt(sh, loc)    → 1.0
+  otherwise               → GetWicContribution(isSick, sh)
+```
+
+**Why a `WORKING` row can count.** `AgentTask` carries a centre's `DisplayName` *only* on
+the `WIC_DUTY` encoding; on a plain `WORKING` row the column holds one of the seven task
+badges or `"GSD"`, never a centre name (see `AgentTasks.NonLocationValues`). A row whose
+`AgentTask` names a centre is therefore a WIC-duty row even when its `ShiftType` reads
+`WORKING`. Reading `ShiftType` alone turns one wrong field into a phantom `UNSTAFFED` day
+that no RTM can explain from the UI, because the task cell shows the centre name while the
+day is reported uncovered — the Berlin - Brückenstrasse 2026-10-13 false positive.
+
+Such rows exist in the data: `RosterBatch` 155/156/170 (`CreatedByKid=SYSTEM_WICFIX`,
+2026-09-30 06:09, overwrite mode) left rows with `RawValue=NULL` + `AgentTask=<centre>` but
+`ShiftType=WORKING`, after which the `Program.cs` startup cleanup zeroed their `IsWicDuty`
+flag. Corroborated by data that admits no other reading: Merlin Voss 2026-10-01/02 carries
+exactly this shape **and** a `WicShiftEntries` `IsOnSite=1` row at the same centre.
+
+**Absence rows are never reinterpreted.** A leave import overwrites `ShiftType` and leaves
+the previous `AgentTask` behind — the DB holds e.g. 14 `AL` rows still tagged `"Hamburg"`.
+`NotOnWicDutyTypes` is what keeps those out; reading them as coverage would hide exactly
+the gaps the coverage-gaps endpoint exists to find. Both directions are pinned by
+`Backend.Tests/WicDutyRecognitionTests.cs`.
+
+A report-only startup check in `Program.cs` logs the count of these flipped-`ShiftType`
+rows. It never mutates them: `ShiftType` is roster truth and only an RTM may change it.
+
+### `WicPresenceResolver.Resolve(loc, date, onSiteRows, shiftByEmpDate, candidateDutyRows, isSick)`
+
+**The single definition of "who is covering this WIC location on this date, and how do we
+know".** Both cover signals are unioned here, once, and every surface reads coverage
+through it.
+
+```
+Signal 1 — on-site WicShiftEntries rows:
+    w.ShiftDate == date AND w.IsOnSite
+    AND WicLocationMatcher.MatchesSupportLocation(w.SupportLocation, loc)
+    contribution = AvailabilityResolver.GetWicContributionAt(isSick, shiftByEmpDate[emp,date], loc)
+
+Signal 2 — ShiftEntries WIC duty with no on-site row:
+    s.ShiftDate == date AND AvailabilityResolver.IsWicDutyAt(s, loc)
+    AND the employee was not already counted by signal 1
+    contribution = AvailabilityResolver.GetWicContributionAt(isSick, s, loc)
+
+EffectiveCoverage        = floor(Σ contribution)        ← headcount, vs MinRequired
+CheckInNotRecordedCount  = # contributing agents with no on-site row
+Evidence                 = NONE        if nothing contributes
+                           ON_SITE     if ≥1 contributing agent has an on-site row
+                           ROSTER_ONLY otherwise (rostered, nothing confirmed on site)
+```
+
+Agents found by both signals are **counted once**, by employee id.
+
+### `WicCoverageEvidence`
+
+| Value | Meaning | How a surface must present it |
+|---|---|---|
+`NONE` | Nobody is contributing coverage. | A real gap if the centre is open and `present < MinRequired`. Offer a substitute. |
+`ON_SITE` | At least one contributing agent has an on-site row. | Covered. |
+`ROSTER_ONLY` | Coverage exists, but only from `ShiftEntries` WIC duty — no contributing agent has an on-site row. | **Staffed.** Never a gap, never offered a substitute. Surfaced as *"Staffed — check-in not recorded"* on the WIC Locations card. |
+
+`ROSTER_ONLY` is the SYSTEM_WICFIX import defect (521 date+location rows as of
+2026-09-30: `RosterBatch` writes created the `ShiftEntries` side and never wrote the
+`WicShiftEntries` side). It is a **record-keeping** state, not a staffing gap — the same
+distinction the coverage-gaps banner already draws for `NOT_RECORDED`.
+
+`CheckInNotRecordedCount` is deliberately independent of `Evidence`: a centre where 2 of
+3 required agents are confirmed on site reports `ON_SITE` but still has one missing
+check-in, so the card can badge it without the status changing.
+
+**Why this type exists.** The union used to live inline in `ForecastService` only.
+`BriefingService` (Overview → Gaps & Recommendations) and `WicCardsService` (WIC
+Locations page) built presence from signal 1 **alone**. On 2026-10-01 that made them
+report 19 open, staffed centres as `0/1 UNCOVERED` — with a Find Substitute button —
+while the banner, the Coverage Risk strip and the KPI cards all said the same 19 were
+covered. Five surfaces, five readings, two of them missing a signal. **Any new surface
+reads coverage through `WicPresenceResolver` or it will drift the same way.**
+
+Pure and allocation-light: callers bulk-load rows for whatever window they need and pass
+them in, so it is callable per location per date inside an existing loop with no extra
+queries. `CandidateDutyRows(shiftEntries)` is the signal-2 pre-filter (drops task badges
+and `"GSD"`, which can never name a centre).
+
+### Headcount vs. minutes — a legitimate difference, not drift
+
+`EffectiveCoverage` answers *"are enough heads rostered"* (`CoverageEvaluator.Classify`,
+used by the banner, the forecast and the briefing). The WIC Locations card additionally
+runs `CoverageCalculator` over each agent's **minutes** against the centre's opening
+intervals (`ClassifyByMinutes`). A card can therefore read `PARTIAL` while the forecast
+reads `COVERED`: one head is rostered, but their hours do not span every open interval.
+That is a finer metric, not a disagreement — do not "fix" it by forcing the card to the
+headcount status.
+
+Five active centres have a second interval: Augsburg, Essenbach, Hannover, München,
+Quickborn.
+
+### Two-interval centres — the break is only a break
+
+**RTM rule (2026-10-01):** at a centre with `OpenTime2`/`CloseTime2`, the gap between the
+intervals is a break. WIC duty spans it, and the break is never a coverage hole.
+
+`WicHoursResolver.DutyWindow(h)` is the single definition of the window a WIC duty row
+must carry: **the first interval's open through the LAST interval's close** (Augsburg
+Thursday 07:30–12:00 + 12:30–16:00 → `07:30–16:00`). Returns `(null, null)` for a closed
+or time-less row so the caller keeps its own fallback. All three WIC row writers use it:
+
+| Writer | Path |
+|---|---|
+`RosterService.BuildPlanAsync` | the WIC `PlanRow` for an open day |
+`WicShiftService` WIC_DUTY upsert | `POST /api/wic/shifts` |
+`WicShiftService.CreateAssignmentAsync` | centre-hours fallback only — the request-time and prior-`WorkingShift` priorities above it are unchanged |
+
+**One spanning row, not two rows.** `ShiftEntries` carries a single `ShiftStart`/`ShiftEnd`
+pair and has three unique indexes that each cap it at one row per agent-day
+(`UQ_ShiftEntries_EmpDate` on `(EmployeeId, ShiftDate)`, plus `...EmpDateType` and
+`...EmpDateSheet`), so a second row for the same agent and date **cannot be inserted at
+all**. The codebase already used this convention for the mirror-image read:
+`WicShiftService.SplitWorkingShift` collapses a two-block `WorkingShift` string to
+first-start..last-end.
+
+**Why the break can never become a hole.** `CoverageCalculator` measures required time as
+the sum of the opening intervals only (`CalcOpenMinutes`: Augsburg = 270 + 210 = 480, the
+30-minute break excluded) and credits an agent against each interval separately
+(`CalcAgentCoverage`, and `CoveredByUnion` for the pooled figure). The gap belongs to
+neither interval, so a spanning agent scores 480/480 = 100% FULL/COVERED automatically —
+no special-casing was needed in `WicCardsService`, and an agent who really covers only the
+first interval still scores 270/480 = 56% PARTIAL.
+
+**Existing rows were not rewritten** (RTM decision: no DB writes). As of 2026-10-01 there
+are **575 under-covering WIC_DUTY rows** across the five centres, **426 of them dated
+2026-10-01 or later**, running to 2027-02-26. Until those are regenerated, Augsburg and
+Hannover keep reading PARTIAL on the card while every headcount surface reads COVERED —
+correctly, on both axes.
+
+
+## Manual changes (RTM principle, 2026-10-01)
+
+**A manual change is a legitimate decision, never an error and never a gap.** It covers
+manual exception days, ad-hoc deployments, hand-edited shift rows, manual assignments and
+manual check-ins.
+
+| Marker | Where | Meaning |
+|---|---|---|
+| `ShiftEntries.ManualChangeBy` / `ManualChangeAt` / `ManualChangeNote` | nullable, added 2026-10-01 | a human deliberately set this row. `ShiftEntry.IsManualChange` is the `[NotMapped]` predicate |
+| `WicOpeningHours.ExceptionDate` | nullable DATE, added 2026-10-01 | this row applies to that ONE date only and overrides the weekday pattern |
+| `WicOpeningHours.ManualChangeBy` / `ManualChangeAt` | nullable | who recorded the exception |
+
+Added because the existing fields cannot tell manual from automatic: `SourceSheet`/
+`SourceModule` can hold `"MANUAL"` but the shift-edit path does not write it, and
+`AutoGenerated` only means "written by ShiftSyncService". On 2026-10-01 zero rows carried a
+MANUAL marker while hand-edited rows demonstrably existed. All columns are additive and
+nullable, created by idempotent `COL_LENGTH` guards in the `Program.cs` startup block (the
+project’s existing mechanism) — no backfill, no existing row rewritten.
+
+**Consequences, each covered by a test in `Backend.Tests/WicManualChangeTests.cs`:**
+- `WicHoursResolver` prefers an `ExceptionDate` row over the weekday pattern, in **both**
+  overloads. Since every surface resolves hours through it, an exception-open centre is
+  open everywhere — Forecast, Briefing, CoverageGap, Cards, Locations, Overview KPIs and
+  WIC Attendance — with no further change. An exception row never acts as a pattern row,
+  so it cannot leak into the following week.
+- `RosterService.IsProtectedFromOverwrite` returns true for any manual row, whatever its
+  ShiftType. `ProtectedAbsenceTypes` alone did not cover a hand-edited `WORKING`/`BO` row.
+  Automatic rows are still replaced normally.
+- The `Program.cs` startup `IsWicDuty` cleanup and the flipped-ShiftType data-quality
+  warning both skip manual rows (`AND ManualChangeBy IS NULL`).
+- `WicPresentAgent.CheckInNotRecorded` is false for a manual duty: an ad-hoc deployment has
+  no paired on-site row by design, so warning about it would turn a decision into a
+  complaint. `WicPresence.ManualCount` and a neutral **"Manual"** label (who/when in the
+  tooltip, never warning colours) are shown instead.
+- Real gaps stay detectable: an exception-open day with nobody rostered and nobody checked
+  in is still `UNCOVERED`/at-risk.
+
+**Ad-hoc deployment with no centre link.** A kiosk check-in with work mode `WIC` by someone
+not on today’s roster is presence, matched by `employee_id`. It is **not** guessed into a
+centre: the kiosk’s `location` is free text (never compared) and the reliable link it does
+hold, `status_log.wic_center_id`, is **not returned** by `GET /api/attendance`. Such agents
+appear as **"Checked in, no centre assigned"** with an *Assign to centre* action.
 
 ### `CoverageEvaluator.Classify(isClosed, presentAgents, minRequired)`
 
@@ -221,6 +415,30 @@ Used by every service that needs to check if a `WicShiftEntry.SupportLocation` b
 ```
 
 The `_aliases` dictionary uses a culture-invariant, `IgnoreNonSpace` comparer, so "ü" and "u" resolve to the same key at lookup time. This handles DB values where the Excel import stored ASCII-romanised names ("Munchen") alongside Unicode names ("München").
+
+### `MatchesAgentTask(agentTask, loc)`
+
+Used by every service that needs to check if a `ShiftEntries.AgentTask` value names a
+given `WicLocation`. The one definition of that rule — it previously existed as four
+byte-for-byte copies (`WicCoverageGapService`, `ForecastService`, `RosterService`,
+`WicScheduleService`).
+
+```
+1. If agentTask is null/blank → false
+2. wasTruncated = agentTask.Trim().Length >= AgentTaskMaxLength (20)
+   — judged on the STORED length, BEFORE repair: repairing a double-encoded value
+     shortens it, so a repaired string is no longer a reliable witness of a cut
+3. Apply RepairDoubleEncoding; drop a dangling trailing "Ã" left by a mid-pair cut
+4. Exact match against DisplayName, LocationCode or LocationCodeLegacy → true
+5. If wasTruncated: prefix match against any of those three → true
+6. Otherwise → false
+```
+
+`AgentTaskMaxLength = 20` is the width of `ShiftEntries.AgentTask`. A centre's
+`DisplayName` is stored there truncated to that width on `WIC_DUTY` rows, so
+`"Berlin - Brückenstrasse"` (23 chars) persists as `"Berlin - Brückenstra"` (20).
+**Requiring the column limit before accepting a prefix is load-bearing** — it is what
+stops a short value from prefix-matching an unrelated centre.
 
 ### `RepairDoubleEncoding(s)`
 

@@ -1,0 +1,1608 @@
+{
+  "LiveRoot": "C:\\GSDDashboard",
+  "CreatedAtUtc": "2026-10-04T19:25:28.5065968Z",
+  "Live": [
+    {
+      "Path": "Backend.Tests/ALBalanceEligibleDaysTests.cs",
+      "Hash": "749368AA5979221C103116BA5102208B77F98BB1F3532A7E2745838ACCDA3829"
+    },
+    {
+      "Path": "Backend.Tests/AuthServiceTests.cs",
+      "Hash": "162243E14D6D18419F4D450CC45A8E57F23BAE2B0A7E5694A011B7FAE7CBAA82"
+    },
+    {
+      "Path": "Backend.Tests/AvailabilityResolverTests.cs",
+      "Hash": "D04A05795376EAE61B56CD8AD6BEB2241E4957A626E9B671DE4B5D44B3B8555C"
+    },
+    {
+      "Path": "Backend.Tests/CoverageCalculatorUnionTests.cs",
+      "Hash": "4F3D68793D1935DD528B543223EE2D40746BDBCFE7DC4105597F0176AC710B33"
+    },
+    {
+      "Path": "Backend.Tests/CreateAssignmentOverlapTests.cs",
+      "Hash": "AF282C9AB65040C920207130D9C839DBECA9F220AAB5EC52A91547212D10A42C"
+    },
+    {
+      "Path": "Backend.Tests/CreateAssignmentTimePriorityTests.cs",
+      "Hash": "65BFE3066EB60D489E4DB548E5E420D2ED57B0A2685304BE4AFC3AF812B767C9"
+    },
+    {
+      "Path": "Backend.Tests/ForecastServiceTests.cs",
+      "Hash": "9259ACBDF169BD8765974B6230E3CF49DD51EE1E000FF733717372F75E91B5AF"
+    },
+    {
+      "Path": "Backend.Tests/GSDDashboard.Tests.csproj",
+      "Hash": "D0C024C2CB14E5B16E71AFA6252D05B9E3B9A9871588898A0194631C4B282EF1"
+    },
+    {
+      "Path": "Backend.Tests/PrimaryRoleTests.cs",
+      "Hash": "25D74F8A4DF19EEA383679219C814DDC77F0FF7ABF1BF31E0421F22EF054C4CF"
+    },
+    {
+      "Path": "Backend.Tests/RosterServiceTests.cs",
+      "Hash": "E5388E412360C3B5A494600E39FF469BC6310F74237B90171C2B62945F924932"
+    },
+    {
+      "Path": "Backend.Tests/ShiftTaskCoverageTests.cs",
+      "Hash": "B4D70E1B87189BFECA907EC73F0070ED87CDE9CAC86F9F6704F3EADF683095F4"
+    },
+    {
+      "Path": "Backend.Tests/VacationOtherLeaveTests.cs",
+      "Hash": "2278CB5CAE0A61BBA7A9B8099371BD74EA44D5BA434F7ACDD8F6869B9E3175BF"
+    },
+    {
+      "Path": "Backend.Tests/WicDutyRecognitionTests.cs",
+      "Hash": "3EF407B794585A0C1463452F6E61400BBF72FB5F1D82ACA6F1E948DACB474E9A"
+    },
+    {
+      "Path": "Backend.Tests/WicManualChangeTests.cs",
+      "Hash": "D251EA524B5C961FE717B702D654D76051207545AF5B13768E435671B449A427"
+    },
+    {
+      "Path": "Backend.Tests/WicPresenceUnificationTests.cs",
+      "Hash": "72CD01CB8BCD5BCB5C9336772072F089D78703E053CC4500F5FCDD43EED9D2EB"
+    },
+    {
+      "Path": "Backend.Tests/WicTwoIntervalCentreTests.cs",
+      "Hash": "AB1274E8098EF149446AD3C311B18D29EFF230876FDC635CFAD3846BA7487615"
+    },
+    {
+      "Path": "Backend/ALBalanceService.cs",
+      "Hash": "20CF873408BBE317F5CE19B5C863D45E71059307ADCD627517D527E93D7DC1B5"
+    },
+    {
+      "Path": "Backend/ALCalendarService.cs",
+      "Hash": "F575F68F3658B4D1B394F3E9BA89804420DE8AF71CFA36AADDD6D17E07FD0F06"
+    },
+    {
+      "Path": "Backend/AppUserRole.cs",
+      "Hash": "AB02AE0677687CB3139560CA70B86A1AE37348F23D8515624E5031B9AD386A15"
+    },
+    {
+      "Path": "Backend/Assistant/AssistantDtos.cs",
+      "Hash": "A4E479A8C0E8CF2DFB3E1F26736ACD3A9A1DF051E4C210920331BF7F9D0C7255"
+    },
+    {
+      "Path": "Backend/Assistant/AssistantEndpoints.cs",
+      "Hash": "F872D1B663EEA556B8AAB1EE9367D9C9B3AA14EA4F2D88A3705D541648766018"
+    },
+    {
+      "Path": "Backend/Assistant/AssistantParsedQuery.cs",
+      "Hash": "98746843087CBE1B34A6025467D974380D8181E7B81F33C48E7678EEA808882B"
+    },
+    {
+      "Path": "Backend/Assistant/AssistantService.cs",
+      "Hash": "12417BEE1477BCD351B831C3146A059DFADC194B24E513FE9FA26FC414B8DAEE"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/AgentAvailabilityHandler.cs",
+      "Hash": "01EE26AD27FF8FA5751C9752D50F3810A1042E2A51FE29E4282FDD68D280C42C"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/ALBalanceHandler.cs",
+      "Hash": "420434C73A01318C9D3DB9698F45B696DC3B24E441D6DE8784B47555AA018E3E"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/DashboardHandler.cs",
+      "Hash": "C06595F4D0D1FD05FED8FA83FD12169E2A13771757AFC5DEB22AEBD5EC458107"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/EmployeesHandler.cs",
+      "Hash": "38EAE0D4D93FD3C70A56345CE6BFE605C067D2E34A110C529E21EE1E23D4E3A7"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/PipelineHandler.cs",
+      "Hash": "7259F684FC79D5AA513E0A1EE0CA1D3CB9E2E11FC9431C5EB5BFE607EFF44083"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/SickLeaveHandler.cs",
+      "Hash": "5A3DCD01E443E8C7E916524813D2BCDF3824E963171258F03BC8C547CD831921"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/TrainingHandler.cs",
+      "Hash": "C6DF6D96D6FD267C8EE51F4F27302A9217DA35334234B70B4C0059226D122329"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/VacationsHandler.cs",
+      "Hash": "E5562D0162990BC7DE82BD8452F8F089B5A7E34A1E8C36780EEF9B6E9165916B"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/WicCoverageDetailHandler.cs",
+      "Hash": "AB4BEC9D3CBF2DCBACD82D603C628E188CE519E1A04040E1DD9A1C89FF2B3C3F"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/WicForecastHandler.cs",
+      "Hash": "F70398530C214DA5394E7FCDB9C7FF91378238F70C9A5B236D47E3B915FC551F"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/WicLeaveHandler.cs",
+      "Hash": "9788C385C7F7FB98CCC3BD044004915389C4B793A8F4ED53112A0CA091F503EE"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/WicOpeningHoursHandler.cs",
+      "Hash": "D4603D6A7D6435E3B464C2F95CC6DBD0B6531DFD6CF7C256E453BE396A92007F"
+    },
+    {
+      "Path": "Backend/Assistant/IDomainHandler.cs",
+      "Hash": "09B4783BD252821C5475C3F18870F83AB0B1C8A08E93A061260464AF29AF4E6B"
+    },
+    {
+      "Path": "Backend/Assistant/SharedParser.cs",
+      "Hash": "F4A2A508FE9F69591121DB4FA2FACD23E81BF7BBF03270AEE7C50A5DF055C638"
+    },
+    {
+      "Path": "Backend/AttendanceService.cs",
+      "Hash": "2BB5C2F24D0159CFF66AE11E76FFAF7EC8232F4FAD93DC90D17275BD655912A0"
+    },
+    {
+      "Path": "Backend/AuthModule.cs",
+      "Hash": "70FC4747EE8347A6F88CE40B725222D64E7E6BBF502DB1A21C81BCCDB674BBBC"
+    },
+    {
+      "Path": "Backend/BackupService.cs",
+      "Hash": "F6A4CBD7A3B56E38EA95CF61A6561EC6338C7B3956471832CCD46083C3718DC5"
+    },
+    {
+      "Path": "Backend/BoEntry.cs",
+      "Hash": "EE39ECB02CC6A229C36AB34B468C49D3EFBDB4C76EB0C7F4820D9408BD2F5ECA"
+    },
+    {
+      "Path": "Backend/BoListService.cs",
+      "Hash": "F00B9F8CCC97D540C5E52879A9AA161394D25F79EE3AB9D1772C01FED1711C80"
+    },
+    {
+      "Path": "Backend/BreakModels.cs",
+      "Hash": "F5A09C5B89374FA549D2E8FBD8D96E0F8A6137BC7F862E85DDDAACE0C91DF08A"
+    },
+    {
+      "Path": "Backend/BreakService.cs",
+      "Hash": "032631620092F7729E5F650A2E49318F45681F366C6C5485685612DFA4C6E7E4"
+    },
+    {
+      "Path": "Backend/BulkRtmService.cs",
+      "Hash": "47B7AF5711FE4D04E68E47FD27DF744E3559FB08BEFBBF78A0F9C79E97EE50C2"
+    },
+    {
+      "Path": "Backend/CoverageCalculator.cs",
+      "Hash": "8A300188EDD78DF2F81D00D3535C413D9C8846BC24FA3D45F764B330D16D8B86"
+    },
+    {
+      "Path": "Backend/CoverageCalculatorTests.cs",
+      "Hash": "4273C2A294D44CEB2EEC5BEB3D36F339CE224648F8046FE9DA8997C53EA98F6B"
+    },
+    {
+      "Path": "Backend/DashboardService.cs",
+      "Hash": "E49706AF269357CAC14BD476F8FD4A3E0508A547D50A66D99574AEACA4319DE5"
+    },
+    {
+      "Path": "Backend/DemoDataAdminService.cs",
+      "Hash": "FBB7FE894A6FEAC98247A40F08398ADD59503459A3A48B8CFB49413C1046BD39"
+    },
+    {
+      "Path": "Backend/Employee.cs",
+      "Hash": "4C592FA710B6D0B632E52CA47C8F5C131EFB32D13905AD3A1D8333762EE29A84"
+    },
+    {
+      "Path": "Backend/EmployeeService.cs",
+      "Hash": "C0B9D117CF2EFA0EE5EAE2D5046019423DFF4CE3AA882ED6752B96DA1F1488D6"
+    },
+    {
+      "Path": "Backend/GSDContext.cs",
+      "Hash": "2D3D2178F33F062CAB9F73B4E40ECF00822F15E0301C4E25D23C8322CA343E38"
+    },
+    {
+      "Path": "Backend/GSDDashboard.API.csproj",
+      "Hash": "C85EA02D0A6DF9D8F532C19BCB6ED9D6B28C1F3003324E39B062B29C3AB2D14F"
+    },
+    {
+      "Path": "Backend/HrExportService.cs",
+      "Hash": "0B286790939A000989D22F1E67D41D732B2B14B09EE0D3F1E61EC4BA71AA4A95"
+    },
+    {
+      "Path": "Backend/Modules/SubstitutionModule.cs",
+      "Hash": "D6A4A2649DC72011EC162B979333DBC8577EECD221CE7E92D5A822C884343961"
+    },
+    {
+      "Path": "Backend/OtherModels.cs",
+      "Hash": "DA862CC771CDB1C119455707B12729AACDBF0999D9312595B1C32D5AC1B7AE64"
+    },
+    {
+      "Path": "Backend/OverviewService.cs",
+      "Hash": "6A3693F70DF671CB16E587D9AF5C29E1A94930B2B00ACFA7AE4EC06ECAB70547"
+    },
+    {
+      "Path": "Backend/PipelineService.cs",
+      "Hash": "5FAD1B903DCAD388A654A3D743CEE923B9FF2E46C430B93A9805F2DB1DDEA836"
+    },
+    {
+      "Path": "Backend/PlzBundesland.cs",
+      "Hash": "30DD2806A02A02C947DF00BE10326FFBB9FBD0E166E0BC3C4732E722B009C745"
+    },
+    {
+      "Path": "Backend/Program.cs",
+      "Hash": "2359CF437CF3AB0A5A4F8C493BDB756C5F4ECE580F7579F7669FC8F96C87973C"
+    },
+    {
+      "Path": "Backend/PublicHoliday.cs",
+      "Hash": "231F749111C0A430CA5D0404CE4FBAD122ECC18D64AA4FF6E74696D993C02772"
+    },
+    {
+      "Path": "Backend/PublicHolidayService.cs",
+      "Hash": "5A3AAD85D40055158DF2C133800E56FDB2A9FA1FEA3B9C4E50692F49DB7E490C"
+    },
+    {
+      "Path": "Backend/RbacMiddleware.cs",
+      "Hash": "82338ADA10676965626CB0A17F1EDFB5D83C7E19AE83C1F868009B0FB7B27646"
+    },
+    {
+      "Path": "Backend/RosterBatch.cs",
+      "Hash": "9A752CC07B7FD8269AE048B5BCEE1A1DA5A2125BAEC85A982AB8AB400BC2810F"
+    },
+    {
+      "Path": "Backend/RosterService.cs",
+      "Hash": "DE97C56E9698ACCFDEF93AF53D0775C7313FC1371D6AE06D4C4D8A9E082103A6"
+    },
+    {
+      "Path": "Backend/RtmEntry.cs",
+      "Hash": "7DD3DEDE1EE305B06D915DF65683BC40C74D5C767E34D4EA3EBAB9736C6889FD"
+    },
+    {
+      "Path": "Backend/ScheduleLimits.cs",
+      "Hash": "53D8B2FA80EA8759F708CA01F2E64928AE0572D21F92171165F0433F91E5AA47"
+    },
+    {
+      "Path": "Backend/Services/ALPlanningService.cs",
+      "Hash": "8EC59819AAF9D9E642ACEF0C7BF79EBC0F3FE9B367DB1A96FC3E1D91E92633CB"
+    },
+    {
+      "Path": "Backend/Services/AuthService.cs",
+      "Hash": "404EAF153BB2B757CA52D0D44270E12939B1EB4347DDB220EBBC25638C3E2C7F"
+    },
+    {
+      "Path": "Backend/Services/AvailabilityResolver.cs",
+      "Hash": "BC783B1459B3A925BFE69E30ED8E7CF44FEED9C0E4F77FFC602018E0D1E98611"
+    },
+    {
+      "Path": "Backend/Services/BriefingService.cs",
+      "Hash": "84C053EF8E6254D46A0F033E804C731EC8137F0AA6FA589E318FFCFB0A8490CC"
+    },
+    {
+      "Path": "Backend/Services/CoverageEvaluator.cs",
+      "Hash": "C0FCB5E3F7A6E74C39E98DF7B5F2CD370C9AD2C36F1E7A0EB44C8F7C1DD44EA1"
+    },
+    {
+      "Path": "Backend/Services/ForecastService.cs",
+      "Hash": "2F49BAA4FB0D6F72FBB4FA005B524C9A70FBEF1208569E432F1265D76D4351CF"
+    },
+    {
+      "Path": "Backend/Services/Mojibake.cs",
+      "Hash": "8690533F179D501D098637B981BE44479587C0B5E335178AA4EEB4E2AD3A5F42"
+    },
+    {
+      "Path": "Backend/Services/PublicHolidayResolver.cs",
+      "Hash": "DA760234F57DA8F3D85544379761127BE7F7F845550D7A81D0D470A36CA23B7A"
+    },
+    {
+      "Path": "Backend/Services/ReachabilityService.cs",
+      "Hash": "8C7D8CB0AC5B993535842F007F1E9A60E43AD4A6A75F000ED3E5B9FC76CD5CB7"
+    },
+    {
+      "Path": "Backend/Services/ShiftDuplicateResolver.cs",
+      "Hash": "7B45BFFD77EF9EE18A494F44BE28FFE06F3EEF5B06ADEC79B32C2B4DD9016FE6"
+    },
+    {
+      "Path": "Backend/Services/SubstitutionService.cs",
+      "Hash": "F7FDB15B1741173653F9103CE17434B9F1F187F02578C70EB9B0C0B6F0B3F96F"
+    },
+    {
+      "Path": "Backend/Services/TestAccounts.cs",
+      "Hash": "8E30B10DC62E25BA3087FAE6270B97AE5C307BB2447A919ECF9C2502EA3CEBD8"
+    },
+    {
+      "Path": "Backend/Services/WhatIfService.cs",
+      "Hash": "ADAB6537BDF1B74A9377958B4E8C09ACB5FF73BDC1261D824117C0FD6552E61A"
+    },
+    {
+      "Path": "Backend/Services/WicConflictDetector.cs",
+      "Hash": "5A761A4B8E77005398DC690A69985C66A451C81CA6994A1D74460C6CC552A91C"
+    },
+    {
+      "Path": "Backend/Services/WicCoverageImport.cs",
+      "Hash": "02831D850B7827D5868700294636248A01F96F3424F73A5F5C4D89B34C46A473"
+    },
+    {
+      "Path": "Backend/Services/WicCoverageService.cs",
+      "Hash": "9FC90B5F2E0612207D6BF8EA289AF0DA3E8FAAB0A21E7D1A0B56AB2346A8B983"
+    },
+    {
+      "Path": "Backend/Services/WicHoursResolver.cs",
+      "Hash": "B7D81222598FEE8007BBF9934DD8D9EF6C71DA8357DACBA7F0DB4DAA14B6CDF7"
+    },
+    {
+      "Path": "Backend/Services/WicLocationMatcher.cs",
+      "Hash": "4794A962BA88F6314EAD59B3FE8BC64E00AB490CE7ABFAC8E9B697A67205DA3C"
+    },
+    {
+      "Path": "Backend/Services/WicMigrationDryRunService.cs",
+      "Hash": "567BADDF9F9D7AF340DA19D8381DA8C27EFC6FE854AE0119358A008933F4E54F"
+    },
+    {
+      "Path": "Backend/Services/WicPresenceResolver.cs",
+      "Hash": "0A47168E6F2578A93C499FAC579553D170A114422FF4E6D838C5E6A9919A0AB2"
+    },
+    {
+      "Path": "Backend/ShiftEntry.cs",
+      "Hash": "E6287C4C4945E2C021F67CFEA6549E61FA4663E2147C88802390498146F1C4A9"
+    },
+    {
+      "Path": "Backend/ShiftReorderService.cs",
+      "Hash": "8347E0B8012773A95F7FD6A0A602802D34BBA86348C765D32E48D143FE08999D"
+    },
+    {
+      "Path": "Backend/ShiftService.cs",
+      "Hash": "646149BE2D4D3AA96CD040D5F47AF4F037A07FC4EE656BDC1C63E97C7333FDD7"
+    },
+    {
+      "Path": "Backend/ShiftSyncService.cs",
+      "Hash": "BC13B8B2A98EA586EA7D84E4D1361CA34206B3AF8914ED25829D59847B58EACC"
+    },
+    {
+      "Path": "Backend/ShiftValidationService.cs",
+      "Hash": "047AE5CEDB0B30A496F938D4C7AE60E1FB16DB7D5AD88982A35ABB9D8445913A"
+    },
+    {
+      "Path": "Backend/SickLeaveService.cs",
+      "Hash": "3E1B8C1F6E7A495639BAD31BDBBFE9D80A4BFC34D739CD92C4A88457FC06B6DC"
+    },
+    {
+      "Path": "Backend/TrainingModels.cs",
+      "Hash": "10F1C5E15FFD18788CE8E137A3692C9EC7505D31969FBC2ADD08FF2C1BCB9455"
+    },
+    {
+      "Path": "Backend/TrainingService.cs",
+      "Hash": "A58C1B588611552A3AC27AC9AC4039E8FFF873F0C8BDF43677BB8EB538E203E7"
+    },
+    {
+      "Path": "Backend/VacationService.cs",
+      "Hash": "9F42AFE7399E7DB19FB7AC73D73FD6812FACF76B11AF801AD42B822D87FA26E3"
+    },
+    {
+      "Path": "Backend/VwicService.cs",
+      "Hash": "BFC23091FC8A07EE3EB7A9B0E95E4C4DA3583CACB12BBE384E4DC4F2D5BA5E90"
+    },
+    {
+      "Path": "Backend/WicAssignCandidatesService.cs",
+      "Hash": "2145EFF19BC82317B090FC9C7EC256E15BC7A13622CC921FA8D2C86808397C72"
+    },
+    {
+      "Path": "Backend/WicAssistantService.cs",
+      "Hash": "0CFCC8E512BA1407207C32FE706D4D82593543EF167433B97EAC13215B8289FC"
+    },
+    {
+      "Path": "Backend/WicCardsService.cs",
+      "Hash": "1134B0F1F979BD3D9B2BE46F8FDD65820EB32EAAC0E6C76280F685638E0718A4"
+    },
+    {
+      "Path": "Backend/WicCoverageGapService.cs",
+      "Hash": "53C4A92648BB0679382B8C751BE23E18B8432C4CE549335B8AB2F1E2099FC797"
+    },
+    {
+      "Path": "Backend/WicModels.cs",
+      "Hash": "A8EC01A27D6050EDB03C5AB1B0E7C4C4C693FD854F08EF6ED44399178090B399"
+    },
+    {
+      "Path": "Backend/WicScheduleService.cs",
+      "Hash": "B4E9F7DE15A1DBDEE323E2E8F53FB7403D55EED05131FACD0435FDDA0425E306"
+    },
+    {
+      "Path": "Backend/WicShiftService.cs",
+      "Hash": "3702846F9DCCC649C20C148F062FA09F25383FBB7199A58CC5CCF095751FD4A0"
+    },
+    {
+      "Path": "Frontend/eslint.config.js",
+      "Hash": "CF80A7510234DCD5AE594B30B44682B8B45BA13C0FCB5BF8928BEA143802AA1C"
+    },
+    {
+      "Path": "Frontend/package-lock.json",
+      "Hash": "D3C0635841826EB35402CE57C200FA7EEA8FAF0275126013A1DAAEE296ED2E30"
+    },
+    {
+      "Path": "Frontend/package.json",
+      "Hash": "3CC11263B9752690DE684A1A1CC326D0C62A9227074EC6ED7E5DFF79C3DFC310"
+    },
+    {
+      "Path": "Frontend/postcss.config.js",
+      "Hash": "190C877DB466995BF1482F4A16ABD06E04A89EDE3119341E2A86FF96E1737B27"
+    },
+    {
+      "Path": "Frontend/src/api/client.ts",
+      "Hash": "4DA3F4BDB9ADBC22C9FA73E33A02C375FA0C37DB6D6A9469A6D51D89F148AB10"
+    },
+    {
+      "Path": "Frontend/src/App.css",
+      "Hash": "A5558569B77191B4685EBF7FA0CC226128BD74F503D40BFF304F5982F726A64C"
+    },
+    {
+      "Path": "Frontend/src/App.tsx",
+      "Hash": "36F9E76BD32C41EF8C973DF7395B991B6912165F53765F02969E16C35A9E8CEA"
+    },
+    {
+      "Path": "Frontend/src/assets/hero.png",
+      "Hash": "881FFBCAAFC212E49ADDAD08846A5B82761355FA20624253AF3477BA33262C5C"
+    },
+    {
+      "Path": "Frontend/src/assets/infosys-1.webp",
+      "Hash": "674FB084216CBC65F337298B133308F5515921A4DBB6087B80041E9EDF1F0869"
+    },
+    {
+      "Path": "Frontend/src/assets/infosys-2.webp",
+      "Hash": "A046C6A5801C263CBD0448779C85DF1A46D912ABB2B6153F9A9C211C04908FF7"
+    },
+    {
+      "Path": "Frontend/src/assets/react.svg",
+      "Hash": "35EF61ED53B323AE94A16A8EC659B3D0AF3880698791133F23B084085AB1C2E5"
+    },
+    {
+      "Path": "Frontend/src/assets/vite.svg",
+      "Hash": "5BE21ACD42EB7B896E517F4E0F0F11EB5C5D9E54FBBCEBE9453F033008FCCA6F"
+    },
+    {
+      "Path": "Frontend/src/auth/AuthContext.tsx",
+      "Hash": "0B27B1458D9A80213758DDF512D0C78358BA6C801514BEE9B749EA1FE449E260"
+    },
+    {
+      "Path": "Frontend/src/auth/RequireAuth.tsx",
+      "Hash": "BBF22A84DB4A5DE8F6AA52906E45FD34EFC0DC8C52965CB01046549678A39591"
+    },
+    {
+      "Path": "Frontend/src/components/Button.tsx",
+      "Hash": "E70052B818BF1B0DF4B848DC02B87CDB0D46453208488751A7CFD7EF39C94464"
+    },
+    {
+      "Path": "Frontend/src/components/CommandPalette.tsx",
+      "Hash": "235C0C86B383830BE4B34A81CB51ABB4969337B6B93FDEA1F764BD22044870C6"
+    },
+    {
+      "Path": "Frontend/src/components/CoverageBadge.tsx",
+      "Hash": "41B7B57187A223003C710CD7F45F9C4C8B88D02D139C79F30A6D423F51090246"
+    },
+    {
+      "Path": "Frontend/src/components/DataTable.tsx",
+      "Hash": "FD583B1D748E5600795519AFBCBF35D01C19E109DB2E528EFEEDBA61A21B512C"
+    },
+    {
+      "Path": "Frontend/src/components/DownloadButtons.tsx",
+      "Hash": "AC2D503B71B73219F09A63F45FADF0106CD721F47D877595A0C268217680D83A"
+    },
+    {
+      "Path": "Frontend/src/components/EmptyState.tsx",
+      "Hash": "2B9CBAB2B5C92559EAE080945AD0492C86DEE36FF637378AEC1C011E55B29E0D"
+    },
+    {
+      "Path": "Frontend/src/components/MoveToGsdBacklogAction.tsx",
+      "Hash": "63C54A87CD82716E66EA97DFD55D2B4B26E89152C52D6102938C7B1411DBCFF5"
+    },
+    {
+      "Path": "Frontend/src/components/NppBadge.tsx",
+      "Hash": "FB843061EC5625A739404B23B82E561B85F7217C30DBA6131C6B87ED2F741B71"
+    },
+    {
+      "Path": "Frontend/src/components/OverviewErrorBoundary.tsx",
+      "Hash": "1EC9418E372F65CD95CBE168E06B1CBC39ED100EFF5B4FDDAD4188A120B2CC04"
+    },
+    {
+      "Path": "Frontend/src/components/Panel.tsx",
+      "Hash": "ABC2F2200D6C67F1FC02EE62803EFB3A3AD2F35B86F7F4CE797649871F10195A"
+    },
+    {
+      "Path": "Frontend/src/components/SearchableSelect.tsx",
+      "Hash": "A7C6D6DD43008E3B6A16148D05B558CD88A9E323FDBB55602EB300800EA2A5D0"
+    },
+    {
+      "Path": "Frontend/src/components/Sheet.tsx",
+      "Hash": "2D2B84E1E8D39F84AB4BC6093E19860914C3C2D77154EF7FCF89B2EE88B0852F"
+    },
+    {
+      "Path": "Frontend/src/components/ShiftBadge.tsx",
+      "Hash": "363A41A4746A896627BD8EBECEA6A8935F4A4A6D6447189825589A90767FA8BC"
+    },
+    {
+      "Path": "Frontend/src/components/ShiftTypeCell.tsx",
+      "Hash": "D75F495C24626E0886190985676A6DB14407BA379CF4A827B5BF4B29EA6FD892"
+    },
+    {
+      "Path": "Frontend/src/components/StatusBadge.tsx",
+      "Hash": "2E0757570021B8F0067F57C4EB5563D77878E0BADE688D81024F8482E0707AEE"
+    },
+    {
+      "Path": "Frontend/src/components/ThemeToggle.tsx",
+      "Hash": "6FE1F5BF96857354A1186D83AF7C5E4AC9F0F13D4193608525C36B7839F3EDA0"
+    },
+    {
+      "Path": "Frontend/src/components/WicChatWidget.tsx",
+      "Hash": "09436DEA7EB301BF5DBEFFF61EECEEF24DC2DDA51661520107F13E18BE3E8E72"
+    },
+    {
+      "Path": "Frontend/src/constants.ts",
+      "Hash": "3F038D266A7858C3E068A8A408829EC4AC5F8270ECC2DB6363FB31FDD3CFDD31"
+    },
+    {
+      "Path": "Frontend/src/i18n/index.ts",
+      "Hash": "4D1E20284D114C611CCD081EAAC8DE95843862093F1F0E0ED75295A37B5EA1C9"
+    },
+    {
+      "Path": "Frontend/src/i18n/locales/de/common.json",
+      "Hash": "E1FA47984612E99F036E3E1B294896FFB2522AD41A5D9F458D52A6A5F57FB8CE"
+    },
+    {
+      "Path": "Frontend/src/i18n/locales/en/common.json",
+      "Hash": "A3E4C66E245FFD2696724AF237D44048EE0759712344CFB2E28D19044E1D66BF"
+    },
+    {
+      "Path": "Frontend/src/index.css",
+      "Hash": "7B41920E42A35378FF3D35E9AFCB7BC8D1DEBB0A05DC84D2668F91F245EA71AF"
+    },
+    {
+      "Path": "Frontend/src/layout/AppShell.tsx",
+      "Hash": "A59771993FA5614E4AF9181C30F3219473F180482FB68E3CC90D11C2CE10CBE7"
+    },
+    {
+      "Path": "Frontend/src/layout/navItems.ts",
+      "Hash": "02C63A56612FF601037E9B84DBCAE771638EAE0D6197AE4BBF61E36A5D2936EF"
+    },
+    {
+      "Path": "Frontend/src/layout/Sidebar.tsx",
+      "Hash": "EB77096FA1609D747CB25D546FB4C57FAAD73E80BE19B1DB374E1E9E9A9AD437"
+    },
+    {
+      "Path": "Frontend/src/layout/Topbar.tsx",
+      "Hash": "9070A04E5657BEB57F37773B4288A0D98603987A42F861ECF633F97FA202983C"
+    },
+    {
+      "Path": "Frontend/src/layout/useNavTheme.ts",
+      "Hash": "894C9F33ADD2459603171B55BDF639F83B0A7AF9745CF1A14F985E85B27F4E19"
+    },
+    {
+      "Path": "Frontend/src/layout/useSidebarCollapse.ts",
+      "Hash": "6BEE04C09A940035121402100ABC0FAC8903A65125631EEA61C8E2D7EB1E310C"
+    },
+    {
+      "Path": "Frontend/src/lib/tokenColor.ts",
+      "Hash": "A44D43021F376EA6B8C412AD48178B6A5F2E651A310CBE5903721D5EE9FB2269"
+    },
+    {
+      "Path": "Frontend/src/main.tsx",
+      "Hash": "E548982E4F765533B645F767629029782D94C1CF5C66EC841ADAD95365523A09"
+    },
+    {
+      "Path": "Frontend/src/pages/AgentHome.tsx",
+      "Hash": "8B5C145E9E86BCE3F7A2685727F31F72ED7B6002130223ED3A79C099C9E44133"
+    },
+    {
+      "Path": "Frontend/src/pages/ALBalance.tsx",
+      "Hash": "64EFF49D2AA3B2F265FE14CC2EB3143418115E1A6913EC31310B1981974483C6"
+    },
+    {
+      "Path": "Frontend/src/pages/ALCalendar.tsx",
+      "Hash": "1498195CA3F98FAB8466BBDB8239C51797EFFC77A780AC11F8ACBACD6D5E4DA8"
+    },
+    {
+      "Path": "Frontend/src/pages/ALPlanningModal.tsx",
+      "Hash": "F4A21F9DB98A1A7779B1ABE7AB25BD8A60B1AF1F8F3F247086AEAF1912FADDD7"
+    },
+    {
+      "Path": "Frontend/src/pages/AssignAgentModal.tsx",
+      "Hash": "196BD6A9659F0C784519BDBA65A2BDF47134898176759AB68F31131B2068C0CE"
+    },
+    {
+      "Path": "Frontend/src/pages/Attendance.tsx",
+      "Hash": "F69B570C4B0E87A1E882875E93D87AFE3E2795CFB7F487DAC1FC2FCB45C37337"
+    },
+    {
+      "Path": "Frontend/src/pages/attendance/checkinStatus.test.ts",
+      "Hash": "5B533E68A6B9BE7B4DCB4E4657DAAC4CFE5C5FC9F406F7BF4D67475A86C2A6E3"
+    },
+    {
+      "Path": "Frontend/src/pages/attendance/checkinStatus.ts",
+      "Hash": "7F4CA0CCE61BECCF39DD143861EF95F4EDA5095A29EBCC1CF5EAED1B5C3620C8"
+    },
+    {
+      "Path": "Frontend/src/pages/BoList.tsx",
+      "Hash": "7CC885286702F158A38B88369696ED26B61020ED177F5D050319B38CF411DBE7"
+    },
+    {
+      "Path": "Frontend/src/pages/BreakPlanner.tsx",
+      "Hash": "944C1159B5EB71BD87E495A51E2AE0E58A22B052DE9A5A035A789DB886DCA310"
+    },
+    {
+      "Path": "Frontend/src/pages/BulkRtm.tsx",
+      "Hash": "F11B9DC72FC65371E9094B4D6059B63F4BA0D65D4ED10BA2B6EF9219C60C52AE"
+    },
+    {
+      "Path": "Frontend/src/pages/CoverageBar.jsx",
+      "Hash": "E63D6436151D47BDEB26CBB6B6008740987E628966BD4B85FC5721C8080D2359"
+    },
+    {
+      "Path": "Frontend/src/pages/Employees.tsx",
+      "Hash": "2FEEF4624A38821B4130D53ED052586D0507D7AA629DC26D17C70D84F38ACA45"
+    },
+    {
+      "Path": "Frontend/src/pages/Export.tsx",
+      "Hash": "B87F2B6F71CC423EA6EC8213588A67BFA2224F75F04943E446E06C4564F4545A"
+    },
+    {
+      "Path": "Frontend/src/pages/LeaveAvailabilityBar.jsx",
+      "Hash": "B4D8720904BBE9265B2D9BA48FE82F20293F7E3BA9FDE1A4EC03B093ABBC1A54"
+    },
+    {
+      "Path": "Frontend/src/pages/Login.tsx",
+      "Hash": "1661FE7688F92D4789A676A51FE7AAADF2736CCD63EAD9B75DA5FC2F6274B36D"
+    },
+    {
+      "Path": "Frontend/src/pages/ManualCheckinModal.tsx",
+      "Hash": "C3301732478973857F87CBB9DB97C1CA547CAF0D1A946BCA1DD952BC0A1322A9"
+    },
+    {
+      "Path": "Frontend/src/pages/Overview.tsx",
+      "Hash": "0A52159CE6FE1AAFBAE09248B13BDB03344CC168122853EFCD943D1AF22D17DE"
+    },
+    {
+      "Path": "Frontend/src/pages/overview/DayStrip.tsx",
+      "Hash": "B55840F9E9C42E3D50541525092F0AB2B5C1C06465CFE91A55D995CC60EE6E9C"
+    },
+    {
+      "Path": "Frontend/src/pages/overview/ExceptionList.tsx",
+      "Hash": "B6075177BA75BB5ED75F2F6B93401C3AF4FF7969AACE873B144E3CAE8EE54DF5"
+    },
+    {
+      "Path": "Frontend/src/pages/Pipeline.tsx",
+      "Hash": "32E6D3DA168AFB89988186011BB76C5CD03FB3664C76E4AF7BA566D91C982208"
+    },
+    {
+      "Path": "Frontend/src/pages/Roster.tsx",
+      "Hash": "F4E5822E306C6C8274CDA453F8A2E6D73551BC96C480BDEEAE02459D174FB399"
+    },
+    {
+      "Path": "Frontend/src/pages/Roster.tsx.bak-wic",
+      "Hash": "01DFF865A71BDB599FF75A77035C9B7A7894D1EC05FD124F32963025EAFEF9B1"
+    },
+    {
+      "Path": "Frontend/src/pages/Shifts.tsx",
+      "Hash": "E46E1DD3296A963D3715A1BED84645E9A7526D8937148FBFE660B1A0A7B033F5"
+    },
+    {
+      "Path": "Frontend/src/pages/SickLeave.tsx",
+      "Hash": "A299801AD4C438971A371C0B1F1203E53B8702D6D0BF5D1F2BA0C1F4C91E49A9"
+    },
+    {
+      "Path": "Frontend/src/pages/Training.tsx",
+      "Hash": "BCEAD6A00DA813990B59E5C70F229243CFA9F2524F679E8517AD7FC4DC1AACA4"
+    },
+    {
+      "Path": "Frontend/src/pages/Vacations.tsx",
+      "Hash": "484660BEC33FB83569698BA5D1EF0C1497DC883A6290FEB4600C08218F476346"
+    },
+    {
+      "Path": "Frontend/src/pages/VWICPage.tsx",
+      "Hash": "D1616949D13357BED0A45F7C5045417C96FC08B6D64C6E0C50D4C57B2F216094"
+    },
+    {
+      "Path": "Frontend/src/pages/WicAnnualLeave.tsx",
+      "Hash": "569B871534739372ACE74CF369D796FE86DDAE8FCB2CD4B9459365A2C2CF7EC1"
+    },
+    {
+      "Path": "Frontend/src/pages/WicAssistant.tsx",
+      "Hash": "6DC16C6987A872DAD3B1A6D6C1CE98A1363BA1F00A1DDB6CA44789E38B625DC0"
+    },
+    {
+      "Path": "Frontend/src/pages/WicAttendance.tsx",
+      "Hash": "377DF16CBF37B30D0968484D4481F808B8420E268DF48FB689B1434ABF040F29"
+    },
+    {
+      "Path": "Frontend/src/pages/WicCoverage.tsx",
+      "Hash": "4E44EA4A262358DB40FFAAE99EEC9498238D028EAE844F72D69DF6BD52A85F0D"
+    },
+    {
+      "Path": "Frontend/src/pages/WicLocations.tsx",
+      "Hash": "0C3CFDBB978172DC6593C92A697BD92D17417CDF26F938FEE50CDBBFEBACAEF5"
+    },
+    {
+      "Path": "Frontend/src/pages/WicSchedule.tsx",
+      "Hash": "9005E4AB4F9F54ADA21DC4EE3D2A7604A4F58BD2834164341A8EEEFC892EFD83"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/AgentRow.jsx",
+      "Hash": "D33FD0D26A61A50D3E0E2F6283FAE4EF99B4559051F1456466D78F81FB07B47E"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/AvailableHoursPanel.jsx",
+      "Hash": "4655E34E6D32A8D24FBB03ABFAA70CDCFB9A83DB73D1A3F5FEFE5C171F489189"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/index.jsx",
+      "Hash": "70128502081AD4B94F4AF8BB893776D053050FA665195349AD81ED2B7F8D0703"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/LocationCard.jsx",
+      "Hash": "2F9B2A2D01D7B857765F2D3FE802DD725BCB0D9544E5CE3FA2B671A18D9F3CFB"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/mockData.js",
+      "Hash": "E69631F61E964D929E864BE03ADDAC9DB994699E5394A7A0130B11A32664AF3A"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/MultiSelectFilter.jsx",
+      "Hash": "CD2F2FC05ACF48E4007D8BE08EA49B71D27FBEA2F5B6D09E2610FB7137548425"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/NewShiftModal.jsx",
+      "Hash": "8C3C29CC2E2C49EC29A50AA4CB3053468ECAB8751A6EBE37386EB438BFDB589D"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/ReassignModal.jsx",
+      "Hash": "6D411843AA662FBD9833F4EEEC562A194CF8DE63FB030A11582BC0439C1C1D71"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/UncoveredBanner.jsx",
+      "Hash": "8174E1A1A4166C037CAF7DD0481F6B7CC2E9461E4E337F036CAA3431EDA9F05B"
+    },
+    {
+      "Path": "Frontend/src/styles/tokens.css",
+      "Hash": "6358C126E38525DE802916BC10B5FB6716F3BFC75D950FB610AAF769FA9E5A09"
+    },
+    {
+      "Path": "Frontend/src/utils/resolveEmployee.ts",
+      "Hash": "E5525531133522727D7D868ABF5412F2F31B01501982C171AAA5638C8C2B51E0"
+    },
+    {
+      "Path": "Frontend/tailwind.config.js",
+      "Hash": "F4C574CBD02CC6B30CBFCFBB50A591C7A5BFA1BB0F3AACC0B70EA46A4709D046"
+    },
+    {
+      "Path": "Frontend/tsconfig.app.json",
+      "Hash": "1A5723ABE95F372B45CE56FC601AEFCCC8085731E231F2492218741BC68DB706"
+    },
+    {
+      "Path": "Frontend/tsconfig.json",
+      "Hash": "770B4140BBB581E2DFD9EA9946FFC9C75A1D86BA7D2DB5F77C83E37CBDF9D808"
+    },
+    {
+      "Path": "Frontend/tsconfig.node.json",
+      "Hash": "90A22C920CBC14624FB4658B58F15C875ABF3234224F3933F211849C3ADA3242"
+    },
+    {
+      "Path": "Frontend/vite.config.ts",
+      "Hash": "B245A8CFB0F83CD52872CC7C38DB4F9F3B0063B508D645969E13F32ADF0899FF"
+    }
+  ],
+  "Candidate": [
+    {
+      "Path": "Backend.Tests/ALBalanceEligibleDaysTests.cs",
+      "Hash": "749368AA5979221C103116BA5102208B77F98BB1F3532A7E2745838ACCDA3829"
+    },
+    {
+      "Path": "Backend.Tests/AuthServiceTests.cs",
+      "Hash": "162243E14D6D18419F4D450CC45A8E57F23BAE2B0A7E5694A011B7FAE7CBAA82"
+    },
+    {
+      "Path": "Backend.Tests/AvailabilityResolverTests.cs",
+      "Hash": "D04A05795376EAE61B56CD8AD6BEB2241E4957A626E9B671DE4B5D44B3B8555C"
+    },
+    {
+      "Path": "Backend.Tests/CoverageCalculatorUnionTests.cs",
+      "Hash": "4F3D68793D1935DD528B543223EE2D40746BDBCFE7DC4105597F0176AC710B33"
+    },
+    {
+      "Path": "Backend.Tests/CreateAssignmentOverlapTests.cs",
+      "Hash": "AF282C9AB65040C920207130D9C839DBECA9F220AAB5EC52A91547212D10A42C"
+    },
+    {
+      "Path": "Backend.Tests/CreateAssignmentTimePriorityTests.cs",
+      "Hash": "65BFE3066EB60D489E4DB548E5E420D2ED57B0A2685304BE4AFC3AF812B767C9"
+    },
+    {
+      "Path": "Backend.Tests/ForecastServiceTests.cs",
+      "Hash": "9259ACBDF169BD8765974B6230E3CF49DD51EE1E000FF733717372F75E91B5AF"
+    },
+    {
+      "Path": "Backend.Tests/GSDDashboard.Tests.csproj",
+      "Hash": "D0C024C2CB14E5B16E71AFA6252D05B9E3B9A9871588898A0194631C4B282EF1"
+    },
+    {
+      "Path": "Backend.Tests/KioskProxyAccessTests.cs",
+      "Hash": "D02C689A49FDA422DAEAC02F4DEEA2F0CBE636A8DB6377F03BDFC372AD712A3E"
+    },
+    {
+      "Path": "Backend.Tests/KioskProxyResponseTests.cs",
+      "Hash": "E61D8094FAED9FFE48152E9BA26A36DAEA2B6C56104A895448AE3E949083DAD6"
+    },
+    {
+      "Path": "Backend.Tests/PrimaryRoleTests.cs",
+      "Hash": "25D74F8A4DF19EEA383679219C814DDC77F0FF7ABF1BF31E0421F22EF054C4CF"
+    },
+    {
+      "Path": "Backend.Tests/RosterServiceTests.cs",
+      "Hash": "E5388E412360C3B5A494600E39FF469BC6310F74237B90171C2B62945F924932"
+    },
+    {
+      "Path": "Backend.Tests/ShiftTaskCoverageTests.cs",
+      "Hash": "B4D70E1B87189BFECA907EC73F0070ED87CDE9CAC86F9F6704F3EADF683095F4"
+    },
+    {
+      "Path": "Backend.Tests/VacationOtherLeaveTests.cs",
+      "Hash": "2278CB5CAE0A61BBA7A9B8099371BD74EA44D5BA434F7ACDD8F6869B9E3175BF"
+    },
+    {
+      "Path": "Backend.Tests/WicDutyRecognitionTests.cs",
+      "Hash": "3EF407B794585A0C1463452F6E61400BBF72FB5F1D82ACA6F1E948DACB474E9A"
+    },
+    {
+      "Path": "Backend.Tests/WicManualChangeTests.cs",
+      "Hash": "D251EA524B5C961FE717B702D654D76051207545AF5B13768E435671B449A427"
+    },
+    {
+      "Path": "Backend.Tests/WicPresenceUnificationTests.cs",
+      "Hash": "72CD01CB8BCD5BCB5C9336772072F089D78703E053CC4500F5FCDD43EED9D2EB"
+    },
+    {
+      "Path": "Backend.Tests/WicTwoIntervalCentreTests.cs",
+      "Hash": "AB1274E8098EF149446AD3C311B18D29EFF230876FDC635CFAD3846BA7487615"
+    },
+    {
+      "Path": "Backend/ALBalanceService.cs",
+      "Hash": "20CF873408BBE317F5CE19B5C863D45E71059307ADCD627517D527E93D7DC1B5"
+    },
+    {
+      "Path": "Backend/ALCalendarService.cs",
+      "Hash": "F575F68F3658B4D1B394F3E9BA89804420DE8AF71CFA36AADDD6D17E07FD0F06"
+    },
+    {
+      "Path": "Backend/AppUserRole.cs",
+      "Hash": "AB02AE0677687CB3139560CA70B86A1AE37348F23D8515624E5031B9AD386A15"
+    },
+    {
+      "Path": "Backend/Assistant/AssistantDtos.cs",
+      "Hash": "A4E479A8C0E8CF2DFB3E1F26736ACD3A9A1DF051E4C210920331BF7F9D0C7255"
+    },
+    {
+      "Path": "Backend/Assistant/AssistantEndpoints.cs",
+      "Hash": "F872D1B663EEA556B8AAB1EE9367D9C9B3AA14EA4F2D88A3705D541648766018"
+    },
+    {
+      "Path": "Backend/Assistant/AssistantParsedQuery.cs",
+      "Hash": "98746843087CBE1B34A6025467D974380D8181E7B81F33C48E7678EEA808882B"
+    },
+    {
+      "Path": "Backend/Assistant/AssistantService.cs",
+      "Hash": "12417BEE1477BCD351B831C3146A059DFADC194B24E513FE9FA26FC414B8DAEE"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/AgentAvailabilityHandler.cs",
+      "Hash": "01EE26AD27FF8FA5751C9752D50F3810A1042E2A51FE29E4282FDD68D280C42C"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/ALBalanceHandler.cs",
+      "Hash": "420434C73A01318C9D3DB9698F45B696DC3B24E441D6DE8784B47555AA018E3E"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/DashboardHandler.cs",
+      "Hash": "C06595F4D0D1FD05FED8FA83FD12169E2A13771757AFC5DEB22AEBD5EC458107"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/EmployeesHandler.cs",
+      "Hash": "38EAE0D4D93FD3C70A56345CE6BFE605C067D2E34A110C529E21EE1E23D4E3A7"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/PipelineHandler.cs",
+      "Hash": "7259F684FC79D5AA513E0A1EE0CA1D3CB9E2E11FC9431C5EB5BFE607EFF44083"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/SickLeaveHandler.cs",
+      "Hash": "5A3DCD01E443E8C7E916524813D2BCDF3824E963171258F03BC8C547CD831921"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/TrainingHandler.cs",
+      "Hash": "C6DF6D96D6FD267C8EE51F4F27302A9217DA35334234B70B4C0059226D122329"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/VacationsHandler.cs",
+      "Hash": "E5562D0162990BC7DE82BD8452F8F089B5A7E34A1E8C36780EEF9B6E9165916B"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/WicCoverageDetailHandler.cs",
+      "Hash": "AB4BEC9D3CBF2DCBACD82D603C628E188CE519E1A04040E1DD9A1C89FF2B3C3F"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/WicForecastHandler.cs",
+      "Hash": "F70398530C214DA5394E7FCDB9C7FF91378238F70C9A5B236D47E3B915FC551F"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/WicLeaveHandler.cs",
+      "Hash": "9788C385C7F7FB98CCC3BD044004915389C4B793A8F4ED53112A0CA091F503EE"
+    },
+    {
+      "Path": "Backend/Assistant/Domains/WicOpeningHoursHandler.cs",
+      "Hash": "D4603D6A7D6435E3B464C2F95CC6DBD0B6531DFD6CF7C256E453BE396A92007F"
+    },
+    {
+      "Path": "Backend/Assistant/IDomainHandler.cs",
+      "Hash": "09B4783BD252821C5475C3F18870F83AB0B1C8A08E93A061260464AF29AF4E6B"
+    },
+    {
+      "Path": "Backend/Assistant/SharedParser.cs",
+      "Hash": "F4A2A508FE9F69591121DB4FA2FACD23E81BF7BBF03270AEE7C50A5DF055C638"
+    },
+    {
+      "Path": "Backend/AttendanceService.cs",
+      "Hash": "2BB5C2F24D0159CFF66AE11E76FFAF7EC8232F4FAD93DC90D17275BD655912A0"
+    },
+    {
+      "Path": "Backend/AuthModule.cs",
+      "Hash": "70FC4747EE8347A6F88CE40B725222D64E7E6BBF502DB1A21C81BCCDB674BBBC"
+    },
+    {
+      "Path": "Backend/BackupService.cs",
+      "Hash": "F6A4CBD7A3B56E38EA95CF61A6561EC6338C7B3956471832CCD46083C3718DC5"
+    },
+    {
+      "Path": "Backend/BoEntry.cs",
+      "Hash": "EE39ECB02CC6A229C36AB34B468C49D3EFBDB4C76EB0C7F4820D9408BD2F5ECA"
+    },
+    {
+      "Path": "Backend/BoListService.cs",
+      "Hash": "F00B9F8CCC97D540C5E52879A9AA161394D25F79EE3AB9D1772C01FED1711C80"
+    },
+    {
+      "Path": "Backend/BreakModels.cs",
+      "Hash": "F5A09C5B89374FA549D2E8FBD8D96E0F8A6137BC7F862E85DDDAACE0C91DF08A"
+    },
+    {
+      "Path": "Backend/BreakService.cs",
+      "Hash": "032631620092F7729E5F650A2E49318F45681F366C6C5485685612DFA4C6E7E4"
+    },
+    {
+      "Path": "Backend/BulkRtmService.cs",
+      "Hash": "47B7AF5711FE4D04E68E47FD27DF744E3559FB08BEFBBF78A0F9C79E97EE50C2"
+    },
+    {
+      "Path": "Backend/CoverageCalculator.cs",
+      "Hash": "8A300188EDD78DF2F81D00D3535C413D9C8846BC24FA3D45F764B330D16D8B86"
+    },
+    {
+      "Path": "Backend/CoverageCalculatorTests.cs",
+      "Hash": "4273C2A294D44CEB2EEC5BEB3D36F339CE224648F8046FE9DA8997C53EA98F6B"
+    },
+    {
+      "Path": "Backend/DashboardService.cs",
+      "Hash": "E49706AF269357CAC14BD476F8FD4A3E0508A547D50A66D99574AEACA4319DE5"
+    },
+    {
+      "Path": "Backend/DemoDataAdminService.cs",
+      "Hash": "FBB7FE894A6FEAC98247A40F08398ADD59503459A3A48B8CFB49413C1046BD39"
+    },
+    {
+      "Path": "Backend/Employee.cs",
+      "Hash": "4C592FA710B6D0B632E52CA47C8F5C131EFB32D13905AD3A1D8333762EE29A84"
+    },
+    {
+      "Path": "Backend/EmployeeService.cs",
+      "Hash": "C0B9D117CF2EFA0EE5EAE2D5046019423DFF4CE3AA882ED6752B96DA1F1488D6"
+    },
+    {
+      "Path": "Backend/GSDContext.cs",
+      "Hash": "2D3D2178F33F062CAB9F73B4E40ECF00822F15E0301C4E25D23C8322CA343E38"
+    },
+    {
+      "Path": "Backend/GSDDashboard.API.csproj",
+      "Hash": "C85EA02D0A6DF9D8F532C19BCB6ED9D6B28C1F3003324E39B062B29C3AB2D14F"
+    },
+    {
+      "Path": "Backend/HrExportService.cs",
+      "Hash": "0B286790939A000989D22F1E67D41D732B2B14B09EE0D3F1E61EC4BA71AA4A95"
+    },
+    {
+      "Path": "Backend/Modules/Auth/KioskEndpoints.cs",
+      "Hash": "FB81E81F14B1225826748127F20C7788F8BBF50E66E3B4308B8076BC5C751E12"
+    },
+    {
+      "Path": "Backend/Modules/SubstitutionModule.cs",
+      "Hash": "D6A4A2649DC72011EC162B979333DBC8577EECD221CE7E92D5A822C884343961"
+    },
+    {
+      "Path": "Backend/OtherModels.cs",
+      "Hash": "DA862CC771CDB1C119455707B12729AACDBF0999D9312595B1C32D5AC1B7AE64"
+    },
+    {
+      "Path": "Backend/OverviewService.cs",
+      "Hash": "6A3693F70DF671CB16E587D9AF5C29E1A94930B2B00ACFA7AE4EC06ECAB70547"
+    },
+    {
+      "Path": "Backend/PipelineService.cs",
+      "Hash": "5FAD1B903DCAD388A654A3D743CEE923B9FF2E46C430B93A9805F2DB1DDEA836"
+    },
+    {
+      "Path": "Backend/PlzBundesland.cs",
+      "Hash": "30DD2806A02A02C947DF00BE10326FFBB9FBD0E166E0BC3C4732E722B009C745"
+    },
+    {
+      "Path": "Backend/Program.cs",
+      "Hash": "551C5837D160D5727C1C2EBA9002184E30D36B43EE33440A73BB03B5830E13F8"
+    },
+    {
+      "Path": "Backend/PublicHoliday.cs",
+      "Hash": "231F749111C0A430CA5D0404CE4FBAD122ECC18D64AA4FF6E74696D993C02772"
+    },
+    {
+      "Path": "Backend/PublicHolidayService.cs",
+      "Hash": "5A3AAD85D40055158DF2C133800E56FDB2A9FA1FEA3B9C4E50692F49DB7E490C"
+    },
+    {
+      "Path": "Backend/RbacMiddleware.cs",
+      "Hash": "82338ADA10676965626CB0A17F1EDFB5D83C7E19AE83C1F868009B0FB7B27646"
+    },
+    {
+      "Path": "Backend/RosterBatch.cs",
+      "Hash": "9A752CC07B7FD8269AE048B5BCEE1A1DA5A2125BAEC85A982AB8AB400BC2810F"
+    },
+    {
+      "Path": "Backend/RosterService.cs",
+      "Hash": "DE97C56E9698ACCFDEF93AF53D0775C7313FC1371D6AE06D4C4D8A9E082103A6"
+    },
+    {
+      "Path": "Backend/RtmEntry.cs",
+      "Hash": "7DD3DEDE1EE305B06D915DF65683BC40C74D5C767E34D4EA3EBAB9736C6889FD"
+    },
+    {
+      "Path": "Backend/ScheduleLimits.cs",
+      "Hash": "53D8B2FA80EA8759F708CA01F2E64928AE0572D21F92171165F0433F91E5AA47"
+    },
+    {
+      "Path": "Backend/Services/ALPlanningService.cs",
+      "Hash": "8EC59819AAF9D9E642ACEF0C7BF79EBC0F3FE9B367DB1A96FC3E1D91E92633CB"
+    },
+    {
+      "Path": "Backend/Services/AuthService.cs",
+      "Hash": "404EAF153BB2B757CA52D0D44270E12939B1EB4347DDB220EBBC25638C3E2C7F"
+    },
+    {
+      "Path": "Backend/Services/AvailabilityResolver.cs",
+      "Hash": "BC783B1459B3A925BFE69E30ED8E7CF44FEED9C0E4F77FFC602018E0D1E98611"
+    },
+    {
+      "Path": "Backend/Services/BriefingService.cs",
+      "Hash": "84C053EF8E6254D46A0F033E804C731EC8137F0AA6FA589E318FFCFB0A8490CC"
+    },
+    {
+      "Path": "Backend/Services/CoverageEvaluator.cs",
+      "Hash": "C0FCB5E3F7A6E74C39E98DF7B5F2CD370C9AD2C36F1E7A0EB44C8F7C1DD44EA1"
+    },
+    {
+      "Path": "Backend/Services/ForecastService.cs",
+      "Hash": "2F49BAA4FB0D6F72FBB4FA005B524C9A70FBEF1208569E432F1265D76D4351CF"
+    },
+    {
+      "Path": "Backend/Services/KioskProxyService.cs",
+      "Hash": "577F3C507E9170ECC901A6AD3DBC063D698A742F06D41D8E76ECCB5B5050FDE1"
+    },
+    {
+      "Path": "Backend/Services/Mojibake.cs",
+      "Hash": "8690533F179D501D098637B981BE44479587C0B5E335178AA4EEB4E2AD3A5F42"
+    },
+    {
+      "Path": "Backend/Services/PublicHolidayResolver.cs",
+      "Hash": "DA760234F57DA8F3D85544379761127BE7F7F845550D7A81D0D470A36CA23B7A"
+    },
+    {
+      "Path": "Backend/Services/ReachabilityService.cs",
+      "Hash": "8C7D8CB0AC5B993535842F007F1E9A60E43AD4A6A75F000ED3E5B9FC76CD5CB7"
+    },
+    {
+      "Path": "Backend/Services/ShiftDuplicateResolver.cs",
+      "Hash": "7B45BFFD77EF9EE18A494F44BE28FFE06F3EEF5B06ADEC79B32C2B4DD9016FE6"
+    },
+    {
+      "Path": "Backend/Services/SubstitutionService.cs",
+      "Hash": "F7FDB15B1741173653F9103CE17434B9F1F187F02578C70EB9B0C0B6F0B3F96F"
+    },
+    {
+      "Path": "Backend/Services/TestAccounts.cs",
+      "Hash": "8E30B10DC62E25BA3087FAE6270B97AE5C307BB2447A919ECF9C2502EA3CEBD8"
+    },
+    {
+      "Path": "Backend/Services/WhatIfService.cs",
+      "Hash": "ADAB6537BDF1B74A9377958B4E8C09ACB5FF73BDC1261D824117C0FD6552E61A"
+    },
+    {
+      "Path": "Backend/Services/WicConflictDetector.cs",
+      "Hash": "5A761A4B8E77005398DC690A69985C66A451C81CA6994A1D74460C6CC552A91C"
+    },
+    {
+      "Path": "Backend/Services/WicCoverageImport.cs",
+      "Hash": "02831D850B7827D5868700294636248A01F96F3424F73A5F5C4D89B34C46A473"
+    },
+    {
+      "Path": "Backend/Services/WicCoverageService.cs",
+      "Hash": "9FC90B5F2E0612207D6BF8EA289AF0DA3E8FAAB0A21E7D1A0B56AB2346A8B983"
+    },
+    {
+      "Path": "Backend/Services/WicHoursResolver.cs",
+      "Hash": "B7D81222598FEE8007BBF9934DD8D9EF6C71DA8357DACBA7F0DB4DAA14B6CDF7"
+    },
+    {
+      "Path": "Backend/Services/WicLocationMatcher.cs",
+      "Hash": "4794A962BA88F6314EAD59B3FE8BC64E00AB490CE7ABFAC8E9B697A67205DA3C"
+    },
+    {
+      "Path": "Backend/Services/WicMigrationDryRunService.cs",
+      "Hash": "567BADDF9F9D7AF340DA19D8381DA8C27EFC6FE854AE0119358A008933F4E54F"
+    },
+    {
+      "Path": "Backend/Services/WicPresenceResolver.cs",
+      "Hash": "0A47168E6F2578A93C499FAC579553D170A114422FF4E6D838C5E6A9919A0AB2"
+    },
+    {
+      "Path": "Backend/ShiftEntry.cs",
+      "Hash": "E6287C4C4945E2C021F67CFEA6549E61FA4663E2147C88802390498146F1C4A9"
+    },
+    {
+      "Path": "Backend/ShiftReorderService.cs",
+      "Hash": "8347E0B8012773A95F7FD6A0A602802D34BBA86348C765D32E48D143FE08999D"
+    },
+    {
+      "Path": "Backend/ShiftService.cs",
+      "Hash": "646149BE2D4D3AA96CD040D5F47AF4F037A07FC4EE656BDC1C63E97C7333FDD7"
+    },
+    {
+      "Path": "Backend/ShiftSyncService.cs",
+      "Hash": "BC13B8B2A98EA586EA7D84E4D1361CA34206B3AF8914ED25829D59847B58EACC"
+    },
+    {
+      "Path": "Backend/ShiftValidationService.cs",
+      "Hash": "047AE5CEDB0B30A496F938D4C7AE60E1FB16DB7D5AD88982A35ABB9D8445913A"
+    },
+    {
+      "Path": "Backend/SickLeaveService.cs",
+      "Hash": "3E1B8C1F6E7A495639BAD31BDBBFE9D80A4BFC34D739CD92C4A88457FC06B6DC"
+    },
+    {
+      "Path": "Backend/TrainingModels.cs",
+      "Hash": "10F1C5E15FFD18788CE8E137A3692C9EC7505D31969FBC2ADD08FF2C1BCB9455"
+    },
+    {
+      "Path": "Backend/TrainingService.cs",
+      "Hash": "A58C1B588611552A3AC27AC9AC4039E8FFF873F0C8BDF43677BB8EB538E203E7"
+    },
+    {
+      "Path": "Backend/VacationService.cs",
+      "Hash": "9F42AFE7399E7DB19FB7AC73D73FD6812FACF76B11AF801AD42B822D87FA26E3"
+    },
+    {
+      "Path": "Backend/VwicService.cs",
+      "Hash": "BFC23091FC8A07EE3EB7A9B0E95E4C4DA3583CACB12BBE384E4DC4F2D5BA5E90"
+    },
+    {
+      "Path": "Backend/WicAssignCandidatesService.cs",
+      "Hash": "2145EFF19BC82317B090FC9C7EC256E15BC7A13622CC921FA8D2C86808397C72"
+    },
+    {
+      "Path": "Backend/WicAssistantService.cs",
+      "Hash": "0CFCC8E512BA1407207C32FE706D4D82593543EF167433B97EAC13215B8289FC"
+    },
+    {
+      "Path": "Backend/WicCardsService.cs",
+      "Hash": "1134B0F1F979BD3D9B2BE46F8FDD65820EB32EAAC0E6C76280F685638E0718A4"
+    },
+    {
+      "Path": "Backend/WicCoverageGapService.cs",
+      "Hash": "53C4A92648BB0679382B8C751BE23E18B8432C4CE549335B8AB2F1E2099FC797"
+    },
+    {
+      "Path": "Backend/WicModels.cs",
+      "Hash": "A8EC01A27D6050EDB03C5AB1B0E7C4C4C693FD854F08EF6ED44399178090B399"
+    },
+    {
+      "Path": "Backend/WicScheduleService.cs",
+      "Hash": "B4E9F7DE15A1DBDEE323E2E8F53FB7403D55EED05131FACD0435FDDA0425E306"
+    },
+    {
+      "Path": "Backend/WicShiftService.cs",
+      "Hash": "3702846F9DCCC649C20C148F062FA09F25383FBB7199A58CC5CCF095751FD4A0"
+    },
+    {
+      "Path": "Frontend/eslint.config.js",
+      "Hash": "CF80A7510234DCD5AE594B30B44682B8B45BA13C0FCB5BF8928BEA143802AA1C"
+    },
+    {
+      "Path": "Frontend/package-lock.json",
+      "Hash": "D3C0635841826EB35402CE57C200FA7EEA8FAF0275126013A1DAAEE296ED2E30"
+    },
+    {
+      "Path": "Frontend/package.json",
+      "Hash": "B4EBC22083A5B491A575BE22272BBE173DAE4F506FB461D9AAE0CF5BC0477E29"
+    },
+    {
+      "Path": "Frontend/postcss.config.js",
+      "Hash": "190C877DB466995BF1482F4A16ABD06E04A89EDE3119341E2A86FF96E1737B27"
+    },
+    {
+      "Path": "Frontend/src/api/client.ts",
+      "Hash": "4DA3F4BDB9ADBC22C9FA73E33A02C375FA0C37DB6D6A9469A6D51D89F148AB10"
+    },
+    {
+      "Path": "Frontend/src/App.css",
+      "Hash": "A5558569B77191B4685EBF7FA0CC226128BD74F503D40BFF304F5982F726A64C"
+    },
+    {
+      "Path": "Frontend/src/App.tsx",
+      "Hash": "36F9E76BD32C41EF8C973DF7395B991B6912165F53765F02969E16C35A9E8CEA"
+    },
+    {
+      "Path": "Frontend/src/assets/hero.png",
+      "Hash": "881FFBCAAFC212E49ADDAD08846A5B82761355FA20624253AF3477BA33262C5C"
+    },
+    {
+      "Path": "Frontend/src/assets/infosys-1.webp",
+      "Hash": "674FB084216CBC65F337298B133308F5515921A4DBB6087B80041E9EDF1F0869"
+    },
+    {
+      "Path": "Frontend/src/assets/infosys-2.webp",
+      "Hash": "A046C6A5801C263CBD0448779C85DF1A46D912ABB2B6153F9A9C211C04908FF7"
+    },
+    {
+      "Path": "Frontend/src/assets/react.svg",
+      "Hash": "35EF61ED53B323AE94A16A8EC659B3D0AF3880698791133F23B084085AB1C2E5"
+    },
+    {
+      "Path": "Frontend/src/assets/vite.svg",
+      "Hash": "5BE21ACD42EB7B896E517F4E0F0F11EB5C5D9E54FBBCEBE9453F033008FCCA6F"
+    },
+    {
+      "Path": "Frontend/src/auth/AuthContext.tsx",
+      "Hash": "0B27B1458D9A80213758DDF512D0C78358BA6C801514BEE9B749EA1FE449E260"
+    },
+    {
+      "Path": "Frontend/src/auth/RequireAuth.tsx",
+      "Hash": "BBF22A84DB4A5DE8F6AA52906E45FD34EFC0DC8C52965CB01046549678A39591"
+    },
+    {
+      "Path": "Frontend/src/components/Button.tsx",
+      "Hash": "E70052B818BF1B0DF4B848DC02B87CDB0D46453208488751A7CFD7EF39C94464"
+    },
+    {
+      "Path": "Frontend/src/components/CommandPalette.tsx",
+      "Hash": "235C0C86B383830BE4B34A81CB51ABB4969337B6B93FDEA1F764BD22044870C6"
+    },
+    {
+      "Path": "Frontend/src/components/CoverageBadge.tsx",
+      "Hash": "41B7B57187A223003C710CD7F45F9C4C8B88D02D139C79F30A6D423F51090246"
+    },
+    {
+      "Path": "Frontend/src/components/DataTable.tsx",
+      "Hash": "FD583B1D748E5600795519AFBCBF35D01C19E109DB2E528EFEEDBA61A21B512C"
+    },
+    {
+      "Path": "Frontend/src/components/DownloadButtons.tsx",
+      "Hash": "AC2D503B71B73219F09A63F45FADF0106CD721F47D877595A0C268217680D83A"
+    },
+    {
+      "Path": "Frontend/src/components/EmptyState.tsx",
+      "Hash": "2B9CBAB2B5C92559EAE080945AD0492C86DEE36FF637378AEC1C011E55B29E0D"
+    },
+    {
+      "Path": "Frontend/src/components/MoveToGsdBacklogAction.tsx",
+      "Hash": "63C54A87CD82716E66EA97DFD55D2B4B26E89152C52D6102938C7B1411DBCFF5"
+    },
+    {
+      "Path": "Frontend/src/components/NppBadge.tsx",
+      "Hash": "FB843061EC5625A739404B23B82E561B85F7217C30DBA6131C6B87ED2F741B71"
+    },
+    {
+      "Path": "Frontend/src/components/OverviewErrorBoundary.tsx",
+      "Hash": "1EC9418E372F65CD95CBE168E06B1CBC39ED100EFF5B4FDDAD4188A120B2CC04"
+    },
+    {
+      "Path": "Frontend/src/components/Panel.tsx",
+      "Hash": "ABC2F2200D6C67F1FC02EE62803EFB3A3AD2F35B86F7F4CE797649871F10195A"
+    },
+    {
+      "Path": "Frontend/src/components/SearchableSelect.tsx",
+      "Hash": "A7C6D6DD43008E3B6A16148D05B558CD88A9E323FDBB55602EB300800EA2A5D0"
+    },
+    {
+      "Path": "Frontend/src/components/Sheet.tsx",
+      "Hash": "2D2B84E1E8D39F84AB4BC6093E19860914C3C2D77154EF7FCF89B2EE88B0852F"
+    },
+    {
+      "Path": "Frontend/src/components/ShiftBadge.tsx",
+      "Hash": "363A41A4746A896627BD8EBECEA6A8935F4A4A6D6447189825589A90767FA8BC"
+    },
+    {
+      "Path": "Frontend/src/components/ShiftTypeCell.tsx",
+      "Hash": "D75F495C24626E0886190985676A6DB14407BA379CF4A827B5BF4B29EA6FD892"
+    },
+    {
+      "Path": "Frontend/src/components/StatusBadge.tsx",
+      "Hash": "2E0757570021B8F0067F57C4EB5563D77878E0BADE688D81024F8482E0707AEE"
+    },
+    {
+      "Path": "Frontend/src/components/ThemeToggle.tsx",
+      "Hash": "6FE1F5BF96857354A1186D83AF7C5E4AC9F0F13D4193608525C36B7839F3EDA0"
+    },
+    {
+      "Path": "Frontend/src/components/WicChatWidget.tsx",
+      "Hash": "09436DEA7EB301BF5DBEFFF61EECEEF24DC2DDA51661520107F13E18BE3E8E72"
+    },
+    {
+      "Path": "Frontend/src/constants.ts",
+      "Hash": "3F038D266A7858C3E068A8A408829EC4AC5F8270ECC2DB6363FB31FDD3CFDD31"
+    },
+    {
+      "Path": "Frontend/src/i18n/index.ts",
+      "Hash": "4D1E20284D114C611CCD081EAAC8DE95843862093F1F0E0ED75295A37B5EA1C9"
+    },
+    {
+      "Path": "Frontend/src/i18n/locales/de/common.json",
+      "Hash": "E1FA47984612E99F036E3E1B294896FFB2522AD41A5D9F458D52A6A5F57FB8CE"
+    },
+    {
+      "Path": "Frontend/src/i18n/locales/en/common.json",
+      "Hash": "A3E4C66E245FFD2696724AF237D44048EE0759712344CFB2E28D19044E1D66BF"
+    },
+    {
+      "Path": "Frontend/src/index.css",
+      "Hash": "7B41920E42A35378FF3D35E9AFCB7BC8D1DEBB0A05DC84D2668F91F245EA71AF"
+    },
+    {
+      "Path": "Frontend/src/layout/AppShell.tsx",
+      "Hash": "A59771993FA5614E4AF9181C30F3219473F180482FB68E3CC90D11C2CE10CBE7"
+    },
+    {
+      "Path": "Frontend/src/layout/navItems.ts",
+      "Hash": "02C63A56612FF601037E9B84DBCAE771638EAE0D6197AE4BBF61E36A5D2936EF"
+    },
+    {
+      "Path": "Frontend/src/layout/Sidebar.tsx",
+      "Hash": "EB77096FA1609D747CB25D546FB4C57FAAD73E80BE19B1DB374E1E9E9A9AD437"
+    },
+    {
+      "Path": "Frontend/src/layout/Topbar.tsx",
+      "Hash": "9070A04E5657BEB57F37773B4288A0D98603987A42F861ECF633F97FA202983C"
+    },
+    {
+      "Path": "Frontend/src/layout/useNavTheme.ts",
+      "Hash": "894C9F33ADD2459603171B55BDF639F83B0A7AF9745CF1A14F985E85B27F4E19"
+    },
+    {
+      "Path": "Frontend/src/layout/useSidebarCollapse.ts",
+      "Hash": "6BEE04C09A940035121402100ABC0FAC8903A65125631EEA61C8E2D7EB1E310C"
+    },
+    {
+      "Path": "Frontend/src/lib/tokenColor.ts",
+      "Hash": "A44D43021F376EA6B8C412AD48178B6A5F2E651A310CBE5903721D5EE9FB2269"
+    },
+    {
+      "Path": "Frontend/src/main.tsx",
+      "Hash": "E548982E4F765533B645F767629029782D94C1CF5C66EC841ADAD95365523A09"
+    },
+    {
+      "Path": "Frontend/src/pages/AgentHome.tsx",
+      "Hash": "8B5C145E9E86BCE3F7A2685727F31F72ED7B6002130223ED3A79C099C9E44133"
+    },
+    {
+      "Path": "Frontend/src/pages/ALBalance.tsx",
+      "Hash": "64EFF49D2AA3B2F265FE14CC2EB3143418115E1A6913EC31310B1981974483C6"
+    },
+    {
+      "Path": "Frontend/src/pages/ALCalendar.tsx",
+      "Hash": "1498195CA3F98FAB8466BBDB8239C51797EFFC77A780AC11F8ACBACD6D5E4DA8"
+    },
+    {
+      "Path": "Frontend/src/pages/ALPlanningModal.tsx",
+      "Hash": "F4A21F9DB98A1A7779B1ABE7AB25BD8A60B1AF1F8F3F247086AEAF1912FADDD7"
+    },
+    {
+      "Path": "Frontend/src/pages/AssignAgentModal.tsx",
+      "Hash": "196BD6A9659F0C784519BDBA65A2BDF47134898176759AB68F31131B2068C0CE"
+    },
+    {
+      "Path": "Frontend/src/pages/Attendance.tsx",
+      "Hash": "3732179B366AD5175857CA93C5607F7085BC44B7DF5362697D8F14422146E265"
+    },
+    {
+      "Path": "Frontend/src/pages/attendance/checkinStatus.test.ts",
+      "Hash": "5B533E68A6B9BE7B4DCB4E4657DAAC4CFE5C5FC9F406F7BF4D67475A86C2A6E3"
+    },
+    {
+      "Path": "Frontend/src/pages/attendance/checkinStatus.ts",
+      "Hash": "7F4CA0CCE61BECCF39DD143861EF95F4EDA5095A29EBCC1CF5EAED1B5C3620C8"
+    },
+    {
+      "Path": "Frontend/src/pages/BoList.tsx",
+      "Hash": "7CC885286702F158A38B88369696ED26B61020ED177F5D050319B38CF411DBE7"
+    },
+    {
+      "Path": "Frontend/src/pages/BreakPlanner.tsx",
+      "Hash": "944C1159B5EB71BD87E495A51E2AE0E58A22B052DE9A5A035A789DB886DCA310"
+    },
+    {
+      "Path": "Frontend/src/pages/BulkRtm.tsx",
+      "Hash": "F11B9DC72FC65371E9094B4D6059B63F4BA0D65D4ED10BA2B6EF9219C60C52AE"
+    },
+    {
+      "Path": "Frontend/src/pages/CoverageBar.jsx",
+      "Hash": "E63D6436151D47BDEB26CBB6B6008740987E628966BD4B85FC5721C8080D2359"
+    },
+    {
+      "Path": "Frontend/src/pages/Employees.tsx",
+      "Hash": "2FEEF4624A38821B4130D53ED052586D0507D7AA629DC26D17C70D84F38ACA45"
+    },
+    {
+      "Path": "Frontend/src/pages/Export.tsx",
+      "Hash": "B87F2B6F71CC423EA6EC8213588A67BFA2224F75F04943E446E06C4564F4545A"
+    },
+    {
+      "Path": "Frontend/src/pages/LeaveAvailabilityBar.jsx",
+      "Hash": "B4D8720904BBE9265B2D9BA48FE82F20293F7E3BA9FDE1A4EC03B093ABBC1A54"
+    },
+    {
+      "Path": "Frontend/src/pages/Login.tsx",
+      "Hash": "1661FE7688F92D4789A676A51FE7AAADF2736CCD63EAD9B75DA5FC2F6274B36D"
+    },
+    {
+      "Path": "Frontend/src/pages/ManualCheckinModal.tsx",
+      "Hash": "6B0F9523CFF3B9F9C7325A9B3D31ACFF1F3BC2BA5D74D0E636341BFAA666821F"
+    },
+    {
+      "Path": "Frontend/src/pages/Overview.tsx",
+      "Hash": "0A52159CE6FE1AAFBAE09248B13BDB03344CC168122853EFCD943D1AF22D17DE"
+    },
+    {
+      "Path": "Frontend/src/pages/overview/DayStrip.tsx",
+      "Hash": "B55840F9E9C42E3D50541525092F0AB2B5C1C06465CFE91A55D995CC60EE6E9C"
+    },
+    {
+      "Path": "Frontend/src/pages/overview/ExceptionList.tsx",
+      "Hash": "B6075177BA75BB5ED75F2F6B93401C3AF4FF7969AACE873B144E3CAE8EE54DF5"
+    },
+    {
+      "Path": "Frontend/src/pages/Pipeline.tsx",
+      "Hash": "32E6D3DA168AFB89988186011BB76C5CD03FB3664C76E4AF7BA566D91C982208"
+    },
+    {
+      "Path": "Frontend/src/pages/Roster.tsx",
+      "Hash": "F4E5822E306C6C8274CDA453F8A2E6D73551BC96C480BDEEAE02459D174FB399"
+    },
+    {
+      "Path": "Frontend/src/pages/Roster.tsx.bak-wic",
+      "Hash": "01DFF865A71BDB599FF75A77035C9B7A7894D1EC05FD124F32963025EAFEF9B1"
+    },
+    {
+      "Path": "Frontend/src/pages/Shifts.tsx",
+      "Hash": "E46E1DD3296A963D3715A1BED84645E9A7526D8937148FBFE660B1A0A7B033F5"
+    },
+    {
+      "Path": "Frontend/src/pages/SickLeave.tsx",
+      "Hash": "A299801AD4C438971A371C0B1F1203E53B8702D6D0BF5D1F2BA0C1F4C91E49A9"
+    },
+    {
+      "Path": "Frontend/src/pages/Training.tsx",
+      "Hash": "BCEAD6A00DA813990B59E5C70F229243CFA9F2524F679E8517AD7FC4DC1AACA4"
+    },
+    {
+      "Path": "Frontend/src/pages/Vacations.tsx",
+      "Hash": "484660BEC33FB83569698BA5D1EF0C1497DC883A6290FEB4600C08218F476346"
+    },
+    {
+      "Path": "Frontend/src/pages/VWICPage.tsx",
+      "Hash": "D1616949D13357BED0A45F7C5045417C96FC08B6D64C6E0C50D4C57B2F216094"
+    },
+    {
+      "Path": "Frontend/src/pages/WicAnnualLeave.tsx",
+      "Hash": "569B871534739372ACE74CF369D796FE86DDAE8FCB2CD4B9459365A2C2CF7EC1"
+    },
+    {
+      "Path": "Frontend/src/pages/WicAssistant.tsx",
+      "Hash": "6DC16C6987A872DAD3B1A6D6C1CE98A1363BA1F00A1DDB6CA44789E38B625DC0"
+    },
+    {
+      "Path": "Frontend/src/pages/WicAttendance.tsx",
+      "Hash": "BC5C4527855A9D4D424870C370D37840FDF2D94527E59301A948CD4F0D722C2E"
+    },
+    {
+      "Path": "Frontend/src/pages/WicCoverage.tsx",
+      "Hash": "4E44EA4A262358DB40FFAAE99EEC9498238D028EAE844F72D69DF6BD52A85F0D"
+    },
+    {
+      "Path": "Frontend/src/pages/WicLocations.tsx",
+      "Hash": "0C3CFDBB978172DC6593C92A697BD92D17417CDF26F938FEE50CDBBFEBACAEF5"
+    },
+    {
+      "Path": "Frontend/src/pages/WicSchedule.tsx",
+      "Hash": "9005E4AB4F9F54ADA21DC4EE3D2A7604A4F58BD2834164341A8EEEFC892EFD83"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/AgentRow.jsx",
+      "Hash": "D33FD0D26A61A50D3E0E2F6283FAE4EF99B4559051F1456466D78F81FB07B47E"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/AvailableHoursPanel.jsx",
+      "Hash": "4655E34E6D32A8D24FBB03ABFAA70CDCFB9A83DB73D1A3F5FEFE5C171F489189"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/index.jsx",
+      "Hash": "70128502081AD4B94F4AF8BB893776D053050FA665195349AD81ED2B7F8D0703"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/LocationCard.jsx",
+      "Hash": "2F9B2A2D01D7B857765F2D3FE802DD725BCB0D9544E5CE3FA2B671A18D9F3CFB"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/mockData.js",
+      "Hash": "E69631F61E964D929E864BE03ADDAC9DB994699E5394A7A0130B11A32664AF3A"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/MultiSelectFilter.jsx",
+      "Hash": "CD2F2FC05ACF48E4007D8BE08EA49B71D27FBEA2F5B6D09E2610FB7137548425"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/NewShiftModal.jsx",
+      "Hash": "8C3C29CC2E2C49EC29A50AA4CB3053468ECAB8751A6EBE37386EB438BFDB589D"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/ReassignModal.jsx",
+      "Hash": "6D411843AA662FBD9833F4EEEC562A194CF8DE63FB030A11582BC0439C1C1D71"
+    },
+    {
+      "Path": "Frontend/src/pages/WICShifts/UncoveredBanner.jsx",
+      "Hash": "8174E1A1A4166C037CAF7DD0481F6B7CC2E9461E4E337F036CAA3431EDA9F05B"
+    },
+    {
+      "Path": "Frontend/src/styles/tokens.css",
+      "Hash": "6358C126E38525DE802916BC10B5FB6716F3BFC75D950FB610AAF769FA9E5A09"
+    },
+    {
+      "Path": "Frontend/src/utils/resolveEmployee.ts",
+      "Hash": "E5525531133522727D7D868ABF5412F2F31B01501982C171AAA5638C8C2B51E0"
+    },
+    {
+      "Path": "Frontend/tailwind.config.js",
+      "Hash": "F4C574CBD02CC6B30CBFCFBB50A591C7A5BFA1BB0F3AACC0B70EA46A4709D046"
+    },
+    {
+      "Path": "Frontend/tsconfig.app.json",
+      "Hash": "1A5723ABE95F372B45CE56FC601AEFCCC8085731E231F2492218741BC68DB706"
+    },
+    {
+      "Path": "Frontend/tsconfig.json",
+      "Hash": "770B4140BBB581E2DFD9EA9946FFC9C75A1D86BA7D2DB5F77C83E37CBDF9D808"
+    },
+    {
+      "Path": "Frontend/tsconfig.node.json",
+      "Hash": "90A22C920CBC14624FB4658B58F15C875ABF3234224F3933F211849C3ADA3242"
+    },
+    {
+      "Path": "Frontend/vite.config.ts",
+      "Hash": "B245A8CFB0F83CD52872CC7C38DB4F9F3B0063B508D645969E13F32ADF0899FF"
+    }
+  ]
+}

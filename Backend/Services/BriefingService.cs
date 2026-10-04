@@ -76,7 +76,9 @@ public class BriefingService
             .Where(ph => ph.HolidayDate >= date && ph.HolidayDate <= lookaheadEnd)
             .ToListAsync();
         var allAssignments = await _db.WicAgentAssignments.Where(a => a.IsActive).ToListAsync();
-        var allEmployees   = await _db.Employees.Where(e => e.IsActive).ToListAsync();
+        var allEmployees   = await _db.Employees
+            .Where(e => e.IsActive && !TestAccounts.ExcludedEmployeeIds.Contains(e.EmployeeId))
+            .ToListAsync();
 
         var wicEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate >= date && w.ShiftDate <= lookaheadEnd)
@@ -87,6 +89,11 @@ public class BriefingService
         var shiftByEmpDate = shiftEntries
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
             .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
+        // Signal-2 candidates for WicPresenceResolver (ShiftEntries WIC duty). Briefing
+        // had NO second signal at all, which is why it reported 19 staffed centres as
+        // 0/1 UNCOVERED on 2026-10-01 while the banner and the KPI cards said covered.
+        var candidateDutyRows = WicPresenceResolver.CandidateDutyRows(shiftEntries)
+            .Where(s => !TestAccounts.IsExcluded(s.EmployeeId)).ToList();
 
         // ── Absences today ────────────────────────────────────────────────────
         var todayShifts = shiftEntries.Where(s => s.ShiftDate == date).ToList();
@@ -159,30 +166,36 @@ public class BriefingService
 
         foreach (var loc in locations)
         {
-            var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, todayDow, date);
+            // (E) locationCodeLegacy included — a centre whose opening hours are stored
+            // under the legacy bridge code used to resolve to "no hours row" here (read as
+            // closed and skipped) while ForecastService, which passes the legacy code, saw
+            // it open. Same overload every other coverage reader uses.
+            var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, todayDow, date);
             string? bundesland = loc.Bundesland ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
             bool isRegional = bundesland != null && publicHolidays.Any(ph =>
                 ph.HolidayDate == date && string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
             bool isClosed = hours == null || hours.IsClosed || isNationalToday || isRegional;
             if (isClosed) continue;
 
-            int minReq = loc.MinAgentsRequired ?? 1;
-            var dayWic = wicEntries
-                .Where(w => w.ShiftDate == date && w.IsOnSite && WicLocationMatcher.MatchesSupportLocation(w.SupportLocation, loc))
-                .ToList();
+            int minReq = hours?.MinRequired ?? loc.MinAgentsRequired ?? 1;
 
-            double presentDouble = 0;
-            foreach (var w in dayWic)
-            {
-                shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
-                bool isSick = sickLeavesAll.Any(sl =>
-                    sl.EmployeeId == w.EmployeeId && sl.FirstDay <= date && sl.LastDay >= date);
-                presentDouble += AvailabilityResolver.GetWicContribution(isSick, sh);
-            }
+            var presence = WicPresenceResolver.Resolve(
+                loc, date, wicEntries, shiftByEmpDate, candidateDutyRows,
+                empId => sickLeavesAll.Any(sl =>
+                    sl.EmployeeId == empId && sl.FirstDay <= date && sl.LastDay >= date));
+            double presentDouble = presence.PresentDouble;
 
-            int effectiveCoverage = (int)Math.Floor(presentDouble);
+            int effectiveCoverage = presence.EffectiveCoverage;
             var evalResult = CoverageEvaluator.Classify(false, effectiveCoverage, minReq);
             if (evalResult.Status is CoverageStatus.COVERED) continue; // no gap
+
+            // A ROSTER_ONLY centre is STAFFED - the on-site record is simply missing - so it
+            // can never reach here as a gap, and must never be offered a substitute. It is
+            // surfaced as "staffed, check-in not recorded" on the WIC Locations card
+            // (WicCardsService.CheckInNotRecordedCount) instead. Belt-and-braces guard: even
+            // if headcount somehow fell short, do not ask an RTM to replace a rostered agent
+            // over a missing record.
+            if (presence.Evidence == WicCoverageEvidence.ROSTER_ONLY) continue;
 
             double gap = Math.Max(0, minReq - presentDouble);
 
@@ -221,28 +234,26 @@ public class BriefingService
             {
                 if (atRiskList.Count >= 3) break;
 
-                var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, scanDow, scanDate);
+                // (E) locationCodeLegacy included — see the gap loop above.
+                var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, scanDow, scanDate);
                 string? bundesland = loc.Bundesland ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
                 bool isRegional = bundesland != null && publicHolidays.Any(ph =>
                     ph.HolidayDate == scanDate && string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
                 bool isClosed = hours == null || hours.IsClosed || isNationalScan || isRegional;
                 if (isClosed) continue;
 
-                int minReq = loc.MinAgentsRequired ?? 1;
-                var dayWic = wicEntries
-                    .Where(w => w.ShiftDate == scanDate && w.IsOnSite && WicLocationMatcher.MatchesSupportLocation(w.SupportLocation, loc))
-                    .ToList();
+                int minReq = hours?.MinRequired ?? loc.MinAgentsRequired ?? 1;
 
-                double presentDouble = 0;
-                foreach (var w in dayWic)
-                {
-                    shiftByEmpDate.TryGetValue((w.EmployeeId, scanDate), out var sh);
-                    bool isSick = sickLeavesAll.Any(sl =>
-                        sl.EmployeeId == w.EmployeeId && sl.FirstDay <= scanDate && sl.LastDay >= scanDate);
-                    presentDouble += AvailabilityResolver.GetWicContribution(isSick, sh);
-                }
+                var presence = WicPresenceResolver.Resolve(
+                    loc, scanDate, wicEntries, shiftByEmpDate, candidateDutyRows,
+                    empId => sickLeavesAll.Any(sl =>
+                        sl.EmployeeId == empId && sl.FirstDay <= scanDate && sl.LastDay >= scanDate));
 
-                int effectiveCoverage = (int)Math.Floor(presentDouble);
+                // Same rule as today's gap loop: a staffed-but-unrecorded centre is not a
+                // risk day, or the Closure Risk KPI would count record-keeping as risk.
+                if (presence.Evidence == WicCoverageEvidence.ROSTER_ONLY) continue;
+
+                int effectiveCoverage = presence.EffectiveCoverage;
                 var evalResult = CoverageEvaluator.Classify(false, effectiveCoverage, minReq);
                 if (evalResult.Status is CoverageStatus.UNCOVERED or CoverageStatus.PARTIAL)
                 {

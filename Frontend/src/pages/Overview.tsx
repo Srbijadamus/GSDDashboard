@@ -392,24 +392,28 @@ function WicCoverageGapsBanner() {
   })
   if (error) console.warn("[Overview] wic-coverage-gaps check failed:", error)
   if (!allowed || !data) return null
-  if (data.gaps.length === 0) return null
+
+  const noGaps = data.gaps.length === 0
+  const tone = noGaps ? "COVERED" : "UNCOVERED"
 
   return (
     <div className="bg-raised border border-line-subtle rounded-md overflow-hidden">
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
         padding: "10px 14px", fontSize: 12, fontWeight: 700,
-        background: STATUS_TOKEN_BG["UNCOVERED"], color: STATUS_TOKEN_FG["UNCOVERED"],
+        background: STATUS_TOKEN_BG[tone], color: STATUS_TOKEN_FG[tone],
       }}>
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <AlertTriangle size={14} style={{ flexShrink: 0 }} />
-          WIC coverage gaps ({data.from} → {data.to}) — {data.criticalCount} critical, {data.warningCount} unstaffed
+          {noGaps
+            ? <>No WIC coverage gaps (next {horizon} days)</>
+            : <><AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                WIC coverage gaps ({data.from} → {data.to}) — {data.criticalCount} critical, {data.warningCount} unstaffed</>}
         </span>
         <button
           onClick={() => setHorizon(h => (h === 14 ? 90 : 14))}
           style={{
-            background: "rgb(var(--surface-raised))", border: `1px solid rgb(var(--st-crit-bd))`,
-            color: STATUS_TOKEN_FG["UNCOVERED"], borderRadius: 6, padding: "3px 10px",
+            background: "rgb(var(--surface-raised))", border: `1px solid ${noGaps ? "rgb(var(--st-good-bd))" : "rgb(var(--st-crit-bd))"}`,
+            color: STATUS_TOKEN_FG[tone], borderRadius: 6, padding: "3px 10px",
             fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
           }}
         >
@@ -417,12 +421,14 @@ function WicCoverageGapsBanner() {
         </button>
       </div>
 
-      <div>
-        {data.gaps.map(g => (
-          <GapRow key={`${g.locationCode}-${g.date}`} g={g}
-            onAssign={gap => setAssignTarget({ locationCode: gap.locationCode, displayName: gap.displayName, date: gap.date })} />
-        ))}
-      </div>
+      {!noGaps && (
+        <div>
+          {data.gaps.map(g => (
+            <GapRow key={`${g.locationCode}-${g.date}`} g={g}
+              onAssign={gap => setAssignTarget({ locationCode: gap.locationCode, displayName: gap.displayName, date: gap.date })} />
+          ))}
+        </div>
+      )}
 
       {data.notRecorded.length > 0 && (
         <div className="border-t border-line-subtle">
@@ -935,6 +941,12 @@ export default function Overview() {
 
   // ── KPI derivations ───────────────────────────────────────────────────────────
   // null = data not yet loaded (render "—" + "Not available"); 0 = loaded, genuinely zero.
+  // All five KPI cards describe TODAY only — they read lf.todayStatus, not the
+  // horizon the Coverage Risk strip and the coverage-gaps banner below cover. A
+  // location closed today (e.g. a Tuesday-only centre) is excluded from totalOpen,
+  // so "Coverage % Today" can read 100% while the banner lists a gap later in the
+  // window. Both are correct; the labels have to say "Today" or they look like a
+  // contradiction. Do not widen these to the horizon without relabelling them.
   const totalOpen    = forecast != null ? forecast.filter(lf => lf.todayStatus !== "CLOSED").length    : null
   const atRiskToday  = forecast != null ? forecast.filter(lf => lf.todayStatus === "UNCOVERED" || lf.todayStatus === "PARTIAL").length : null
   const coveredToday = forecast != null ? forecast.filter(lf => lf.todayStatus === "COVERED").length   : null

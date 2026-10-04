@@ -14,6 +14,23 @@ import { ManualCheckinModal } from "./ManualCheckinModal"
 import { Panel } from "../components/Panel"
 import { DataTable, type DataColumn } from "../components/DataTable"
 import { MoveToGsdBacklogAction } from "../components/MoveToGsdBacklogAction"
+import {
+  ABSENCE_MARKERS,
+  buildCheckinStatus,
+  buildPresencePair,
+  buildZoneBRows,
+  groupZoneBRows,
+  displayRowForAgent,
+  displayRowForKioskRecord,
+  breakMinutes,
+  centreTimeZone,
+  isOnBreak,
+  ON_BREAK_DURATION_KEY,
+  ON_BREAK_LABEL_KEY,
+  WORK_MODE_LABEL_KEY,
+  type CheckinDisplayRow,
+  type ZoneBRow,
+} from "./attendance/checkinStatus"
 
 // ── API types ──────────────────────────────────────────────────────────────────
 
@@ -56,6 +73,12 @@ interface AgentCard {
   coveredMinutes: number
   totalOpenMinutes: number
   mismatchNote: string | null
+  /** Rostered for WIC duty with no on-site check-in record (WicCoverageEvidence.ROSTER_ONLY). */
+  checkInNotRecorded?: boolean
+  /** A human deliberately set this duty. Neutral label, never a warning. */
+  isManualChange?: boolean
+  manualChangeBy?: string | null
+  manualChangeAt?: string | null
 }
 
 interface LocationCard {
@@ -73,6 +96,8 @@ interface LocationCard {
   assignedAgents: AgentCard[]
   coverageStatus: string
   coveragePercent: number
+  checkInNotRecordedCount?: number
+  coverageEvidence?: string
 }
 
 interface SubstituteCandidate {
@@ -103,10 +128,16 @@ interface SubstitutesResponse {
 interface KioskRecord {
   employee_id: string
   full_name: string
-  attendance_status: "ACTIVE" | "NOT_CHECKED_IN" | "DONE"
+  /** PAUSE = on a break. Checked in and present, never an absence. */
+  attendance_status: "ACTIVE" | "NOT_CHECKED_IN" | "DONE" | "PAUSE"
   checkin_time: string | null
   checkout_time: string | null
+  /** Last kiosk event today (server.py: `sl.agent_timestamp AS last_event_time`). */
+  last_event_time: string | null
   minutes_on_shift: number
+  /** Work mode chosen at check-in: "WIC" | "HOME_OFFICE". See workModeOf(). */
+  work_location: string | null
+  /** The agent's assigned centres as free text. Informational; never compared. */
   location: string | null
 }
 
@@ -121,10 +152,10 @@ const STATUS_RANK: Record<string, number> = {
 
 // Absence markers sent by /api/wic/cards (WicCardsService): absent agents carry their
 // absence type in shiftStart/shiftEnd instead of times. They stay visible but never
-// count as expected/covering.
-const ABSENT_MARKERS = new Set([
-  "SICK", "SL", "AL", "HALF_AL", "UL", "OL", "PH", "LPH", "OFF", "OFF_WEEKEND", "RESIGNED",
-])
+// count as expected/covering. The list lives in checkinStatus.ts so the header maths and
+// this label helper can never disagree about what counts as an absence — note it also
+// contains "GSD" (moved to GSD backlog: at work, but not at a WIC).
+const ABSENT_MARKERS = ABSENCE_MARKERS
 
 function absentMarkerLabel(start: string | null, end: string | null): string {
   const m = start ?? end ?? ""
@@ -160,7 +191,7 @@ function chunkWeeks(days: ForecastDay[]): ForecastDay[][] {
 // Fix (GRC incident, 2026-09-15): a DONE agent's duration must stop at checkout_time,
 // not keep growing with Date.now() — otherwise a logged-off agent's "duration since
 // check-in" grows forever every time this is re-rendered.
-function checkinDuration(checkinTime: string | null, checkoutTime: string | null, status: KioskRecord["attendance_status"]): string {
+function checkinDuration(checkinTime: string | null, checkoutTime: string | null, status: string): string {
   if (!checkinTime) return ""
   const normalize = (s: string) => s.replace(/\.(\d{3})\d*/, '.$1')
   const endMs = status === "DONE" && checkoutTime
@@ -174,16 +205,85 @@ function checkinDuration(checkinTime: string | null, checkoutTime: string | null
   return h > 0 ? `${h}h ${m}m` : `${m}m`
 }
 
-function kioskActiveAt(records: KioskRecord[], displayName: string): KioskRecord[] {
-  if (!displayName) return []
-  const q = displayName.toLowerCase()
-  return records.filter(r =>
-    r.attendance_status === "ACTIVE" &&
-    (r.location ?? "").toLowerCase().includes(q)
+// Removed: kioskActiveAt() matched a kiosk record to a centre with
+// `location.includes(displayName)`. BLUEPRINT_SCREENS.md §6 requires kiosk records to be
+// matched by `employee_id`, "never by location name", and a substring match credits a
+// centre whose name is a substring of another centre named in the kiosk string. Replaced
+// by buildPresencePair() / kioskNamesCentre() in attendance/checkinStatus.ts, which match
+// by employee_id first and fall back to EXACT location tokens (so the multi-value
+// "Augsburg | Landshut" form attributes to both centres and to nothing else).
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
+
+// A manual change is a legitimate RTM decision: neutral styling, no warning colours and
+// no error wording. Who and when go in the tooltip.
+function ManualLabel({ by, at }: { by?: string | null; at?: string | null }) {
+  const { t } = useTranslation()
+  const detail = [by, at].filter(Boolean).join(" · ")
+  return (
+    <span
+      title={detail ? t("attendance.manual.tooltipWho", { detail }) : t("attendance.manual.tooltip")}
+      style={{
+        fontSize: 9, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0,
+        background: "rgb(var(--surface-sunken))", color: "rgb(var(--text-secondary))",
+        border: "1px solid rgb(var(--line-subtle))", padding: "1px 6px", borderRadius: 4,
+      }}>
+      {t("attendance.manual.label")}
+    </span>
   )
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+// The agent's own work-mode choice at check-in (kiosk status_log.work_location).
+// Shown wherever a checked-in person appears, so a "Virtual WIC Support" check-in is
+// never read as on-site presence. Renders nothing when the kiosk recorded no value.
+function WorkModeBadge({ mode }: { mode: "WIC" | "HOME_OFFICE" | null }) {
+  const { t } = useTranslation()
+  if (!mode) return null
+  const onSite = mode === "WIC"
+  return (
+    <span
+      style={{
+        fontSize: 9, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0,
+        background: onSite ? "rgb(var(--st-good-bg))" : "rgb(var(--st-info-bg))",
+        color: onSite ? "rgb(var(--st-good-solid))" : "rgb(var(--st-info-solid))",
+        border: `1px solid ${onSite ? "rgb(var(--st-good-bd))" : "rgb(var(--st-info-bd))"}`,
+        padding: "1px 6px", borderRadius: 4,
+      }}>
+      {t(WORK_MODE_LABEL_KEY[mode])}
+    </span>
+  )
+}
+
+// A paused agent (kiosk "Pause") is checked in and present — they just stepped away.
+// Neutral colour on purpose: a break is a normal state, never an alert.
+// The duration comes from the PAUSE event itself (breakMinutes) and is omitted rather
+// than guessed when the kiosk sent no usable timestamp.
+function OnBreakLabel({ row, country }: { row: CheckinDisplayRow; country?: string | null }) {
+  const { t } = useTranslation()
+  if (!isOnBreak(row.status)) return null
+  const mins = breakMinutes(
+    { employee_id: row.employeeId, full_name: row.name, attendance_status: row.status,
+      last_event_time: row.lastEventTime },
+    centreTimeZone(country),
+  )
+  const neutral = {
+    fontSize: 9, fontWeight: 600, whiteSpace: "nowrap" as const, flexShrink: 0,
+    background: "rgb(var(--st-neutral-bg))",
+    color: "rgb(var(--st-neutral-fg))",
+    border: "1px solid rgb(var(--st-neutral-bd))",
+    padding: "1px 6px", borderRadius: 4,
+  }
+  return (
+    <>
+      <span style={neutral}>{t(ON_BREAK_LABEL_KEY)}</span>
+      {mins !== null && (
+        <span className="font-mono" style={{ ...neutral, fontWeight: 500 }}>
+          {t(ON_BREAK_DURATION_KEY, { n: mins })}
+        </span>
+      )}
+    </>
+  )
+}
 
 function Skeleton({ width, height = 14 }: { width?: string | number; height?: number }) {
   return (
@@ -761,10 +861,6 @@ export default function WicAttendance() {
 
   const { data: kioskData = [], isError: kioskError } = useQuery<KioskRecord[]>({
     queryKey: ["kiosk-attendance"],
-    // Goes through the Pulse backend, not straight to the kiosk server: the
-    // kiosk strips employee_id for unauthenticated callers and this page keys
-    // its maps on it (lines 811, 827, 840, 1312).
-    // See Backend/Services/KioskProxyService.cs.
     queryFn: (): Promise<KioskRecord[]> => apiFetch<KioskRecord[]>("/api/kiosk/attendance"),
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
@@ -806,108 +902,72 @@ export default function WicAttendance() {
   const subsDay          = subs?.days[0]
 
   const kioskMap  = new Map(kioskData.map(r => [r.employee_id, r]))
-  const locationDisplayName = selectedForecast?.displayName ?? selectedCard?.displayName ?? ""
-  const presentAgents = kioskActiveAt(kioskData, locationDisplayName)
 
-  // Check-in status panel (global, all WIC locations, today)
-  const allTodayAgents = cards?.flatMap(c => c.assignedAgents) ?? []
-  const seenEmpIds = new Set<string>()
-  const workingAgents = allTodayAgents.filter(a => {
-    if (seenEmpIds.has(a.employeeId)) return false
-    if (!a.shiftStart || ABSENT_MARKERS.has(a.shiftStart)) return false
-    seenEmpIds.add(a.employeeId)
-    return true
-  })
-  const checkedInIds = new Set(
-    kioskData
-      .filter(r => r.attendance_status === "ACTIVE" || r.attendance_status === "DONE")
-      .map(r => r.employee_id)
-  )
-  const expectedCount  = workingAgents.length
-  const checkedInCount = checkedInIds.size
-  const notYetInList   = workingAgents.filter(a => !checkedInIds.has(a.employeeId))
-  const notYetInCount  = notYetInList.length
+  // ── Check-in status (global, all open WIC locations, today) ────────────────
+  // One population, partitioned: Expected = CheckedIn + NotYetIn, by construction.
+  // Anyone checked in who is NOT expected is reported separately rather than folded
+  // into CheckedIn — doing that is what made 37 + 15 = 52 against 39 Expected.
+  // See src/pages/attendance/checkinStatus.ts for the full definition.
+  const checkinStatus = buildCheckinStatus(cards, kioskData)
+  // Zone B / per-centre views only ever concern roster agents.
+  const workingAgents  = checkinStatus.rosterExpected
+  const notYetInList   = checkinStatus.notYetIn
+  const expectedCount  = checkinStatus.expected.length
+  const checkedInCount = checkinStatus.checkedIn.length
+  const notYetInCount  = checkinStatus.notYetIn.length
+  // Shown under the Checked in tile. Ad-hoc / Virtual WIC Support / no-mode check-ins are
+  // all Expected and all Checked in; only the split is interesting.
+  const onRosterCount  = checkinStatus.checkedInOnRoster
+  const offRosterCount = checkinStatus.checkedInOffRoster
+  // Off-roster WIC check-ins with no centre link keep an Assign action. Not a problem:
+  // an ad-hoc deployment is a legitimate manual decision.
+  const needsAssign = checkinStatus.needsCentreAssignment
+  const blankKioskIds  = checkinStatus.blankKioskIdCount
 
-  type KioskDrawerRow = { key: string; name: string; location: string | null; checkinTime: string | null; checkoutTime: string | null; status: KioskRecord["attendance_status"]; shiftStart?: string | null }
-  const kioskDrawerRows: KioskDrawerRow[] = (() => {
+  // Per-centre: kiosk reality vs roster, kept visibly distinct instead of implying one
+  // answers for the other. Matched by employee_id ONLY (BLUEPRINT_SCREENS.md §6) — the
+  // kiosk location field is the agent's assigned centres as free text and says nothing
+  // about today, so it is never compared. Each present agent shows their work-mode badge,
+  // so a Virtual WIC Support check-in is not read as on-site presence.
+  const presence = buildPresencePair(selectedCard, kioskData)
+  const presentAgents = presence.presentKiosk
+
+  // Display rows for the drawer. Built by the shared builders so all three places show
+  // the same thing: the kiosk location text verbatim, the work-mode badge, and the
+  // employee id as a muted secondary item. The location is display-only — nothing here
+  // matches, counts or classifies on it.
+  const kioskDrawerRows: CheckinDisplayRow[] = (() => {
     if (kioskDrawerFilter === "checkedIn") {
-      return [...kioskData]
-        .filter(r => r.attendance_status === "ACTIVE" || r.attendance_status === "DONE")
-        .sort((a, b) => (a.checkin_time ?? "").localeCompare(b.checkin_time ?? ""))
-        .map(r => ({ key: r.employee_id, name: r.full_name, location: r.location, checkinTime: r.checkin_time, checkoutTime: r.checkout_time ?? null, status: r.attendance_status }))
+      // Everyone with a kiosk ACTIVE/DONE row, roster or not.
+      return checkinStatus.checkedIn
+        .map(a => displayRowForAgent(a, kioskMap.get(a.employeeId), "ACTIVE"))
+        .sort((a, b) => (a.checkinTime ?? "").localeCompare(b.checkinTime ?? ""))
     }
     if (kioskDrawerFilter === "expected") {
-      return workingAgents.map(a => {
-        const k = kioskMap.get(a.employeeId)
-        return { key: a.employeeId, name: a.name, location: k?.location ?? null, checkinTime: k?.checkin_time ?? null, checkoutTime: k?.checkout_time ?? null, status: (k?.attendance_status ?? "NOT_CHECKED_IN") as KioskRecord["attendance_status"], shiftStart: a.shiftStart }
-      })
+      return workingAgents.map(a => displayRowForAgent(a, kioskMap.get(a.employeeId), "NOT_CHECKED_IN"))
     }
     if (kioskDrawerFilter === "notYetIn") {
-      return notYetInList.map(a => {
-        const k = kioskMap.get(a.employeeId)
-        return { key: a.employeeId, name: a.name, location: k?.location ?? null, checkinTime: null, checkoutTime: null, status: "NOT_CHECKED_IN" as KioskRecord["attendance_status"], shiftStart: a.shiftStart }
-      })
+      return notYetInList.map(a => ({
+        ...displayRowForAgent(a, kioskMap.get(a.employeeId), "NOT_CHECKED_IN"),
+        // They have not checked in, so there is no check-in time to show.
+        checkinTime: null,
+        checkoutTime: null,
+        status: "NOT_CHECKED_IN",
+      }))
     }
     return []
   })()
 
   // ── Zone B — Not Checked In ───────────────────────────────────────────────────
-
-  type ZoneBRow = {
-    employeeId: string
-    name: string
-    locationCode: string
-    locationCity: string
-    shiftStart: string
-    delayMinutes: number
-    kioskStatus: "NOT_CHECKED_IN" | "NO_RECORD" | "UNKNOWN_STATUS"
-    rawKioskStatus?: string
-    shiftStarted: boolean
-  }
-
-  const zoneBRows = (() => {
-    if (!cards) return [] as ZoneBRow[]
-    const now = new Date()
-    const nowMin = now.getHours() * 60 + now.getMinutes()
-    const seen = new Set<string>()
-    const rows: ZoneBRow[] = []
-    for (const loc of cards) {
-      for (const agent of loc.assignedAgents) {
-        if (seen.has(agent.employeeId)) continue
-        if (!agent.shiftStart || !/^\d{2}:\d{2}$/.test(agent.shiftStart)) continue
-        const kiosk = kioskMap.get(agent.employeeId)
-        if (kiosk?.attendance_status === "ACTIVE" || kiosk?.attendance_status === "DONE") {
-          seen.add(agent.employeeId)
-          continue
-        }
-        seen.add(agent.employeeId)
-        const [hStr, mStr] = agent.shiftStart.split(":")
-        const shiftMin = parseInt(hStr) * 60 + parseInt(mStr)
-        const shiftStarted = nowMin >= shiftMin
-        const delayMinutes = shiftStarted ? nowMin - shiftMin : 0
-        let kioskStatus: ZoneBRow["kioskStatus"]
-        let rawKioskStatus: string | undefined
-        if (!kiosk) {
-          kioskStatus = "NO_RECORD"
-        } else if (kiosk.attendance_status === "NOT_CHECKED_IN") {
-          kioskStatus = "NOT_CHECKED_IN"
-        } else {
-          kioskStatus = "UNKNOWN_STATUS"
-          rawKioskStatus = kiosk.attendance_status
-          console.warn("[ZoneB] Unexpected kiosk status:", kiosk.attendance_status, "for agent", agent.name, agent.employeeId)
-        }
-        rows.push({ employeeId: agent.employeeId, name: agent.name, locationCode: loc.locationCode, locationCity: loc.city, shiftStart: agent.shiftStart, delayMinutes, kioskStatus, rawKioskStatus, shiftStarted })
-      }
-    }
-    return rows
-  })()
-
-  const zoneBMain = zoneBRows
-    .filter(r => r.shiftStarted && r.kioskStatus !== "NO_RECORD")
-    .sort((a, b) => b.delayMinutes - a.delayMinutes)
-  const zoneBNoRecord = zoneBRows.filter(r => r.shiftStarted && r.kioskStatus === "NO_RECORD")
-  const zoneBUpcoming = [...zoneBRows.filter(r => !r.shiftStarted)].sort((a, b) => a.shiftStart.localeCompare(b.shiftStart))
-  const zoneBEmergency = zoneBRows.filter(r => r.rawKioskStatus === "EMERGENCY")
+  // Built from checkinStatus.notYetIn, i.e. the SAME Expected set the header counts, so
+  // the table and the "Not yet in" figure can no longer disagree. Delay is measured in
+  // the CENTRE's timezone, not the viewer's browser.
+  const zoneBRows = buildZoneBRows(checkinStatus, kioskData)
+  const zoneBGroups = groupZoneBRows(zoneBRows)
+  const zoneBMain = zoneBGroups.main
+  const zoneBNoRecord = zoneBGroups.noRecord
+  const zoneBUpcoming = zoneBGroups.upcoming
+  const zoneBEmergency = zoneBGroups.emergency
 
   const inputStyleClass = "bg-sunken border border-line-subtle text-ink"
   const inputStyle: React.CSSProperties = {
@@ -961,7 +1021,24 @@ export default function WicAttendance() {
     {
       key: "name",
       header: t("attendance.zoneB.name"),
-      render: row => <span className="text-ink font-medium text-sm">{row.name}</span>,
+      render: row => (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span className="text-ink font-medium text-sm">{row.name}</span>
+          {/* Rostered, on-site record missing. A factual marker only: these agents keep
+              their real delay and are not downgraded or explained away. */}
+          {row.checkInNotRecorded && (
+            <span
+              title={t("wicShifts.checkInNotRecorded.tooltip")}
+              style={{
+                fontSize: 9, fontWeight: 600, whiteSpace: "nowrap",
+                background: "rgb(var(--st-info-bg))", color: "rgb(var(--st-info-solid))",
+                border: "1px solid rgb(var(--st-info-bd))", padding: "1px 5px", borderRadius: 4,
+              }}>
+              {t("wicShifts.checkInNotRecorded.badge")}
+            </span>
+          )}
+        </span>
+      ),
     },
     {
       key: "location",
@@ -977,7 +1054,7 @@ export default function WicAttendance() {
       key: "delay",
       header: t("attendance.zoneB.delay"),
       render: row => {
-        if (!row.shiftStarted) return <span className="font-mono text-sm text-ink-soft">—</span>
+        if (!row.shiftTimeKnown || !row.shiftStarted) return <span className="font-mono text-sm text-ink-soft">—</span>
         const cls = row.delayMinutes > 30
           ? "text-crit-fg font-semibold"
           : row.delayMinutes > 10
@@ -1071,21 +1148,20 @@ export default function WicAttendance() {
           <div className="border-b border-line-subtle" style={{ flexShrink: 0 }}>
             <div style={{ padding: "7px 12px 5px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span className="text-ink-soft" style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>
-                Check-in Status
+                {t("attendance.checkin.title")}
               </span>
-              <span className="text-ink-soft" style={{ fontSize: 9 }}>Anmeldungsstatus</span>
             </div>
-            {kioskError ? (
-              <div role="alert" className="border-t border-line-subtle text-warn-fg" style={{ padding: "8px 12px", fontSize: 11 }}>
-                {t("attendance.kiosk.offline")}
-              </div>
-            ) : <div className="border-t border-line-subtle" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
+            {/* Expected = Checked In + Not Yet In, by construction and unconditionally:
+                every checked-in person is added to Expected, so Checked in can never
+                exceed it. Three tiles only (RTM decision 2026-10-01); the roster/off-roster
+                split lives in the small line under Checked in. */}
+            <div className="border-t border-line-subtle" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
               <div
                 onClick={expectedCount > 0 ? () => setKioskDrawerFilter("expected") : undefined}
                 style={{ padding: "7px 6px", textAlign: "center", cursor: expectedCount > 0 ? "pointer" : "default" }}
               >
                 <div className={`font-mono ${expectedCount > 0 ? "text-ink" : ""}`} style={{ fontSize: 17, fontWeight: 700, color: expectedCount > 0 ? undefined : "rgb(var(--text-disabled))" }}>{expectedCount}</div>
-                <div className="text-ink-soft" style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Expected</div>
+                <div className="text-ink-soft" style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>{t("attendance.checkin.expected")}</div>
               </div>
               <div
                 onClick={checkedInCount > 0 ? () => setKioskDrawerFilter("checkedIn") : undefined}
@@ -1093,16 +1169,28 @@ export default function WicAttendance() {
                 style={{ padding: "7px 6px", textAlign: "center", cursor: checkedInCount > 0 ? "pointer" : "default" }}
               >
                 <div className="font-mono" style={{ fontSize: 17, fontWeight: 700, color: checkedInCount > 0 ? "rgb(var(--signal-live))" : "rgb(var(--text-disabled))" }}>{checkedInCount}</div>
-                <div className="text-ink-soft" style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Checked In</div>
+                <div className="text-ink-soft" style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>{t("attendance.checkin.checkedIn")}</div>
+                <div className="text-ink-muted" style={{ fontSize: 8.5, marginTop: 2 }}>
+                  {t("attendance.checkin.breakdown", { on: onRosterCount, off: offRosterCount })}
+                </div>
               </div>
               <div
                 onClick={notYetInCount > 0 ? () => setKioskDrawerFilter("notYetIn") : undefined}
                 style={{ padding: "7px 6px", textAlign: "center", cursor: notYetInCount > 0 ? "pointer" : "default" }}
               >
                 <div className={`font-mono ${notYetInCount > 0 ? "text-warn-fg" : ""}`} style={{ fontSize: 17, fontWeight: 700, color: notYetInCount > 0 ? undefined : "rgb(var(--text-disabled))" }}>{notYetInCount}</div>
-                <div className="text-ink-soft" style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>Not Yet In</div>
+                <div className="text-ink-soft" style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".06em", marginTop: 1 }}>{t("attendance.checkin.notYetIn")}</div>
               </div>
-            </div>}
+            </div>
+            {blankKioskIds > 0 && (
+              <div
+                className="border-t border-line-subtle text-ink-soft"
+                title={t("attendance.checkin.blankIdHint")}
+                style={{ padding: "4px 12px", fontSize: 9 }}
+              >
+                {t("attendance.checkin.blankId", { n: blankKioskIds })}
+              </div>
+            )}
           </div>
         )}
 
@@ -1122,7 +1210,8 @@ export default function WicAttendance() {
                 const dayData        = (loc.forecast ?? []).find(d => d.date === selectedDate)
                 const status         = dayData?.status ?? "CLOSED"
                 const isSelected     = loc.locationCode === selectedLocationCode
-                const locActiveCount = kioskActiveAt(kioskData, loc.displayName).length
+                const locCard        = cards?.find(c => c.locationCode === loc.locationCode)
+                const locActiveCount = buildPresencePair(locCard ?? { ...loc, todaySchedule: { isClosed: false }, assignedAgents: [] }, kioskData).presentKiosk.length
                 return (
                   <div
                     key={loc.locationCode}
@@ -1304,35 +1393,69 @@ export default function WicAttendance() {
                     background: "rgb(var(--signal-live))", display: "inline-block",
                     animation: "pulse-green 1.5s ease-in-out infinite",
                   }} />
+                  {/* Two systems, named as such: the kiosk says who checked in, the
+                      roster says who is scheduled. Both are shown rather than one
+                      standing in for the other. Matching is by employee_id only; each
+                      chip carries the agent's own work-mode choice, so a Virtual WIC
+                      Support check-in is never read as on-site presence. */}
                   <span style={{ fontSize: 12, fontWeight: 600, color: "rgb(var(--signal-live))" }}>
-                    Currently Present · {presentAgents.length}
+                    {t("attendance.presence.kiosk", { n: presentAgents.length })}
                   </span>
+                  <span className="text-ink-soft" style={{ fontSize: 11 }}>
+                    · {t("attendance.presence.rostered", { n: presence.rostered.length })}
+                  </span>
+                  {presence.rosteredNotPresent.length > 0 && (
+                    <span
+                      title={t("attendance.presence.notPresentHint")}
+                      style={{
+                        fontSize: 9.5, fontWeight: 600, whiteSpace: "nowrap",
+                        background: "rgb(var(--st-info-bg))", color: "rgb(var(--st-info-solid))",
+                        border: "1px solid rgb(var(--st-info-bd))", padding: "1px 6px", borderRadius: 4,
+                      }}>
+                      {t("attendance.presence.notPresent", { n: presence.rosteredNotPresent.length })}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {presentAgents.map(r => (
-                    <div key={r.employee_id} style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      background: "rgb(var(--signal-live) / 0.1)", border: "1px solid rgb(var(--signal-live) / 0.2)",
-                      borderRadius: 6, padding: "5px 10px",
-                    }}>
-                      <span style={{
-                        width: 6, height: 6, borderRadius: "50%",
-                        background: "rgb(var(--signal-live))", display: "inline-block",
-                        animation: "pulse-green 1.5s ease-in-out infinite",
-                      }} />
-                      <span className="text-ink" style={{ fontSize: 12, fontWeight: 600 }}>{r.full_name}</span>
-                      {r.checkin_time && (
-                        <span className="font-mono" style={{ fontSize: 10, color: "rgb(var(--signal-live))" }}>
-                          {r.checkin_time.slice(11, 16)}
-                        </span>
-                      )}
-                      {r.minutes_on_shift > 0 && (
-                        <span className="text-ink-soft font-mono" style={{ fontSize: 10 }}>
-                          {r.minutes_on_shift}m
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                  {presentAgents.map(r => {
+                    const row = displayRowForKioskRecord(r)
+                    return (
+                      <div key={row.key} style={{
+                        background: "rgb(var(--signal-live) / 0.1)", border: "1px solid rgb(var(--signal-live) / 0.2)",
+                        borderRadius: 6, padding: "5px 10px", minWidth: 0,
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                          <span style={{
+                            width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                            background: "rgb(var(--signal-live))", display: "inline-block",
+                            animation: "pulse-green 1.5s ease-in-out infinite",
+                          }} />
+                          <span className="text-ink truncate" style={{ fontSize: 12, fontWeight: 600 }}>{row.name}</span>
+                          <WorkModeBadge mode={row.workMode} />
+                          <OnBreakLabel row={row} country={selectedCard?.country} />
+                          {row.checkinTime && (
+                            <span className="font-mono" style={{ fontSize: 10, color: "rgb(var(--signal-live))", flexShrink: 0 }}>
+                              {row.checkinTime.slice(11, 16)}
+                            </span>
+                          )}
+                          {(r.minutes_on_shift ?? 0) > 0 && (
+                            <span className="text-ink-soft font-mono" style={{ fontSize: 10, flexShrink: 0 }}>
+                              {r.minutes_on_shift}m
+                            </span>
+                          )}
+                        </div>
+                        {/* Kiosk location verbatim, employee id muted after it. */}
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 2, minWidth: 0 }}>
+                          <span className="text-ink-soft truncate" style={{ fontSize: 10 }}>{row.location || "—"}</span>
+                          {row.employeeId && (
+                            <span className="text-ink-muted font-mono" style={{ fontSize: 9, flexShrink: 0 }}>
+                              {row.employeeId}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -1350,7 +1473,7 @@ export default function WicAttendance() {
                     <StatCard label={t("status.occupied")}>
                       <CoverageBadge status={selectedCard?.coverageStatus ?? selectedDay?.status ?? "CLOSED"} />
                     </StatCard>
-                    <StatCard label={t("attendance.agents.title")}>
+                    <StatCard label={t("attendance.presence.rosteredLabel")}>
                       <div className={`font-mono ${selectedDay?.isAtRisk ? "text-crit-fg" : "text-good-fg"}`} style={{ fontSize: 26, fontWeight: 600 }}>
                         {selectedDay?.effectiveCoverage ?? "—"}
                       </div>
@@ -1435,6 +1558,7 @@ export default function WicAttendance() {
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {selectedCard.assignedAgents.map(agent => {
                     const mc = AGENT_MATCH_COLORS[agent.coverageMatch] ?? AGENT_MATCH_COLORS.NONE
+                    const manual = !!agent.isManualChange
                     const kiosk = kioskMap.get(agent.employeeId)
                     return (
                       <div key={agent.employeeId} style={{
@@ -1481,6 +1605,7 @@ export default function WicAttendance() {
                             }} />
                           )}
                           <span className="text-ink" style={{ fontSize: 12, fontWeight: 600 }}>{agent.name}</span>
+                          {manual && <ManualLabel by={agent.manualChangeBy} at={agent.manualChangeAt} />}
                         </div>
                         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                           <span className={agent.isMain ? "text-info-fg" : "text-ink-soft"} style={{
@@ -1748,8 +1873,22 @@ export default function WicAttendance() {
                 </div>
                 {/* name + location */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="text-sm font-medium text-ink truncate">{row.name}</div>
-                  <div className="text-xs text-ink-soft truncate">{row.location || "—"}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                    <span className="text-sm font-medium text-ink truncate">{row.name}</span>
+                    <WorkModeBadge mode={row.workMode} />
+                    <OnBreakLabel row={row} />
+                    {row.isManualChange && <ManualLabel by={row.manualChangeBy} at={row.manualChangeAt} />}
+                  </div>
+                  {/* Kiosk location verbatim (what RTM needs to see), employee id after
+                      it as a muted secondary item — never instead of it. */}
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 6, minWidth: 0 }}>
+                    <span className="text-xs text-ink-soft truncate">{row.location || "—"}</span>
+                    {row.employeeId && (
+                      <span className="text-ink-muted font-mono" style={{ fontSize: 9.5, flexShrink: 0 }}>
+                        {row.employeeId}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {/* since */}
                 <div className="font-mono text-sm text-ink" style={{ flexShrink: 0, minWidth: 36, textAlign: "right" }}>
@@ -1759,12 +1898,25 @@ export default function WicAttendance() {
                 <div className="font-mono text-sm text-ink-muted" style={{ flexShrink: 0, minWidth: 48, textAlign: "right" }}>
                   {checkinDuration(row.checkinTime, row.checkoutTime, row.status)}
                 </div>
+                {/* Assign to centre — only where the centre is genuinely unknown. */}
+                {needsAssign.some(r => r.employee_id === row.employeeId) && (
+                  <button
+                    onClick={() => { setKioskDrawerFilter(null); setAssignAgentOpen(true) }}
+                    className="border border-line-subtle text-ink"
+                    style={{ background: "transparent", borderRadius: 5, padding: "3px 9px", fontSize: 10, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+                  >
+                    {t("attendance.checkin.assignToCentre")}
+                  </button>
+                )}
                 {/* status badge */}
                 <StatusBadge tone={row.status === "ACTIVE" ? "good" : "mutedst"}>
                   {row.status === "ACTIVE"
                     ? t("attendance.kioskDrawer.status.active")
                     : row.status === "DONE"
                     ? t("attendance.kioskDrawer.status.done")
+                    /* A break is not an absence — "Not in" here was simply wrong. */
+                    : isOnBreak(row.status)
+                    ? t(ON_BREAK_LABEL_KEY)
                     : t("attendance.kioskDrawer.status.notIn")}
                 </StatusBadge>
               </div>

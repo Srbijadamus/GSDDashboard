@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import AgentRow from "./AgentRow"
 import { NppBadge } from "../../components/NppBadge"
@@ -10,7 +11,9 @@ const statusDot   = { covered: "rgb(var(--st-good-solid))", partial: "rgb(var(--
 const statusBd    = { covered: "rgb(var(--st-good-bd))",    partial: "rgb(var(--st-warn-bd))",    uncovered: "rgb(var(--st-crit-bd))" }
 
 export default function LocationCard({ location, onAgentClick, onDrop, dragAgent, setDragAgent, onActionSuccess, shiftDate, canAssign, assignInfo, onAssignClick }) {
+  const { t } = useTranslation()
   const [isDragOver, setIsDragOver] = useState(false)
+  const checkInNotRecorded = location.checkInNotRecordedCount ?? 0
   const effectiveCoverage = location.agents.filter(a => !a.absent).length
   const rawStatus = location.status || "uncovered"
   const s = (effectiveCoverage === 0 && location.agents.length > 0 && rawStatus !== "uncovered")
@@ -51,6 +54,20 @@ export default function LocationCard({ location, onAgentClick, onDrop, dragAgent
               <span style={{ fontSize: 9, background: "rgb(var(--surface-sunken))", color: "rgb(var(--text-primary))", padding: "1px 5px", borderRadius: 4 }}>{location.country}</span>
               <span className="font-mono" style={{ fontSize: 10, color: "rgb(var(--text-secondary))" }}>{location.required}</span>
             </div>
+            {checkInNotRecorded > 0 && (
+              <div
+                title={t("wicShifts.checkInNotRecorded.tooltip")}
+                style={{
+                  marginTop: 5, display: "inline-flex", alignItems: "center", gap: 5,
+                  fontSize: 9.5, fontWeight: 600, whiteSpace: "nowrap",
+                  background: "rgb(var(--st-info-bg))", color: "rgb(var(--st-info-solid))",
+                  border: "1px solid rgb(var(--st-info-bd))", padding: "2px 7px", borderRadius: 4,
+                }}>
+                <span style={{ width: 4, height: 4, borderRadius: "50%", background: "rgb(var(--st-info-solid))", display: "inline-block" }} />
+                {t("wicShifts.checkInNotRecorded.badge")}
+                {checkInNotRecorded > 1 && <span className="font-mono">({checkInNotRecorded})</span>}
+              </div>
+            )}
           </div>
           <span style={{ fontSize: 10, display: "flex", alignItems: "center", gap: 4, background: statusBg[s], color: statusText[s], border: `1px solid ${statusBd[s]}`, padding: "3px 8px", borderRadius: 20, fontWeight: 600, whiteSpace: "nowrap" }}>
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: statusDot[s], display: "inline-block" }} />

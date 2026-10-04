@@ -525,8 +525,10 @@ public class WicShiftService
                 int dow = (int)date.DayOfWeek;
                 var hours = await db.WicOpeningHours
                     .FirstOrDefaultAsync(h => h.LocationCode == req.LocationCode && h.DayOfWeek == dow);
-                string openTime  = hours?.OpenTime  ?? req.ShiftStart ?? "08:00";
-                string closeTime = hours?.CloseTime ?? req.ShiftEnd   ?? "17:00";
+                // Spans a two-interval centre's break — WicHoursResolver.DutyWindow.
+                var (dutyStart, dutyEnd) = WicHoursResolver.DutyWindow(hours);
+                string openTime  = dutyStart ?? req.ShiftStart ?? "08:00";
+                string closeTime = dutyEnd   ?? req.ShiftEnd   ?? "17:00";
 
                 // Backfill the ShiftEntries row itself, not just WicShiftEntries.
                 // Found while verifying the "Assign" button: a caller (like the
@@ -647,8 +649,12 @@ public class WicShiftService
             .FirstOrDefaultAsync(ws => ws != null);
         var (priorStart, priorEnd) = SplitWorkingShift(priorWicShift);
 
-        string openTime  = req.ShiftStart ?? priorStart ?? hours?.OpenTime  ?? "08:00";
-        string closeTime = req.ShiftEnd   ?? priorEnd   ?? hours?.CloseTime ?? "17:00";
+        // Priority order unchanged (request > the agent's own prior WorkingShift > centre
+        // hours); only the centre-hours fallback now spans a two-interval break, matching
+        // what SplitWorkingShift already does to a two-block WorkingShift string above.
+        var (dutyStart, dutyEnd) = WicHoursResolver.DutyWindow(hours);
+        string openTime  = req.ShiftStart ?? priorStart ?? dutyStart ?? "08:00";
+        string closeTime = req.ShiftEnd   ?? priorEnd   ?? dutyEnd   ?? "17:00";
 
         var agentTask = (location.DisplayName?.Length ?? 0) > 20
             ? location.DisplayName![..20]

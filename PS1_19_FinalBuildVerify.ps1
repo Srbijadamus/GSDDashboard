@@ -12,6 +12,9 @@ $backend = Join-Path $root 'Backend'
 $wwwroot = Join-Path $backend 'wwwroot'
 $release = Join-Path $backend 'bin\Release\net8.0'
 
+if ($Mode -ne 'Rollback') {
+    & (Join-Path $root 'Tools\Assert-PulsePreservation.ps1')
+}
 if ($Mode -in @('Promote', 'Rollback')) {
     & (Join-Path $root 'tools\Invoke-PulsePromotion.ps1') -Mode $Mode -Snapshot $Snapshot
     return
@@ -39,9 +42,15 @@ try {
 if (!(Test-Path -LiteralPath (Join-Path $wwwroot 'index.html'))) {
     throw 'Vite output missing from Backend\wwwroot.'
 }
-$bad = Get-ChildItem -LiteralPath (Join-Path $wwwroot 'assets') -Filter '*.js' |
+$bad = Get-ChildItem -LiteralPath (Join-Path $wwwroot 'assets') -Filter '*.js' -Recurse |
     Select-String -Pattern 'ssr7tm2l-8000|X-API-Key|KIOSK_KEY' -Quiet
-if ($bad) { throw 'Forbidden direct-kiosk reference in JavaScript.' }
+if (@($bad) -contains $true) { throw 'Forbidden direct-kiosk reference in JavaScript.' }
+$legacySource = Get-Content -LiteralPath 'C:\GSDDashboard\Frontend\src\pages\ManualCheckinModal.tsx' -Raw
+$legacyKey = [regex]::Match($legacySource, 'const\s+KIOSK_KEY\s*=\s*["'']([^"'']+)["'']')
+if (!$legacyKey.Success) { throw 'Cannot identify the previous embedded key for the offline bundle check.' }
+$leaked = Get-ChildItem -LiteralPath (Join-Path $wwwroot 'assets') -Filter '*.js' -Recurse |
+    Select-String -SimpleMatch -Pattern $legacyKey.Groups[1].Value -Quiet
+if (@($leaked) -contains $true) { throw 'Previous kiosk credential found in JavaScript.' }
 
 dotnet build (Join-Path $backend 'GSDDashboard.API.csproj') --configuration Release --nologo
 if ($LASTEXITCODE) { throw 'Backend build failed.' }
@@ -50,10 +59,12 @@ if (Test-Path -LiteralPath (Join-Path $release 'wwwroot')) {
 }
 New-Item -ItemType Directory -Path (Join-Path $release 'wwwroot') -Force | Out-Null
 Copy-Item -Path (Join-Path $wwwroot '*') -Destination (Join-Path $release 'wwwroot') -Recurse -Force
+& (Join-Path $root 'Tools\Assert-PulsePreservation.ps1') -RecordBuild
 Write-Output "Build ready: $release"
 }
 
 if ($Mode -eq 'Stage') {
+    & (Join-Path $root 'Tools\Assert-PulsePreservation.ps1') -RequireBuild
     $previous = $env:PULSE_RUNTIME_CONFIG
     try {
         $env:PULSE_RUNTIME_CONFIG = $RuntimeConfig

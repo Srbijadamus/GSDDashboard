@@ -62,6 +62,17 @@ Anomaly detection is observational, not a blocking control.
 
 ## Pulse change prepared, not live
 
+**Current candidate, 2026-10-04:** secure now preserves the live working source
+and tests, including uncommitted WIC/roster/manual/check-in fixes, and overlays
+only the kiosk proxy. It is not a replacement with the older secure business
+logic. Production login stays KID-only as today; the earlier supervisor
+password/TOTP implementation is not in this candidate. The supervisor rollout
+and dan2/dan3 prerequisites remain separate, unapproved work. Do not flip
+SupervisorMode based on this build. Source/build fingerprint guards prevent
+promotion of a candidate after live source drifts. See the CURRENT candidate
+section of LIVE_DEPLOY_RUNBOOK.md. No live deployment or service/DB operation
+was performed for this preservation merge.
+
 **2026-10-04 secure update:** all kiosk browser traffic, including the agent list
 and manual check-in/logout modal, now goes through authenticated Pulse
 `/api/kiosk/*` routes. The embedded frontend key/tunnel was removed and its

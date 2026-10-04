@@ -101,10 +101,15 @@ export default function WICShifts() {
           const agents = shiftAgents.length > 0 ? shiftAgents : cardAgents
           const status = c.coverageStatus?.toLowerCase() === 'covered' ? 'covered'
             : c.coverageStatus?.toLowerCase() === 'partial' ? 'partial' : 'uncovered'
+          // Agents rostered for WIC duty here with no on-site check-in row. The centre
+          // IS staffed (they count toward coverage) - only the record is missing - so this
+          // is a badge, never an uncovered status. See WicCoverageEvidence.ROSTER_ONLY.
+          const checkInNotRecordedCount = c.checkInNotRecordedCount ?? 0
           return {
             id: c.locationCode, name: c.displayName, city: c.city, country: c.country,
             required: c.todaySchedule?.rawSchedule ?? '', status, agents, isNpp: c.isNpp ?? false,
-            mainAgents: c.mainAgents ?? [], backupAgents: c.backupAgents ?? []
+            mainAgents: c.mainAgents ?? [], backupAgents: c.backupAgents ?? [],
+            checkInNotRecordedCount, coverageEvidence: c.coverageEvidence ?? null
           }
         })
       setLocations(newLocations)

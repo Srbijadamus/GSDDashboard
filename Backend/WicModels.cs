@@ -29,6 +29,25 @@ public class WicOpeningHour
     public DateOnly? EffectiveFrom { get; set; }
     [MaxLength(500)] public string? ChangeNote { get; set; }
     public int? MinRequired { get; set; }
+
+    /// <summary>
+    /// MANUAL EXCEPTION DAY. When set, this row applies to this ONE date only and
+    /// overrides the weekday pattern — the centre is open (or closed) that day because
+    /// RTM decided so. Null = a normal recurring weekday row.
+    ///
+    /// Added 2026-10-01: there was no way to record "open today as an exception", so an
+    /// exception day read as CLOSED on every surface. EffectiveFrom could not express it
+    /// (it means "from this date onward", not "this date only").
+    ///
+    /// A manual exception is a legitimate decision, never an error and never a gap:
+    /// WicHoursResolver prefers it over the pattern, so every reader that already calls
+    /// the resolver sees the centre as open with no further change.
+    /// </summary>
+    public DateOnly? ExceptionDate { get; set; }
+
+    /// <summary>Who recorded this manual exception, and when. Display-only provenance.</summary>
+    [MaxLength(100)] public string? ManualChangeBy { get; set; }
+    public DateTime? ManualChangeAt { get; set; }
 }
 
 [Table("WicPipeline")]

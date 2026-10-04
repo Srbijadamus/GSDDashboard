@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GSDDashboard.API.Data.Models;
@@ -44,5 +44,25 @@ public static class ShiftPatterns
     public const string Backup    = "BACKUP";
 
     public static readonly string[] All = { Early, Morning, Afternoon, Night, Backup };
+
+    /// <summary>
+    /// Default shift times for a pattern, or (null, null) when the pattern does
+    /// not imply an hour. The start hours are the ones the Employees page spells
+    /// out next to each pattern ("Early (06/07)", "Morning (08)",
+    /// "Afternoon (13)"); EARLY resolves to 07:00, the far more common of its two
+    /// hours in ShiftEntries. The 9h span is the standard working span in the
+    /// data and nets the 8h ShiftValidationService already assumes once it
+    /// subtracts the 1h break for any shift over 6h. NIGHT uses the 22:00-07:00
+    /// example BulkRtm states for night shifts. BACKUP implies no hour, so a
+    /// caller falls back to its own default.
+    /// </summary>
+    public static (string? Start, string? End) DefaultTimes(string? pattern) => pattern?.ToUpperInvariant() switch
+    {
+        Early     => ("07:00", "16:00"),
+        Morning   => ("08:00", "17:00"),
+        Afternoon => ("13:00", "22:00"),
+        Night     => ("22:00", "07:00"),
+        _         => (null, null),
+    };
 }
 

@@ -154,6 +154,7 @@
     },
     "exceptionList": {
       "allCovered": "Alle Standorte für die nächsten {{n}} Tage abgedeckt",
+      "dayCovered": "Keine Deckungslücken am {{date}}",
       "showAll": "Alle anzeigen ({{n}})",
       "collapse": "Weniger anzeigen",
       "bestSub": "Vertr.: {{name}}",
@@ -169,7 +170,7 @@
       "atRiskToday": "Heute gefährdet",
       "closureRisk": "Schließrisiko",
       "absentToday": "Heute abwesend",
-      "coveragePct": "Belegung %",
+      "coveragePct": "Belegung % heute",
       "noLocationsOpen": "Keine Standorte geöffnet"
     },
     "heatmap": {
@@ -332,6 +333,35 @@
       "statusNotIn": "Nicht angemeldet",
       "statusNoRecord": "Kein Eintrag",
       "statusUnknown": "Unbekannt"
+    },
+    "checkin": {
+      "title": "Anmeldungsstatus",
+      "expected": "Erwartet",
+      "checkedIn": "Angemeldet",
+      "notYetIn": "Noch nicht da",
+      "blankId": "{{n}} Kiosk-Anmeldung(en) ohne Personalnummer — in diesen Zahlen nicht enthalten",
+      "blankIdHint": "Der Kiosk hat eine Anmeldung ohne Personalnummer erfasst, sie lässt sich niemandem zuordnen. In allen Zahlen oben ausgeschlossen; sollte in den Kiosk-Daten korrigiert werden.",
+      "assignToCentre": "Standort zuweisen",
+      "breakdown": "im WIC-Dienstplan {{on}} · nicht im Dienstplan {{off}}",
+      "expectedHint": "Alle heute erwarteten Personen: der WIC-Dienstplan an geöffneten Standorten plus alle, die am Kiosk eingecheckt haben, ohne im Dienstplan zu stehen. Immer gleich Angemeldet + Noch nicht da."
+    },
+    "presence": {
+      "kiosk": "Anwesend (Kiosk) · {{n}}",
+      "rostered": "Eingeplant · {{n}}",
+      "rosteredLabel": "Eingeplant",
+      "notPresent": "{{n}} eingeplant, nicht angemeldet",
+      "notPresentHint": "Heute für den WIC-Dienst hier eingeplant, aber ohne aktive Kiosk-Anmeldung."
+    },
+    "onBreak": "In Pause",
+    "onBreakFor": "Pause {{n}} Min.",
+    "workMode": {
+      "WIC": "WIC",
+      "HOME_OFFICE": "Virtueller WIC-Support"
+    },
+    "manual": {
+      "label": "Manuell",
+      "tooltip": "Manuell gesetzt — eine bewusste Entscheidung, kein Fehler. Geschützt vor Dienstplan-Generator und Aufräumjobs.",
+      "tooltipWho": "Manuell gesetzt: {{detail}} — eine bewusste Entscheidung, kein Fehler. Geschützt vor Dienstplan-Generator und Aufräumjobs."
     }
   },
   "wicCoverage": {
@@ -391,6 +421,10 @@
       "success": "{{agent}} zu GSD-Backlog verschoben",
       "successRange": "{{agent}} für {{count}} Tage zu GSD-Backlog verschoben",
       "error": "Verschieben fehlgeschlagen"
+    },
+    "checkInNotRecorded": {
+      "badge": "Besetzt — Check-in nicht erfasst",
+      "tooltip": "Im Dienstplan für WIC-Dienst eingeplant, aber für dieses Datum ist kein Vor-Ort-Check-in erfasst. Eine Erfassungslücke, keine Besetzungslücke."
     }
   },
   "topbar": {

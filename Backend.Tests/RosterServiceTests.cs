@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Auth;
@@ -126,6 +126,35 @@ public class RosterServiceTests
         Assert.DoesNotContain(p.Rows, r => r.Date == "2026-09-22");
     }
 
+    // CO (comp off) appears in neither documented list: technical.md "Roster
+    // generator" says overwrite mode replaces WORKING/BO/WIC_DUTY/empty rows,
+    // and ProtectedAbsenceTypes (FUNCTIONS.md) names AL, HALF_AL, SL, UL, PH,
+    // LPH, OL, OFF, OFF_WEEKEND, RESIGNED, CD — no CO. Pinning what the code
+    // actually does, since the docs do not say.
+    [Fact]
+    public async Task Preview_CompOffRow_IsNotProtected_AndIsReplacedInOverwriteMode()
+    {
+        using var db = NewDb();
+        SeedEmployee(db, "E1");
+        db.ShiftEntries.Add(new ShiftEntry { EmployeeId = "E1", ShiftDate = new DateOnly(2026, 9, 22), ShiftType = "CO", SourceModule = "PATTERN_FILL" });
+        db.ShiftEntries.Add(new ShiftEntry { EmployeeId = "E1", ShiftDate = new DateOnly(2026, 9, 23), ShiftType = "OFF", SourceModule = "PATTERN_FILL" });
+        await db.SaveChangesAsync();
+
+        var svc = NewSvc(db);
+
+        // Overwrite off: both are skipped, but only OFF is reported as protected.
+        var off = await svc.PreviewAsync(Req("E1", "2026-09-21", "2026-09-25"));
+        Assert.Equal(3, off.RowCount);
+        Assert.False(Assert.Single(off.Collisions, c => c.Date == "2026-09-22").Protected);
+        Assert.True(Assert.Single(off.Collisions, c => c.Date == "2026-09-23").Protected);
+
+        // Overwrite on: CO is replaced, OFF stays protected.
+        var on = await svc.PreviewAsync(Req("E1", "2026-09-21", "2026-09-25") with { Overwrite = true });
+        Assert.Equal("2026-09-22", Assert.Single(on.Replacements).Date);
+        Assert.Equal("CO", Assert.Single(on.Replacements).ExistingShiftType);
+        Assert.Equal("2026-09-23", Assert.Single(on.Collisions).Date);
+    }
+
     // -- generate ------------------------------------------------------------
 
     [Fact]
@@ -188,6 +217,42 @@ public class RosterServiceTests
             () => NewSvc(db).GenerateAsync(Req("NOPE", "2026-09-21", "2026-09-25"), null, null));
     }
 
+    // -- missing-roster: per-employee date gaps ---------------------------------
+
+    [Fact]
+    public async Task GetMissingRoster_ReportsPerEmployeeDateGaps_ForSparseCoverage()
+    {
+        using var db = NewDb();
+        SeedEmployee(db, "FULL1");
+        SeedEmployee(db, "SPARSE1");
+        await db.SaveChangesAsync();
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        // FULL1 has a row every day of the 3-day window.
+        for (var d = today; d <= today.AddDays(2); d = d.AddDays(1))
+            db.ShiftEntries.Add(new ShiftEntry { EmployeeId = "FULL1", ShiftDate = d, ShiftType = ShiftTypes.Working });
+        // SPARSE1 only has a row on day 1 — days 2 and 3 are gaps, but he's not
+        // "fully missing" (he has at least one row), so the old MissingRoster
+        // check can't see this.
+        db.ShiftEntries.Add(new ShiftEntry { EmployeeId = "SPARSE1", ShiftDate = today, ShiftType = ShiftTypes.Working });
+        await db.SaveChangesAsync();
+
+        var result = await NewSvc(db).GetMissingRosterAsync(3);
+
+        Assert.Equal(3, result.Days);
+        Assert.DoesNotContain(result.MissingRoster, m => m.EmployeeId == "SPARSE1"); // old field blind to this
+        var gap = Assert.Single(result.DateGapsByEmployee);
+        Assert.Equal("SPARSE1", gap.EmployeeId);
+        Assert.Equal(
+            new[] { today.AddDays(1).ToString("yyyy-MM-dd"), today.AddDays(2).ToString("yyyy-MM-dd") },
+            gap.MissingDates);
+        Assert.DoesNotContain(result.DateGapsByEmployee, g => g.EmployeeId == "FULL1");
+
+        // Clamp raised to 90 (was 60).
+        var clamped = await NewSvc(db).GetMissingRosterAsync(200);
+        Assert.Equal(90, clamped.Days);
+    }
+
     // -- location coverage: MAIN/BACKUP walk ------------------------------------
     // Reproduces the Hamburg bug: MAIN is already on WIC duty at a different
     // centre with overlapping hours (unavailable); BACKUP is free (a plain
@@ -234,6 +299,70 @@ public class RosterServiceTests
         var backupShift = await db.ShiftEntries.SingleAsync(x => x.EmployeeId == "BACKUP1" && x.ShiftDate == monday);
         Assert.Equal(ShiftTypes.WicDuty, backupShift.ShiftType);
         Assert.Equal("Target Centre", backupShift.AgentTask);
+    }
+
+    // A stale on-site WicShiftEntries row must not count as coverage when the same
+    // employee's ShiftEntries says a full absence that day (the Bishal Maharjan/
+    // Hamburg case: a vacation import set AL but never cleared IsOnSite=1). Before
+    // the fix, ComputeCoveredDates trusted the on-site row blindly, marked the day
+    // "already covered", and never even tried the free BACKUP.
+    [Fact]
+    public async Task GenerateLocationCoverage_StaleOnSiteRow_DoesNotCountAsCovered_WhenEmployeeIsAbsent()
+    {
+        using var db = NewDb();
+        var monday = new DateOnly(2026, 9, 21); // Monday
+
+        var target = new WicLocation { LocationCode = "TARGET3", DisplayName = "Target Centre 3", IsActive = true };
+        db.WicLocations.Add(target);
+        db.WicOpeningHours.Add(new WicOpeningHour { LocationCode = "TARGET3", DayOfWeek = 1, OpenTime = "09:00", CloseTime = "17:00" });
+
+        var main = SeedEmployee(db, "STALE1");
+        main.FullName = "Stale Agent";
+        var backup = SeedEmployee(db, "BACKUP3");
+        backup.FullName = "Backup Agent 3";
+        db.WicAgentAssignments.Add(new WicAgentAssignment { LocationCode = "TARGET3", EmployeeName = "Stale Agent", AssignmentType = "MAIN", IsActive = true });
+        db.WicAgentAssignments.Add(new WicAgentAssignment { LocationCode = "TARGET3", EmployeeName = "Backup Agent 3", AssignmentType = "BACKUP", IsActive = true });
+
+        // MAIN is on AL, but a stale WicShiftEntries row still says IsOnSite=1.
+        db.ShiftEntries.Add(new ShiftEntry { EmployeeId = "STALE1", ShiftDate = monday, ShiftType = "AL" });
+        db.WicShiftEntries.Add(new WicShiftEntry { EmployeeId = "STALE1", ShiftDate = monday, SupportLocation = "Target Centre 3", IsOnSite = true, WorkingShift = "09:00-17:00", Task = "WIC" });
+        // BACKUP free: plain working shift, no task.
+        db.ShiftEntries.Add(new ShiftEntry { EmployeeId = "BACKUP3", ShiftDate = monday, ShiftType = ShiftTypes.Working, RawValue = "08:00 - 16:30" });
+        await db.SaveChangesAsync();
+
+        var result = await NewSvc(db).GenerateLocationCoverageAsync("TARGET3", monday, monday, "K1", "Tester");
+
+        Assert.Equal(0, result.DaysAlreadyCovered); // the stale on-site row must not count
+        Assert.Equal(0, result.DaysStillGap);
+        var assigned = Assert.Single(result.Assignments);
+        Assert.Equal("BACKUP3", assigned.EmployeeId);
+        Assert.Equal("BACKUP", assigned.AssignmentType);
+    }
+
+    // A candidate with NO ShiftEntries row at all on the date is UNKNOWN, not
+    // verified free (an absence that was never imported can't be ruled out) -
+    // the walk must not roster someone on that guess. It must be left a gap.
+    [Fact]
+    public async Task GenerateLocationCoverage_NoRecordAtAll_IsTreatedAsUnavailable_NotAssigned()
+    {
+        using var db = NewDb();
+        var monday = new DateOnly(2026, 9, 21); // Monday
+
+        var target = new WicLocation { LocationCode = "TARGET2", DisplayName = "Target Centre 2", IsActive = true };
+        db.WicLocations.Add(target);
+        db.WicOpeningHours.Add(new WicOpeningHour { LocationCode = "TARGET2", DayOfWeek = 1, OpenTime = "09:00", CloseTime = "17:00" });
+
+        var main = SeedEmployee(db, "MAIN2");
+        main.FullName = "Main Agent 2";
+        db.WicAgentAssignments.Add(new WicAgentAssignment { LocationCode = "TARGET2", EmployeeName = "Main Agent 2", AssignmentType = "MAIN", IsActive = true });
+        // Deliberately no ShiftEntries row at all for MAIN2 on `monday`.
+        await db.SaveChangesAsync();
+
+        var result = await NewSvc(db).GenerateLocationCoverageAsync("TARGET2", monday, monday, "K1", "Tester");
+
+        Assert.Equal(1, result.DaysStillGap);
+        Assert.Empty(result.Assignments);
+        Assert.False(await db.ShiftEntries.AnyAsync(x => x.EmployeeId == "MAIN2" && x.ShiftDate == monday));
     }
 
     // -- delete a batch --------------------------------------------------------

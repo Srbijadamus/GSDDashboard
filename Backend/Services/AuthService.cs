@@ -1,4 +1,4 @@
-﻿using GSDDashboard.API.Data;
+using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,24 +16,6 @@ public record AuthResult(string Role, string? EmployeeId, string DisplayName, st
 ///   d) otherwise → null (caller answers 401 with the neutral "Unknown KID").
 /// Any input matching MORE THAN ONE active row at any step → null + warning log.
 /// Never guess.
-///
-/// SECURITY (2026-10-02): rules (b) and (c) ARE the credential chain the internal
-/// security test exploited. The ShiftKiosk server published every agent's
-/// employee_id on an endpoint that required no credential at all
-/// (server.py:396 selected into the response, route server.py:1060), and rule (c)
-/// below accepts a bare employee_id as a complete sign-in. Confirmed against the
-/// test database: 123 active agents, 122 with an employee_id and 115 with a KID
-/// were reachable that way. No AppUserRoles KID (DEV/RTM/TEAM_LEAD) appeared in
-/// the kiosk agents table, so the exposure granted AGENT level, not privileged
-/// access.
-///
-/// Two independent fixes, both required:
-///   1. the kiosk server now strips employee_id / KIDs / e-mail from responses to
-///      unauthenticated callers (flag anon_identifiers);
-///   2. Auth:SupervisorMode=enforce makes AuthModule refuse the KID-only path
-///      entirely, so this method is never reached with a guessed identifier.
-/// This method itself is deliberately UNCHANGED so that setting the flag back to
-/// off restores the previous behaviour exactly.
 /// </summary>
 public class AuthService
 {

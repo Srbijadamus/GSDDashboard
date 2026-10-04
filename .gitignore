@@ -27,3 +27,5 @@ tmp_*.ps1
 write_*.py
 count_lines.py
 Backend/wwwroot/
+Frontend/.attendance-test-out/
+.pulse-build-receipt.json

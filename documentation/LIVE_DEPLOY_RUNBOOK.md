@@ -8,6 +8,56 @@ task. Engineering work stays in the secure copies and test databases/ports.
 
 ## CURRENT: backend-only kiosk access and isolated Pulse - 2026-10-04
 
+### CURRENT candidate: live-source preservation, proxy only
+
+This section supersedes earlier secure-copy replacement and supervisor-login
+instructions below. The candidate in `C:\GSDDashboard_secure` is based on the
+complete nonignored live source worktree, including its uncommitted WIC/roster
+changes and tests. No file was written to `C:\GSDDashboard`, no database/service
+was accessed, and no Stage, Promote or deployment was executed during this merge.
+
+All live backend/frontend source and tests are preserved byte-for-byte except:
+`Backend\Program.cs` (external configuration, proxy DI/routes, isolated stage
+cookie override), `Attendance.tsx` (proxy read and explicit outage),
+`WicAttendance.tsx` (only the feed URL changes), `ManualCheckinModal.tsx`
+(proxy reads/writes, session-derived actor, no embedded key), and
+`Frontend\package.json` (Windows-compatible build; live attendance tests retained).
+The four extra runtime/test files implement and test the kiosk proxy. Live
+manual-change columns/cleanup guard, report-only integrity check, seed/import,
+vacation reconciliation, presence/coverage resolver, checkinStatus, PAUSE,
+roster-only coverage, manual overrides and demo exclusion remain intact.
+Production KID login is unchanged; supervisor password/TOTP rollout was removed
+from this candidate. Do not enable SupervisorMode or treat this proxy change as
+completion of authentication hardening. General RBAC is not enabled.
+
+`Tools\pulse-preservation-manifest.json` records live/candidate source input
+SHA-256 fingerprints (not data or credentials). `Assert-PulsePreservation.ps1`
+checks both file inventories and content without starting anything. Build and
+Promote refuse source drift; Build records generated file hashes, and Promote
+also rejects missing/stale/changed build output before any live side effect.
+If live source changes later, first review and merge it in secure and deliberately
+regenerate the manifest; do not bypass the guard or reuse the old candidate.
+This is source preservation evidence, not proof of a running DLL's source identity.
+
+Offline preparation:
+
+```powershell
+& 'C:\GSDDashboard_secure\Tools\Assert-PulsePreservation.ps1'
+& 'C:\GSDDashboard_secure\PS1_19_FinalBuildVerify.ps1' -Mode Build
+& 'C:\GSDDashboard_secure\Tools\Assert-PulsePreservation.ps1' -RequireBuild
+```
+
+Build never starts a service. It uses native Windows copying and scans the built
+JS for the former embedded credential and kiosk tunnel without printing either.
+Future isolated acceptance and cutover still require separate approval. Do not
+submit manual actions against the production upstream in an unapproved test.
+Keep the documented backup/baseline/snapshot/rollback sequence; repeat SELECT
+counters immediately before and after approved startup. Do not disable import,
+IsWicDuty cleanup or vacation reconciliation. Do not close anonymous kiosk
+attendance until the proxy candidate is accepted on live Pulse; doing so earlier
+breaks the old browser feed. This task does not authorize that closure, profiles,
+legacy-key changes or any rollout to old kiosks.
+
 ### Data protection completed - 2026-10-04, NO Promote
 
 Explicitly authorized online full backups and read-only table baselines were

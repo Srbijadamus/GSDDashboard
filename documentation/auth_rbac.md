@@ -1,5 +1,12 @@
 # Auth & RBAC — KID-only login and role-based access control
 
+**Current proxy-only candidate (2026-10-04):** production sign-in is the live
+KID-only implementation, unchanged. The earlier supervisor password/TOTP
+implementation described later on this page was removed from this candidate;
+those sections are historical preparation, not available functionality.
+Do not enable SupervisorMode for this candidate. Kiosk proxy routes still
+require a session with DEV/RTM/TEAM_LEAD independently of general RBAC.
+
 Current deployment state is maintained in
 [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).
 General enforcement remains OFF; the proxy fixes are secure-copy-only, not deployed.

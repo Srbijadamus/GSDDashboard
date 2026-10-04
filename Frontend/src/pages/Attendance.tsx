@@ -71,19 +71,9 @@ export default function Attendance() {
     },
   })
 
-  const { data: kioskRecords = [] } = useQuery<KioskRecord[]>({
+  const { data: kioskRecords = [], isError: kioskError } = useQuery<KioskRecord[]>({
     queryKey: ["attendance-kiosk"],
-    queryFn: async () => {
-      // Goes through the Pulse backend, not straight to the kiosk server. The
-      // kiosk strips employee_id for unauthenticated callers (it is a Pulse
-      // sign-in under AuthService rule (c)), and this map is keyed on it.
-      // See Backend/Services/KioskProxyService.cs.
-      try {
-        return await apiFetch<KioskRecord[]>("/api/kiosk/attendance")
-      } catch {
-        return []
-      }
-    },
+    queryFn: () => apiFetch<KioskRecord[]>("/api/kiosk/attendance"),
     refetchInterval: 60_000,
     retry: false,
   })
@@ -170,6 +160,11 @@ export default function Attendance() {
       </div>
 
       {/* Table */}
+      {kioskError && (
+        <div role="alert" className="bg-crit-bg border border-crit-bd text-crit-fg" style={{ padding: 12, borderRadius: 8 }}>
+          {t("attendance.kiosk.offline")}
+        </div>
+      )}
       <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>

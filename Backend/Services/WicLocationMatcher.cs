@@ -157,6 +157,56 @@ public static class WicLocationMatcher
     }
 
     /// <summary>
+    /// The width of <c>ShiftEntries.AgentTask</c> (NVARCHAR(20)). A WIC centre's
+    /// <c>DisplayName</c> is stored there truncated to this length on WIC_DUTY rows
+    /// (<c>WicShiftService.CreateAssignmentAsync</c>, <c>RosterService.GenerateAsync</c>),
+    /// so e.g. "Berlin - Brueckenstrasse" (23 chars) is persisted as its 20-char prefix.
+    /// </summary>
+    public const int AgentTaskMaxLength = 20;
+
+    /// <summary>
+    /// Matches a <c>ShiftEntries.AgentTask</c> value against a WicLocation — the single
+    /// definition of "does this task field name this centre". Previously duplicated
+    /// byte-for-byte in WicCoverageGapService, ForecastService, RosterService and
+    /// WicScheduleService; four copies of a string rule is exactly the drift this class
+    /// exists to prevent.
+    ///
+    /// Accepts the exact DisplayName, the LocationCode or the legacy bridge code, and —
+    /// only when the stored value is at the column limit — the truncated prefix of any
+    /// of those. Requiring the column limit before accepting a prefix is what stops a
+    /// short task badge ("WIC", "SME") from prefix-matching an unrelated centre.
+    /// RepairDoubleEncoding is applied first, same as MatchesSupportLocation, so a
+    /// Windows-1252 mis-decoded value resolves before comparison.
+    /// </summary>
+    public static bool MatchesAgentTask(string? agentTask, WicLocation loc)
+    {
+        if (string.IsNullOrWhiteSpace(agentTask)) return false;
+        var raw = agentTask.Trim();
+
+        // Truncation is judged on the STORED length, before repair: repairing a
+        // double-encoded value shortens it (two corrupt chars collapse into one),
+        // so a repaired string is no longer a reliable witness of having been cut.
+        bool wasTruncated = raw.Length >= AgentTaskMaxLength;
+
+        var task = RepairDoubleEncoding(raw);
+        // A 20-char cut can land mid-pair and leave a dangling Atilde that
+        // RepairDoubleEncoding has no partner for; it can never start a real name.
+        if (wasTruncated && task.EndsWith('Ã')) task = task[..^1];
+
+        if (Eq(task, loc.DisplayName) || Eq(task, loc.LocationCode) || Eq(task, loc.LocationCodeLegacy))
+            return true;
+
+        if (!wasTruncated || task.Length == 0) return false;
+        return Starts(loc.DisplayName, task) || Starts(loc.LocationCode, task) || Starts(loc.LocationCodeLegacy, task);
+    }
+
+    private static bool Eq(string a, string? b) =>
+        b != null && string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    private static bool Starts(string? full, string prefix) =>
+        full != null && full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Matches WicAgentAssignment.LocationCode against a WicLocation.
     /// Checks both new tilde-format LocationCode and the legacy bridge code.
     /// </summary>

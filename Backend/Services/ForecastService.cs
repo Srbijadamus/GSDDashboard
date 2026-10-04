@@ -1,6 +1,7 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
-using GSDDashboard.API.Modules.WicShifts;
+using GSDDashboard.API.Modules.WicShifts; // CoverageStatus (CoverageCalculator.cs) — shared infra, not WicCoverageGapService
+using GSDDashboard.API.Modules.Shifts;    // AgentTasks.IsNonLocationValue — task-badge vs. centre-name test
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Services;
@@ -46,6 +47,15 @@ public class ForecastService
 
     public ForecastService(GSDContext db) => _db = db;
 
+    // Location matching, the "is this row WIC duty here" reading and the union of the two
+    // cover signals all come from the shared primitives (WicLocationMatcher.MatchesAgentTask,
+    // AvailabilityResolver.IsWicDutyAt, WicPresenceResolver.Resolve). That is NOT the
+    // coupling that was reverted on 2026-09-30: coverage-gaps and forecast stay two
+    // independent features measuring two different things (assignment-structure gap
+    // classification vs. headcount-vs-MinRequired risk), and neither calls into the other.
+    // What they may not each own a private copy of is how coverage is READ - five surfaces
+    // with five readings is what put them out of step, twice.
+
     public async Task<ForecastResponse> GetForecastAsync(int horizon, string? locationCode, DateOnly? fromDate = null)
     {
         horizon = Math.Clamp(horizon, 1, 62);
@@ -65,7 +75,8 @@ public class ForecastService
             .ToListAsync();
         var wicEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate >= startDate && w.ShiftDate <= endDate)
-            .Join(_db.Employees.Where(e => e.IsActive), w => w.EmployeeId, e => e.EmployeeId, (w, e) => w)
+            .Join(_db.Employees.Where(e => e.IsActive && !TestAccounts.ExcludedEmployeeIds.Contains(e.EmployeeId)),
+                  w => w.EmployeeId, e => e.EmployeeId, (w, e) => w)
             .ToListAsync();
         var shiftEntries = await _db.ShiftEntries
             .Where(s => s.ShiftDate >= startDate && s.ShiftDate <= endDate)
@@ -77,6 +88,13 @@ public class ForecastService
         var sickLeaves = await _db.SickLeaves
             .Where(sl => sl.EmployeeId != null && sl.FirstDay <= endDate && sl.LastDay >= startDate)
             .ToListAsync();
+
+        // Signal-2 candidates for WicPresenceResolver: rows whose AgentTask could name a
+        // centre. A row counts as coverage even when the paired WicShiftEntries on-site
+        // row is missing (the SYSTEM_WICFIX gap - 521 rows across 37 locations as of
+        // 2026-09-30); the resolver reports that as Evidence=ROSTER_ONLY.
+        var wicDutyEntriesAll = WicPresenceResolver.CandidateDutyRows(shiftEntries)
+            .Where(s => !TestAccounts.IsExcluded(s.EmployeeId)).ToList();
 
         var locationResults = new List<ForecastLocationDto>();
 
@@ -112,19 +130,16 @@ public class ForecastService
                     continue;
                 }
 
-                var dayWic = wicEntries
-                    .Where(w => w.ShiftDate == date && w.IsOnSite &&
-                                WicLocationMatcher.MatchesSupportLocation(w.SupportLocation, loc))
-                    .ToList();
+                // Both cover signals, unioned and deduplicated in ONE place for every
+                // surface (WicPresenceResolver). This used to be forecast's own inline
+                // union, which is why Briefing/Cards - which never had it - disagreed.
+                var presence = WicPresenceResolver.Resolve(
+                    loc, date, wicEntries, shiftByEmpDate, wicDutyEntriesAll,
+                    empId => sickLeaves.Any(sl =>
+                        sl.EmployeeId == empId && sl.FirstDay <= date && sl.LastDay >= date));
 
-                double presentDouble = 0;
-                foreach (var w in dayWic)
-                {
-                    shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
-                    bool isSick = sickLeaves.Any(sl =>
-                        sl.EmployeeId == w.EmployeeId && sl.FirstDay <= date && sl.LastDay >= date);
-                    presentDouble += AvailabilityResolver.GetWicContribution(isSick, sh);
-                }
+                double presentDouble = presence.PresentDouble;
+                int scheduledCount = presence.OnSiteCount + presence.CheckInNotRecordedCount;
 
                 int effectiveCoverage = (int)Math.Floor(presentDouble);
                 var evalResult = CoverageEvaluator.Classify(false, effectiveCoverage, minReq);
@@ -133,7 +148,7 @@ public class ForecastService
 
                 days.Add(new ForecastDayDto(
                     date.ToString("yyyy-MM-dd"), date.DayOfWeek.ToString(),
-                    true, null, dayWic.Count, effectiveCoverage, minReq,
+                    true, null, scheduledCount, effectiveCoverage, minReq,
                     status, isAtRisk, effectiveCoverage - minReq));
             }
 

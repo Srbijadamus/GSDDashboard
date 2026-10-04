@@ -13,4 +13,12 @@
     <PackageReference Include="ClosedXML" Version="0.102.2" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.12" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- WicCoverageGapService.ComputeCoveredDates/GetOpenDates are internal on purpose
+         (single definition, not a public API surface) but are the exact seam the
+         coverage-gap tests need to exercise. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>GSDDashboard.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>

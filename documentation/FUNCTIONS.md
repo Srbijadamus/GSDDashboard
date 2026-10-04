@@ -118,10 +118,31 @@ Complete reference for every backend service method, API endpoint, and significa
 
 **Canonical absence set (`FullAbsenceTypes`):** `{ SL, AL, UL, PH, LPH, RESIGNED }` — TRAINING and HALF_AL are intentionally excluded from this set.
 
+**`NotOnWicDutyTypes`** (used only by `IsWicDutyAt`) is deliberately broader: `FullAbsenceTypes` plus `HALF_AL, OFF, OFF_WEEKEND, CD, CO, TRAINING`. It is what stops an absence row that still carries a stale centre name in `AgentTask` from reading as coverage.
+
 | Method | Purpose | Inputs | Outputs | Tables/Services |
 |--------|---------|--------|---------|-----------------|
 | `GetStatusAsync(employeeId, date)` | Single-employee absence check. SickLeave records take priority over ShiftEntries | `string employeeId, DateOnly date` | `AbsenceStatus` | SickLeaves, ShiftEntries |
 | `GetAbsentIdsAsync(ids, date)` | Bulk absence check: returns the subset of provided employee IDs that are absent on the given date | `IEnumerable<string> ids, DateOnly date` | `HashSet<string>` | SickLeaves, ShiftEntries |
+| `GetWicContribution(isSick, sh)` | **Static.** Location-agnostic WIC contribution of one ShiftEntry. 1.0 = WIC duty, 0.5 = HALF_AL, 0.0 = absent / other work / no row | `bool isSick, ShiftEntry? sh` | `double` | None (pure logic) |
+| `IsWicDutyAt(sh, loc)` | **Static.** Single definition of "this ShiftEntries row means the agent is on WIC duty at this centre". True for WIC_DUTY and for WORKING rows whose AgentTask names the centre (the WIC_DUTY encoding with a flipped ShiftType); never true for absence/away types | `ShiftEntry? sh, WicLocation loc` | `bool` | None (pure logic) |
+| `GetWicContributionAt(isSick, sh, loc)` | **Static.** Location-aware contribution: 1.0 when `IsWicDutyAt`, else falls back to `GetWicContribution`. Callers that know which centre they are counting for must use this one | `bool isSick, ShiftEntry? sh, WicLocation loc` | `double` | None (pure logic) |
+
+---
+
+### WicPresenceResolver
+
+**DI Lifetime:** none (static)
+**File:** `Backend/Services/WicPresenceResolver.cs`
+
+**The single definition of "who is covering this WIC location on this date, and how do we know".** Unions both cover signals (on-site `WicShiftEntries` + `ShiftEntries` WIC duty), deduplicated by employee. Every coverage surface reads through it: `ForecastService`, `BriefingService`, `WicCardsService`, `WicCoverageGapService`. Added 2026-10-01 after Briefing and Cards — which had signal 1 only — reported 19 staffed centres as UNCOVERED while three other surfaces called them covered.
+
+| Method | Purpose | Inputs | Outputs | Tables/Services |
+|--------|---------|--------|---------|-----------------|
+| `Resolve(loc, date, onSiteRows, shiftByEmpDate, candidateDutyRows, isSick)` | **Static.** Resolves one location + date to per-agent contributions, `EffectiveCoverage`, `CheckInNotRecordedCount` and `Evidence` | `WicLocation, DateOnly, IEnumerable<WicShiftEntry>, IReadOnlyDictionary<(string,DateOnly),ShiftEntry>, IEnumerable<ShiftEntry>, Func<string,bool>` | `WicPresence` | None (pure logic — caller supplies the rows) |
+| `CandidateDutyRows(shiftEntries)` | **Static.** Signal-2 pre-filter: rows whose `AgentTask` could name a centre (drops the 7 task badges and `"GSD"`) | `IEnumerable<ShiftEntry>` | `List<ShiftEntry>` | None (pure logic) |
+
+**`WicCoverageEvidence`:** `NONE` (real gap if open) / `ON_SITE` / `ROSTER_ONLY` (staffed, on-site record missing — never a gap, never offered a substitute; shown as "Staffed — check-in not recorded"). See `BLUEPRINT_LOGIC.md` §4.1.
 
 ---
 
@@ -136,7 +157,7 @@ Complete reference for every backend service method, API endpoint, and significa
 | `GetWicShiftsAsync(from, to, location, employeeId, teamLead)` | WIC shift entries with optional date range and identity filters | `DateOnly from, DateOnly to, string? location, string? employeeId, string? teamLead` | `List<WicShiftDto>` | WicShiftEntries, Employees, ShiftEntries |
 | `GetCoverageAsync(date)` | Per-location agent coverage for a given date | `DateOnly date` | `List<WicCoverageDto>` | WicLocations, WicShiftEntries, Employees, WicAgentAssignments |
 | `GetAvailableHoursAsync(date)` | Free hours per agent at their assigned WIC | `DateOnly date` | `List<AvailableHoursDto>` | WicShiftEntries, Employees, WicOpeningHours |
-| `GetOpenAsync(date, horizon)` | Open/coverage status for up to 7 days. Uses AvailabilityResolver + CoverageEvaluator.Classify() | `DateOnly date, int horizon` | `List<WicOpenDayDto>` | WicLocations, WicOpeningHours, WicShiftEntries, ShiftEntries, SickLeaves, PublicHolidays |
+| `GetOpenAsync(date, horizon)` | Open/coverage status for up to 7 days. Uses AvailabilityResolver + CoverageEvaluator.Classify(). **Note:** still on-site-rows-only; not one of the five coverage surfaces, kept as-is | `DateOnly date, int horizon` | `List<WicOpenDayDto>` | WicLocations, WicOpeningHours, WicShiftEntries, ShiftEntries, SickLeaves, PublicHolidays |
 | `PatchWicShiftAsync(id, request)` | Updates Task, SupportLocation, and/or IsOnSite on a WicShiftEntry | `int id, PatchWicShiftRequest request` | `WicShiftDto?` | WicShiftEntries |
 | `CreateShiftAsync(request)` | Creates a new WicShiftEntry and corresponding ShiftEntry | `CreateShiftRequest request` | `WicShiftDto` | WicShiftEntries, ShiftEntries, Employees |
 | `CreateAssignmentAsync(request)` | Assigns an agent to a WIC location for a specific date | `CreateAssignmentRequest request` | `object` | WicShiftEntries |
@@ -291,6 +312,7 @@ Single source of truth for resolving free-text location strings to WicLocation r
 | Method | Purpose | Inputs | Outputs | Tables/Services |
 |--------|---------|--------|---------|-----------------|
 | `MatchesSupportLocation(sl, loc)` | Checks whether a WicShiftEntry.SupportLocation string matches a given WicLocation (by DisplayName, City, alias map, LocationCode, or LocationCodeLegacy) | `string sl, WicLocation loc` | `bool` | None (pure logic) |
+| `MatchesAgentTask(agentTask, loc)` | **Static.** Checks whether a `ShiftEntries.AgentTask` value names a given WicLocation — exact DisplayName/LocationCode/LocationCodeLegacy, or a prefix of one when the stored value is at the `AgentTaskMaxLength` (20) column limit. Applies RepairDoubleEncoding first. The single definition; formerly four byte-for-byte copies | `string? agentTask, WicLocation loc` | `bool` | None (pure logic) |
 | `MatchesAssignmentCode(code, loc)` | Checks whether a WicAgentAssignment.LocationCode matches a given WicLocation (by LocationCode or LocationCodeLegacy) | `string code, WicLocation loc` | `bool` | None (pure logic) |
 
 ---
@@ -313,6 +335,19 @@ Single source of truth for resolving free-text location strings to WicLocation r
 **Namespace:** `Modules.Vwic`
 
 **MinRequired by hour:** 00–07 = 1 agent, 07–17 = 3 agents, 17–24 = 1 agent.
+
+**`WicHoursResolver.Resolve(...)`** — **Static**, two overloads sharing one body. Returns the
+effective `WicOpeningHour` for a location + date. A row whose `ExceptionDate` equals the date
+wins over the weekday pattern (manual exception day); pattern rows are those with
+`ExceptionDate IS NULL`. THE single hours definition for every surface — see
+`BLUEPRINT_LOGIC.md` §"Manual changes".
+
+**`WicHoursResolver.DutyWindow(h)` — **Static.** The single definition of the window one
+WIC duty row must carry: first interval's open through the LAST interval's close, so duty
+at a two-interval centre spans the break (RTM rule 2026-10-01). Returns `(null, null)`
+when closed or time-less. Used by `RosterService.BuildPlanAsync`, the `WicShiftService`
+WIC_DUTY upsert and `WicShiftService.CreateAssignmentAsync`. See `BLUEPRINT_LOGIC.md`
+§4.2.
 
 | Method | Purpose | Inputs | Outputs | Tables/Services |
 |--------|---------|--------|---------|-----------------|

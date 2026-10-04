@@ -1,4 +1,4 @@
-﻿using GSDDashboard.API.Data;
+using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.ALCalendar;
 using GSDDashboard.API.Modules.Overview;
@@ -88,13 +88,6 @@ builder.Services.AddScoped<WicConflictDetector>();
 builder.Services.AddScoped<DemoDataAdminService>();
 builder.Services.AddScoped<HrExportService>();
 builder.Services.AddScoped<AuthService>();
-// Supervisor authentication (password + TOTP) is delegated to the ShiftKiosk
-// account store. ISupervisorAuthProvider is the single seam for a later move to
-// Entra ID, Kerberos or client certificates - swap the implementation here and
-// no authorization code changes.
-builder.Services.AddHttpClient<ISupervisorAuthProvider, ShiftKioskSupervisorAuthProvider>();
-// Server-side proxy so the BROWSER never calls the kiosk server directly. See
-// Services/KioskProxyService.cs for why (employee_id is a Pulse credential).
 builder.Services.AddHttpClient<IKioskProxy, KioskProxy>()
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 
@@ -577,6 +570,46 @@ app.UseDefaultFiles();
     if (wicDutyFixed > 0)
         logger.LogWarning("Startup cleanup: cleared IsWicDuty=1 on {Count} non-WIC_DUTY ShiftEntries", wicDutyFixed);
 
+    // Report-only integrity check (never mutates): ShiftEntries rows whose AgentTask
+    // names a WIC centre while ShiftType is WORKING. That pair is the WIC_DUTY encoding
+    // with a flipped ShiftType — AvailabilityResolver.IsWicDutyAt now reads it correctly
+    // for coverage, so it no longer produces phantom "UNSTAFFED" days, but the row is
+    // still wrong on the Shifts grid and only an RTM may correct ShiftType (roster
+    // truth). Known source: RosterBatch 155/156/170, CreatedByKid=SYSTEM_WICFIX,
+    // 2026-09-30 06:09, overwrite mode.
+    try
+    {
+        var badges = AgentTasks.NonLocationValues;
+        var suspects = db.ShiftEntries
+            .Where(e => e.ShiftType == ShiftTypes.Working
+                     && e.AgentTask != null && e.AgentTask != ""
+                     && e.ManualChangeBy == null   // a manual change is not a data defect
+                     && !badges.Contains(e.AgentTask))
+            .Select(e => new { e.Id, e.EmployeeId, e.ShiftDate, e.AgentTask })
+            .ToList();
+        if (suspects.Count > 0)
+        {
+            var activeLocations = db.WicLocations.Where(l => l.IsActive).ToList();
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var flipped = suspects
+                .Where(x => activeLocations.Any(l => WicLocationMatcher.MatchesAgentTask(x.AgentTask, l)))
+                .ToList();
+            if (flipped.Count > 0)
+                logger.LogWarning(
+                    "Data integrity: {Total} ShiftEntries rows ({Future} dated today or later) have ShiftType=WORKING " +
+                    "but an AgentTask naming an active WIC centre — WIC duty with a flipped ShiftType. " +
+                    "Counted as coverage by AvailabilityResolver.IsWicDutyAt; ShiftType left untouched. Rows: {Ids}",
+                    flipped.Count, flipped.Count(x => x.ShiftDate >= today),
+                    string.Join(", ", flipped.OrderBy(x => x.ShiftDate).Take(20)
+                        .Select(x => $"#{x.Id} {x.EmployeeId} {x.ShiftDate:yyyy-MM-dd} '{x.AgentTask}'")));
+        }
+    }
+    catch (Exception ex)
+    {
+        // A diagnostic must never be able to stop the app from starting.
+        logger.LogWarning(ex, "Data integrity: flipped-ShiftType WIC check failed to run");
+    }
+
     // NOTE: orphan WicShiftEntries cleanup (NULL SupportLocation) is intentionally NOT here.
     // Run POST /api/admin/cleanup-wic-orphans manually after reviewing the count.
 }
@@ -604,7 +637,6 @@ var staticFileOptions = new StaticFileOptions
 app.UseStaticFiles(staticFileOptions);
 
 app.MapAuthEndpoints();
-
 app.MapKioskEndpoints();
 app.MapDashboardEndpoints();
 app.MapShiftEndpoints();
@@ -707,11 +739,3 @@ using (var vacScope = app.Services.CreateScope())
 }
 
 app.Run();
-
-
-
-
-
-
-
-

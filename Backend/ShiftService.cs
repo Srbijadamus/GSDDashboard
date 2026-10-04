@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using Microsoft.EntityFrameworkCore;
@@ -22,7 +22,14 @@ public record ShiftRowDto(
     string? AgentTask,
     string? LocationId,
     string? AssignmentStatus,
-    string? EffectiveTask
+    string? EffectiveTask,
+    // The employee's ShiftPattern resolved to times (ShiftPatterns.DefaultTimes).
+    // Resolved here the same way EffectiveTask is, so the Shift Plan does not have
+    // to carry a second copy of the pattern-to-hours table. Null when the employee
+    // has no pattern, or the pattern implies no hour (BACKUP) — the caller then
+    // uses its own default.
+    string? PatternStart = null,
+    string? PatternEnd = null
 );
 
 // Task badge values selectable on the Shift Plan (ShiftEntries.AgentTask, WORKING shifts only).
@@ -56,6 +63,20 @@ public static class AgentTasks
 
     public static bool IsValid(string? task) =>
         task == null || All.Contains(task, StringComparer.OrdinalIgnoreCase);
+
+    // Everything AgentTask may legitimately hold WITHOUT naming a WIC centre: the seven
+    // task badges plus "GSD" (written by POST /api/wic/move-to-gsd; a domain term, not
+    // in All because it is not selectable as a badge in the Shifts grid). AgentTask has
+    // two incompatible uses on one NVARCHAR(20) column — task badge on WORKING rows,
+    // truncated centre DisplayName on WIC_DUTY rows — and this is how a reader tells
+    // the two apart without needing the WicLocations table. List (not array) so EF Core
+    // can translate Contains to a SQL IN clause.
+    public static readonly List<string> NonLocationValues =
+        All.Concat(new[] { "GSD" }).ToList();
+
+    /// <summary>True when the value is a task badge (or "GSD") rather than a centre name.</summary>
+    public static bool IsNonLocationValue(string? task) =>
+        task != null && NonLocationValues.Contains(task, StringComparer.OrdinalIgnoreCase);
 }
 
 public record ShiftFilterParams(
@@ -131,7 +152,9 @@ public class ShiftService
             x.Shift.AgentTask,
             x.Shift.LocationId,
             x.Shift.AssignmentStatus,
-            AgentTasks.Resolve(x.Shift.AgentTask, x.Employee.PrimaryRole)
+            AgentTasks.Resolve(x.Shift.AgentTask, x.Employee.PrimaryRole),
+            ShiftPatterns.DefaultTimes(x.Employee.ShiftPattern).Start,
+            ShiftPatterns.DefaultTimes(x.Employee.ShiftPattern).End
         )).ToList();
     }
 

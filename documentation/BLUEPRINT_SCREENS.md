@@ -37,6 +37,12 @@ The ops command centre. Loads a live forecast map and a daily briefing.
 - `Sheet` (drawer) — opens when clicking a map marker to show location detail
 - `NppBadge` — displayed on NPP location markers
 
+**Five figures, 2026-10-01.** `Expected = Checked In + Not Yet In` still holds. Outside that
+identity sit two separately-labelled groups: **"In, no centre"** (work mode `WIC`, not on
+today’s roster — an ad-hoc deployment; clickable, with an *Assign to centre* action) and
+**"Other staff checked in"** (everyone else checked in). Manual duties carry a neutral
+**"Manual"** label with who/when in the tooltip — never warning colours, never error wording.
+
 **Notable behaviour:**
 - Uses Leaflet `CircleMarker` with popup on click, not a custom icon, to avoid Leaflet icon path issues in Vite
 - The briefing data drives the "At Risk" exception list in the top section
@@ -151,15 +157,10 @@ Schedules and tracks agent breaks (VWIC and Voice roles) to ensure coverage duri
 **Route:** `/wic-attendance`
 **File:** `src/pages/WicAttendance.tsx`
 
-Attendance from the ShiftKiosk Windows laptop client. The global CHECKED IN panel
-counts ACTIVE/DONE IDs including virtual support; per-location coverage lists
-use location matching. See the canonical NG rollout evidence ledger for the
-unexplained live 0-versus-1 observation.
+Live attendance tracking from the ShiftKiosk terminals. Shows which agents have physically checked in at WIC locations.
 
 **Main API calls:**
-- `GET /api/kiosk/attendance` — prepared frontend uses the Pulse authenticated
-  backend proxy. The old deployed frontend still calls ShiftKiosk directly;
-  Pulse replacement is not deployed. State authority: `KIOSK_HARDENING_DEPLOY_NOTE.md`.
+- `GET {VITE_KIOSK_API_URL}/api/attendance` — calls the **ShiftKiosk** server (FastAPI, port 8000), not the GSDDashboard backend. URL configured via `VITE_KIOSK_API_URL` environment variable.
 - `GET /api/wic/cards?date=today` — for the scheduled/expected agents list
 
 **Key components:**
@@ -170,12 +171,86 @@ unexplained live 0-versus-1 observation.
 - `AssignAgentModal` — quick assignment from this screen
 - `Sheet` drawer for location detail
 
+**Check-in status header — the definition (added 2026-10-01):**
+
+All of it lives in `src/pages/attendance/checkinStatus.ts`, extracted from the page so the
+arithmetic is stated once and unit-tested (`npm run test:attendance` — tsc + node, no test
+framework is installed).
+
+```
+CheckedIn  = ALL distinct employee_ids with a kiosk ACTIVE|DONE row
+             (any work mode, any location, roster or not; blank employee_id excluded)
+Expected   = today's WIC roster at OPEN centres (absences and "GSD" excluded)
+             PLUS everyone who checked in and is not in that roster set
+NotYetIn   = Expected \ CheckedIn
+
+            => Expected = CheckedIn + NotYetIn, always and UNCONDITIONALLY
+```
+
+RTM decision 2026-10-01: **anyone at work today is expected.** Ad-hoc WIC deployments,
+Virtual WIC Support and check-ins with no work mode recorded all count. Adding every
+checked-in person to Expected is what makes `CheckedIn` a subset of `Expected`, so the
+identity cannot be broken by any data shape (including someone marked absent on the roster
+who checks in anyway).
+
+**Header = three tiles only**: Expected | Checked in | Not yet in. Under Checked in sits one
+small breakdown line, `on WIC roster X · not on roster Y` (`checkedInOnRoster` /
+`checkedInOffRoster`). There are no "In, no centre" or "Other staff" tiles — that split was
+removed as confusing; it survives only as the breakdown line and the Assign action.
+
+Off-roster check-ins with work mode `WIC` and no centre link keep an **Assign to centre**
+action (`needsCentreAssignment`) and are **not** marked as a problem — an ad-hoc deployment
+is a legitimate manual decision. Kiosk rows with a blank `employee_id` are excluded from
+every count and surfaced once as a one-line note.
+
+`rosterExpected` (roster only) is what the per-centre views and the Not-Checked-In table
+use; an off-roster check-in has no rostered shift to be late for.
+
+**Excluded accounts.** `TEST_EMPLOYEE_IDS` (frontend) and
+`GSDDashboard.API.Services.TestAccounts.ExcludedEmployeeIds` (backend) hold the same list —
+currently `9074466` (DEMO / Stojnic Nebojsa, a DEV account). Excluded from the attendance
+header and every list, and from roster, cards, coverage, forecast and briefing. One named
+list in each half; never scatter the ids as literals.
+
+**Work mode (the badge).** At check-in the agent chooses where they are working *from*.
+The kiosk stores that in `status_log.work_location` and `GET /api/attendance` returns it
+as `work_location` (ShiftKiosk `server.py`: `ISNULL(sl.work_location,'') AS work_location`).
+Values in use: **`WIC`** and **`HOME_OFFICE`**, the latter shown in the kiosk’s own UI as
+"Virtual WIC Support" / "Virtueller WIC-Support" (`loc_home_office`) — the dashboard uses
+the same wording. `workModeOf()` returns `null` for a blank or unrecognised value, so a
+new kiosk option renders no badge rather than a wrong one. The badge appears next to every
+checked-in person: in the Checked In drawer, in Currently Present, and in the Other staff
+list — so a virtual check-in is never read as on-site presence.
+
+**Display vs. use of the kiosk `location`.** The location text IS shown, verbatim, under
+every checked-in person’s name in all three of those places (e.g. "Hannover | Emmerthal"),
+with the employee id after it as a small muted secondary item — RTM needs to see where the
+kiosk says the agent is assigned. It is **display-only**: never parsed, split, normalised,
+compared with a WIC centre, matched, counted or used to flag anyone. The two are not in
+tension — show the field, ignore it for logic. `displayRowForAgent()` /
+`displayRowForKioskRecord()` build every row so the three sites cannot drift apart.
+
+The header used to show 39 Expected / 37 Checked in / 15 Not yet in (2026-10-01 09:08):
+"Checked in" counted the **whole kiosk population** — the kiosk covers the entire GSD
+workforce, not just WIC-assigned agents — while Expected/Not-yet-in came from the WIC
+roster, so the three numbers described different populations and 37 + 15 = 52. The true
+split was 24 + 15 = 39, plus 12 people checked in who were never expected and one kiosk
+row with no `employee_id` counted as a 37th "person".
+
+The **Not Checked In** table is built from the same `notYetIn` set as the header, so the
+table and the figure cannot disagree, and every row lands in exactly one panel
+(main / no-kiosk-record / upcoming) rather than being dropped. `delayMinutes` is measured
+in the **centre's** timezone (`centreTimeZone(country)`), not the browser's.
+
+Per centre the page shows **"Present (kiosk) N · Rostered M"** — two systems, named as
+such — and flags the delta both ways (present-but-not-rostered, rostered-but-not-present).
+ROSTER_ONLY agents keep their real delay in the Not Checked In table and carry only the
+factual "check-in not recorded" badge; they are never labelled an artefact.
+
 **Notable behaviour:**
-- Match between kiosk records and GSDDashboard employees is by `employee_id` field, **never** by location name.
-- Approximately 60 old laptop kiosks are operating; NG installation was proven
-  on one clean test laptop. This is not QR/card terminal hardware.
-- The prepared backend's `Kiosk:BaseUrl` and service credential select the
-  upstream; do not configure a direct browser credential.
+- Match between kiosk records and GSDDashboard employees is by `employee_id` field, **never** by location name. `buildPresencePair()` matches by `employee_id` **only**. The kiosk `location` field is the agent’s *assigned* centres as free text (`agents.wic_location`, e.g. "Augsburg | Landshut") — it is not a statement about today, so it is never compared with a WIC centre and never used to classify anyone. The old `location.includes(displayName)` substring match broke this rule; an interim exact-token version was removed too, because even an exact match on that field attributes people to centres they are merely assigned to. Where someone is working from comes from `work_location`, not from this field.
+- Zone B kiosk terminals are not yet deployed. The UI is ready but the hardware is pending. Until kiosks are active, data will only show manual check-ins.
+- `VITE_KIOSK_API_URL` is set in `Frontend/.env`. If the devtunnel is recreated, this value must be updated.
 
 ---
 

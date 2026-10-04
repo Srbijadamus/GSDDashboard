@@ -19,7 +19,7 @@ interface PreviewResult {
   lastDate: string | null
   skippedWeekends: number
   skippedHolidays: { date: string; name: string }[]
-  collisions: { date: string; shiftType: string; sourceModule: string | null }[]
+  collisions: { date: string; shiftType: string; sourceModule: string | null; protected: boolean }[]
   rows: { date: string; shiftStart: string; shiftEnd: string; kind: string }[]
   wicDays: number
   boDays: number
@@ -464,6 +464,16 @@ function RosterInner() {
               {overwrite ? "Protected absences (never overwritten): " : "Existing: "}
               {preview.collisions.map(c =>
                 `${c.date} (${c.shiftType}${c.sourceModule ? ", " + c.sourceModule : ""})`).join(", ")}
+            </div>
+          )}
+          {/* Without this the two reasons a date is skipped look identical: a
+              protected absence, which no flag can replace, and an ordinary row
+              that is skipped only because Overwrite is off. */}
+          {!overwrite && preview.collisions.some(c => !c.protected) && (
+            <div className="text-[11px] text-warn-fg" style={{ marginTop: 4 }}>
+              {preview.collisions.filter(c => !c.protected).length} of these are not protected
+              ({preview.collisions.filter(c => !c.protected).map(c => `${c.date} (${c.shiftType})`).join(", ")})
+              — tick “Overwrite existing entries” to replace them. Protected absences stay untouched either way.
             </div>
           )}
           {preview.rows.length > 0 && (

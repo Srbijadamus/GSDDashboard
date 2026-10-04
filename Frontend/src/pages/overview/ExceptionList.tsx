@@ -96,10 +96,20 @@ export function ExceptionList({
   ) : null
 
   if (filtered.length === 0) {
+    // "All covered" only holds when nothing is filtered — filtering to one day and
+    // finding it clear does NOT mean the other days in the strip are clear too, and
+    // the strip itself still shows their red/amber cells unfiltered.
+    // escapeValue: false — i18next HTML-escapes interpolated values by default
+    // (e.g. "/" -> "&#x2F;"), which then shows up literally since React already
+    // escapes text content itself. Only needed here: allCovered's {{n}} is a plain
+    // number, nothing to escape either way.
+    const title = selectedDay
+      ? t('overview.exceptionList.dayCovered', { date: fmtDate(selectedDay, lang), interpolation: { escapeValue: false } })
+      : t('overview.exceptionList.allCovered', { n: horizon })
     return (
       <div>
         {filterChip}
-        <EmptyState tone="good" title={t('overview.exceptionList.allCovered', { n: horizon })} />
+        <EmptyState tone="good" title={title} />
       </div>
     )
   }

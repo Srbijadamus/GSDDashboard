@@ -51,6 +51,27 @@ const taskStyle = (task: string | null) => {
 
 const SHIFT_TYPES = ["WORKING","WIC_DUTY","AL","HALF_AL","SL","UL","OL","TRAINING","OFF","OFF_WEEKEND","PH","LPH","CD","CO","RESIGNED"]
 
+// Types that carry shift times. Everything else leaves ShiftStart/ShiftEnd alone.
+const TIMED_TYPES = ["WORKING", "WIC_DUTY"]
+// Same default the Roster generator writes when no time is given (RosterService
+// BuildPlanAsync) and the same default ShiftEntries.ShiftStart carries.
+const DEFAULT_SHIFT_START = "08:00"
+const DEFAULT_SHIFT_END   = "17:00"
+
+// Times to offer when a cell is turned INTO a timed type. A row that is not
+// already WORKING/WIC_DUTY still carries whatever ShiftStart/ShiftEnd the import
+// left on it (a CO row from PATTERN_FILL keeps 07:00-16:00, for example), and
+// reusing those produced a shift the agent does not actually work — and an R1
+// rest violation against the previous evening. The employee's own shift pattern
+// wins instead, then the default.
+const timesForTimedType = (shift: any): [string, string] => {
+  if (TIMED_TYPES.includes(shift.shiftType) && shift.shiftStart && shift.shiftEnd)
+    return [shift.shiftStart, shift.shiftEnd]
+  if (shift.patternStart && shift.patternEnd)
+    return [shift.patternStart, shift.patternEnd]
+  return [DEFAULT_SHIFT_START, DEFAULT_SHIFT_END]
+}
+
 function OverrideConfirmModal({ type, onConfirm, onCancel }: {
   type: string; onConfirm: () => void; onCancel: () => void
 }) {
@@ -264,6 +285,10 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
   const [editStart, setEditStart] = useState(shift.shiftStart ?? "")
   const [editEnd,   setEditEnd]   = useState(shift.shiftEnd   ?? "")
   const [overrideType, setOverrideType] = useState<string | null>(null)
+  // A timed type the user picked but has not saved yet: the times are shown for
+  // confirmation first, so R1 is validated against what the user actually wants
+  // rather than against times inherited from the row's previous type.
+  const [pendingType, setPendingType] = useState<string | null>(null)
   const [swapStep, setSwapStep] = useState<"idle"|"loading"|"warn"|"pick">("idle")
   const [wicEntries, setWicEntries] = useState<{supportLocation:string;workingShift:string}[]>([])
   const [swapSearch, setSwapSearch] = useState("")
@@ -280,24 +305,41 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
     staleTime: 60000,
   })
 
+  // Turning a cell into WORKING/WIC_DUTY does not save straight away: the times
+  // are offered for confirmation first (prefilled from the employee's shift
+  // pattern). Any other type saves as before.
+  const applyType = (t: string) => {
+    if (TIMED_TYPES.includes(t)) {
+      const [start, end] = timesForTimedType(shift)
+      setEditStart(start); setEditEnd(end)
+      setPendingType(t)
+      setOpen(true)
+      return
+    }
+    onUpdate(shift, t)
+    setPendingType(null)
+    setOpen(false)
+  }
+
   const handleTypeClick = (t: string) => {
     if (OVERRIDE_CONFIRM_TYPES.includes(shift.shiftType)) {
       setOverrideType(t); setOpen(false)
     } else {
-      onUpdate(shift, t, editStart || undefined, editEnd || undefined)
-      setOpen(false)
+      applyType(t)
     }
   }
 
   const handleDelete = () => {
     if (!confirm("Delete this shift entry (set to empty)?")) return
     onUpdate(shift, "EMPTY")
+    setPendingType(null)
     setOpen(false)
   }
 
   const startSwap = async () => {
     if (!shift.id) return
     setSwapStep("loading")
+    setPendingType(null)
     setOpen(false)
     try {
       const res = await apiFetch<{entries:{supportLocation:string;workingShift:string}[]}>(`/api/shifts/${shift.id}/wic-entries`)
@@ -334,7 +376,7 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
 
   return (
     <td style={{ padding:"3px 4px", position:"relative", minWidth:90 }}>
-      <div onClick={() => setOpen(!open)} className="font-mono"
+      <div onClick={() => { if (open) setPendingType(null); setOpen(!open) }} className="font-mono"
         style={{ ...c, padding:"3px 6px", borderRadius:4, fontSize:10,
           fontWeight:600, cursor:"pointer",
           userSelect:"none", textAlign:"center"
@@ -362,9 +404,11 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
               }}>{t.replace("_"," ")}</div>
             )
           })}
-          {(shift.shiftType === "WORKING" || shift.shiftType === "WIC_DUTY") && (
+          {TIMED_TYPES.includes(pendingType ?? shift.shiftType) && (
             <div className="border-t border-line-subtle" style={{ marginTop:6, paddingTop:6 }}>
-              <div className="text-ink-soft" style={{ fontSize:9, marginBottom:4 }}>SHIFT TIME</div>
+              <div className="text-ink-soft" style={{ fontSize:9, marginBottom:4 }}>
+                {pendingType ? `SHIFT TIME — ${pendingType.replace("_"," ")}` : "SHIFT TIME"}
+              </div>
               <div style={{ display:"flex", gap:4 }}>
                 <input value={editStart} onChange={e => setEditStart(e.target.value)}
                   placeholder="08:00" className="bg-raised border border-line-subtle text-ink font-mono"
@@ -374,10 +418,10 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
                   placeholder="17:00" className="bg-raised border border-line-subtle text-ink font-mono"
                   style={{ width:54, padding:"3px 4px", borderRadius:4, fontSize:10, outline:"none" }} />
               </div>
-              <button onClick={() => { onUpdate(shift, shift.shiftType, editStart, editEnd); setOpen(false) }}
+              <button onClick={() => { onUpdate(shift, pendingType ?? shift.shiftType, editStart, editEnd); setPendingType(null); setOpen(false) }}
                 className="bg-info-solid text-white border-0"
                 style={{ marginTop:4, width:"100%", padding:4, borderRadius:4, fontSize:10, cursor:"pointer" }}>
-                Save Time
+                {pendingType ? "Save" : "Save Time"}
               </button>
             </div>
           )}
@@ -458,7 +502,7 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
       {overrideType && (
         <OverrideConfirmModal
           type={shift.shiftType}
-          onConfirm={() => { onUpdate(shift, overrideType, editStart || undefined, editEnd || undefined); setOverrideType(null) }}
+          onConfirm={() => { const t = overrideType; setOverrideType(null); applyType(t) }}
           onCancel={() => setOverrideType(null)}
         />
       )}

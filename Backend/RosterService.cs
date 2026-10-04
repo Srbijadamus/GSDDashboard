@@ -1,8 +1,9 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Auth;
+using GSDDashboard.API.Modules.Shifts;
 using GSDDashboard.API.Modules.WicShifts;
 using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
@@ -53,7 +54,11 @@ public record RosterRequest(
     string? LocationCode = null, bool Overwrite = false);
 
 public record RosterSkippedHoliday(string Date, string Name);
-public record RosterCollision(string Date, string ShiftType, string? SourceModule);
+// Protected=true means IsProtectedFromOverwrite refused the row (an absence,
+// training/VWIC, WIC duty elsewhere, or a manual change) — enabling Overwrite
+// would NOT replace it. Protected=false means it was skipped only because
+// Overwrite was off, so the caller can say which flag would take care of it.
+public record RosterCollision(string Date, string ShiftType, string? SourceModule, bool Protected = false);
 
 // One existing row that Overwrite mode would replace: which date, what is
 // there now, and what the generated row would look like.
@@ -114,10 +119,19 @@ public record OrphanShiftEntryGroup(
     string EmployeeId, int RowCount, string FirstDate, string LastDate,
     bool HasInactiveEmployeeRow);
 
+// Per active employee, the individual dates within the window that have NO
+// ShiftEntries row at all — catches partial/sparse coverage (e.g. weekday rows
+// stop after some date but the employee isn't fully "missing") that
+// MissingRoster's all-or-nothing zero-rows check cannot see. Only employees
+// with at least one gap date are included.
+public record EmployeeDateGaps(
+    string EmployeeId, string? FullName, List<string> MissingDates);
+
 public record MissingRosterResult(
     int Days, string From, string To,
     List<MissingRosterAgent> MissingRoster,
-    List<OrphanShiftEntryGroup> OrphanEntries);
+    List<OrphanShiftEntryGroup> OrphanEntries,
+    List<EmployeeDateGaps> DateGapsByEmployee);
 
 /// <summary>
 /// Server-side role gate for /api/roster/*: RTM, TEAM_LEAD and DEV only.
@@ -198,24 +212,41 @@ public class RosterService
     ///   - TRAINING, and a WORKING row explicitly tasked VWIC — "training or
     ///     VWIC if explicitly scheduled" outranks BO/GSD and must survive a
     ///     regenerate the same way an absence does.
-    /// Matches AgentTask the same way WicCoverageGapService/WicScheduleService
-    /// do: exact DisplayName, or the 20-char-truncated prefix
-    /// WicShiftService.CreateAssignmentAsync writes for long names.
+    /// AgentTask is matched via WicLocationMatcher.MatchesAgentTask — the shared
+    /// definition, so this guard can never drift from what the coverage readers
+    /// consider a WIC commitment.
     /// </summary>
-    private static bool IsProtectedFromOverwrite(string existingShiftType, string? existingAgentTask, WicLocation? targetLocation)
+    private static bool IsProtectedFromOverwrite(string existingShiftType, string? existingAgentTask, WicLocation? targetLocation,
+        bool isManualChange = false)
     {
+        // A manual change is a legitimate decision, never an error and never a gap: the
+        // generator must never overwrite or delete it, whatever its ShiftType. This is the
+        // documented protection list (FUNCTIONS.md) extended — ProtectedAbsenceTypes alone
+        // did not cover a hand-edited WORKING/BO row.
+        if (isManualChange) return true;
         if (ProtectedAbsenceTypes.Contains(existingShiftType)) return true;
         if (string.Equals(existingShiftType, ShiftTypes.Training, StringComparison.OrdinalIgnoreCase)) return true;
         if (string.Equals(existingShiftType, ShiftTypes.Working, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(existingAgentTask, "VWIC", StringComparison.OrdinalIgnoreCase))
             return true;
-        if (string.Equals(existingShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase))
+        // A WIC commitment is either a WIC_DUTY row or the same row shape with its
+        // ShiftType left/flipped to WORKING — AgentTask holding something that is not a
+        // task badge (nor "GSD") means it holds a centre name, which is the WIC_DUTY
+        // encoding (AvailabilityResolver.IsWicDutyAt). Both must survive a regenerate
+        // aimed at ANOTHER centre; this is the guard that would have stopped the
+        // overwrite run behind the flipped 2026-10-13 row from touching it at all.
+        // Erring toward protection is deliberate: this decides whether a generator may
+        // overwrite roster data a human may have entered.
+        bool isWicDutyRow  = string.Equals(existingShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase);
+        bool isWicShapedRow = string.Equals(existingShiftType, ShiftTypes.Working, StringComparison.OrdinalIgnoreCase) &&
+                              !string.IsNullOrWhiteSpace(existingAgentTask) &&
+                              !AgentTasks.IsNonLocationValue(existingAgentTask);
+        if (isWicDutyRow || isWicShapedRow)
         {
             if (targetLocation == null || string.IsNullOrWhiteSpace(existingAgentTask)) return true;
-            bool sameCentre =
-                string.Equals(targetLocation.DisplayName, existingAgentTask, StringComparison.OrdinalIgnoreCase) ||
-                (existingAgentTask.Length == 20 && targetLocation.DisplayName.StartsWith(existingAgentTask, StringComparison.OrdinalIgnoreCase));
-            return !sameCentre;
+            // Same centre = this run owns the row, so it may rewrite it (which is also
+            // how a flipped ShiftType gets repaired: regenerate that location).
+            return !WicLocationMatcher.MatchesAgentTask(existingAgentTask, targetLocation);
         }
         return false;
     }
@@ -340,7 +371,7 @@ public class RosterService
         var existingDates = (await _db.ShiftEntries
                 .Where(x => x.EmployeeId == input.Emp.EmployeeId
                          && x.ShiftDate >= input.From && x.ShiftDate <= input.To)
-                .Select(x => new { x.Id, x.ShiftDate, x.ShiftType, x.SourceModule, x.AgentTask })
+                .Select(x => new { x.Id, x.ShiftDate, x.ShiftType, x.SourceModule, x.AgentTask, x.ManualChangeBy })
                 .ToListAsync())
             .GroupBy(x => x.ShiftDate)
             .ToDictionary(g => g.Key, g => g.First());
@@ -386,6 +417,11 @@ public class RosterService
                 var hours = WicHoursResolver.Resolve(wicHours!,
                     input.Location.LocationCode, input.Location.LocationCodeLegacy,
                     (int)d.DayOfWeek, d);
+                // Two-interval centres: duty spans the break (WicHoursResolver.DutyWindow).
+                // Taking hours.CloseTime alone used to end duty at the first close, leaving
+                // the afternoon block of Augsburg/Essenbach/Hannover/München/Quickborn
+                // looking unstaffed on the minute-based card metric.
+                var (dutyStart, dutyEnd) = WicHoursResolver.DutyWindow(hours);
                 generated = hours is { IsClosed: false }
                     // WIC day: the centre's OWN opening hours for this date win —
                     // an explicit request override is only a last-resort fallback,
@@ -394,7 +430,7 @@ public class RosterService
                     // day would be wrong for a location with different hours on
                     // different weekdays.
                     ? new PlanRow(d, "WIC",
-                        hours.OpenTime ?? input.Start ?? "08:00", hours.CloseTime ?? input.End ?? "17:00")
+                        dutyStart ?? input.Start ?? "08:00", dutyEnd ?? input.End ?? "17:00")
                     : new PlanRow(d, "BO", input.Start ?? "08:00", input.End ?? "17:00");
             }
 
@@ -404,10 +440,12 @@ public class RosterService
                 // everything EXCEPT protected rows (IsProtectedFromOverwrite —
                 // absences, training/VWIC, WIC duty elsewhere) — those stay
                 // skipped and are reported as collisions either way.
-                if (!overwrite || IsProtectedFromOverwrite(existing.ShiftType, existing.AgentTask, input.Location))
+                var isProtected = IsProtectedFromOverwrite(existing.ShiftType, existing.AgentTask, input.Location,
+                        isManualChange: !string.IsNullOrWhiteSpace(existing.ManualChangeBy));
+                if (!overwrite || isProtected)
                 {
                     collisions.Add(new RosterCollision(
-                        d.ToString("yyyy-MM-dd"), existing.ShiftType, existing.SourceModule));
+                        d.ToString("yyyy-MM-dd"), existing.ShiftType, existing.SourceModule, isProtected));
                     continue;
                 }
                 toReplace.Add(new ReplacePlan(generated, existing.Id,
@@ -769,7 +807,8 @@ public class RosterService
         var wicDutyElsewhere = await _db.ShiftEntries
             .Where(s => s.ShiftDate >= from && s.ShiftDate <= to && s.ShiftType == ShiftTypes.WicDuty && s.AgentTask != null && s.AgentTask != "")
             .ToListAsync();
-        var coveredDates = WicCoverageGapService.ComputeCoveredDates(onSiteEntries, wicDutyElsewhere, location);
+        var onSiteEmployeeShiftEntries = await WicCoverageGapService.GetShiftEntriesForOnSiteEmployeesAsync(_db, onSiteEntries, from, to);
+        var coveredDates = WicCoverageGapService.ComputeCoveredDates(onSiteEntries, wicDutyElsewhere, location, onSiteEmployeeShiftEntries);
 
         var empIds = candidates.Select(c => c.Emp.EmployeeId).ToList();
         var shiftByEmpDate = (await _db.ShiftEntries
@@ -784,7 +823,11 @@ public class RosterService
         bool IsAvailable(string empId, DateOnly date, WicOpeningHour? targetHours)
         {
             shiftByEmpDate.TryGetValue((empId, date), out var shift);
-            if (shift == null) return true; // never rostered -> available
+            // No ShiftEntries row at all is UNKNOWN, not a verified "free" — there is no
+            // absence, no working shift, nothing recorded either way. Unknown is not the
+            // same as free: without a row we cannot rule out an absence that was never
+            // imported, so the walk must not roster someone here on a guess.
+            if (shift == null) return false; // unknown (no record) -> NOT available
             if (ProtectedAbsenceTypes.Contains(shift.ShiftType)) return false;
             if (string.Equals(shift.ShiftType, ShiftTypes.Training, StringComparison.OrdinalIgnoreCase)) return false;
             if (string.Equals(shift.ShiftType, ShiftTypes.Working, StringComparison.OrdinalIgnoreCase) &&
@@ -946,15 +989,19 @@ public class RosterService
     }
 
     /// <summary>
-    /// Missing-roster check over [today, today + days - 1].
-    /// Two directions:
+    /// Missing-roster check over [today, today + days - 1] (days clamped to 90).
+    /// Three directions:
     ///   1. active employees with zero ShiftEntries in the window (no roster);
-    ///   2. ShiftEntries in the window whose EmployeeId has no ACTIVE Employees row.
-    /// Read-only; three queries total.
+    ///   2. ShiftEntries in the window whose EmployeeId has no ACTIVE Employees row;
+    ///   3. per active employee, the individual dates in the window with no row at
+    ///      all — catches sparse/partial coverage (e.g. the Erdal Coskun case: some
+    ///      rows exist, but specific weekdays are missing) that direction 1's
+    ///      all-or-nothing check cannot see.
+    /// Read-only.
     /// </summary>
     public async Task<MissingRosterResult> GetMissingRosterAsync(int days)
     {
-        days = Math.Clamp(days, 1, 60);
+        days = Math.Clamp(days, 1, 90);
         var from = DateOnly.FromDateTime(DateTime.Today);
         var to   = from.AddDays(days - 1);
 
@@ -1024,8 +1071,40 @@ public class RosterService
                 knownInactive.Contains(w.EmployeeId)))
             .ToList();
 
+        // Per-employee date gaps: catches partial/sparse coverage (e.g. weekday
+        // rows that stop mid-window) that the all-or-nothing MissingRoster check
+        // above cannot see. Bounded to active employees to keep this bounded at
+        // (active employee count) x (window days).
+        var activeIdList = activeEmployees.Select(e => e.EmployeeId).ToList();
+        var existingDatesByEmp = (await _db.ShiftEntries
+                .Where(s => activeIdList.Contains(s.EmployeeId) && s.ShiftDate >= from && s.ShiftDate <= to)
+                .Select(s => new { s.EmployeeId, s.ShiftDate })
+                .Distinct()
+                .ToListAsync())
+            .GroupBy(x => x.EmployeeId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.ShiftDate).ToHashSet(),
+                StringComparer.OrdinalIgnoreCase);
+
+        var allDatesInWindow = new List<DateOnly>();
+        for (var d = from; d <= to; d = d.AddDays(1)) allDatesInWindow.Add(d);
+
+        var dateGaps = new List<EmployeeDateGaps>();
+        foreach (var e in activeEmployees)
+        {
+            existingDatesByEmp.TryGetValue(e.EmployeeId, out var existing);
+            existing ??= new HashSet<DateOnly>();
+            var gapDates = allDatesInWindow
+                .Where(d => !existing.Contains(d))
+                .Select(d => d.ToString("yyyy-MM-dd"))
+                .ToList();
+            if (gapDates.Count > 0)
+                dateGaps.Add(new EmployeeDateGaps(e.EmployeeId, e.FullName, gapDates));
+        }
+        dateGaps = dateGaps.OrderByDescending(g => g.MissingDates.Count)
+            .ThenBy(g => g.FullName ?? g.EmployeeId).ToList();
+
         return new MissingRosterResult(
-            days, from.ToString("yyyy-MM-dd"), to.ToString("yyyy-MM-dd"), missing, orphans);
+            days, from.ToString("yyyy-MM-dd"), to.ToString("yyyy-MM-dd"), missing, orphans, dateGaps);
     }
 
     /// <summary>

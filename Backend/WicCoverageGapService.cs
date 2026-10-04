@@ -1,6 +1,7 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Roster;
+using GSDDashboard.API.Modules.Shifts;
 using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,14 +15,17 @@ namespace GSDDashboard.API.Modules.WicShifts;
 // rostered there that day. "Rostered there" (the cover signal) is either
 // source the rest of the codebase already treats as authoritative:
 //   - a WicShiftEntries row for this location+date with IsOnSite=1, or
-//   - a ShiftEntries row (any employee) with ShiftType=WIC_DUTY whose
-//     AgentTask resolves to this location's DisplayName (exact, or the
-//     20-char-truncated prefix WicShiftService.CreateAssignmentAsync writes —
-//     same match WicScheduleService.GetClosedDayDutiesAsync uses for orphaned
-//     WIC_DUTY rows).
+//   - a ShiftEntries row (any employee) that AvailabilityResolver.IsWicDutyAt
+//     reads as WIC duty at this location — its AgentTask resolves to this
+//     centre (WicLocationMatcher.MatchesAgentTask: exact DisplayName/code, or
+//     the 20-char-truncated prefix the writers persist for long names) and its
+//     ShiftType is not an absence/away type.
 // A raw "WORKING" ShiftEntry proves nothing either way — it only means the
 // agent is clocked in somewhere, not that they're covering this site — so it
-// is never treated as cover.
+// is never treated as cover. A WORKING row whose AgentTask names THIS centre is
+// not a raw WORKING row, though: AgentTask only ever holds a centre name on the
+// WIC_DUTY encoding, so that row is WIC duty with a flipped ShiftType and does
+// count. IsWicDutyAt owns that call for every reader — see its remarks.
 //
 // MAIN/BACKUP vs. REGIONAL: REGIONAL assignments are shared roaming backups
 // that can cover several locations at once (one agent has been seen covering
@@ -91,28 +95,70 @@ public class WicCoverageGapService
     internal static readonly HashSet<string> AbsenceTypes = new(StringComparer.OrdinalIgnoreCase)
         { "AL", "HALF_AL", "SL", "UL", "OL", "PH", "LPH", "OFF", "CD" };
 
-    // Matches ShiftEntry.AgentTask against a WicLocation the same way
-    // WicScheduleService.GetClosedDayDutiesAsync resolves orphaned WIC_DUTY
-    // rows: exact DisplayName, or the 20-char-truncated prefix
-    // WicShiftService.CreateAssignmentAsync writes for long names.
-    internal static bool MatchesAgentTask(string agentTask, WicLocation loc) =>
-        string.Equals(loc.DisplayName, agentTask, StringComparison.OrdinalIgnoreCase) ||
-        (agentTask.Length == 20 && loc.DisplayName.StartsWith(agentTask, StringComparison.OrdinalIgnoreCase));
+    // Candidate cover rows are pre-filtered in SQL on this list: a task badge (or
+    // "GSD") can never be a centre name, so those rows cannot be cover and are not
+    // worth loading. AvailabilityResolver.IsWicDutyAt makes the real decision.
+    private static readonly List<string> NonLocationTasks = AgentTasks.NonLocationValues;
 
     // Single source of truth for "is this date covered at this location" — was
     // duplicated byte-for-byte in RosterService.GenerateLocationCoverageAsync,
     // which is exactly the drift Part 2 exists to prevent: a run must never carry
     // its own copy of the definition the coverage-gaps endpoint uses to grade it.
+    //
+    // ShiftEntries is authoritative over WicShiftEntries (documented known artefact,
+    // technical.md §"Known artefacts": a later import can set ShiftEntries to an
+    // absence without ever clearing the paired WicShiftEntries.IsOnSite flag — e.g.
+    // a vacation import sets AL but leaves a stale IsOnSite=1 row behind). An on-site
+    // row therefore does not count as coverage when the same EmployeeId+ShiftDate has
+    // a ShiftEntries full absence (AvailabilityResolver.FullAbsenceTypes) — the same
+    // rule every AvailabilityResolver.GetWicContribution caller already applies.
+    // onSiteEmployeeShiftEntries only needs to cover onSiteEntries' employees/dates;
+    // filtering to FullAbsenceTypes happens in here so callers don't have to remember to.
     internal static HashSet<DateOnly> ComputeCoveredDates(
-        List<WicShiftEntry> onSiteEntries, List<ShiftEntry> wicDutyEntries, WicLocation loc)
+        List<WicShiftEntry> onSiteEntries, List<ShiftEntry> wicDutyEntries, WicLocation loc,
+        List<ShiftEntry> onSiteEmployeeShiftEntries)
     {
-        var set = onSiteEntries
-            .Where(w => WicLocationMatcher.MatchesSupportLocation(w.SupportLocation, loc))
-            .Select(w => w.ShiftDate)
+        // Delegates to WicPresenceResolver so this endpoint reads coverage exactly the way
+        // the forecast, the briefing and the location cards do. Before, this was its own
+        // fourth reading of the same question.
+        //
+        // isSick is `_ => false` on purpose: this overload has no SickLeaves data. A sick
+        // day normally also lands in ShiftEntries as ShiftType=SL (ShiftSyncService), which
+        // the resolver already scores 0.0, so the absence is still caught.
+        var shiftByEmpDate = onSiteEmployeeShiftEntries
+            .GroupBy(s => (s.EmployeeId, s.ShiftDate))
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
+
+        // Only dates that some row actually mentions can be covered, so there is no need
+        // for the caller to pass a range.
+        var candidateDates = onSiteEntries.Select(w => w.ShiftDate)
+            .Concat(wicDutyEntries.Select(d => d.ShiftDate))
             .ToHashSet();
-        foreach (var d in wicDutyEntries.Where(d => MatchesAgentTask(d.AgentTask!, loc)))
-            set.Add(d.ShiftDate);
-        return set;
+
+        var covered = new HashSet<DateOnly>();
+        foreach (var date in candidateDates)
+        {
+            var presence = WicPresenceResolver.Resolve(
+                loc, date, onSiteEntries, shiftByEmpDate, wicDutyEntries, _ => false);
+            // "Is anybody rostered here at all" — this endpoint classifies assignment
+            // structure, so any contribution counts. MinRequired is the forecast's job.
+            if (presence.PresentDouble > 0) covered.Add(date);
+        }
+        return covered;
+    }
+
+    // Shared query so every ComputeCoveredDates caller builds the absence cross-check
+    // the same way: all ShiftEntries rows for the employees who have an on-site
+    // WicShiftEntries row in range (FullAbsenceTypes filtering happens inside
+    // ComputeCoveredDates itself).
+    internal static async Task<List<ShiftEntry>> GetShiftEntriesForOnSiteEmployeesAsync(
+        GSDContext db, List<WicShiftEntry> onSiteEntries, DateOnly from, DateOnly to)
+    {
+        var empIds = onSiteEntries.Select(w => w.EmployeeId).Distinct().ToList();
+        if (empIds.Count == 0) return new List<ShiftEntry>();
+        return await db.ShiftEntries
+            .Where(s => empIds.Contains(s.EmployeeId) && s.ShiftDate >= from && s.ShiftDate <= to)
+            .ToListAsync();
     }
 
     // Single source of truth for "which dates is this location open" (national
@@ -158,7 +204,13 @@ public class WicCoverageGapService
         {
             if (string.Equals(shift.RawValue, "BO", StringComparison.OrdinalIgnoreCase)) return "BO";
             if (string.Equals(shift.AgentTask, "VWIC", StringComparison.OrdinalIgnoreCase)) return "VWIC";
-            if (!string.IsNullOrWhiteSpace(shift.AgentTask)) return shift.AgentTask;
+            // A centre name here means WIC duty with a flipped ShiftType
+            // (AvailabilityResolver.IsWicDutyAt) — show it as the WIC duty it is, so the
+            // row reads the same as a proper WIC_DUTY row instead of as a bare task.
+            if (!string.IsNullOrWhiteSpace(shift.AgentTask))
+                return AgentTasks.IsNonLocationValue(shift.AgentTask)
+                    ? shift.AgentTask
+                    : $"WIC {shift.AgentTask}";
             return "rostered, no task";
         }
 
@@ -204,14 +256,19 @@ public class WicCoverageGapService
         var onSiteEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate >= from && w.ShiftDate <= to && w.IsOnSite)
             .ToListAsync();
-        // Cover signal 2: ShiftEntries WIC_DUTY rows, matched by AgentTask.
+        // Cover signal 2: ShiftEntries rows whose AgentTask could name a centre. The
+        // ShiftType call belongs to AvailabilityResolver.IsWicDutyAt, not to this query —
+        // filtering on ShiftType=WIC_DUTY here is what used to drop a WIC-duty row whose
+        // ShiftType had been flipped to WORKING, producing a phantom gap.
         var wicDutyEntries = await _db.ShiftEntries
             .Where(s => s.ShiftDate >= from && s.ShiftDate <= to &&
-                        s.ShiftType == ShiftTypes.WicDuty && s.AgentTask != null && s.AgentTask != "")
+                        s.AgentTask != null && s.AgentTask != "" &&
+                        !NonLocationTasks.Contains(s.AgentTask))
             .ToListAsync();
 
+        var onSiteEmployeeShiftEntries = await GetShiftEntriesForOnSiteEmployeesAsync(_db, onSiteEntries, from, to);
         var coveredDatesByLocation = locations.ToDictionary(
-            l => l.Id, l => ComputeCoveredDates(onSiteEntries, wicDutyEntries, l));
+            l => l.Id, l => ComputeCoveredDates(onSiteEntries, wicDutyEntries, l, onSiteEmployeeShiftEntries));
 
         var allAssignments = await _db.WicAgentAssignments.Where(a => a.IsActive).ToListAsync();
         var coreAssignmentsByLocation = locations.ToDictionary(
@@ -234,7 +291,8 @@ public class WicCoverageGapService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         var assignedEmployees = await _db.Employees
-            .Where(e => e.FullName != null && assignedNames.Contains(e.FullName))
+            .Where(e => e.FullName != null && assignedNames.Contains(e.FullName)
+                     && !TestAccounts.ExcludedEmployeeIds.Contains(e.EmployeeId))
             .ToListAsync();
         var empByFullName = assignedEmployees
             .GroupBy(e => e.FullName!, StringComparer.OrdinalIgnoreCase)
@@ -270,7 +328,18 @@ public class WicCoverageGapService
             }
 
             var coveredDates = coveredDatesByLocation[loc.Id];
-            bool hasFutureCover = coveredDates.Any(d => d > notRecordedCutoff);
+            // (D) Judge "never recorded" only against open days that actually fall beyond
+            // the cutoff. A once-weekly centre can have ALL its open days inside the first
+            // 7 days of a 14-day window (Landshut/Mülheim/Trier/Wesel are Thursday-only:
+            // open 2026-10-01 and 2026-10-08, cutoff 2026-10-08, and the test is strictly
+            // greater) — which read as NOT_RECORDED even with duty recorded on every open
+            // day through 2026-10-29. Pure window arithmetic, not missing records: the same
+            // call at days=90 reported 0. When nothing is open past the cutoff, fall back to
+            // "is there any cover evidence in the window at all".
+            bool anyOpenDayBeyondCutoff = openDates.Any(d => d > notRecordedCutoff);
+            bool hasFutureCover = anyOpenDayBeyondCutoff
+                ? coveredDates.Any(d => d > notRecordedCutoff)
+                : coveredDates.Count > 0;
             if (!hasFutureCover)
             {
                 notRecorded.Add(new WicCoverageSummaryEntry(
@@ -348,9 +417,11 @@ public class WicCoverageGapService
             .Where(w => w.ShiftDate >= from && w.ShiftDate <= to && w.IsOnSite).ToListAsync();
         var wicDutyEntries = await _db.ShiftEntries
             .Where(s => s.ShiftDate >= from && s.ShiftDate <= to &&
-                        s.ShiftType == ShiftTypes.WicDuty && s.AgentTask != null && s.AgentTask != "")
+                        s.AgentTask != null && s.AgentTask != "" &&
+                        !NonLocationTasks.Contains(s.AgentTask))
             .ToListAsync();
-        var covered = ComputeCoveredDates(onSiteEntries, wicDutyEntries, location);
+        var onSiteEmployeeShiftEntries = await GetShiftEntriesForOnSiteEmployeesAsync(_db, onSiteEntries, from, to);
+        var covered = ComputeCoveredDates(onSiteEntries, wicDutyEntries, location, onSiteEmployeeShiftEntries);
         return openDates.Count(d => !covered.Contains(d));
     }
 }

@@ -154,6 +154,7 @@
     },
     "exceptionList": {
       "allCovered": "All locations covered for the next {{n}} days",
+      "dayCovered": "No coverage gaps on {{date}}",
       "showAll": "Show all ({{n}})",
       "collapse": "Show less",
       "bestSub": "Sub: {{name}}",
@@ -169,7 +170,7 @@
       "atRiskToday": "At-Risk Today",
       "closureRisk": "Closure Risk",
       "absentToday": "Absent Today",
-      "coveragePct": "Coverage %",
+      "coveragePct": "Coverage % Today",
       "noLocationsOpen": "No locations open"
     },
     "heatmap": {
@@ -332,6 +333,35 @@
       "statusNotIn": "Not Checked In",
       "statusNoRecord": "No Record",
       "statusUnknown": "Unknown"
+    },
+    "checkin": {
+      "title": "Check-in Status",
+      "expected": "Expected",
+      "checkedIn": "Checked In",
+      "notYetIn": "Not Yet In",
+      "blankId": "{{n}} kiosk check-in(s) have no employee ID and are excluded from these counts",
+      "blankIdHint": "The kiosk recorded a check-in without an employee ID, so it cannot be matched to anyone. Excluded from every figure above; worth correcting in the kiosk data.",
+      "assignToCentre": "Assign to centre",
+      "breakdown": "on WIC roster {{on}} · not on roster {{off}}",
+      "expectedHint": "Everyone expected at work today: the WIC roster at open centres plus everyone who checked in at a kiosk without being on the roster. Always equals Checked in + Not yet in."
+    },
+    "presence": {
+      "kiosk": "Present (kiosk) · {{n}}",
+      "rostered": "Rostered · {{n}}",
+      "rosteredLabel": "Rostered",
+      "notPresent": "{{n}} rostered, not checked in",
+      "notPresentHint": "Rostered for WIC duty here today but with no active kiosk check-in."
+    },
+    "onBreak": "On break",
+    "onBreakFor": "Pause {{n}}m",
+    "workMode": {
+      "WIC": "WIC",
+      "HOME_OFFICE": "Virtual WIC Support"
+    },
+    "manual": {
+      "label": "Manual",
+      "tooltip": "Set by hand — a deliberate decision, not an error. Protected from the roster generator and from cleanup jobs.",
+      "tooltipWho": "Set by hand: {{detail}} — a deliberate decision, not an error. Protected from the roster generator and from cleanup jobs."
     }
   },
   "wicCoverage": {
@@ -391,6 +421,10 @@
       "success": "{{agent}} moved to GSD Backlog",
       "successRange": "{{agent}} moved to GSD Backlog for {{count}} days",
       "error": "Failed to move agent"
+    },
+    "checkInNotRecorded": {
+      "badge": "Staffed — check-in not recorded",
+      "tooltip": "Rostered for WIC duty in the shift plan, but no on-site check-in record exists for this date. A record-keeping gap, not a staffing gap."
     }
   },
   "topbar": {

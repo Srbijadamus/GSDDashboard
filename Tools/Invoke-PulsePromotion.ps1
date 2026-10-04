@@ -3,6 +3,9 @@ param(
     [Parameter(Mandatory)][string]$Snapshot
 )
 $ErrorActionPreference = 'Stop'
+if ($Mode -eq 'Promote') {
+    & (Join-Path $PSScriptRoot 'Assert-PulsePreservation.ps1') -RequireBuild
+}
 if ($Snapshot -notmatch '^C:\\ProgramData\\PulseRollback\\[0-9]{8}-[0-9]{6}$') {
     throw 'Snapshot must be a timestamp directory under C:\ProgramData\PulseRollback.'
 }
