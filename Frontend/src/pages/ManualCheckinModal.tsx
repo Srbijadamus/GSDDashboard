@@ -2,9 +2,8 @@ import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Clock } from "lucide-react"
+import { apiFetch } from "../api/client"
 
-const KIOSK_BASE = "https://ssr7tm2l-8000.euw.devtunnels.ms"
-const KIOSK_KEY  = "FbHCS6VuEflvTKCgLUvvf-eEyJKxgnbd3McQzq4l0PM"
 
 interface KioskAgent {
   id: number
@@ -28,7 +27,6 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
 
   const [agentId, setAgentId] = useState<number | "">("")
   const [action, setAction] = useState<"checkin" | "logout">("checkin")
-  const [performedBy, setPerformedBy] = useState("Supervisor")
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -37,18 +35,14 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
     if (isOpen) {
       setAgentId("")
       setAction("checkin")
-      setPerformedBy("Supervisor")
       setSuccess(null)
       setError(null)
     }
   }, [isOpen])
 
-  const { data: agents = [] } = useQuery<KioskAgent[]>({
+  const { data: agents = [], error: agentsError } = useQuery<KioskAgent[]>({
     queryKey: ["kiosk-agents"],
-    queryFn: () =>
-      fetch(`${KIOSK_BASE}/api/agents`, {
-        headers: { "X-API-Key": KIOSK_KEY },
-      }).then(r => r.json()),
+    queryFn: () => apiFetch<KioskAgent[]>("/api/kiosk/agents"),
     staleTime: 5 * 60 * 1000,
     enabled: isOpen,
   })
@@ -73,24 +67,18 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
     setSubmitting(true)
     setError(null)
     setSuccess(null)
-    const endpoint = action === "checkin" ? "/api/manual-checkin" : "/api/manual-logout"
+    const endpoint = action === "checkin" ? "/api/kiosk/manual-checkin" : "/api/kiosk/manual-logout"
     try {
-      const res = await fetch(`${KIOSK_BASE}${endpoint}`, {
+      await apiFetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Key": KIOSK_KEY,
+          "X-Pulse-Request": "1",
         },
         body: JSON.stringify({
-          agent_id: agentId,
-          performed_by: performedBy || "Supervisor",
-          note: "",
+          agentId,
         }),
       })
-      if (!res.ok) {
-        const body = await res.text().catch(() => "")
-        throw new Error(`HTTP ${res.status}${body ? ": " + body : ""}`)
-      }
       const selected = agents.find(a => a.id === agentId)
       const actionLabel = action === "checkin" ? p("checkin").toLowerCase() : p("logout").toLowerCase()
       setSuccess(p("success", { name: selected?.full_name ?? String(agentId), action: actionLabel }))
@@ -134,11 +122,11 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
             {success}
           </div>
         )}
-        {error && (
+        {(error || agentsError) && (
           <div className="bg-crit-bg border border-crit-bd text-crit-fg" style={{
             borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14,
           }}>
-            {error}
+            {error || String(agentsError)}
           </div>
         )}
 
@@ -185,16 +173,6 @@ export function ManualCheckinModal({ isOpen, onClose }: ManualCheckinModalProps)
                 </button>
               ))}
             </div>
-          </label>
-
-          <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
-            {p("performedBy")}
-            <input
-              type="text"
-              value={performedBy}
-              onChange={e => setPerformedBy(e.target.value)}
-              style={inputStyle}
-            />
           </label>
 
           <div style={{ display: "flex", gap: 10, marginTop: 6 }}>

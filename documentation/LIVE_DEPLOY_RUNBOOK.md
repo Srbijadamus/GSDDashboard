@@ -6,6 +6,161 @@ This is an operator runbook for a later authorized maintenance window.
 No deployment, restart, enrollment, SQL or profile change was performed by that
 task. Engineering work stays in the secure copies and test databases/ports.
 
+## CURRENT: backend-only kiosk access and isolated Pulse - 2026-10-04
+
+This section supersedes the earlier "build cp failed"/attendance-only preparation
+notes. No live Pulse deployment, restart, tunnel or ShiftKiosk profile/key change
+was performed. One explicitly requested production **service-device enrollment**
+was performed through `admin_cli.py` for **pulse-backend**, device
+**pk9W31hcToIK_fLJ**. This was an enrollment write, not a SELECT-only operation.
+The token exists only in `C:\ProgramData\PulseStage\backend.json`, inherited
+SYSTEM/Administrators-only ACL, outside the repository and static roots.
+The restricted temporary enrollment receipt was removed. Do not enroll again.
+
+### Source inventory and behavior
+
+Before this change `Frontend\src\pages\ManualCheckinModal.tsx:6-7` embedded the
+kiosk tunnel/key; lines 49-51 read `/api/agents`; lines 76-83 wrote
+`/api/manual-checkin` and `/api/manual-logout` with the key.
+No other direct kiosk/key occurrence was found in the secure frontend source.
+`Attendance.tsx:82` and `WicAttendance.tsx:768` already used the attendance proxy;
+the operator's live older bundle was different. The prepared modal now uses
+only `/api/kiosk/agents`, `/api/kiosk/manual-checkin` and
+`/api/kiosk/manual-logout`. The caller no longer supplies an editable actor:
+the backend takes performed_by from the authenticated Pulse session and logs
+actor, agent, action and upstream outcome. Agent-fetch failures are visible.
+
+All four proxy routes always require an authenticated DEV/RTM/TEAM_LEAD,
+independent of general RBAC. Anonymous=401, other roles=403. Writes also require
+the same browser Origin host and `X-Pulse-Request: 1`; no generic URL proxy exists.
+The backend sends device headers, never X-API-Key, to the fixed upstream paths.
+HTTP loopback is mandatory, production default `http://localhost:8000`;
+HTTP redirects are disabled so device credentials cannot follow a redirect.
+The proxy preserves upstream error status and reports missing configuration,
+invalid response, timeout and network outage explicitly.
+
+The build uses Vite's real `Backend\wwwroot` output, native PowerShell Copy-Item
+into the Release static root, no cmd `cp`, no Frontend\dist assumption.
+Old Release static assets are removed to avoid retaining an earlier secret
+bundle. Built JavaScript was checked for the actual previous embedded key,
+ShiftKiosk tunnel and X-API-Key, without printing them: none remained.
+The pipeline no longer automatically stops any process or touches a tunnel.
+
+### Operator commands and isolated acceptance
+
+Elevated PowerShell, build both components with the existing pipeline:
+
+```powershell
+& 'C:\GSDDashboard_secure\PS1_19_FinalBuildVerify.ps1'
+```
+
+The service credential/configuration already exists. **Do not rerun**
+`Tools\Prepare-PulseStage.ps1 -EnrollProductionService` for this rollout.
+For a future fresh environment it explicitly enrolls one device and constructs
+the restricted configuration; it refuses an existing configuration or receipt.
+
+Second instance: loopback **5057**, no tunnel, DB **GSDDashboardCopyTest**,
+separate cookie `pulse_stage_auth`. The same private configuration supplies the
+service device for real upstream reads via localhost:8000. In a dedicated
+PowerShell window, keep the command running:
+
+```powershell
+& 'C:\GSDDashboard_secure\PS1_19_FinalBuildVerify.ps1' -Mode Stage -SkipBuild -Port 5057
+```
+
+It refuses a used/live port or non-test Pulse database. Do not launch a second
+copy if it is already running. Close/stop this stage window only, never stop
+processes by executable name. A stage process started by the assistant is
+attached to that CLI session; the command above is the operator-owned restart
+after that session ends.
+
+Open **http://127.0.0.1:5057/wic-attendance** on the cloud PC, sign in with a
+DEV/RTM/TEAM_LEAD account present in the test database, then inspect Network:
+only same-origin `/api/kiosk/*`, no ShiftKiosk tunnel/key in browser requests.
+Compare Checked In against the returned feed, open manual check-in and require
+the agent list to load. Anonymous proxy calls must be 401; wrong role 403.
+No new credential or fabricated privileged session is created for UI testing.
+
+**Manual submit on this stage still writes the real ShiftKioskDB**, because the
+requested service upstream is the real localhost:8000. Test Pulse DB isolation
+does not make this action a dummy. The assistant did not submit any action.
+Only the operator, under explicit operational approval, may perform a check-in
+and matching logout for a designated test agent. To test without live writes,
+use an independently configured ShiftKiosk test instance and separately enrolled
+test device, not the production token. Do not silently redirect the production
+service credential to another database.
+
+### Live promotion and single-command rollback - NOT executed
+
+Only after signed-in stage acceptance, in a separately approved window:
+the existing watchdog must own the live Release executable and port 5000.
+Preserve live appsettings/connection string; never copy the stage test DB setting
+or stage cookie name into production. The helper exports **only Kiosk** into
+restricted `C:\ProgramData\PulseBackend\backend.json`, which the new backend
+loads by default. It preserves the dedicated service credential, no reenrollment.
+
+Choose one new snapshot path and invoke the **existing** pipeline:
+
+```powershell
+$Snapshot='C:\ProgramData\PulseRollback\20261004-203000'; & 'C:\GSDDashboard_secure\PS1_19_FinalBuildVerify.ps1' -Mode Promote -Snapshot $Snapshot
+```
+
+This pauses the existing watchdog with its normal sentinel; checks the exact
+port-5000 owner's executable before stopping only that PID; snapshots the live
+Release directory, root static files and previous private backend config under
+a protected timestamp directory; installs the built binaries/static assets and
+service config; then removes the sentinel so the existing watchdog resumes.
+It rejects an existing snapshot, reparse paths and unexpected port owner.
+No ShiftKiosk service, DB, tunnel, key or profile is touched. Build/backup
+preconditions must pass; do not bypass guards. The snapshot path printed by the
+operation is the path to use for rollback.
+
+After the watchdog resumes, check localhost health and the **existing**
+https://d2jn94qg-5000.euw.devtunnels.ms/wic-attendance, hard refresh or use a new
+browser session; require signed-in attendance/agents 200, anonymous 401, no
+direct kiosk browser requests, and manual actions accepted with the session's
+actor. This authorized tunnel acceptance is required before declaring live done.
+If acceptance fails, rollback with one command:
+
+```powershell
+& 'C:\GSDDashboard_secure\PS1_19_FinalBuildVerify.ps1' -Mode Rollback -Snapshot 'C:\ProgramData\PulseRollback\20261004-203000'
+```
+
+Rollback pauses the watchdog, stops only the checked live PID, restores the
+snapshot's binaries/static files and prior private config (or removes the newly
+introduced config when none existed), then resumes the watchdog. It does not
+undo real manual actions or revoke the device; code/config rollback is not DB
+rollback. Do not use this old-browser rollback after closing anonymous kiosk
+attendance without also separately restoring that read-access policy.
+
+### Only then close anonymous kiosk attendance - separate future operation
+
+Keep dan1, shared key, device write protocol and the 60 old kiosks unchanged
+during Pulse promotion. After production acceptance and supervisor/recovery
+preparation, make a separately reviewed **route-scoped** ShiftKiosk change:
+`GET /api/attendance` permits a valid device token or authenticated supervisor,
+rejects anonymous callers and anonymously minted session tokens, with explicit
+401/403. Prepare/test it in the secure repo before its authorized server rollout.
+No such server change/profile promotion was executed by this task.
+
+Do not claim that flipping anon_identifiers alone closes this endpoint:
+it strips identifiers from successful anonymous feeds, not a 401 read gate.
+The current `GET /api/attendance` has no verify_api_key dependency. Adding that
+dependency alone would still accept anonymous session tokens. Before strict
+closure prove ShiftKiosk dashboard supervisor login/recovery, since its old
+anonymous session token must not be exempted. Then prove Pulse device-token
+attendance still 200/full employee IDs, dashboard supervisor read still works,
+anonymous/session-token reads denied, and legacy kiosk ON_SHIFT/OFF unaffected.
+Apply dan2/dan3 only through their separate documented acceptance sequence.
+
+**Premature closure breaks the current live Pulse:** its old browser attendance
+requests receive 401/403 (or, with stripping only, lose matching identifiers).
+Attendance/WIC show missing/zero check-ins or feed errors. The hardcoded key in
+the old manual UI is not a valid replacement for device/supervisor access;
+dan1 already restricts that key's non-kiosk routes. Neither a refresh of the old
+bundle nor installing the new laptop client repairs old Pulse. Promote and
+accept Pulse first, close attendance second.
+
 ## Completed baseline - do not replay
 
 Live ShiftKiosk is **dan1**, after dan0 then dan1 via `tools\set_profile.ps1`.

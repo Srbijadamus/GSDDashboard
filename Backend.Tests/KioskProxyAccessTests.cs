@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Security.Claims;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Middleware;
@@ -68,6 +69,10 @@ public class KioskProxyAccessTests
                 Assert.Equal(HttpStatusCode.Unauthorized, denied.StatusCode);
                 Assert.Contains("Authentication required", await denied.Content.ReadAsStringAsync());
                 Assert.Equal(before, proxy.Calls);
+                using var deniedAgents = await anonymous.GetAsync("/api/kiosk/agents");
+                Assert.Equal(HttpStatusCode.Unauthorized, deniedAgents.StatusCode);
+                using var deniedAction = await anonymous.PostAsJsonAsync("/api/kiosk/manual-checkin", new { agentId = 1 });
+                Assert.Equal(HttpStatusCode.Unauthorized, deniedAction.StatusCode);
 
                 foreach (var role in new[] { AppRoles.Dev, AppRoles.Rtm, AppRoles.TeamLead,
                                              AppRoles.Agent, "missing", "UNKNOWN" })
@@ -90,11 +95,38 @@ public class KioskProxyAccessTests
                         Assert.Equal(before + 1, proxy.Calls);
                         Assert.Equal("2026-10-03", proxy.Date);
                         Assert.Equal("Test Lead", proxy.TeamLead);
+                        using var agents = await signedIn.GetAsync("/api/kiosk/agents");
+                        Assert.Equal(HttpStatusCode.OK, agents.StatusCode);
+                        foreach (var path in new[] { "/api/kiosk/manual-checkin", "/api/kiosk/manual-logout" })
+                        {
+                            using var crossOrigin = new HttpRequestMessage(HttpMethod.Post, path)
+                            {
+                                Content = JsonContent.Create(new { agentId = 1 })
+                            };
+                            crossOrigin.Headers.Add("Origin", "http://untrusted.invalid");
+                            crossOrigin.Headers.Add("X-Pulse-Request", "1");
+                            var beforeDenied = proxy.Calls;
+                            using var rejected = await signedIn.SendAsync(crossOrigin);
+                            Assert.Equal(HttpStatusCode.Forbidden, rejected.StatusCode);
+                            Assert.Equal(beforeDenied, proxy.Calls);
+                            using var request = new HttpRequestMessage(HttpMethod.Post, path)
+                            {
+                                Content = JsonContent.Create(new { agentId = 1, performedBy = "forged" })
+                            };
+                            request.Headers.Add("Origin", "http://127.0.0.1:5056");
+                            request.Headers.Add("X-Pulse-Request", "1");
+                            using var written = await signedIn.SendAsync(request);
+                            Assert.Equal(HttpStatusCode.OK, written.StatusCode);
+                        }
                     }
                     else
                     {
                         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
                         Assert.Equal(before, proxy.Calls);
+                        using var agents = await signedIn.GetAsync("/api/kiosk/agents");
+                        Assert.Equal(HttpStatusCode.Forbidden, agents.StatusCode);
+                        using var action = await signedIn.PostAsJsonAsync("/api/kiosk/manual-logout", new { agentId = 1 });
+                        Assert.Equal(HttpStatusCode.Forbidden, action.StatusCode);
                     }
                 }
             }
@@ -118,6 +150,18 @@ public class KioskProxyAccessTests
         public int Calls { get; private set; }
         public string? Date { get; private set; }
         public string? TeamLead { get; private set; }
+        public Task<(int Status, string Body)> GetAgentsAsync(CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult((200, "[{\"id\":1}]"));
+        }
+        public Task<(int Status, string Body)> ManualActionAsync(bool checkin, int agentId,
+            string performedBy, CancellationToken ct = default)
+        {
+            Calls++;
+            Assert.Equal("proxy-test", performedBy);
+            return Task.FromResult((200, "{\"success\":true}"));
+        }
 
         public Task<(int Status, string Body)> GetAttendanceAsync(string? date, string? tl,
                                                                  CancellationToken ct = default)

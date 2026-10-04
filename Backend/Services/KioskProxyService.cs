@@ -35,6 +35,9 @@ public interface IKioskProxy
     Task<(int Status, string Body)> GetAttendanceAsync(string? date, string? tl,
                                                        CancellationToken ct = default);
     bool IsConfigured { get; }
+    Task<(int Status, string Body)> GetAgentsAsync(CancellationToken ct = default);
+    Task<(int Status, string Body)> ManualActionAsync(bool checkin, int agentId,
+        string performedBy, CancellationToken ct = default);
 }
 
 public sealed class KioskProxy : IKioskProxy
@@ -50,6 +53,9 @@ public sealed class KioskProxy : IKioskProxy
         _http = http;
         _log = log;
         _baseUrl = (cfg["Kiosk:BaseUrl"] ?? "http://localhost:8000").TrimEnd('/');
+        if (!Uri.TryCreate(_baseUrl, UriKind.Absolute, out var uri) ||
+            !uri.IsLoopback || uri.Scheme != "http")
+            throw new InvalidOperationException("Kiosk:BaseUrl must be an HTTP loopback URL.");
         _serviceToken = cfg["Kiosk:ServiceToken"];
         _deviceId = cfg["Kiosk:ServiceDeviceId"];
         _http.Timeout = TimeSpan.FromSeconds(15);
@@ -63,7 +69,22 @@ public sealed class KioskProxy : IKioskProxy
         var qs = new List<string>();
         if (!string.IsNullOrWhiteSpace(date)) qs.Add($"date={Uri.EscapeDataString(date)}");
         if (!string.IsNullOrWhiteSpace(tl)) qs.Add($"tl={Uri.EscapeDataString(tl)}");
-        var url = $"{_baseUrl}/api/attendance" + (qs.Count > 0 ? "?" + string.Join("&", qs) : "");
+        return await SendAsync(HttpMethod.Get, "/api/attendance" +
+            (qs.Count > 0 ? "?" + string.Join("&", qs) : ""), null, "employee_id", ct);
+    }
+
+    public Task<(int Status, string Body)> GetAgentsAsync(CancellationToken ct = default) =>
+        SendAsync(HttpMethod.Get, "/api/agents", null, "id", ct);
+
+    public Task<(int Status, string Body)> ManualActionAsync(bool checkin, int agentId,
+        string performedBy, CancellationToken ct = default) =>
+        SendAsync(HttpMethod.Post, checkin ? "/api/manual-checkin" : "/api/manual-logout",
+            new { agent_id = agentId, performed_by = performedBy, note = "" }, null, ct);
+
+    private async Task<(int Status, string Body)> SendAsync(HttpMethod method, string path,
+        object? payload, string? arrayIdentifier, CancellationToken ct)
+    {
+        var url = $"{_baseUrl}{path}";
 
         // FAIL LOUDLY, NEVER SILENTLY (independent review, finding 2).
         // With an empty ServiceToken this proxy would send no credential, the
@@ -80,7 +101,9 @@ public sealed class KioskProxy : IKioskProxy
             return (503, "{\"error\":\"Kiosk proxy not configured (Kiosk:ServiceToken)\"}");
         }
 
-        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        using var req = new HttpRequestMessage(method, url);
+        if (payload is not null)
+            req.Content = JsonContent.Create(payload);
         req.Headers.TryAddWithoutValidation("X-Device-Token", _serviceToken);
         if (!string.IsNullOrWhiteSpace(_deviceId))
             req.Headers.TryAddWithoutValidation("X-Device-Id", _deviceId);
@@ -97,14 +120,19 @@ public sealed class KioskProxy : IKioskProxy
                 return ((int)resp.StatusCode, body);
             }
             using var document = JsonDocument.Parse(body);
-            if (document.RootElement.ValueKind != JsonValueKind.Array ||
+            if (arrayIdentifier is not null && (document.RootElement.ValueKind != JsonValueKind.Array ||
                 document.RootElement.EnumerateArray().Any(row =>
                     row.ValueKind != JsonValueKind.Object ||
-                    !row.TryGetProperty("employee_id", out _)))
+                    !row.TryGetProperty(arrayIdentifier, out _))))
             {
                 _log.LogError("Kiosk attendance proxy returned an invalid feed or rows without employee_id");
                 return (502, "{\"error\":\"Invalid kiosk attendance response\"}");
             }
+            if (arrayIdentifier is null &&
+                (document.RootElement.ValueKind != JsonValueKind.Object ||
+                 !document.RootElement.TryGetProperty("success", out var success) ||
+                 success.ValueKind != JsonValueKind.True))
+                return (502, "{\"error\":\"Invalid kiosk action response\"}");
             return ((int)resp.StatusCode, body);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

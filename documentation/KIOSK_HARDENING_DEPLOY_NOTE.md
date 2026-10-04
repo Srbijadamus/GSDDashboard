@@ -62,6 +62,20 @@ Anomaly detection is observational, not a blocking control.
 
 ## Pulse change prepared, not live
 
+**2026-10-04 secure update:** all kiosk browser traffic, including the agent list
+and manual check-in/logout modal, now goes through authenticated Pulse
+`/api/kiosk/*` routes. The embedded frontend key/tunnel was removed and its
+absence checked in built JavaScript. Backend upstream is HTTP loopback only;
+the requested pulse-backend device was enrolled through admin_cli and its
+credential is only in restricted external backend configuration, not source/JS.
+The second Pulse instance uses loopback 5057 and GSDDashboardCopyTest, not the
+live Pulse DB; its manual actions would still affect the real kiosk upstream
+if an operator explicitly submits them. No live Pulse cutover was performed.
+See the CURRENT section of `LIVE_DEPLOY_RUNBOOK.md` for build, stage,
+guarded snapshot/promotion and single-command rollback. Do not reenroll.
+Closing anonymous kiosk attendance remains a separate future route-scoped
+change: anon_identifiers strips fields but is not an HTTP access-denial gate.
+
 The old frontend requests kiosk attendance directly and matches on `employee_id`.
 That identifier is a complete credential in legacy Pulse sign-in; stripping it
 before deploying the replacement makes Attendance/WIC show "No Check-in".

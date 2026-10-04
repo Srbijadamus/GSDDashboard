@@ -8,6 +8,41 @@ namespace GSDDashboard.Tests;
 public class KioskProxyResponseTests
 {
     [Fact]
+    public async Task AgentsAndManualActions_UseDeviceCredentialAndFixedPaths()
+    {
+        using var http = new HttpClient(new ActionHandler());
+        var proxy = Proxy(http);
+        Assert.Equal(200, (await proxy.GetAgentsAsync()).Status);
+        Assert.Equal(200, (await proxy.ManualActionAsync(true, 258, "signed-in-actor")).Status);
+        Assert.Equal(200, (await proxy.ManualActionAsync(false, 258, "signed-in-actor")).Status);
+    }
+
+    private sealed class ActionHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Assert.Equal("127.0.0.1", request.RequestUri?.Host);
+            Assert.Equal("TEST-ONLY", request.Headers.GetValues("X-Device-Token").Single());
+            Assert.False(request.Headers.Contains("X-API-Key"));
+            var body = "[{\"id\":258}]";
+            if (request.Method == HttpMethod.Post)
+            {
+                Assert.Contains(request.RequestUri?.AbsolutePath,
+                    new[] { "/api/manual-checkin", "/api/manual-logout" });
+                var json = await request.Content!.ReadAsStringAsync(cancellationToken);
+                using var document = System.Text.Json.JsonDocument.Parse(json);
+                Assert.Equal(258, document.RootElement.GetProperty("agent_id").GetInt32());
+                Assert.Equal("signed-in-actor", document.RootElement.GetProperty("performed_by").GetString());
+                body = "{\"success\":true}";
+            }
+            else
+                Assert.Equal("/api/agents", request.RequestUri?.AbsolutePath);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) };
+        }
+    }
+
+    [Fact]
     public async Task Feed_VirtualAgentPreserved_OutagesAndInvalidFeedsAreNotEmptySuccess()
     {
         const string virtualAgent =

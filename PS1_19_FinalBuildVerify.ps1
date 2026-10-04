@@ -1,255 +1,87 @@
-# PS1_19_FinalBuildVerify.ps1
-# Build frontend + backend, deploy, run comprehensive verification.
-# No here-strings. No Unicode.
+param(
+    [ValidateSet('Build', 'Stage', 'Promote', 'Rollback')][string]$Mode = 'Build',
+    [int]$Port = 5057,
+    [string]$RuntimeConfig = 'C:\ProgramData\PulseStage\backend.json',
+    [switch]$SkipBuild,
+    [string]$Snapshot
+)
+$ErrorActionPreference = 'Stop'
+$root = $PSScriptRoot
+$frontend = Join-Path $root 'Frontend'
+$backend = Join-Path $root 'Backend'
+$wwwroot = Join-Path $backend 'wwwroot'
+$release = Join-Path $backend 'bin\Release\net8.0'
 
-$frontendDir = "C:\GSDDashboard\Frontend"
-$backendDir  = "C:\GSDDashboard\Backend"
-$wwwroot     = "C:\GSDDashboard\Backend\wwwroot"
-$distDir     = "C:\GSDDashboard\Frontend\dist"
-$baseUrl     = "http://localhost:5000"
-$tunnelUrl   = "https://8nh5k5g1-5000.euw.devtunnels.ms"
+if ($Mode -in @('Promote', 'Rollback')) {
+    & (Join-Path $root 'tools\Invoke-PulsePromotion.ps1') -Mode $Mode -Snapshot $Snapshot
+    return
+}
+if ($Mode -eq 'Stage') {
+    if ($root -ne 'C:\GSDDashboard_secure') { throw 'Stage must run from the secure repository.' }
+    if ($Port -in @(5000, 8000) -or $Port -lt 1024) { throw 'Unsafe stage port.' }
+    if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) {
+        throw 'Stage port already in use.'
+    }
+    $config = Get-Content -LiteralPath $RuntimeConfig -Raw | ConvertFrom-Json
+    $cs = New-Object System.Data.SqlClient.SqlConnectionStringBuilder
+    $cs.set_ConnectionString($config.ConnectionStrings.DefaultConnection)
+    if ($cs.get_InitialCatalog() -notin @('GSDDashboardTest', 'GSDDashboardCopyTest')) {
+        throw 'Stage requires a Pulse test database.'
+    }
+}
 
-Write-Host ""
-Write-Host "=== PS1_19: Final Build + Verification ===" -ForegroundColor Yellow
-
-# -- 0. Deploy sentinel: pause the watchdog for the entire build+verify --------
-# The watchdog (C:\HealthCheck\watchdog_gsd_backend.ps1) checks for this file at
-# the top of every loop and will NOT relaunch the exe while it exists, so it can
-# never resurrect the old exe mid-copy. It auto-ignores a sentinel older than
-# 30 minutes, so a crash here can never leave the backend down indefinitely.
-# The finally block at the end of this script always removes it.
-
-$sentinel   = "C:\HealthCheck\DEPLOY_IN_PROGRESS"
-$serverProc = $null
-New-Item -Path $sentinel -ItemType File -Force | Out-Null
-Write-Host "Watchdog sentinel created: $sentinel" -ForegroundColor Cyan
-Write-Host "  (watchdog paused; stale valve auto-resumes after 30 min)" -ForegroundColor DarkCyan
-
+if (!$SkipBuild) {
+Push-Location $frontend
 try {
-
-# ── 1. npm run build ─────────────────────────────────────────────────────────
-
-Write-Host ""
-Write-Host "--- 1. npm run build ---" -ForegroundColor Cyan
-Push-Location $frontendDir
-npm run build 2>&1 | Write-Host
-$buildExit = $LASTEXITCODE
-Pop-Location
-
-if ($buildExit -ne 0) {
-    Write-Host "FRONTEND BUILD FAILED (exit $buildExit) -- stopping." -ForegroundColor Red
-    exit 1
+    npm run build
+    if ($LASTEXITCODE) { throw 'Frontend build failed.' }
+} finally { Pop-Location }
+if (!(Test-Path -LiteralPath (Join-Path $wwwroot 'index.html'))) {
+    throw 'Vite output missing from Backend\wwwroot.'
 }
-Write-Host "Frontend build: SUCCESS" -ForegroundColor Green
+$bad = Get-ChildItem -LiteralPath (Join-Path $wwwroot 'assets') -Filter '*.js' |
+    Select-String -Pattern 'ssr7tm2l-8000|X-API-Key|KIOSK_KEY' -Quiet
+if ($bad) { throw 'Forbidden direct-kiosk reference in JavaScript.' }
 
-# ── 2. Verify dist ───────────────────────────────────────────────────────────
-
-Write-Host ""
-Write-Host "--- 2. Verify dist ---" -ForegroundColor Cyan
-if (-not (Test-Path $distDir)) {
-    Write-Host "ERROR: dist not found at $distDir" -ForegroundColor Red; exit 1
+dotnet build (Join-Path $backend 'GSDDashboard.API.csproj') --configuration Release --nologo
+if ($LASTEXITCODE) { throw 'Backend build failed.' }
+if (Test-Path -LiteralPath (Join-Path $release 'wwwroot')) {
+    Remove-Item -LiteralPath (Join-Path $release 'wwwroot') -Recurse -Force
 }
-$distFiles = Get-ChildItem $distDir -Recurse | Measure-Object
-Write-Host "dist: $($distFiles.Count) files" -ForegroundColor Green
-
-$indexHtml = Join-Path $distDir "index.html"
-if (Test-Path $indexHtml) {
-    Write-Host "index.html: present" -ForegroundColor Green
-} else {
-    Write-Host "WARNING: index.html missing from dist" -ForegroundColor Yellow
+New-Item -ItemType Directory -Path (Join-Path $release 'wwwroot') -Force | Out-Null
+Copy-Item -Path (Join-Path $wwwroot '*') -Destination (Join-Path $release 'wwwroot') -Recurse -Force
+Write-Output "Build ready: $release"
 }
 
-# ── 3. Stop backend ──────────────────────────────────────────────────────────
-
-Write-Host ""
-Write-Host "--- 3. Stop existing GSDDashboard.API process ---" -ForegroundColor Cyan
-$proc = Get-Process -Name "GSDDashboard.API" -ErrorAction SilentlyContinue
-if ($proc) {
-    Stop-Process -Id $proc.Id -Force
-    Start-Sleep -Seconds 2
-    Write-Host "Stopped PID $($proc.Id)." -ForegroundColor Green
-} else {
-    Write-Host "No running process." -ForegroundColor DarkGreen
-}
-
-# ── 4. Copy dist to wwwroot ──────────────────────────────────────────────────
-
-Write-Host ""
-Write-Host "--- 4. Copy dist to $wwwroot ---" -ForegroundColor Cyan
-if (Test-Path $wwwroot) { Remove-Item -Path $wwwroot -Recurse -Force }
-Copy-Item -Path $distDir -Destination $wwwroot -Recurse
-$wwwCount = (Get-ChildItem $wwwroot -Recurse | Measure-Object).Count
-Write-Host "wwwroot: $wwwCount files" -ForegroundColor Green
-
-# ── 5. Build backend ─────────────────────────────────────────────────────────
-
-Write-Host ""
-Write-Host "--- 5. dotnet build -c Release ---" -ForegroundColor Cyan
-Push-Location $backendDir
-dotnet build --configuration Release 2>&1 | Write-Host
-$backendBuild = $LASTEXITCODE
-Pop-Location
-
-if ($backendBuild -ne 0) {
-    Write-Host "BACKEND BUILD FAILED -- stopping." -ForegroundColor Red; exit 1
-}
-Write-Host "Backend build: SUCCESS" -ForegroundColor Green
-
-# ── 6. Start server ──────────────────────────────────────────────────────────
-
-Write-Host ""
-Write-Host "--- 6. Start server ---" -ForegroundColor Cyan
-$serverProc = Start-Process -FilePath "dotnet" `
-    -ArgumentList "run", "--project", $backendDir, "--configuration", "Release", "--no-build" `
-    -WorkingDirectory $backendDir `
-    -PassThru -WindowStyle Hidden
-Start-Sleep -Seconds 9
-Write-Host "Server PID: $($serverProc.Id)" -ForegroundColor Cyan
-
-# ── 7. API endpoint verification ─────────────────────────────────────────────
-
-Write-Host ""
-Write-Host "--- 7. API endpoint verification ---" -ForegroundColor Cyan
-
-$apiTests = @(
-    @{ url = "$baseUrl/health";                                                label = "health" },
-    @{ url = "$baseUrl/api/wic/locations";                                     label = "wic/locations" },
-    @{ url = "$baseUrl/api/wic/forecast?horizon=7";                            label = "wic/forecast?horizon=7" },
-    @{ url = "$baseUrl/api/wic/briefing";                                      label = "wic/briefing" },
-    @{ url = "$baseUrl/api/wic/substitutes?locationCode=DE~86150~Augsburg~Schaezlerstr.%203&date=2026-06-15"; label = "wic/substitutes (Augsburg)" }
-)
-
-$allOk = $true
-foreach ($test in $apiTests) {
+if ($Mode -eq 'Stage') {
+    $previous = $env:PULSE_RUNTIME_CONFIG
     try {
-        $resp = Invoke-WebRequest -Uri $test.url -Method GET -TimeoutSec 15 -UseBasicParsing
-        $status = $resp.StatusCode
-        $ok = $status -ge 200 -and $status -lt 300
-        if ($ok) { Write-Host ("  {0,-40} HTTP {1}" -f $test.label, $status) -ForegroundColor Green }
-        else      { Write-Host ("  {0,-40} HTTP {1}" -f $test.label, $status) -ForegroundColor Yellow; $allOk = $false }
-    } catch {
-        $statusCode = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { $null }
-        Write-Host ("  {0,-40} {1}" -f $test.label, $(if ($statusCode) { "HTTP $statusCode" } else { "ERROR: $_" })) -ForegroundColor Red
-        $allOk = $false
-    }
-}
-
-# ── 8. Page verification ─────────────────────────────────────────────────────
-
-Write-Host ""
-Write-Host "--- 8. Page (SPA) verification ---" -ForegroundColor Cyan
-$pageTests = @(
-    @{ url = "$baseUrl/"; label = "/ (overview)" },
-    @{ url = "$baseUrl/wic-attendance"; label = "/wic-attendance" }
-)
-foreach ($test in $pageTests) {
+        $env:PULSE_RUNTIME_CONFIG = $RuntimeConfig
+        $process = Start-Process -FilePath 'dotnet' -WorkingDirectory $release -PassThru `
+            -ArgumentList @((Join-Path $release 'GSDDashboard.API.dll'), '--urls', "http://127.0.0.1:$Port") `
+            -RedirectStandardOutput (Join-Path (Split-Path $RuntimeConfig) 'stage.stdout.log') `
+            -RedirectStandardError (Join-Path (Split-Path $RuntimeConfig) 'stage.stderr.log')
+    } finally { $env:PULSE_RUNTIME_CONFIG = $previous }
     try {
-        $resp = Invoke-WebRequest -Uri $test.url -Method GET -TimeoutSec 10 -UseBasicParsing
-        $ct = $resp.Headers["Content-Type"] -join ""
-        $isHtml = $ct -like "*html*"
-        $status = $resp.StatusCode
-        if ($status -ge 200 -and $status -lt 300 -and $isHtml) {
-            Write-Host ("  {0,-30} HTTP {1} content-type=text/html" -f $test.label, $status) -ForegroundColor Green
-        } else {
-            Write-Host ("  {0,-30} HTTP {1} content-type={2}" -f $test.label, $status, $ct) -ForegroundColor Yellow
-            $allOk = $false
-        }
-    } catch {
-        Write-Host ("  {0,-30} ERROR: {1}" -f $test.label, $_) -ForegroundColor Red; $allOk = $false
+    $ready = $false
+    for ($attempt = 0; $attempt -lt 60; $attempt++) {
+        if ($process.HasExited) { throw 'Stage exited; inspect restricted stage logs.' }
+        try {
+            $response = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/health" -UseBasicParsing -TimeoutSec 2
+            if ($response.StatusCode -eq 200) { $ready = $true; break }
+        } catch [System.Net.WebException] { Start-Sleep -Seconds 2 }
+          catch [System.Net.Http.HttpRequestException] { Start-Sleep -Seconds 2 }
+          catch [System.Threading.Tasks.TaskCanceledException] { Start-Sleep -Seconds 2 }
     }
-}
-
-# ── 9. Theme check ───────────────────────────────────────────────────────────
-# next-themes sets class="dark"|"light" on <html> at runtime via JS hydration,
-# not in the static HTML served by the server. Absence of class= in raw HTML
-# is expected and is NOT a bug.
-
-Write-Host ""
-Write-Host "--- 9. Theme check (ThemeProvider sets class at runtime) ---" -ForegroundColor Cyan
-$indexContent = (Invoke-WebRequest -Uri "$baseUrl/" -UseBasicParsing).Content
-if ($indexContent -match "<script" -and $indexContent -match "<!DOCTYPE") {
-    Write-Host "  SPA shell present (next-themes applies class=dark/light at runtime via JS -- OK)" -ForegroundColor Green
-} else {
-    Write-Host "  WARNING: unexpected HTML structure" -ForegroundColor Yellow
-}
-
-# ── 10. i18n check ───────────────────────────────────────────────────────────
-# Matches only the VALUE portion of JSON lines (after ': "') to avoid
-# false positives from key names (e.g. "cmdPlaceholder") or substrings
-# of German words (e.g. "nan" inside "Listenansicht").
-
-Write-Host ""
-Write-Host "--- 10. i18n source check ---" -ForegroundColor Cyan
-$i18nPath = "C:\GSDDashboard\Frontend\src\i18n"
-$found = $false
-
-# Patterns matched case-insensitively in the VALUE part of JSON
-$valuePatterns = @("TODO","FIXME","lorem","undefined","missing")
-foreach ($pat in $valuePatterns) {
-    $hits = Get-ChildItem $i18nPath -Recurse -Filter "*.json" |
-            Select-String -Pattern (': ".*' + [regex]::Escape($pat)) -CaseSensitive:$false
-    if ($hits) {
-        Write-Host "  WARNING: '$pat' found in i18n values:" -ForegroundColor Yellow
-        $hits | ForEach-Object { Write-Host "    $($_.Filename):$($_.LineNumber) $($_.Line.Trim())" }
-        $found = $true
+    if (!$ready) {
+        Stop-Process -Id $process.Id -Force
+        throw 'Stage readiness timed out.'
     }
-}
-
-# "placeholder" -- only flag when the VALUE literally equals "placeholder"
-$hits = Get-ChildItem $i18nPath -Recurse -Filter "*.json" |
-        Select-String -Pattern ': "placeholder"' -CaseSensitive:$false
-if ($hits) {
-    Write-Host "  WARNING: 'placeholder' found as a literal value in i18n:" -ForegroundColor Yellow
-    $hits | ForEach-Object { Write-Host "    $($_.Filename):$($_.LineNumber) $($_.Line.Trim())" }
-    $found = $true
-}
-
-# "NaN" -- case-sensitive so it does not match "nan" inside German words
-$hits = Get-ChildItem $i18nPath -Recurse -Filter "*.json" |
-        Select-String -Pattern '"NaN"' -CaseSensitive
-if ($hits) {
-    Write-Host "  WARNING: literal NaN found in i18n:" -ForegroundColor Yellow
-    $hits | ForEach-Object { Write-Host "    $($_.Filename):$($_.LineNumber) $($_.Line.Trim())" }
-    $found = $true
-}
-
-if (-not $found) { Write-Host "  No bad patterns found in i18n" -ForegroundColor Green }
-
-# ── Summary ──────────────────────────────────────────────────────────────────
-
-Write-Host ""
-if ($allOk) {
-    Write-Host "All checks PASSED" -ForegroundColor Green
-} else {
-    Write-Host "Some checks FAILED -- see output above" -ForegroundColor Red
-}
-
-Write-Host ""
-Write-Host "=== Tunnel URLs ===" -ForegroundColor Cyan
-Write-Host "  $tunnelUrl/"               -ForegroundColor DarkCyan
-Write-Host "  $tunnelUrl/wic-attendance" -ForegroundColor DarkCyan
-Write-Host "  $tunnelUrl/api/wic/briefing" -ForegroundColor DarkCyan
-Write-Host ""
-Write-Host "=== PS1_19 complete ===" -ForegroundColor Green
-
-} finally {
-    # -- Cleanup: stop the script-started verification server, then remove the ---
-    # -- sentinel. Order matters: server first, sentinel second - otherwise the ---
-    # -- watchdog could launch the Release exe while this server still holds     ---
-    # -- port 5000 (the 2026-09-01 crash-loop). After this, the watchdog is the ---
-    # -- single supervisor that brings the final exe up.                         ---
-    Write-Host ""
-    Write-Host "--- Cleanup: stop script-started server, remove watchdog sentinel ---" -ForegroundColor Cyan
-    if ($serverProc) {
-        Stop-Process -Id $serverProc.Id -Force -ErrorAction SilentlyContinue
-        Write-Host "  Stopped script-started server (dotnet PID $($serverProc.Id))." -ForegroundColor Green
+    $process.Id | Set-Content -LiteralPath (Join-Path (Split-Path $RuntimeConfig) 'stage.pid')
+    Write-Output "Stage PID $($process.Id): http://127.0.0.1:$Port/wic-attendance"
+    Wait-Process -Id $process.Id
     }
-    $apiProc = Get-Process -Name "GSDDashboard.API" -ErrorAction SilentlyContinue
-    if ($apiProc) {
-        $apiProc | Stop-Process -Force -ErrorAction SilentlyContinue
-        Write-Host "  Stopped GSDDashboard.API child process(es)." -ForegroundColor Green
+    finally {
+        if (!$process.HasExited) { Stop-Process -Id $process.Id -Force }
     }
-    Start-Sleep -Seconds 2
-    Remove-Item -Path $sentinel -Force -ErrorAction SilentlyContinue
-    Write-Host "  Sentinel removed. Watchdog is now the sole supervisor and will relaunch the Release exe within ~30s." -ForegroundColor Green
 }

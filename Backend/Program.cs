@@ -35,6 +35,12 @@ using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+var runtimeConfig = Environment.GetEnvironmentVariable("PULSE_RUNTIME_CONFIG");
+if (!string.IsNullOrWhiteSpace(runtimeConfig))
+    builder.Configuration.AddJsonFile(runtimeConfig, optional: false, reloadOnChange: false);
+else
+    builder.Configuration.AddJsonFile(@"C:\ProgramData\PulseBackend\backend.json",
+        optional: true, reloadOnChange: false);
 
 builder.Services.AddDbContext<GSDContext>(options =>
     options.UseSqlServer(
@@ -89,7 +95,8 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddHttpClient<ISupervisorAuthProvider, ShiftKioskSupervisorAuthProvider>();
 // Server-side proxy so the BROWSER never calls the kiosk server directly. See
 // Services/KioskProxyService.cs for why (employee_id is a Pulse credential).
-builder.Services.AddHttpClient<IKioskProxy, KioskProxy>();
+builder.Services.AddHttpClient<IKioskProxy, KioskProxy>()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 
 // KID-only cookie login. SecurePolicy.SameAsRequest: the session cookie is Secure
 // over the https devtunnel URL and plain on http://localhost:5000, so login works
@@ -97,7 +104,7 @@ builder.Services.AddHttpClient<IKioskProxy, KioskProxy>();
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.Cookie.Name         = "gsd_auth";
+        options.Cookie.Name         = builder.Configuration["Auth:CookieName"] ?? "gsd_auth";
         options.Cookie.HttpOnly     = true;
         options.Cookie.SameSite     = SameSiteMode.Lax;
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
@@ -678,8 +685,6 @@ using (var vacScope = app.Services.CreateScope())
 }
 
 app.Run();
-
-
 
 
 
