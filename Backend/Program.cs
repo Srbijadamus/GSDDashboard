@@ -545,12 +545,34 @@ app.UseDefaultFiles();
             CREATE UNIQUE INDEX UQ_ALBalance_EmpYear ON ALBalance (EmployeeId, Year)
     """);
 
+    // Manual-change marker + manual exception days (added 2026-10-01). Additive and
+    // nullable only: no backfill, no existing row is rewritten, every statement is
+    // idempotent -- same ExecuteSqlRaw pattern as the ALBalance index above.
+    //   ShiftEntries.ManualChangeBy/At/Note  - a human deliberately set this row
+    //   WicOpeningHours.ExceptionDate        - this row applies to that ONE date only
+    //   WicOpeningHours.ManualChangeBy/At    - who recorded the exception
+    db.Database.ExecuteSqlRaw("""
+        IF COL_LENGTH('ShiftEntries','ManualChangeBy') IS NULL
+            ALTER TABLE ShiftEntries ADD ManualChangeBy NVARCHAR(100) NULL
+        IF COL_LENGTH('ShiftEntries','ManualChangeAt') IS NULL
+            ALTER TABLE ShiftEntries ADD ManualChangeAt DATETIME2 NULL
+        IF COL_LENGTH('ShiftEntries','ManualChangeNote') IS NULL
+            ALTER TABLE ShiftEntries ADD ManualChangeNote NVARCHAR(500) NULL
+        IF COL_LENGTH('WicOpeningHours','ExceptionDate') IS NULL
+            ALTER TABLE WicOpeningHours ADD ExceptionDate DATE NULL
+        IF COL_LENGTH('WicOpeningHours','ManualChangeBy') IS NULL
+            ALTER TABLE WicOpeningHours ADD ManualChangeBy NVARCHAR(100) NULL
+        IF COL_LENGTH('WicOpeningHours','ManualChangeAt') IS NULL
+            ALTER TABLE WicOpeningHours ADD ManualChangeAt DATETIME2 NULL
+    """);
+
     // Clear IsWicDuty on any non-WIC_DUTY row (safe: sets corrupt 1→0, never removes rows)
     var wicDutyFixed = db.Database.ExecuteSqlRaw("""
         UPDATE ShiftEntries
         SET IsWicDuty = 0
         WHERE IsWicDuty = 1
           AND ShiftType != 'WIC_DUTY'
+          AND ManualChangeBy IS NULL   -- a manual decision is never "corrupt"; never touch it
     """);
     if (wicDutyFixed > 0)
         logger.LogWarning("Startup cleanup: cleared IsWicDuty=1 on {Count} non-WIC_DUTY ShiftEntries", wicDutyFixed);
@@ -685,7 +707,6 @@ using (var vacScope = app.Services.CreateScope())
 }
 
 app.Run();
-
 
 
 
