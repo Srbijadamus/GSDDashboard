@@ -10,6 +10,29 @@ task. Engineering work stays in the secure copies and test databases/ports.
 
 ### CURRENT candidate: live-source preservation, proxy only
 
+2026-10-05 diagnostic acceptance after the second rolled-back attempt:
+the original production feed status/body shape was not recorded, so its cause
+cannot be inferred from "Signed-in proxy feed failed". Do not claim that local
+success proves the failed tunnel response or change auth/config speculatively.
+A production-like instance on 5057 uses GSDDashboardCopyTest, production default
+gsd_auth cookie, RBAC=false and the same service Kiosk settings. Existing operator
+S69307 has DEV in both databases. Browser acceptance passed: anonymous feeds401,
+authenticated feeds200/arrays123 each, manual options123, zero rendering errors,
+zero direct browser kiosk requests and zero manual actions. The test is HTTP
+loopback, not an HTTPS devtunnel or the production watchdog identity.
+
+`Tools\Verify-PulseBrowser.cjs` now records each proxy status, Content-Type,
+root shape/count and closed-set error category immediately after each response,
+before assertions or rollback. It also records login/session role and cookie
+metadata, never cookie values, keys, tokens or agent contents. Set
+PULSE_VERIFY_BASE for isolated testing; default is the real Pulse tunnel.
+PULSE_VERIFY_RECEIPT must point to a protected diagnostic directory. It uses
+the already installed local Puppeteer and sends no manual kiosk actions.
+The approved session cutover script points to this persistent verifier and writes
+its receipt into the timestamped protected data-protection folder. A failed
+acceptance must retain this receipt before code/config rollback. No third Promote
+has been authorized or executed during this diagnostic task.
+
 Manual agent-list crash hardening: the candidate validates unknown proxy JSON
 before caching it and also guards cached data before rendering. A non-array or
 malformed agent row produces a visible modal alert and blocks submit, rather
