@@ -841,6 +841,10 @@
       "Hash": "25D74F8A4DF19EEA383679219C814DDC77F0FF7ABF1BF31E0421F22EF054C4CF"
     },
     {
+      "Path": "Backend.Tests/PulseRuntimeConfigurationTests.cs",
+      "Hash": "BFBD7FA8680127E159506FC86546FF8971E2AF23FB712EA0AD277F7D92E95470"
+    },
+    {
       "Path": "Backend.Tests/RosterServiceTests.cs",
       "Hash": "E5388E412360C3B5A494600E39FF469BC6310F74237B90171C2B62945F924932"
     },
@@ -1046,7 +1050,7 @@
     },
     {
       "Path": "Backend/Program.cs",
-      "Hash": "551C5837D160D5727C1C2EBA9002184E30D36B43EE33440A73BB03B5830E13F8"
+      "Hash": "26F0052B724800838327BF19F367E7EA8A7945C59F5A1F10FD2CB50542CC9207"
     },
     {
       "Path": "Backend/PublicHoliday.cs",
@@ -1111,6 +1115,10 @@
     {
       "Path": "Backend/Services/PublicHolidayResolver.cs",
       "Hash": "DA760234F57DA8F3D85544379761127BE7F7F845550D7A81D0D470A36CA23B7A"
+    },
+    {
+      "Path": "Backend/Services/PulseRuntimeConfiguration.cs",
+      "Hash": "4C8C400CCB081111AC7CB75799416B0E0541BC9678E5546F85D6830AA7362515"
     },
     {
       "Path": "Backend/Services/ReachabilityService.cs",

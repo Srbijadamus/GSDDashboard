@@ -76,6 +76,16 @@ try {
         Protect-Directory (Split-Path $productionConfig)
         Protect-ConfigFile $productionConfig
         @{ Kiosk = $stage.Kiosk } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $productionConfig -Encoding UTF8
+        $previousConfig = $env:PULSE_RUNTIME_CONFIG
+        Push-Location $live
+        try {
+            $env:PULSE_RUNTIME_CONFIG = $null
+            & (Join-Path $source 'bin\Release\net8.0\GSDDashboard.API.exe') --Pulse:ConfigPreflight=true
+            if ($LASTEXITCODE) { throw 'Production runtime configuration preflight failed; stop and roll back.' }
+        } finally {
+            $env:PULSE_RUNTIME_CONFIG = $previousConfig
+            Pop-Location
+        }
         foreach ($item in Get-ChildItem -LiteralPath (Join-Path $source 'bin\Release\net8.0')) {
             if ($item.Name -notlike 'appsettings*.json') {
                 Copy-Item -LiteralPath $item.FullName -Destination $release -Recurse -Force

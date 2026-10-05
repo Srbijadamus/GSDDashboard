@@ -35,12 +35,13 @@ using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
-var runtimeConfig = Environment.GetEnvironmentVariable("PULSE_RUNTIME_CONFIG");
-if (!string.IsNullOrWhiteSpace(runtimeConfig))
-    builder.Configuration.AddJsonFile(runtimeConfig, optional: false, reloadOnChange: false);
-else
-    builder.Configuration.AddJsonFile(@"C:\ProgramData\PulseBackend\backend.json",
-        optional: true, reloadOnChange: false);
+var runtimeConfigPath = PulseRuntimeConfiguration.Load(builder.Configuration);
+Console.WriteLine($"Pulse runtime configuration loaded: {runtimeConfigPath}; service credential/device present; HTTP loopback upstream.");
+if (builder.Configuration.GetValue<bool>("Pulse:ConfigPreflight"))
+{
+    Console.WriteLine($"Runtime configuration verified: {runtimeConfigPath}; service credential/device present; HTTP loopback upstream.");
+    return;
+}
 
 builder.Services.AddDbContext<GSDContext>(options =>
     options.UseSqlServer(

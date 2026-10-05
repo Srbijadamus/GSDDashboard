@@ -10,6 +10,70 @@ task. Engineering work stays in the secure copies and test databases/ports.
 
 ### CURRENT candidate: live-source preservation, proxy only
 
+2026-10-05 post-third-attempt configuration and row forensics (no new Promote):
+the third tunnel receipt in `C:\ProgramData\PulseDataProtection\20261005-093611`
+recorded DEV session200, anonymous feeds401 and both authenticated feeds503,
+JSON object, `not-configured`. Code/config rollback restored the old application.
+The production process therefore had no effective nonempty Kiosk:ServiceToken;
+the failed external file was removed by rollback and no provider trace was
+captured, so the precise reason it was not loaded remains unproven.
+
+Production and the isolated apphost run elevated as U-DOM1\S69307. The watchdog
+uses Windows PowerShell 5.1, the backend working directory and the Release
+apphost; its inspected environment had no Pulse/Kiosk/Auth/ASP.NET override.
+The external production file is SYSTEM/Administrators protected. No differing
+account, elevation, environment override or Kiosk serialization failure was
+established. Earlier 5057 runs explicitly supplied PULSE_RUNTIME_CONFIG, unlike
+the production watchdog.
+
+The candidate now opens its absolute runtime JSON explicitly and mandatorily,
+adds it as the last provider, and validates token/device presence plus HTTP
+loopback upstream before any SQL/startup work. Selection order:
+PULSE_RUNTIME_CONFIG, Pulse:RuntimeConfigPath, then
+`C:\ProgramData\PulseBackend\backend.json`. It logs only path and validation
+presence, never secret values. `--Pulse:ConfigPreflight=true` exits before SQL.
+Promote runs this preflight with the backend working directory and the explicit
+runtime environment override cleared after writing the protected Kiosk-only
+file, before replacing code. A preflight failure requires code/config rollback
+from the complete snapshot; it is not a successful deployment.
+
+An isolated mirror in `C:\ProgramData\PulseStageProductionLike\WatchdogMirror`
+uses the same account/elevation, Windows PowerShell 5.1/apphost/working-directory
+launch pattern, inherited configuration order and Kiosk-only runtime JSON.
+Only paths, port5057 and GSDDashboardCopyTest differ; no live configuration
+file was written. No PULSE_RUNTIME_CONFIG is supplied. The mirror includes both
+root and Release static content, as production does. Browser acceptance passed:
+anonymous401/401, DEV login/session200, authenticated attendance/agents200,
+array123 each, manual options123, render errors0, direct kiosk requests0 and
+manual actions0. Receipt:
+`C:\ProgramData\PulseStageProductionLike\watchdog-mirror-acceptance.json`.
+This proves the hardened loader in a matched launch fixture, not that the exact
+historical missing-file/provider cause has been reconstructed or that the next
+live default-path preflight/tunnel acceptance can be skipped.
+
+The 093611 Pulse backup was restored only to separate
+GSDDashboardForensicTest_20261005_093611 and marked READ_ONLY. Its ShiftEntries
+checksum matches the pre-start baseline (1158583725). Candidate post-start
+baseline at 09:36:37 also matches; rollback-final at 09:37:08-09 changes to
+1161031352, with 41931 rows throughout. Current row-by-primary-key comparison:
+missing0, added0, changed4. Two WIC_DUTY rows became UL and two WORKING rows
+became WIC_DUTY; IsWicDuty changed accordingly. Two changed rows now carry
+MANUAL source; employee/date identity did not change. These transitions match
+existing editing/assignment code, not startup cleanup or vacation-to-AL logic.
+Import/cleanup/vacation/seed pre-start affected-row counters were zero and the
+candidate post-start checksum was unchanged.
+
+Do not infer legitimate user intent, an actor, or the exact four historical
+09:37 rows from this: the current checksum subsequently changed again.
+No temporal/CDC/change-tracking/trigger row history exists, and the available
+transaction log returned no retained transaction groups for that window.
+No missing primary keys were found, but an incorrect overwrite or a historical
+delete/reinsert cannot be ruled out from the surviving evidence. Aggregate-only
+forensic receipt is retained beside the backups. No live DB restore, live code
+change, manual action, kiosk/profile/legacy/tunnel change or fourth Promote was
+performed. Any next cutover still needs separate explicit approval, fresh
+backup/baselines, protected snapshot and rollback on failed acceptance.
+
 2026-10-05 diagnostic acceptance after the second rolled-back attempt:
 the original production feed status/body shape was not recorded, so its cause
 cannot be inferred from "Signed-in proxy feed failed". Do not claim that local
@@ -30,8 +94,9 @@ PULSE_VERIFY_RECEIPT must point to a protected diagnostic directory. It uses
 the already installed local Puppeteer and sends no manual kiosk actions.
 The approved session cutover script points to this persistent verifier and writes
 its receipt into the timestamped protected data-protection folder. A failed
-acceptance must retain this receipt before code/config rollback. No third Promote
-has been authorized or executed during this diagnostic task.
+acceptance must retain this receipt before code/config rollback. This earlier
+diagnostic task did not authorize a third Promote; the later authorized third
+attempt and subsequent investigation are recorded above.
 
 Manual agent-list crash hardening: the candidate validates unknown proxy JSON
 before caching it and also guards cached data before rendering. A non-array or
