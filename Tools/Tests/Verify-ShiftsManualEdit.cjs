@@ -3,9 +3,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const puppeteer = require("C:\\GSDDashboard\\node_modules\\puppeteer");
 const legacy = process.argv.includes("--legacy-baseline");
-const root = legacy ? "C:\\ProgramData\\PulseRollback\\20261005-101137\\wwwroot"
-  : "C:\\GSDDashboard_secure\\Backend\\wwwroot";
+const root = process.env.PULSE_STATIC_ROOT || (legacy ? "C:\\ProgramData\\PulseRollback\\20261005-101137\\wwwroot"
+  : "C:\\GSDDashboard_secure\\Backend\\wwwroot");
 const baseline = legacy || process.argv.includes("--baseline");
+const generic = process.env.PULSE_GENERIC_SHIFT_API === "1";
 
 (async () => {
   const browser = await puppeteer.launch({ headless: true });
@@ -39,7 +40,7 @@ const baseline = legacy || process.argv.includes("--baseline");
           await request.respond({ status: 503, contentType: "application/json", body: '{"error":"Synthetic validation failure"}' });
           return;
         }
-        if ((url.pathname === "/api/shifts/101/manual" || legacy && url.pathname === "/api/shifts/101") &&
+        if ((url.pathname === "/api/shifts/101/manual" || (legacy || generic) && url.pathname === "/api/shifts/101") &&
             request.method() === "PATCH") {
           if (rejectSave) {
             await request.respond({ status: 503, contentType: "application/json", body: '{"error":"Synthetic save failure"}' });
@@ -135,7 +136,7 @@ const baseline = legacy || process.argv.includes("--baseline");
     assert.equal(writes.at(-1).shiftType, "WORKING");
     page.once("dialog", dialog => dialog.accept());
     await clickText("#shifts-scroll-bot tbody td > div.font-mono", "WORKING");
-    const deleted = page.waitForResponse(response => response.url().endsWith("/api/shifts/101/manual") &&
+    const deleted = page.waitForResponse(response => response.url().endsWith(generic ? "/api/shifts/101" : "/api/shifts/101/manual") &&
       response.request().method() === "PATCH");
     await clickText("#shifts-scroll-bot button", "Delete");
     await deleted;

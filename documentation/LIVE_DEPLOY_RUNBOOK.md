@@ -10,6 +10,63 @@ task. Engineering work stays in the secure copies and test databases/ports.
 
 ### CURRENT candidate: live-source preservation, proxy and manual shift cell fix
 
+2026-10-05 12:24 final frontend-only LIVE emergency hotfix, explicitly authorized:
+`index-Bpi09hsR.js` is served on the actual d2jn94qg-5000 tunnel. This is NOT
+the full secure candidate promotion. It was built from copied live frontend
+source using the documented frontend-only npm build path. Only the visible
+Shift time dialog/error handling and guarded ManualCheckinModal agent parser
+were overlaid. The generic existing shift API routes remain in use; no new
+manual markers, task/link normalization, authorization or working-time rules
+were deployed. Kiosk URLs/credentials/transport and attendance page logic are
+unchanged. Non-list/failed agent responses now show a modal error and block
+submit instead of crashing the page; this does not repair a rejected agent feed.
+
+Protected static-root and source snapshots plus explicit rollback script:
+`C:\ProgramData\PulseStaticHotfix\20261005-120435`.
+Both live static roots retain old hashed assets; assets were copied before
+atomic index publication. The corresponding three frontend source files were
+persisted with original source copies retained for rollback. Backend PID/DLL
+remained unchanged: no restart/watchdog refresh, production config/ACL change,
+startup, DB write/restore or kiosk/tunnel/profile change.
+
+Initial static acceptance failures were verifier issues, not a bad bundle:
+safe receipts showed session200/RTM but NO asset scripts on the navigation
+document. Adding X-Tunnel-Skip-AntiPhishing-Page to the browser verification
+requests bypassed the relay's anti-phishing interstitial (no tunnel setting
+changed); the correct new bundle and input then appeared. A later WORKING
+selector matched the cell's current WORKING label rather than the dropdown
+option and closed the menu. The verifier now waits for the employee filter
+and targets only dropdown status options. Automatic static rollback retained
+the original index on failed attempts.
+
+The operator cancelled the static path and requested a fifth candidate cutover,
+then redirected again to the minimal live UI goal without business changes.
+The first static path was stopped and source/static rollback completed. Fifth
+cutover preparation created verified backups/read-only forensic restore/baseline
+in `C:\ProgramData\PulseDataProtection\20261005-122212`, but NO fifth Promote,
+watchdog refresh or production config change was executed.
+On the final static path, an extra repeated status-check sequence timed out and
+the automatic rollback restored the old index. A bounded acceptance checking
+each requested status once, plus both WORKING cases, then passed and the hotfix
+was left live. No additional business-rule change was used to obtain acceptance.
+
+Actual-tunnel acceptance used an existing RTM account: session200/RTM, both
+requested employee/date cells opened a visible time dialog, and real read-only
+working-time validation returned200/valid/no rules. PATCH requests from Save
+were intercepted and simulated (WORKING twice, OFF/AL/SL once each), NEVER sent
+to the backend, because database
+updates were forbidden. Thus UI submission is proven, actual persistence is
+not. Offline tests additionally exercised WIC_DUTY and all other cell statuses,
+cancel and error behavior. The real manual modal produced a visible feed error,
+empty agent selection and zero render errors, not Overview failed to load.
+Do not claim manual kiosk actions or the agent-list upstream are repaired.
+Receipt: `tunnel-static-acceptance.json` in the protected hotfix directory.
+
+The live source fingerprint has intentionally changed for this authorized
+frontend overlay; the full secure preservation manifest/build cannot be reused
+for Promote until this live delta is reviewed and reconciled. Do not simply
+bypass the guard. Full proxy candidate and watchdog repair remain separate.
+
 2026-10-05 `/shifts` fix is secure-only and not deployed or loaded into stage:
 time confirmation is now a visible portal dialog rather than a control under
 the long menu inside a clipping table. Dedicated manual-cell routes require an
