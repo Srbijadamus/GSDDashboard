@@ -53,6 +53,32 @@ function Protect-ConfigFile([string]$Path) {
     }
     Set-Acl -LiteralPath $Path -AclObject $acl
 }
+if ($Mode -eq 'Promote') {
+    $owners = @(Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -ExpandProperty OwningProcess -Unique)
+    if ($owners.Count -ne 1) { throw 'Exactly one running production Pulse process required for watchdog-context preflight.' }
+    $running = Get-CimInstance Win32_Process -Filter "ProcessId=$($owners[0])"
+    if ($running.ExecutablePath -ne (Join-Path $release 'GSDDashboard.API.exe')) { throw 'Unexpected production executable.' }
+    $watchdogProcessId = $running.ParentProcessId
+    $preflightRoot = 'C:\ProgramData\PulsePreflight'
+    if ((Test-Path -LiteralPath $preflightRoot) -and
+        ((Get-Item -LiteralPath $preflightRoot).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw 'Reparse-point preflight root rejected.'
+    }
+    Protect-Directory $preflightRoot
+    $preflightDirectory = Join-Path $preflightRoot (Split-Path $Snapshot -Leaf)
+    if (Test-Path -LiteralPath $preflightDirectory) { throw 'Preflight directory already exists; never reuse receipts.' }
+    Protect-Directory $preflightDirectory
+    $preflightConfig = Join-Path $preflightDirectory 'backend.json'
+    Protect-ConfigFile $preflightConfig
+    @{ Kiosk = $stage.Kiosk } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $preflightConfig -Encoding UTF8
+    # Duplicate the running watchdog token, not the maintenance operator token.
+    & (Join-Path $PSScriptRoot 'Invoke-PulseWatchdogContext.ps1') `
+        -WatchdogProcessId $watchdogProcessId `
+        -Executable (Join-Path $source 'bin\Release\net8.0\GSDDashboard.API.exe') `
+        -WorkingDirectory $live -RuntimeConfig $preflightConfig `
+        -Receipt (Join-Path $preflightDirectory 'watchdog-before-maintenance.json')
+}
 New-Item -ItemType File -Path $sentinel | Out-Null
 try {
     $listeners = @(Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue |
@@ -86,6 +112,11 @@ try {
             $env:PULSE_RUNTIME_CONFIG = $previousConfig
             Pop-Location
         }
+        & (Join-Path $PSScriptRoot 'Invoke-PulseWatchdogContext.ps1') `
+            -WatchdogProcessId $watchdogProcessId `
+            -Executable (Join-Path $source 'bin\Release\net8.0\GSDDashboard.API.exe') `
+            -WorkingDirectory $live -RuntimeConfig $productionConfig `
+            -Receipt (Join-Path $Snapshot 'watchdog-production-config-preflight.json')
         foreach ($item in Get-ChildItem -LiteralPath (Join-Path $source 'bin\Release\net8.0')) {
             if ($item.Name -notlike 'appsettings*.json') {
                 Copy-Item -LiteralPath $item.FullName -Destination $release -Recurse -Force

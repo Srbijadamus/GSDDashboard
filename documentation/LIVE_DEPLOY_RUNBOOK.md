@@ -10,6 +10,59 @@ task. Engineering work stays in the secure copies and test databases/ports.
 
 ### CURRENT candidate: live-source preservation, proxy only
 
+2026-10-05 watchdog access diagnosis after the fourth rollback (no live changes):
+the running watchdog10536 dates from 2026-10-02 17:24:06. Duplicating its actual
+primary token and impersonating it reproduced UnauthorizedAccessException on
+the isolated mirror runtime file, without touching production files or launching
+another live app. TokenIsElevated=true was misleading as an access guarantee:
+the token has NO BUILTIN\Administrators SID at all, and IsInRole(Administrator)
+is false. It is not a restricted token. The fresh maintenance token for the
+same user has the Administrators SID enabled. The runtime DACL is protected,
+SYSTEM/Administrators only; there is no Users grant, link or EFS attribute.
+No different path or inheritance grant is needed to explain this denial.
+When/why group membership differed at token creation is not established.
+
+Do not weaken the file ACL or grant the user's SID merely to work around the
+stale token. The safe correction is a newly launched watchdog under the same
+account with enabled Administrators membership (or a separately reviewed SYSTEM
+service configuration, including SQL identity). Refreshing the live watchdog/
+Pulse requires another explicit maintenance authorization and was not done.
+Do not assume restarting a scheduled task necessarily obtains the desired
+token; verify the actual token and protected-file open.
+
+`Tools\Invoke-PulseWatchdogContext.ps1` duplicates the selected watchdog token,
+opens a protected runtime file while impersonating it, then starts the candidate
+apphost with that token for SQL-free config preflight. It requires a
+SYSTEM/Administrators-only file ACL, records safe token/access/exit metadata,
+and fails closed on denied access or nonzero preflight exit. A child preflight
+that exceeds60 seconds is stopped by its exact process handle. Privileges are
+enabled only in the helper process; the watchdog token/process is not modified.
+The child inherits the helper's environment with PULSE_RUNTIME_CONFIG cleared,
+so this proves actual security-token access, not byte-identical watchdog
+environment inheritance. The relevant production overrides were previously
+inspected and absent.
+
+Promote now runs this check with a protected Kiosk-only fixture BEFORE creating
+the deployment sentinel, stopping Pulse, snapshotting or replacing live files.
+With the current watchdog it stops there. After a separately authorized refresh,
+the same check must pass; the helper additionally checks the actual protected
+production runtime file after publication and before code replacement. Rollback
+retains the existing file/code boundary; no DB restore is added.
+
+A new isolated Windows PowerShell5.1 watchdog-token fixture under the same
+account, with Administrators enabled, passed file open and apphost preflight.
+Its duplicated token started the mirrored apphost on5058 with GSDDashboardCopyTest
+and unchanged protected runtime ACL. Browser acceptance: health200, anonymous
+feeds401/401, DEV session200, authenticated feeds200/arrays123, manual options123,
+render errors0, direct browser kiosk requests0, manual actions0.
+The current REAL watchdog-token negative receipt and fresh-token positive
+receipts are retained under `C:\ProgramData\PulseStageProductionLike`:
+`actual-watchdog-preflight.json`, `fresh-watchdog-preflight.json`,
+`fresh-watchdog-isolated-process.json`, `fresh-watchdog-browser-acceptance.json`.
+This is a demonstrated correction for a fresh token, NOT a claim that the
+unchanged live watchdog can now access the file. No Promote/live restart,
+production ACL/config change, SQL write, kiosk or tunnel change was performed.
+
 2026-10-05 fourth authorized attempt, snapshot/backups timestamp101137:
 both fresh COPY_ONLY/CHECKSUM backups and VERIFYONLY passed. The fresh Pulse
 backup was restored only to read-only GSDDashboardForensicTest_20261005_101137;
