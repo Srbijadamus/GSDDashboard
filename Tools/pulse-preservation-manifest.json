@@ -833,6 +833,10 @@
       "Hash": "D02C689A49FDA422DAEAC02F4DEEA2F0CBE636A8DB6377F03BDFC372AD712A3E"
     },
     {
+      "Path": "Backend.Tests/ManualShiftEditTests.cs",
+      "Hash": "2E7F1C4B5EA40A78DBDC15B32AE4B868D4ED238F699A977C34D6364DCB948146"
+    },
+    {
       "Path": "Backend.Tests/KioskProxyResponseTests.cs",
       "Hash": "E61D8094FAED9FFE48152E9BA26A36DAEA2B6C56104A895448AE3E949083DAD6"
     },
@@ -1178,7 +1182,7 @@
     },
     {
       "Path": "Backend/ShiftService.cs",
-      "Hash": "646149BE2D4D3AA96CD040D5F47AF4F037A07FC4EE656BDC1C63E97C7333FDD7"
+      "Hash": "6CC5698378C68C3FE463BB2254F68B7CB765C3D6166579B410035733B255857B"
     },
     {
       "Path": "Backend/ShiftSyncService.cs",
@@ -1514,7 +1518,7 @@
     },
     {
       "Path": "Frontend/src/pages/Shifts.tsx",
-      "Hash": "E46E1DD3296A963D3715A1BED84645E9A7526D8937148FBFE660B1A0A7B033F5"
+      "Hash": "3AE3A6B67F58C8567EC332E60CC6891E792C82E800AEF5F1A4150888656688D2"
     },
     {
       "Path": "Frontend/src/pages/SickLeave.tsx",

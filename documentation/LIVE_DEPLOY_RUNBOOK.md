@@ -8,7 +8,27 @@ task. Engineering work stays in the secure copies and test databases/ports.
 
 ## CURRENT: backend-only kiosk access and isolated Pulse - 2026-10-04
 
-### CURRENT candidate: live-source preservation, proxy only
+### CURRENT candidate: live-source preservation, proxy and manual shift cell fix
+
+2026-10-05 `/shifts` fix is secure-only and not deployed or loaded into stage:
+time confirmation is now a visible portal dialog rather than a control under
+the long menu inside a clipping table. Dedicated manual-cell routes require an
+operator session and stamp ManualChangeBy/At for future edits/creates only.
+They also make the edited row's IsWicDuty consistent and remove an obsolete
+centre link on an explicit WIC_DUTY-to-WORKING edit or a WORKING edit of a row
+retaining a centre name from before an absence. Generic APIs, automatic
+processes and all existing data remain untouched. Four focused in-memory tests
+cover status writes/roles/marker/legacy behavior and existing roster protection;
+offline intercepted-browser tests cover all selectable statuses, visible times,
+cancel and visible failed validation/save without actual API writes.
+
+Global manual-master guarantees remain incomplete: vacation/sick sync/revert,
+vacation reconciliation, WIC upsert and Python imports need separately approved
+manual guards. Do not silently add those guards or backfill existing rows.
+Working-time hard blocks are unchanged. This candidate must be rebuilt and
+receive explicit live deployment approval/acceptance; the current watchdog
+access blocker below still applies. No live/tunnel acceptance of this fix was
+performed, as the task forbids it.
 
 2026-10-05 watchdog access diagnosis after the fourth rollback (no live changes):
 the running watchdog10536 dates from 2026-10-02 17:24:06. Duplicating its actual
@@ -202,7 +222,9 @@ was accessed, and no Stage, Promote or deployment was executed during this merge
 
 All live backend/frontend source and tests are preserved byte-for-byte except:
 `Backend\Program.cs` (external configuration, proxy DI/routes, isolated stage
-cookie override), `Attendance.tsx` (proxy read and explicit outage),
+cookie override), `Backend\ShiftService.cs` (scoped manual-cell overlay),
+`Shifts.tsx` (visible time confirmation, scoped manual writes and errors),
+`Attendance.tsx` (proxy read and explicit outage),
 `WicAttendance.tsx` (only the feed URL changes), `ManualCheckinModal.tsx`
 (proxy reads/writes, session-derived actor, no embedded key), and
 `Frontend\package.json` (Windows-compatible build; live attendance tests retained).

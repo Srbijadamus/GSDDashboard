@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState, useRef, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { api, apiFetch } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
@@ -78,7 +79,7 @@ function OverrideConfirmModal({ type, onConfirm, onCancel }: {
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:2000,
       display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <div className="bg-raised" style={{ border:"1px solid rgb(var(--st-holiday-bd))",
+      <div role="dialog" aria-label="Override" aria-modal="true" className="bg-raised" style={{ border:"1px solid rgb(var(--st-holiday-bd))",
         borderRadius:10, padding:24, width:380 }}>
         <h2 className="text-holiday-fg" style={{ fontSize:15, fontWeight:600, marginBottom:12 }}>
           <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> Override Required
@@ -100,6 +101,55 @@ function OverrideConfirmModal({ type, onConfirm, onCancel }: {
       </div>
     </div>
   )
+}
+
+function ShiftTimeModal({ type, start, end, onSave, onCancel }: {
+  type: string; start: string; end: string
+  onSave: (start: string, end: string) => Promise<string | null>
+  onCancel: () => void
+}) {
+  const [editStart, setEditStart] = useState(start)
+  const [editEnd, setEditEnd] = useState(end)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  return createPortal(
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:2000,
+      display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <form role="dialog" aria-label="Shift time" aria-modal="true" className="bg-raised"
+        style={{ border:"1px solid rgb(var(--border-subtle))", borderRadius:10, padding:24,
+          width:360, maxHeight:"90vh", overflowY:"auto" }}
+        onSubmit={async e => {
+          e.preventDefault()
+          setSaving(true)
+          try { setError(await onSave(editStart, editEnd)) }
+          finally { setSaving(false) }
+        }}
+        onKeyDown={e => { if (e.key === "Escape" && !saving) onCancel() }}>
+        <h2 className="text-ink" style={{ fontSize:15, fontWeight:600, marginBottom:16 }}>
+          SHIFT TIME — {type.replace("_"," ")}
+        </h2>
+        <div style={{ display:"flex", gap:12 }}>
+          <label className="text-ink-muted">Start
+            <input autoFocus required type="time" value={editStart}
+              onChange={e => setEditStart(e.target.value)} className="bg-sunken text-ink"
+              style={{ display:"block", padding:6, borderRadius:4 }} />
+          </label>
+          <label className="text-ink-muted">End
+            <input required type="time" value={editEnd}
+              onChange={e => setEditEnd(e.target.value)} className="bg-sunken text-ink"
+              style={{ display:"block", padding:6, borderRadius:4 }} />
+          </label>
+        </div>
+        {error && <p role="alert" className="text-crit-fg" style={{ marginTop:12 }}>{error}</p>}
+        <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:16 }}>
+          <button type="button" disabled={saving} onClick={onCancel}
+            className="bg-sunken border border-line-subtle text-ink-muted"
+            style={{ padding:"7px 14px", borderRadius:6 }}>Cancel</button>
+          <button type="submit" disabled={saving} className="bg-info-solid text-white border-0"
+            style={{ padding:"7px 14px", borderRadius:6 }}>{saving ? "Saving..." : "Save"}</button>
+        </div>
+      </form>
+    </div>, document.body)
 }
 
 function LegalViolationModal({ violations, onClose, onConfirmAnyway }: {
@@ -278,7 +328,7 @@ function TaskBadge({ shift, onTaskChange, t }: {
 
 function ShiftCell({ shift, onUpdate, onSwapDone }: {
   shift: any
-  onUpdate: (shift: any, type: string, start?: string, end?: string) => void
+  onUpdate: (shift: any, type: string, start?: string, end?: string) => Promise<string | null>
   onSwapDone?: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -313,7 +363,7 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
       const [start, end] = timesForTimedType(shift)
       setEditStart(start); setEditEnd(end)
       setPendingType(t)
-      setOpen(true)
+      setOpen(false)
       return
     }
     onUpdate(shift, t)
@@ -404,24 +454,12 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
               }}>{t.replace("_"," ")}</div>
             )
           })}
-          {TIMED_TYPES.includes(pendingType ?? shift.shiftType) && (
+          {TIMED_TYPES.includes(shift.shiftType) && (
             <div className="border-t border-line-subtle" style={{ marginTop:6, paddingTop:6 }}>
-              <div className="text-ink-soft" style={{ fontSize:9, marginBottom:4 }}>
-                {pendingType ? `SHIFT TIME — ${pendingType.replace("_"," ")}` : "SHIFT TIME"}
-              </div>
-              <div style={{ display:"flex", gap:4 }}>
-                <input value={editStart} onChange={e => setEditStart(e.target.value)}
-                  placeholder="08:00" className="bg-raised border border-line-subtle text-ink font-mono"
-                  style={{ width:54, padding:"3px 4px", borderRadius:4, fontSize:10, outline:"none" }} />
-                <span className="text-ink-soft" style={{ fontSize:10, alignSelf:"center" }}>–</span>
-                <input value={editEnd} onChange={e => setEditEnd(e.target.value)}
-                  placeholder="17:00" className="bg-raised border border-line-subtle text-ink font-mono"
-                  style={{ width:54, padding:"3px 4px", borderRadius:4, fontSize:10, outline:"none" }} />
-              </div>
-              <button onClick={() => { onUpdate(shift, pendingType ?? shift.shiftType, editStart, editEnd); setPendingType(null); setOpen(false) }}
+              <button onClick={() => applyType(shift.shiftType)}
                 className="bg-info-solid text-white border-0"
                 style={{ marginTop:4, width:"100%", padding:4, borderRadius:4, fontSize:10, cursor:"pointer" }}>
-                {pendingType ? "Save" : "Save Time"}
+                Edit time
               </button>
             </div>
           )}
@@ -438,6 +476,16 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
             </div>
           )}
         </div>
+      )}
+
+      {pendingType && (
+        <ShiftTimeModal type={pendingType} start={editStart} end={editEnd}
+          onCancel={() => setPendingType(null)}
+          onSave={async (start, end) => {
+            const error = await onUpdate(shift, pendingType, start, end)
+            if (!error) setPendingType(null)
+            return error
+          }} />
       )}
 
       {swapStep !== "idle" && (
@@ -601,37 +649,44 @@ export default function Shifts() {
 
   const orderedEmps = order.length > 0 ? order.map(id => byEmployee[id]).filter(Boolean) : empList
 
-  const updateShift = async (shift: any, type: string, start?: string, end?: string) => {
-    if (!shift.id) {
-      try {
-        await doAssignShift(shift.employeeId, shift.shiftDate, type, start, end)
-      } catch (e: any) {
-        setAssignError(e?.message ?? String(e))
-      }
-      return
-    }
+  const updateShift = async (shift: any, type: string, start?: string, end?: string): Promise<string | null> => {
+    setAssignError(null)
     try {
-      const vRes = await fetch(`/api/shifts/validate`, {
+      if (!shift.id) {
+        await doAssignShift(shift.employeeId, shift.shiftDate, type, start, end)
+        return null
+      }
+      const vData = await apiFetch<{ valid: boolean; violations: any[] }>(`/api/shifts/validate`, {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ shiftId: shift.id, shiftType: type, shiftStart: start ?? null, shiftEnd: end ?? null })
       })
-      const vData = await vRes.json()
       if (!vData.valid || vData.violations?.length > 0) {
         setLegalModal({ violations: vData.violations, pendingUpdate: () => doUpdateShift(shift.id, type, start, end) })
-        return
+        return null
       }
-    } catch {}
-    await doUpdateShift(shift.id, type, start, end)
+      return await doUpdateShift(shift.id, type, start, end)
+    } catch (e: unknown) {
+      const error = e instanceof Error ? e.message : String(e)
+      setAssignError(error)
+      return error
+    }
   }
   const doUpdateShift = async (id: number, type: string, start?: string, end?: string) => {
-    await apiFetch(`/api/shifts/${id}`, {
-      method:"PATCH", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ shiftType:type, shiftStart:start ?? null, shiftEnd:end ?? null })
-    } as any)
-    qc.invalidateQueries({ queryKey:["shifts-cal"] })
+    try {
+      await apiFetch(`/api/shifts/${id}/manual`, {
+        method:"PATCH", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ shiftType:type, shiftStart:start ?? null, shiftEnd:end ?? null })
+      })
+      await qc.invalidateQueries({ queryKey:["shifts-cal"] })
+      return null
+    } catch (e: unknown) {
+      const error = e instanceof Error ? e.message : String(e)
+      setAssignError(error)
+      return error
+    }
   }
   const doAssignShift = async (employeeId: string, shiftDate: string, type: string, start?: string, end?: string) => {
-    const res = await fetch("/api/shifts/assign", {
+    const res = await fetch("/api/shifts/assign/manual", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ employeeId, shiftDate, shiftType: type, shiftStart: start ?? null, shiftEnd: end ?? null }),
     })
@@ -1018,5 +1073,3 @@ export default function Shifts() {
     </div>
   )
 }
-
-

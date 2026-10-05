@@ -10,6 +10,12 @@ require a session with DEV/RTM/TEAM_LEAD independently of general RBAC.
 Current deployment state is maintained in
 [KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).
 General enforcement remains OFF; the proxy fixes are secure-copy-only, not deployed.
+The 2026-10-05 secure candidate adds independent session/role checks only for
+the dedicated `/shifts` cell write routes: PATCH `/api/shifts/{id}/manual`
+and POST `/api/shifts/assign/manual`. Anonymous401; AGENT/missing or other role403;
+DEV/RTM/TEAM_LEAD permitted with a nonempty session KID, used as ManualChangeBy.
+Client-supplied actor fields are not accepted. Existing generic shift APIs and
+the general RBAC flag are not changed by this scoped fix.
 The legacy-login/schema description below is historical (2026-09-21);
 supervisor mode and active-role corrections are in the later sections.
 

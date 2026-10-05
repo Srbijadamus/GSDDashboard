@@ -80,7 +80,7 @@ Complete reference for every backend service method, API endpoint, and significa
 | `GetShiftsAsync(params)` | Shift plan query with from/to/teamlead/role/engagement/shifttype filters | `ShiftFilterParams` | `List<ShiftRowDto>` | ShiftEntries, Employees |
 | `GetWorkingTodayAsync(date)` | Returns agents whose ShiftType is WORKING on the given date | `DateOnly date` | `List<ShiftRowDto>` | ShiftEntries, Employees |
 | `ExportToExcelAsync(from, to)` | ClosedXML Excel export of shift plan for the given date range | `DateOnly from, DateOnly to` | `byte[]` | ShiftEntries, Employees |
-| `UpdateShiftAsync(id, dto)` | Updates ShiftType, times, and/or task on an existing ShiftEntry | `int id, ShiftUpdateDto dto` | `ShiftRowDto?` | ShiftEntries |
+| `UpdateShiftAsync(id, dto, manualActor?)` | Updates one ShiftEntry. Dedicated manual-cell route supplies session KID and stamps ManualChangeBy/At; generic callers retain existing behavior | `int id, ShiftUpdateDto dto, string? manualActor` | `ShiftUpdateResult` | ShiftEntries |
 | `ValidateShiftAsync(request)` | Delegates working-time rule validation to ShiftValidationService | `ShiftValidateRequest` | `ValidationResult` | ShiftValidationService |
 | `GetCoverageAsync(date)` | Per-hour (07:00-18:00) headcount for the Shift Plan "Coverage per Hour" chart, bucketed by effective Task (Voice/VWIC/WIC/Backlog/Other) plus AL/Sick/Training/Off. `BelowThreshold` compares the Voice bucket only against the hourly minimum. See BLUEPRINT_LOGIC.md §4.0. | `DateOnly date` | `CoverageResponse` | ShiftEntries, Employees |
 
@@ -594,6 +594,8 @@ Key rules: weekends and public holidays (national + employee's Bundesland) alway
 | GET | `/api/shifts/download?from=&to=` | ShiftService | Excel export of shift plan |
 | GET | `/api/shifts/coverage?date=` | ShiftService | Coverage per Hour chart data (see BLUEPRINT_LOGIC.md §4.0) |
 | PATCH | `/api/shifts/{id}` | ShiftService | Update shift type/times/task. `agentTask` is validated against `AgentTasks.All` (400 if invalid) |
+| PATCH | `/api/shifts/{id}/manual` | ShiftService | Secure candidate cell edit; session DEV/RTM/TEAM_LEAD required even when RBAC=false; records session KID in ManualChangeBy/At |
+| POST | `/api/shifts/assign/manual` | ShiftService | Secure candidate cell create/update by employee/date; same access/marker; existing same-type row can receive new times |
 | POST | `/api/shifts/validate` | ShiftService → ShiftValidationService | Validate working-time rules |
 | PATCH | `/api/shiftplan/reorder` | ShiftReorderService | **VESTIGIAL — no-op** |
 
@@ -770,7 +772,7 @@ All routes gated by `RosterAccess` (RTM / TEAM_LEAD / DEV only, always enforced)
 | Route | Component | File | Write Operations | Key API Calls |
 |-------|-----------|------|-----------------|---------------|
 | `/` | Overview | `pages/Overview.tsx` | None | `/api/wic/forecast`, `/api/wic/briefing`, `/api/wic/substitutes` |
-| `/shifts` | Shifts | `pages/Shifts.tsx` | None | `/api/shifts` |
+| `/shifts` | Shifts | `pages/Shifts.tsx` | Manual cell status/time edit; secure candidate uses visible timed confirmation and session-derived manual marker | `/api/shifts`, `/api/shifts/{id}/manual`, `/api/shifts/assign/manual` |
 | `/roster` | Roster | `pages/Roster.tsx` | Generate/preview/delete roster batches (RTM/TEAM_LEAD/DEV only, enforced server-side) | `/api/roster/*` |
 | `/wic-shifts` | WicShifts | `pages/WicShifts_old.tsx` | Reassign agents, create new shift | `/api/wic`, `/api/wic/shifts` |
 | `/vwic` | VWICPage | `pages/VWICPage.tsx` | Assign/manage agents, generate and save rotation plan | `/api/vwic/*` |

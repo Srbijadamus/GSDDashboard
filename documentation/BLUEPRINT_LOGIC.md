@@ -264,6 +264,32 @@ correctly, on both axes.
 
 ## Manual changes (RTM principle, 2026-10-01)
 
+2026-10-05 secure-only `/shifts` cell fix: WORKING/WIC_DUTY selections now open
+a viewport-level time-confirmation dialog, outside the clipped scrolling table.
+The former Save control sat below the full status menu; an offline browser
+fixture placed it at y1020..1050 in a 720px viewport, and selecting WORKING alone
+sent no update. Times still require explicit Save; cancelling makes no change.
+Validation/save failures are visible, without a silent validation bypass.
+Existing working-time hard blocks remain unchanged.
+
+The cell uses dedicated `/api/shifts/{id}/manual` PATCH and
+`/api/shifts/assign/manual` POST routes. DEV/RTM/TEAM_LEAD sessions are required,
+independent of the general RBAC flag; ManualChangeBy comes from the session KID,
+never the request body. Only a successful future cell edit/create stamps
+ManualChangeBy/At and a default note. WIC_DUTY sets IsWicDuty; a manual
+WIC_DUTY-to-WORKING edit (or WORKING after an absence retaining a centre name)
+clears the edited row's old centre task/link, not other
+rows or WicShiftEntries. Existing generic shift APIs retain their behavior.
+No existing data, employees, automatic writers or schedules were changed.
+
+**Protection boundary, not a blanket guarantee:** roster overwrite and startup
+cleanup already honor the manual marker. ShiftSyncService sick/vacation sync,
+revert and vacation reconciliation, WIC upsert and the Python shift imports do
+not consistently check it. Adding those guards would change automatic behavior
+over existing manually marked rows, so it is proposed only and NOT included.
+Do not claim full manual-master enforcement until that separate change is
+approved. No backfill or retroactive classification is part of this fix.
+
 **A manual change is a legitimate decision, never an error and never a gap.** It covers
 manual exception days, ad-hoc deployments, hand-edited shift rows, manual assignments and
 manual check-ins.

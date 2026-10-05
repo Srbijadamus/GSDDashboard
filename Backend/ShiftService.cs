@@ -1,6 +1,7 @@
 ﻿using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Modules.Auth;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Modules.Shifts;
@@ -192,7 +193,7 @@ public class ShiftService
         )).ToList();
     }
 
-    public async Task<ShiftUpdateResult> UpdateShiftAsync(int id, ShiftUpdateDto dto)
+    public async Task<ShiftUpdateResult> UpdateShiftAsync(int id, ShiftUpdateDto dto, string? manualActor = null)
     {
         var shift = await _db.ShiftEntries.FindAsync(id);
         if (shift == null) return new(null, "not_found");
@@ -200,6 +201,7 @@ public class ShiftService
         if (dto.AgentTask != null && !AgentTasks.IsValid(dto.AgentTask))
             return new(null, $"Invalid task: {dto.AgentTask}");
 
+        var oldType = shift.ShiftType;
         if (dto.ShiftType        != null) shift.ShiftType        = dto.ShiftType;
         if (dto.ShiftType        != null && !string.Equals(dto.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase)) shift.IsWicDuty = false;
         if (dto.ShiftStart       != null) shift.ShiftStart       = dto.ShiftStart;
@@ -208,6 +210,11 @@ public class ShiftService
         if (dto.LocationId       != null) shift.LocationId       = dto.LocationId;
         if (dto.AssignmentStatus != null) shift.AssignmentStatus = dto.AssignmentStatus;
 
+        if (manualActor != null)
+        {
+            ApplyManualType(shift, oldType);
+            MarkManualEdit(shift, manualActor);
+        }
         await _db.SaveChangesAsync();
 
         var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == shift.EmployeeId);
@@ -227,7 +234,7 @@ public class ShiftService
     // exact same (employee, date, type) already exists. A different type on the same day
     // is allowed — the existing row is updated (e.g. EMPTY → AL, or WORKING → SL).
     // The DB enforces one row per (employee, date) via UQ_ShiftEntries_EmpDate.
-    public async Task<AssignShiftResult> AssignShiftAsync(AssignShiftDto dto)
+    public async Task<AssignShiftResult> AssignShiftAsync(AssignShiftDto dto, string? manualActor = null)
     {
         if (!DateOnly.TryParse(dto.ShiftDate, out var date)) return new(null, null);
         if (date > DateOnly.FromDateTime(DateTime.Today).AddDays(ScheduleLimits.MaxFutureDays)) return new(null, null);
@@ -238,12 +245,13 @@ public class ShiftService
         var existing = await _db.ShiftEntries.FirstOrDefaultAsync(
             s => s.EmployeeId == dto.EmployeeId && s.ShiftDate == date);
 
-        if (existing != null && existing.ShiftType == dto.ShiftType)
+        if (manualActor == null && existing != null && existing.ShiftType == dto.ShiftType)
         {
             var name = emp.FullName ?? dto.EmployeeId;
             return new(null, $"Already exists: {name} on {date:yyyy-MM-dd} ({dto.ShiftType})");
         }
 
+        var oldType = existing?.ShiftType;
         ShiftEntry shift;
         if (existing != null)
         {
@@ -265,6 +273,11 @@ public class ShiftService
             };
             _db.ShiftEntries.Add(shift);
         }
+        if (manualActor != null)
+        {
+            ApplyManualType(shift, oldType);
+            MarkManualEdit(shift, manualActor);
+        }
         await _db.SaveChangesAsync();
 
         return new(new ShiftRowDto(
@@ -274,6 +287,26 @@ public class ShiftService
             shift.IsWicDuty, shift.RawValue, shift.AgentTask, shift.LocationId, shift.AssignmentStatus,
             AgentTasks.Resolve(shift.AgentTask, emp.PrimaryRole)
         ), null);
+    }
+
+    private static void ApplyManualType(ShiftEntry shift, string? oldType)
+    {
+        shift.IsWicDuty = shift.ShiftType == ShiftTypes.WicDuty;
+        if (shift.ShiftType == ShiftTypes.Working &&
+            (oldType == ShiftTypes.WicDuty || (!string.IsNullOrWhiteSpace(shift.AgentTask) &&
+                !AgentTasks.IsNonLocationValue(shift.AgentTask))))
+        {
+            if (!AgentTasks.IsValid(shift.AgentTask) || shift.AgentTask == "WIC") shift.AgentTask = null;
+            shift.LocationId = null;
+            shift.AssignmentStatus = null;
+        }
+    }
+
+    private static void MarkManualEdit(ShiftEntry shift, string actor)
+    {
+        shift.ManualChangeBy = actor;
+        shift.ManualChangeAt = DateTime.UtcNow;
+        shift.ManualChangeNote ??= "Manual shift cell edit (/shifts)";
     }
 
     // Per-hour headcount for the Coverage-per-Hour chart on the Shift Plan page.
@@ -444,6 +477,20 @@ public class ShiftService
 
 public static class ShiftEndpointMapper
 {
+    private static IResult? CheckManualAccess(HttpContext ctx)
+    {
+        if (ctx.User.Identity?.IsAuthenticated != true)
+            return Results.Json(new { error = "Authentication required" }, statusCode: 401);
+        var role = ctx.User.FindFirst(AuthClaims.Role)?.Value;
+        var actor = ctx.User.FindFirst(AuthClaims.Kid)?.Value;
+        if (role is AppRoles.Dev or AppRoles.Rtm or AppRoles.TeamLead &&
+            !string.IsNullOrWhiteSpace(actor) && actor.Length <= 100)
+            return null;
+        ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("RBAC")
+            .LogInformation("Manual shift edit forbidden: role={Role}", role);
+        return Results.Json(new { error = "Forbidden" }, statusCode: 403);
+    }
+
     public static void MapShiftEndpoints(this WebApplication app)
     {
         var grp = app.MapGroup("/api/shifts").WithTags("Shifts");
@@ -468,9 +515,29 @@ public static class ShiftEndpointMapper
             return Results.Ok(result.Row);
         });
 
+        grp.MapPatch("/{id:int}/manual", async (int id, ShiftUpdateDto dto, ShiftService svc, HttpContext ctx) =>
+        {
+            var denied = CheckManualAccess(ctx);
+            if (denied != null) return denied;
+            var result = await svc.UpdateShiftAsync(id, dto, ctx.User.FindFirst(AuthClaims.Kid)!.Value);
+            if (result.Error == "not_found") return Results.NotFound();
+            if (result.Error != null) return Results.BadRequest(new { error = result.Error });
+            return Results.Ok(result.Row);
+        });
+
         grp.MapPost("/assign", async (AssignShiftDto dto, ShiftService svc) =>
         {
             var result = await svc.AssignShiftAsync(dto);
+            if (result.DuplicateError != null) return Results.Conflict(new { error = result.DuplicateError });
+            if (result.Row == null) return Results.BadRequest(new { error = "Invalid date, unknown employee, or date beyond the planning horizon" });
+            return Results.Ok(result.Row);
+        });
+
+        grp.MapPost("/assign/manual", async (AssignShiftDto dto, ShiftService svc, HttpContext ctx) =>
+        {
+            var denied = CheckManualAccess(ctx);
+            if (denied != null) return denied;
+            var result = await svc.AssignShiftAsync(dto, ctx.User.FindFirst(AuthClaims.Kid)!.Value);
             if (result.DuplicateError != null) return Results.Conflict(new { error = result.DuplicateError });
             if (result.Row == null) return Results.BadRequest(new { error = "Invalid date, unknown employee, or date beyond the planning horizon" });
             return Results.Ok(result.Row);
@@ -605,6 +672,3 @@ public static class ShiftEndpointMapper
         });
     }
 }
-
-
-
