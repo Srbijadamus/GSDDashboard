@@ -10,6 +10,34 @@ task. Engineering work stays in the secure copies and test databases/ports.
 
 ### CURRENT candidate: live-source preservation, proxy only
 
+2026-10-05 fourth authorized attempt, snapshot/backups timestamp101137:
+both fresh COPY_ONLY/CHECKSUM backups and VERIFYONLY passed. The fresh Pulse
+backup was restored only to read-only GSDDashboardForensicTest_20261005_101137;
+all-column/primary-key comparison before cutover found missing0/added0/changed0.
+Immediately before Promote, startup-effect counters were zero (import gate103,
+manual columns6). Production default-path preflight passed before replacement.
+The watchdog then repeatedly started the candidate, which exited before SQL
+with System.UnauthorizedAccessException opening
+`C:\ProgramData\PulseBackend\backend.json`. Five minutes of readiness retries
+expired; code/config rollback was executed. This was a genuine startup failure,
+not a single health timeout. Proxy/modal acceptance was not reached.
+
+The exception is retained privately in
+`C:\ProgramData\PulseDataProtection\20261005-101137\startup-exception-private.txt`;
+safe outcome and final baseline/row receipts are in that directory. Token
+inspection confirmed maintenance shell, watchdog, restored live app and mirror
+are all elevated; non-elevation is not an established explanation. Successful
+maintenance preflight did not prove watchdog access to the same protected file.
+The precise access-denial cause remains unresolved; do not retry or broaden
+live ACLs without another explicit authorization.
+
+Rollback DLL/appsettings/index hashes matched the snapshot and local/tunnel
+health returned200. Final Pulse50-table counts/checksums were unchanged.
+ShiftEntries all-column comparison against the fresh backup found
+missing0/added0/changed0: no surviving user or other updates to classify in this
+window. ShiftKioskDB only gained557 sec_observation_log rows. No live DB restore,
+manual action, profile/legacy/tunnel change or subsequent Promote was performed.
+
 2026-10-05 post-third-attempt configuration and row forensics (no new Promote):
 the third tunnel receipt in `C:\ProgramData\PulseDataProtection\20261005-093611`
 recorded DEV session200, anonymous feeds401 and both authenticated feeds503,
