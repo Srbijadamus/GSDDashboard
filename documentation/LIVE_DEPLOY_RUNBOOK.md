@@ -16,6 +16,15 @@ malformed agent row produces a visible modal alert and blocks submit, rather
 than reaching agents.map and crashing the WIC page. Valid/empty lists retain
 their behavior. This is a secure-only fix; no live deployment or stage restart.
 
+Agent-feed compatibility correction: read-only GET of the configured loopback
+service feed returned HTTP 200 and 123 rows: active is JSON boolean for all rows,
+and employee_id is null for one row. The first frontend validator incorrectly
+required numeric active and non-null employee_id. It now accepts boolean active
+(and legacy 0/1) and nullable employee_id without normalizing or dropping rows.
+Invalid responses still show an alert and block submit. No manual kiosk action
+is part of this verification; only the isolated 5057 instance may be restarted
+to load the corrected build, never the live Pulse service.
+
 This section supersedes earlier secure-copy replacement and supervisor-login
 instructions below. The candidate in `C:\GSDDashboard_secure` is based on the
 complete nonignored live source worktree, including its uncommitted WIC/roster

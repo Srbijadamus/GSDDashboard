@@ -1438,11 +1438,11 @@
     },
     {
       "Path": "Frontend/src/pages/attendance/kioskAgents.test.ts",
-      "Hash": "CB6C9C8FC36B89BA04651AE064923756F3C7AFF0166DC48B73C8107FD3EC2DA5"
+      "Hash": "3A5581FA3E45CC10C486B25E7830B6633E2D9D4173C3E6B119C4B80D9BD784A0"
     },
     {
       "Path": "Frontend/src/pages/attendance/kioskAgents.ts",
-      "Hash": "6D42ACDF1BE085000570C0A8E0B392FF11753A1020022E965B0923930E1D42F0"
+      "Hash": "472EE04BB0B62028A61F67AA263799C1249A16E08B2E470F04EA1B16F002214F"
     },
     {
       "Path": "Frontend/src/pages/BoList.tsx",
