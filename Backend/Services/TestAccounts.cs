@@ -13,10 +13,23 @@ public static class TestAccounts
 {
     /// <summary>
     /// List (not HashSet) so EF Core can translate <c>Contains</c> into a SQL IN clause.
+    ///
+    /// NEVER EMPTY. Four services evaluate <c>!ExcludedEmployeeIds.Contains(...)</c>
+    /// inside an EF query (WicCardsService, BriefingService, ForecastService,
+    /// WicCoverageGapService); EF Core rejects an empty collection as an inline query
+    /// root ("Empty collections are not supported as inline query roots"), which made
+    /// /api/wic/cards, /api/wic/briefing and /api/wic/forecast return HTTP 500 on
+    /// 2026-10-06. The sentinel entry below can never equal a real EmployeeId, so this
+    /// list excludes nobody while keeping the EF translation valid.
+    ///
+    /// 9074466 (Stojnic Nebojsa) was removed on 2026-10-06: he is a normal BO-group
+    /// agent now and is counted like everyone else in Pulse and ShiftKiosk. The frontend
+    /// list (TEST_EMPLOYEE_IDS) is empty because the browser has no such EF constraint.
+    /// The list and <see cref="IsExcluded"/> stay in place for any future test account.
     /// </summary>
     public static readonly List<string> ExcludedEmployeeIds = new()
     {
-        "9074466", // DEMO / Stojnic Nebojsa — DEV account, not an operational agent
+        "__no_test_account__",
     };
 
     public static bool IsExcluded(string? employeeId) =>

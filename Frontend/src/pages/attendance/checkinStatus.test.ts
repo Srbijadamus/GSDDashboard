@@ -25,6 +25,7 @@ import {
   ON_BREAK_LABEL_KEY,
   ON_BREAK_STATUS,
   parseHhMm,
+  TEST_EMPLOYEE_IDS,
   WORK_MODE_LABEL_KEY,
   workModeOf,
   type CheckinKioskRecord,
@@ -72,10 +73,15 @@ function kioskRow(
   id: string, name: string, status: string,
   workLocation: string | null = "WIC", location: string | null = null,
   lastEventTime: string | null = null,
+  // Every fixture in this file predates agent_group and depicts the WIC
+  // population the page is actually about, so "WIC" is the correct default
+  // rather than a new parameter every call site would have to pass.
+  agentGroup: string | null = "WIC",
 ): CheckinKioskRecord {
   return {
     employee_id: id, full_name: name, attendance_status: status,
     work_location: workLocation, location, last_event_time: lastEventTime,
+    agent_group: agentGroup,
   }
 }
 
@@ -495,6 +501,25 @@ test("a manual row's provenance reaches the display row for the neutral label", 
 
 // ── RTM decisions 2026-10-01: populations and the test account ──────────────
 
+// ── Group separation 2026-10-06 ──────────────────────────────────────────────
+
+test("Voice/VWIC/BO/unclassified kiosk check-ins never reach /wic-attendance", () => {
+  const cards = [centre("Hamburg", [{ id: "1", name: "Rostered", start: "09:00" }])]
+  const kiosk = [
+    kioskRow("1", "Rostered WIC", "ACTIVE", "WIC", null, null, "WIC"),
+    kioskRow("2", "Voice agent", "ACTIVE", "HOME_OFFICE", null, null, "VOICE"),
+    kioskRow("3", "VWIC agent", "ACTIVE", "HOME_OFFICE", null, null, "VWIC"),
+    kioskRow("4", "BO agent", "ACTIVE", "HOME_OFFICE", null, null, "BO"),
+    kioskRow("5", "Unclassified", "ACTIVE", "HOME_OFFICE", null, null, null),
+  ]
+  const s = buildCheckinStatus(cards, kiosk)
+
+  assert.equal(s.checkedIn.length, 1, "only the WIC-group row is counted")
+  assert.deepEqual(s.checkedIn.map(a => a.employeeId), ["1"])
+  assert.equal(s.expected.length, 1)
+  assert.equal(s.checkedIn.length + s.notYetIn.length, s.expected.length, "invariant")
+})
+
 test("Checked in = ALL kiosk ACTIVE/DONE, whatever the work mode or roster", () => {
   const cards = [centre("Hamburg", [{ id: "1", name: "Rostered", start: "09:00" }])]
   const kiosk = [
@@ -545,28 +570,56 @@ test("the invariant holds for every mix", () => {
   assert.ok(!s.rosterExpected.some(a => a.employeeId === "r3"))
 })
 
-test("the test agent 9074466 is excluded from every figure and list", () => {
-  const cards = [centre("Hamburg", [
-    { id: "1", name: "Real agent", start: "09:00" },
-    { id: "9074466", name: "Stojnic Nebojsa", start: "09:00" },
-  ])]
+test("the test-account list is empty: 9074466 is a normal agent now", () => {
+  // Group separation 2026-10-06: 9074466 (Stojnic Nebojsa) is a normal BO-group
+  // agent. It is the agent_group filter, never an id list, that keeps him off
+  // /wic-attendance; Remote Attendance shows him with the other BO agents.
+  assert.equal(TEST_EMPLOYEE_IDS.size, 0, "the exclusion list is intentionally empty")
+  assert.equal(isTestEmployee("9074466"), false, "no longer an excluded test account")
+  assert.equal(isTestEmployee(null), false)
+  assert.equal(isTestEmployee(undefined), false)
+  assert.equal(isTestEmployee("1"), false)
+
+  const cards = [centre("Hamburg", [{ id: "1", name: "Real agent", start: "09:00" }])]
   const kiosk = [
     kioskRow("1", "Real agent", "ACTIVE", "WIC"),
-    kioskRow("9074466", "Stojnic Nebojsa", "DONE", null),
+    kioskRow("9074466", "Stojnic Nebojsa", "DONE", "HOME_OFFICE", null, null, "BO"),
   ]
   const s = buildCheckinStatus(cards, kiosk)
 
-  for (const list of [s.rosterExpected, s.expected, s.checkedIn, s.notYetIn]) {
-    assert.ok(!list.some(a => a.employeeId === "9074466"), "excluded from every list")
-  }
-  assert.equal(s.expected.length, 1)
+  // Only the WIC-group row reaches this page; the BO check-in belongs to Remote Attendance.
   assert.equal(s.checkedIn.length, 1)
+  assert.deepEqual(s.checkedIn.map(a => a.employeeId), ["1"])
   assert.equal(s.checkedIn.length + s.notYetIn.length, s.expected.length, "invariant")
-  assert.ok(!s.needsCentreAssignment.some(r => r.employee_id === "9074466"))
-  // Also excluded from per-centre presence.
-  const p = buildPresencePair(cards[0], kiosk)
-  assert.ok(!p.presentKiosk.some(r => r.employee_id === "9074466"))
-  assert.ok(isTestEmployee("9074466") && !isTestEmployee("1"))
+})
+
+test("an explicit manual check-in/logout is visible without becoming roster coverage", () => {
+  // The isManualKioskEvent() escape hatch in buildCheckinStatus stays in place for a
+  // future excluded test account. With the list empty it is inert and an explicit
+  // manual event is simply a normal WIC-group kiosk row on this page.
+  const cards = [centre("Hamburg", [{ id: "1", name: "Rostered", start: "09:00" }])]
+  for (const [status, note] of [
+    ["ACTIVE", "Manual check-in by Operator / Manuell durch Operator"],
+    ["DONE", "Manual logout by Operator / Manuell durch Operator"],
+  ]) {
+    const record: CheckinKioskRecord = {
+      ...kioskRow("9074466", "Stojnic Nebojsa", status, null, null, null, "WIC"),
+      status_note: note,
+      checkin_time: "2026-10-05 09:47:54",
+      checkout_time: status === "DONE" ? "2026-10-05 14:10:00" : null,
+    }
+    const s = buildCheckinStatus(cards, [record, record])
+    assert.equal(s.checkedIn.length, 1, "one real manual check-in, not duplicate feed rows")
+    assert.equal(s.checkedIn[0].employeeId, "9074466")
+    assert.equal(s.checkedInOffRoster, 1, "off the roster => no centre coverage")
+    assert.equal(s.rosterExpected.length, 1, "the real roster row is untouched")
+    assert.equal(s.expected.length, s.checkedIn.length + s.notYetIn.length)
+    assert.equal(buildPresencePair(cards[0], [record]).presentKiosk.length, 0)
+    const display = displayRowForAgent(s.checkedIn[0], record, "ACTIVE")
+    assert.equal(display.checkinTime, record.checkin_time)
+    assert.equal(display.checkoutTime, record.checkout_time)
+    assert.equal(display.status, status)
+  }
 })
 
 test("Zone B only lists roster agents, never off-roster check-ins", () => {

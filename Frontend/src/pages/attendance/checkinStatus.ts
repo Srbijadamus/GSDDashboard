@@ -57,6 +57,8 @@ export interface CheckinKioskRecord {
   employee_id: string
   full_name: string
   attendance_status: string
+  /** Server-generated audit note for an explicit supervisor check-in/logout. */
+  status_note?: string | null
   checkin_time?: string | null
   checkout_time?: string | null
   minutes_on_shift?: number
@@ -78,6 +80,14 @@ export interface CheckinKioskRecord {
    * "Augsburg | Landshut". Informational only — never compared with a WIC centre.
    */
   location?: string | null
+  /**
+   * One of WIC/VOICE/VWIC/BO, or null/absent for an agent not yet classified
+   * ("Nerazvrstani" in ShiftKiosk). Added by ShiftKiosk server.py's
+   * db_get_attendance (agents.agent_group) and passed straight through by
+   * KioskProxyService — see buildCheckinStatus() below for why /wic-attendance
+   * now requires this field to equal "WIC".
+   */
+  agent_group?: string | null
 }
 
 export interface ExpectedAgent extends CheckinAgent {
@@ -148,17 +158,23 @@ export const ABSENCE_MARKERS: ReadonlySet<string> = new Set([
 ])
 
 /**
- * Test / non-operational accounts excluded from EVERY attendance figure and list, and
- * from roster, cards, coverage, forecast and briefing on the backend
+ * Test / non-operational accounts excluded from roster, cards, coverage, forecast
+ * and briefing. Explicit manual kiosk events remain visible in global attendance.
  * (GSDDashboard.API.Services.TestAccounts holds the same list).
  * One named list on purpose — never scatter these ids as literals.
+ *
+ * Intentionally EMPTY as of 2026-10-06: 9074466 (Stojnic Nebojsa) is a normal
+ * BO-group agent now and is counted like everyone else in Pulse and ShiftKiosk.
+ * The list and isTestEmployee stay in place for any future test account.
  */
-export const TEST_EMPLOYEE_IDS: ReadonlySet<string> = new Set([
-  "9074466", // DEMO / Stojnic Nebojsa - DEV account, not an operational agent
-])
+export const TEST_EMPLOYEE_IDS: ReadonlySet<string> = new Set<string>()
 
 export function isTestEmployee(employeeId: string | null | undefined): boolean {
   return !!employeeId && TEST_EMPLOYEE_IDS.has(employeeId.trim())
+}
+
+function isManualKioskEvent(record: CheckinKioskRecord): boolean {
+  return /^Manual (check-in|logout) by /.test(record.status_note ?? "")
 }
 
 /**
@@ -289,7 +305,16 @@ export function buildCheckinStatus(
   kiosk: CheckinKioskRecord[] | null | undefined,
 ): CheckinStatus {
   const allCards = cards ?? []
-  const allKiosk = (kiosk ?? []).filter(r => !isTestEmployee(r.employee_id))
+  // Group separation (2026-10-06): ShiftKiosk now serves Voice/VWIC/BO as well as
+  // WIC, all from the same /api/attendance feed. Before agent_group existed, this
+  // page treated "anyone checked in" as potentially a WIC ad-hoc deployment (the
+  // RTM decision above). Now that the kiosk labels every row, a Voice/VWIC/BO/
+  // unclassified check-in is no longer ambiguous and must NOT inflate Expected/
+  // Checked-in/Not-yet-in here — those agents have their own page
+  // (Remote Attendance). Only rows explicitly labelled "WIC" are kept.
+  const allKiosk = (kiosk ?? [])
+    .filter(r => !isTestEmployee(r.employee_id) || isManualKioskEvent(r))
+    .filter(r => (r.agent_group ?? "").trim().toUpperCase() === "WIC")
 
   // ── Roster side: rostered at an OPEN centre, one row per employee ──────────
   const rosterExpected: ExpectedAgent[] = []

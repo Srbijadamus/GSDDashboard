@@ -2,6 +2,7 @@ import {
   LayoutDashboard, ClipboardList, Building2, Headphones, Coffee,
   Calendar, MapPin, ShieldCheck, Users, Scale, Heart,
   Bot, ListChecks, FileText, CalendarOff, Download, User, CalendarPlus,
+  Radio,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -46,6 +47,12 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/wic',            icon: MapPin,      i18nKey: 'nav.wicLocations' },
       { to: '/wic-coverage',   icon: ShieldCheck, i18nKey: 'nav.wicCoverage' },
       { to: '/wic-al',         icon: CalendarOff, i18nKey: 'nav.wicAnnualLeave' },
+    ],
+  },
+  {
+    groupKey: 'nav.group.operations',
+    items: [
+      { to: '/remote-attendance', icon: Radio, i18nKey: 'nav.remoteAttendance' },
     ],
   },
   {

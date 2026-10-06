@@ -18,6 +18,7 @@
     "vwic": "VWIC",
     "breaks": "Break Planner",
     "wicAttendance": "WIC Attendance",
+    "remoteAttendance": "Remote Attendance",
     "wicSchedule": "WIC Schedule",
     "pipeline": "Pipeline",
     "training": "Training",
@@ -37,6 +38,7 @@
     "group": {
       "planning": "Planning",
       "wicOps": "WIC Operations",
+      "operations": "Operations",
       "absence": "Absence",
       "people": "People",
       "tools": "Tools"

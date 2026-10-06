@@ -16,6 +16,7 @@ import WicShifts from "./pages/WICShifts/index"
 import Pipeline from "./pages/Pipeline"
 import Training from "./pages/Training"
 import WicAttendance from "./pages/WicAttendance"
+import RemoteAttendance from "./pages/RemoteAttendance"
 // @ts-ignore
 import WicSchedule from "./pages/WicSchedule"
 import Shifts from "./pages/Shifts"
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="/vwic"            element={<VWICPage />} />
           <Route path="/breaks"          element={<BreakPlanner />} />
           <Route path="/wic-attendance"  element={<OverviewErrorBoundary><WicAttendance /></OverviewErrorBoundary>} />
+          <Route path="/remote-attendance" element={<OverviewErrorBoundary><RemoteAttendance /></OverviewErrorBoundary>} />
           <Route path="/wic-schedule"    element={<WicSchedule />} />
           <Route path="/pipeline"        element={<Pipeline />} />
           <Route path="/training"        element={<Training />} />

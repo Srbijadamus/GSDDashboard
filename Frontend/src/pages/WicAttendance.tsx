@@ -130,6 +130,7 @@ interface KioskRecord {
   full_name: string
   /** PAUSE = on a break. Checked in and present, never an absence. */
   attendance_status: "ACTIVE" | "NOT_CHECKED_IN" | "DONE" | "PAUSE"
+  status_note?: string | null
   checkin_time: string | null
   checkout_time: string | null
   /** Last kiosk event today (server.py: `sl.agent_timestamp AS last_event_time`). */
@@ -139,6 +140,12 @@ interface KioskRecord {
   work_location: string | null
   /** The agent's assigned centres as free text. Informational; never compared. */
   location: string | null
+  /**
+   * One of WIC/VOICE/VWIC/BO, or null for "Nerazvrstani". Group separation
+   * 2026-10-06: buildCheckinStatus() now keeps only agent_group === "WIC" rows
+   * here, so Voice/VWIC/BO check-ins go to /remote-attendance instead.
+   */
+  agent_group?: string | null
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
