@@ -294,7 +294,7 @@ function PastePanel({
 
       try {
         if (category === "AL" || category === "OFF" || category === "CD") {
-          const r = await fetch("/api/shifts/assign", {
+          const r = await fetch("/api/shifts/assign/bulk", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ employeeId: row.resolved.employeeId, shiftDate: today, shiftType: category, shiftStart: null, shiftEnd: null }),
           })
@@ -302,7 +302,7 @@ function PastePanel({
           results.push(r.ok ? { name: displayName, status: "saved" } : { name: displayName, status: "error", reason: body?.error ?? `HTTP ${r.status}` })
 
         } else if (category === "NIGHT") {
-          const r = await fetch("/api/shifts/assign", {
+          const r = await fetch("/api/shifts/assign/bulk", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ employeeId: row.resolved.employeeId, shiftDate: today, shiftType: "WORKING", shiftStart: row.shiftStart, shiftEnd: row.shiftEnd }),
           })

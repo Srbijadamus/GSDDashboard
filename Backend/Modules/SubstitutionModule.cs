@@ -54,6 +54,10 @@ public static class SubstituteAcceptEndpointMapper
                 : location.DisplayName ?? req.LocationCode[..Math.Min(20, req.LocationCode.Length)];
 
             var logger = loggerFactory.CreateLogger("SubstituteAccept");
+            var existingShift = await db.ShiftEntries
+                .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+            if (db.PreserveManualShift(existingShift, "Substitute accept"))
+                return Results.Conflict(new { error = "Manual shift is protected; edit the cell directly." });
 
             IResult? errorResult = null;
             string? empName = employee.FullName ?? req.EmployeeId;

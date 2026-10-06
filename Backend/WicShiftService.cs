@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Modules.Auth;
 using GSDDashboard.API.Modules.Shifts;
 using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
@@ -463,7 +464,8 @@ public class WicShiftService
     /// soft violation (R4 Sunday, R7 public holiday, R6 student hours) is
     /// returned alongside the now-saved shift, never blocking.
     /// </summary>
-    public async Task<IResult> CreateShiftAsync(CreateShiftRequest req, GSDContext db, ShiftValidationService validationSvc)
+    public async Task<IResult> CreateShiftAsync(CreateShiftRequest req, GSDContext db, ShiftValidationService validationSvc,
+        string? manualActor = null)
     {
         if (string.IsNullOrWhiteSpace(req.EmployeeId))
             return Results.BadRequest(new { error = "EmployeeId is required." });
@@ -478,6 +480,12 @@ public class WicShiftService
 
         var shift = await db.ShiftEntries
             .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+        // manualActor != null means THIS call is itself the human's deliberate edit (the
+        // "+ New Shift" / edit-cell UI path) — never refuse a human overwriting their own
+        // earlier manual decision. Only an automatic writer (manualActor == null: imports,
+        // sync, generator) is refused by PreserveManualShift.
+        if (manualActor == null && db.PreserveManualShift(shift, "WIC create shift"))
+            return Results.Conflict(new { success = false, skipped = true, reason = "Manual shift is protected." });
         if (shift != null)
         {
             shift.ShiftType    = req.ShiftType;
@@ -501,6 +509,8 @@ public class WicShiftService
             };
             db.ShiftEntries.Add(shift);
         }
+        if (manualActor != null)
+            db.RecordManualShiftEdit(shift, manualActor);
 
         // Validate BEFORE anything is persisted — a hard block leaves nothing
         // saved since SaveChangesAsync is never reached (see
@@ -586,7 +596,7 @@ public class WicShiftService
     /// Defaults preserve the existing manual-assignment behaviour exactly.
     /// </summary>
     public async Task<IResult> CreateAssignmentAsync(CreateAssignmentRequest req, GSDContext db,
-        string sourceModule = "ASSIGN", int? sourceId = null)
+        string sourceModule = "ASSIGN", int? sourceId = null, string? manualActor = null)
     {
         if (string.IsNullOrWhiteSpace(req.EmployeeId) || string.IsNullOrWhiteSpace(req.LocationCode))
             return Results.BadRequest(new { error = "EmployeeId and LocationCode are required." });
@@ -662,6 +672,13 @@ public class WicShiftService
 
         var shift = await db.ShiftEntries
             .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+        ShiftEntry? newShift = null;
+        // manualActor != null means THIS call is itself the human's deliberate "Assign to
+        // gap" / "Create Shift" click — never refuse it. Only an automatic writer
+        // (manualActor == null: RosterService's MAIN/BACKUP walk, imports, sync) is
+        // refused by PreserveManualShift so it can never clobber a human's cell.
+        if (manualActor == null && db.PreserveManualShift(shift, "WIC assignment"))
+            return Results.Ok(new { success = false, skipped = true, reason = "Manual shift is protected.", date = date.ToString("yyyy-MM-dd") });
 
         // Skip dates where the agent is on a non-working shift; never overwrite AL/SL/OFF/PH
         // etc. (AvailabilityResolver.BlockingAbsenceTypes, shared with WicCardsService), nor
@@ -695,7 +712,12 @@ public class WicShiftService
         }
         else
         {
-            db.ShiftEntries.Add(new ShiftEntry
+            // Deliberately NOT assigned to `shift` — the span-recalculation block below
+            // (existingWicShifts.Count > 0 && shift != null) must keep treating a brand
+            // new ShiftEntry as untouched, preserving the existing request-time-wins
+            // priority (see CreateAssignmentTimePriorityTests). `newShift` is still the
+            // row RecordManualShiftEdit tags below.
+            newShift = new ShiftEntry
             {
                 EmployeeId   = req.EmployeeId,
                 ShiftDate    = date,
@@ -707,7 +729,8 @@ public class WicShiftService
                 SourceSheet  = sourceModule,
                 SourceModule = sourceModule,
                 SourceId     = sourceId,
-            });
+            };
+            db.ShiftEntries.Add(newShift);
         }
 
         // Check for time-range overlap with existing WicShiftEntries for this agent+date.
@@ -800,6 +823,9 @@ public class WicShiftService
             }
         }
 
+        if (manualActor != null && (shift ?? newShift) is { } manualTarget)
+            db.RecordManualShiftEdit(manualTarget, manualActor);
+
         await db.SaveChangesAsync();
         return Results.Ok(new
         {
@@ -861,11 +887,21 @@ public static class WicEndpointMapper
             return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         });
 
-        grp.MapPost("/shifts", async (CreateShiftRequest req, GSDContext db, ShiftValidationService validationSvc, WicShiftService svc) =>
-            await svc.CreateShiftAsync(req, db, validationSvc));
+        // Both routes below are the interactive "+ New Shift" / "Assign to gap" UI
+        // actions — every call here is a deliberate human decision, so it always
+        // carries a manualActor and must always succeed (never hit PreserveManualShift).
+        // Prefer the logged-in user's KID; while Auth:EnforceAuthorization is still in
+        // its rollout phase (appsettings "Auth:EnforceAuthorization": false) most calls
+        // arrive unauthenticated, so fall back to a fixed, non-null tag rather than
+        // depending on login state — avoids any risk of silently reintroducing a block.
+        static string ResolveManualActor(HttpContext ctx) =>
+            ctx.User.FindFirst(AuthClaims.Kid)?.Value is { Length: > 0 and <= 100 } kid ? kid : "UI-MANUAL";
 
-        grp.MapPost("/assignments", async (CreateAssignmentRequest req, GSDContext db, WicShiftService svc) =>
-            await svc.CreateAssignmentAsync(req, db));
+        grp.MapPost("/shifts", async (CreateShiftRequest req, GSDContext db, ShiftValidationService validationSvc, WicShiftService svc, HttpContext ctx) =>
+            await svc.CreateShiftAsync(req, db, validationSvc, ResolveManualActor(ctx)));
+
+        grp.MapPost("/assignments", async (CreateAssignmentRequest req, GSDContext db, WicShiftService svc, HttpContext ctx) =>
+            await svc.CreateAssignmentAsync(req, db, manualActor: ResolveManualActor(ctx)));
 
         grp.MapPost("/move-to-gsd", async (MoveToGsdRequest req, GSDContext db, ILogger<WicShiftService> logger) =>
         {
@@ -892,6 +928,11 @@ public static class WicEndpointMapper
             }
             if (allDates.Count == 0)
                 return Results.BadRequest(new { error = "No dates to move (range is empty after skipping weekends)." });
+            var moveCandidates = await db.ShiftEntries
+                .Where(s => s.EmployeeId == req.EmployeeId && allDates.Contains(s.ShiftDate))
+                .ToListAsync();
+            if (moveCandidates.Any(s => db.PreserveManualShift(s, "Move to GSD")))
+                return Results.Conflict(new { error = "Range contains a protected manual shift; edit the cell directly. Nothing moved." });
 
             IResult? errorResult = null;
             var movedDates = new List<string>();

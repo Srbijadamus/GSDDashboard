@@ -291,6 +291,17 @@ public class WicScheduleService
             return hours is { IsClosed: true };
         }).ToList();
 
+        var candidateDays = toDelete.Select(w => (w.EmployeeId, w.ShiftDate)).ToHashSet();
+        var candidateEmployees = toDelete.Select(w => w.EmployeeId).Distinct().ToList();
+        var candidateDates = toDelete.Select(w => w.ShiftDate).Distinct().ToList();
+        var manualRows = await _db.ShiftEntries
+            .Where(s => candidateEmployees.Contains(s.EmployeeId) && candidateDates.Contains(s.ShiftDate) &&
+                s.ManualChangeBy != null && s.ManualChangeBy != "")
+            .ToListAsync();
+        var manualDays = manualRows.Where(s => candidateDays.Contains((s.EmployeeId, s.ShiftDate)) &&
+                _db.PreserveManualShift(s, "Closed-day duty cleanup"))
+            .Select(s => (s.EmployeeId, s.ShiftDate)).ToHashSet();
+        toDelete.RemoveAll(w => manualDays.Contains((w.EmployeeId, w.ShiftDate)));
         var agentDays = toDelete.Select(w => (w.EmployeeId, w.ShiftDate)).Distinct().ToList();
         var deleteIds = toDelete.Select(w => w.Id).ToHashSet();
 

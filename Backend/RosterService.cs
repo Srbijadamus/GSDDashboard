@@ -646,6 +646,7 @@ public class RosterService
                     }
 
                     var wicSnaps = new List<WicEntrySnapshot>();
+                    if (_db.PreserveManualShift(row, "Roster overwrite")) continue;
                     if (row.ShiftType == ShiftTypes.WicDuty)
                     {
                         // The replaced row was WIC duty: its WicShiftEntries rows
@@ -828,6 +829,7 @@ public class RosterService
             // same as free: without a row we cannot rule out an absence that was never
             // imported, so the walk must not roster someone here on a guess.
             if (shift == null) return false; // unknown (no record) -> NOT available
+            if (_db.PreserveManualShift(shift, "Location coverage generation")) return false;
             if (ProtectedAbsenceTypes.Contains(shift.ShiftType)) return false;
             if (string.Equals(shift.ShiftType, ShiftTypes.Training, StringComparison.OrdinalIgnoreCase)) return false;
             if (string.Equals(shift.ShiftType, ShiftTypes.Working, StringComparison.OrdinalIgnoreCase) &&
@@ -898,14 +900,23 @@ public class RosterService
             _db.RosterBatches.Add(batch);
             await _db.SaveChangesAsync(); // batch.Id needed as SourceId below
 
+            var written = 0;
             foreach (var d in dates.OrderBy(x => x))
             {
                 var req = new CreateAssignmentRequest(emp.EmployeeId, location.LocationCode, d.ToString("yyyy-MM-dd"), null, null);
-                await _wicShiftService.CreateAssignmentAsync(req, _db, SourceModuleName, batch.Id);
+                var result = await _wicShiftService.CreateAssignmentAsync(req, _db, SourceModuleName, batch.Id);
+                var value = (result as IValueHttpResult)?.Value;
+                if (value?.GetType().GetProperty("success")?.GetValue(value) is true &&
+                    value.GetType().GetProperty("skipped")?.GetValue(value) is not true)
+                    written++;
+                else
+                    Console.Error.WriteLine($"[RosterService] Assignment not written: {emp.EmployeeId} / {d:yyyy-MM-dd}");
             }
+            batch.RowCount = written;
+            await _db.SaveChangesAsync();
 
             results.Add(new LocationCoverageAgentResult(
-                emp.EmployeeId, emp.FullName ?? emp.EmployeeId, assignment.AssignmentType, dates.Count, batch.Id));
+                emp.EmployeeId, emp.FullName ?? emp.EmployeeId, assignment.AssignmentType, written, batch.Id));
         }
 
         // Verify the tally just computed against WicCoverageGapService's own
@@ -1132,7 +1143,8 @@ public class RosterService
                 .Where(x => x.SourceId == batchId)
                 .ToListAsync();
 
-            var deletable = owned.Where(x => x.SourceModule == SourceModuleName).ToList();
+            var deletable = owned.Where(x => x.SourceModule == SourceModuleName &&
+                !_db.PreserveManualShift(x, "Roster batch delete")).ToList();
             var detached  = owned.Count - deletable.Count;
 
             // WIC batches also wrote WicShiftEntries. They carry no SourceId, so match
@@ -1325,4 +1337,3 @@ public static class RosterEndpointMapper
 }
 
 public record LocationCoverageRequest(string? LocationCode, string? From, string? To);
-

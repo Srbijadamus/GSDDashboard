@@ -200,8 +200,9 @@ public class ShiftService
 
         if (dto.AgentTask != null && !AgentTasks.IsValid(dto.AgentTask))
             return new(null, $"Invalid task: {dto.AgentTask}");
+        if (manualActor == null && _db.PreserveManualShift(shift, "Shift update"))
+            return new(null, "Manual shift is protected; use a human cell edit.");
 
-        var oldType = shift.ShiftType;
         if (dto.ShiftType        != null) shift.ShiftType        = dto.ShiftType;
         if (dto.ShiftType        != null && !string.Equals(dto.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase)) shift.IsWicDuty = false;
         if (dto.ShiftStart       != null) shift.ShiftStart       = dto.ShiftStart;
@@ -212,8 +213,8 @@ public class ShiftService
 
         if (manualActor != null)
         {
-            ApplyManualType(shift, oldType);
-            MarkManualEdit(shift, manualActor);
+            shift.IsWicDuty = shift.ShiftType == ShiftTypes.WicDuty;
+            _db.RecordManualShiftEdit(shift, manualActor);
         }
         await _db.SaveChangesAsync();
 
@@ -234,7 +235,7 @@ public class ShiftService
     // exact same (employee, date, type) already exists. A different type on the same day
     // is allowed — the existing row is updated (e.g. EMPTY → AL, or WORKING → SL).
     // The DB enforces one row per (employee, date) via UQ_ShiftEntries_EmpDate.
-    public async Task<AssignShiftResult> AssignShiftAsync(AssignShiftDto dto, string? manualActor = null)
+    public async Task<AssignShiftResult> AssignShiftAsync(AssignShiftDto dto, string? manualActor = null, bool allowSameTypeEdit = true)
     {
         if (!DateOnly.TryParse(dto.ShiftDate, out var date)) return new(null, null);
         if (date > DateOnly.FromDateTime(DateTime.Today).AddDays(ScheduleLimits.MaxFutureDays)) return new(null, null);
@@ -245,13 +246,15 @@ public class ShiftService
         var existing = await _db.ShiftEntries.FirstOrDefaultAsync(
             s => s.EmployeeId == dto.EmployeeId && s.ShiftDate == date);
 
-        if (manualActor == null && existing != null && existing.ShiftType == dto.ShiftType)
+        if (manualActor == null && _db.PreserveManualShift(existing, "Shift assignment/bulk import"))
+            return new(null, "Manual shift is protected; use a human cell edit.");
+
+        if ((manualActor == null || !allowSameTypeEdit) && existing != null && existing.ShiftType == dto.ShiftType)
         {
             var name = emp.FullName ?? dto.EmployeeId;
             return new(null, $"Already exists: {name} on {date:yyyy-MM-dd} ({dto.ShiftType})");
         }
 
-        var oldType = existing?.ShiftType;
         ShiftEntry shift;
         if (existing != null)
         {
@@ -275,8 +278,8 @@ public class ShiftService
         }
         if (manualActor != null)
         {
-            ApplyManualType(shift, oldType);
-            MarkManualEdit(shift, manualActor);
+            shift.IsWicDuty = shift.ShiftType == ShiftTypes.WicDuty;
+            _db.RecordManualShiftEdit(shift, manualActor);
         }
         await _db.SaveChangesAsync();
 
@@ -287,26 +290,6 @@ public class ShiftService
             shift.IsWicDuty, shift.RawValue, shift.AgentTask, shift.LocationId, shift.AssignmentStatus,
             AgentTasks.Resolve(shift.AgentTask, emp.PrimaryRole)
         ), null);
-    }
-
-    private static void ApplyManualType(ShiftEntry shift, string? oldType)
-    {
-        shift.IsWicDuty = shift.ShiftType == ShiftTypes.WicDuty;
-        if (shift.ShiftType == ShiftTypes.Working &&
-            (oldType == ShiftTypes.WicDuty || (!string.IsNullOrWhiteSpace(shift.AgentTask) &&
-                !AgentTasks.IsNonLocationValue(shift.AgentTask))))
-        {
-            if (!AgentTasks.IsValid(shift.AgentTask) || shift.AgentTask == "WIC") shift.AgentTask = null;
-            shift.LocationId = null;
-            shift.AssignmentStatus = null;
-        }
-    }
-
-    private static void MarkManualEdit(ShiftEntry shift, string actor)
-    {
-        shift.ManualChangeBy = actor;
-        shift.ManualChangeAt = DateTime.UtcNow;
-        shift.ManualChangeNote ??= "Manual shift cell edit (/shifts)";
     }
 
     // Per-hour headcount for the Coverage-per-Hour chart on the Shift Plan page.
@@ -507,9 +490,11 @@ public static class ShiftEndpointMapper
             return Results.Ok(await svc.GetWorkingTodayAsync(d));
         });
 
-        grp.MapPatch("/{id:int}", async (int id, ShiftUpdateDto dto, ShiftService svc) =>
+        grp.MapPatch("/{id:int}", async (int id, ShiftUpdateDto dto, ShiftService svc, HttpContext ctx) =>
         {
-            var result = await svc.UpdateShiftAsync(id, dto);
+            var denied = CheckManualAccess(ctx);
+            if (denied != null) return denied;
+            var result = await svc.UpdateShiftAsync(id, dto, ctx.User.FindFirst(AuthClaims.Kid)!.Value);
             if (result.Error == "not_found") return Results.NotFound();
             if (result.Error != null) return Results.BadRequest(new { error = result.Error });
             return Results.Ok(result.Row);
@@ -525,8 +510,20 @@ public static class ShiftEndpointMapper
             return Results.Ok(result.Row);
         });
 
-        grp.MapPost("/assign", async (AssignShiftDto dto, ShiftService svc) =>
+        grp.MapPost("/assign", async (AssignShiftDto dto, ShiftService svc, HttpContext ctx) =>
         {
+            var denied = CheckManualAccess(ctx);
+            if (denied != null) return denied;
+            var result = await svc.AssignShiftAsync(dto, ctx.User.FindFirst(AuthClaims.Kid)!.Value, allowSameTypeEdit: false);
+            if (result.DuplicateError != null) return Results.Conflict(new { error = result.DuplicateError });
+            if (result.Row == null) return Results.BadRequest(new { error = "Invalid date, unknown employee, or date beyond the planning horizon" });
+            return Results.Ok(result.Row);
+        });
+
+        grp.MapPost("/assign/bulk", async (AssignShiftDto dto, ShiftService svc, HttpContext ctx) =>
+        {
+            var denied = CheckManualAccess(ctx);
+            if (denied != null) return denied;
             var result = await svc.AssignShiftAsync(dto);
             if (result.DuplicateError != null) return Results.Conflict(new { error = result.DuplicateError });
             if (result.Row == null) return Results.BadRequest(new { error = "Invalid date, unknown employee, or date beyond the planning horizon" });
@@ -570,6 +567,8 @@ public static class ShiftEndpointMapper
         {
             var original = await db.ShiftEntries.FindAsync(id);
             if (original == null) return Results.NotFound(new { error = "Shift not found" });
+            if (db.PreserveManualShift(original, "Shift swap source"))
+                return Results.Conflict(new { error = "Manual shift is protected; edit the cell directly." });
             if (string.IsNullOrWhiteSpace(dto.NewEmployeeId))
                 return Results.BadRequest(new { error = "NewEmployeeId required" });
 
@@ -577,6 +576,9 @@ public static class ShiftEndpointMapper
             if (newEmp == null) return Results.NotFound(new { error = $"Employee '{dto.NewEmployeeId}' not found" });
 
             var date      = original.ShiftDate;
+            var newShift = await db.ShiftEntries.FirstOrDefaultAsync(s => s.EmployeeId == dto.NewEmployeeId && s.ShiftDate == date);
+            if (db.PreserveManualShift(newShift, "Shift swap target"))
+                return Results.Conflict(new { error = "Replacement has a protected manual shift; edit the cell directly." });
             var shiftType = original.ShiftType ?? "WIC_DUTY";
             var start     = original.ShiftStart;
             var end       = original.ShiftEnd;
@@ -622,7 +624,6 @@ public static class ShiftEndpointMapper
             foreach (var w in wicEntries) w.EmployeeId = dto.NewEmployeeId;
 
             // Create or update ShiftEntry for the new employee on the same date
-            var newShift = await db.ShiftEntries.FirstOrDefaultAsync(s => s.EmployeeId == dto.NewEmployeeId && s.ShiftDate == date);
             if (newShift != null)
             {
                 newShift.ShiftType    = shiftType;

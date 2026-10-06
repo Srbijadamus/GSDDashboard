@@ -8,6 +8,7 @@ import sys
 import re
 import traceback
 from datetime import date, timedelta
+from shift_import_guard import preserve_manual_shift
 
 try:
     import openpyxl
@@ -359,10 +360,14 @@ def main():
     inserted = 0
     updated  = 0
     errors   = 0
+    manual_preserved = 0
 
     for emp_id, shift_date, shift_type, shift_start, shift_end in shifts:
         shift_date_s = shift_date.strftime('%Y-%m-%d')
         try:
+            if preserve_manual_shift(cursor, emp_id, shift_date_s):
+                manual_preserved += 1
+                continue
             cursor.execute(
                 "SELECT Id FROM ShiftEntries WHERE EmployeeId=? AND ShiftDate=?",
                 emp_id, shift_date_s
@@ -372,10 +377,14 @@ def main():
                 cursor.execute(
                     "UPDATE ShiftEntries "
                     "SET ShiftType=?, ShiftStart=?, ShiftEnd=?, SourceSheet=?, SourceModule=? "
-                    "WHERE Id=?",
+                    "WHERE Id=? AND NULLIF(LTRIM(RTRIM(ManualChangeBy)), '') IS NULL",
                     shift_type, shift_start, shift_end, SOURCE_SHEET, SOURCE_MOD, row[0]
                 )
-                updated += 1
+                if cursor.rowcount == 1:
+                    updated += 1
+                else:
+                    manual_preserved += 1
+                    print(f"  NOT UPDATED (guarded or missing): {emp_id} / {shift_date_s}")
             else:
                 cursor.execute(
                     "INSERT INTO ShiftEntries "
@@ -403,6 +412,7 @@ def main():
 
     print(f"  Inserted : {inserted}")
     print(f"  Updated  : {updated}")
+    print(f"  Manual preserved : {manual_preserved}")
     if errors:
         print(f"  Errors   : {errors}  (first 5 shown above)")
     print()

@@ -22,6 +22,7 @@ public class ShiftSyncService
             if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday) continue;
 
             var existing = await _db.ShiftEntries.FirstOrDefaultAsync(x => x.EmployeeId == employeeId && x.ShiftDate == d);
+            if (_db.PreserveManualShift(existing, "Sick leave sync")) continue;
             if (existing != null)
             {
                 existing.PreviousStatus = existing.ShiftType;
@@ -54,6 +55,7 @@ public class ShiftSyncService
             if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday) continue;
 
             var existing = await _db.ShiftEntries.FirstOrDefaultAsync(x => x.EmployeeId == employeeId && x.ShiftDate == d);
+            if (_db.PreserveManualShift(existing, "Vacation sync")) continue;
             if (existing != null)
             {
                 existing.PreviousStatus = existing.ShiftType;
@@ -91,6 +93,7 @@ public class ShiftSyncService
 
         foreach (var e in entries)
         {
+            if (_db.PreserveManualShift(e, "Sick leave revert")) continue;
             if (e.PreviousStatus != null)
             {
                 e.ShiftType = e.PreviousStatus;
@@ -119,6 +122,7 @@ public class ShiftSyncService
 
         foreach (var e in entries)
         {
+            if (_db.PreserveManualShift(e, "Vacation revert")) continue;
             if (e.PreviousStatus != null)
             {
                 e.ShiftType = e.PreviousStatus;
@@ -178,6 +182,7 @@ public class ShiftSyncService
             {
                 if (d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
                 var row = byKey[(v.EmployeeId!, d)].FirstOrDefault();
+                if (_db.PreserveManualShift(row, "Future vacation reconciliation")) continue;
                 if (row == null || keep.Contains(row.ShiftType)) continue;
 
                 row.PreviousStatus = row.ShiftType;

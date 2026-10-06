@@ -29,6 +29,7 @@ import tempfile
 import shutil
 import traceback
 from datetime import date, timedelta, datetime
+from shift_import_guard import preserve_manual_shift
 
 try:
     import pyodbc
@@ -387,6 +388,7 @@ def upsert_all(conn, shifts_by_source):
     inserted = 0
     updated  = 0
     errors   = 0
+    manual_preserved = 0
     done     = 0
     total    = sum(len(v) for v in shifts_by_source.values())
 
@@ -401,6 +403,9 @@ def upsert_all(conn, shifts_by_source):
             is_wic = 1 if shift_type == 'WIC_DUTY' else 0
 
             try:
+                if preserve_manual_shift(cursor, emp_id, d_str):
+                    manual_preserved += 1
+                    continue
                 cursor.execute(
                     "SELECT Id FROM ShiftEntries "
                     "WHERE EmployeeId=? AND ShiftDate=? AND SourceSheet=?",
@@ -412,10 +417,14 @@ def upsert_all(conn, shifts_by_source):
                     cursor.execute(
                         "UPDATE ShiftEntries "
                         "SET RawValue=?, ShiftType=?, ShiftStart=?, ShiftEnd=?, IsWicDuty=? "
-                        "WHERE Id=?",
+                        "WHERE Id=? AND NULLIF(LTRIM(RTRIM(ManualChangeBy)), '') IS NULL",
                         raw_value, shift_type, shift_start, shift_end, is_wic, existing[0]
                     )
-                    updated += 1
+                    if cursor.rowcount == 1:
+                        updated += 1
+                    else:
+                        manual_preserved += 1
+                        print(f"  NOT UPDATED (guarded or missing): {emp_id} / {d_str} / {source_sheet}")
                 else:
                     cursor.execute(
                         "INSERT INTO ShiftEntries "
@@ -434,6 +443,7 @@ def upsert_all(conn, shifts_by_source):
 
     conn.commit()
     cursor.close()
+    print(f"  Manual preserved : {manual_preserved}")
     return inserted, updated, errors
 
 # ---------------------------------------------------------------------------
