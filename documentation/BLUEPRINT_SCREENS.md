@@ -208,9 +208,14 @@ use; an off-roster check-in has no rostered shift to be late for.
 
 **Excluded accounts.** `TEST_EMPLOYEE_IDS` (frontend) and
 `GSDDashboard.API.Services.TestAccounts.ExcludedEmployeeIds` (backend) hold the same list —
-currently `9074466` (DEMO / Stojnic Nebojsa, a DEV account). Excluded from the attendance
-header and every list, and from roster, cards, coverage, forecast and briefing. One named
-list in each half; never scatter the ids as literals.
+currently `9074466` (DEMO / Stojnic Nebojsa, a DEV account). Unattended test events remain
+excluded from attendance, and roster/cards/coverage/forecast/briefing always exclude
+this account. Owner-authorized 2026-10-05 exception: a kiosk event with the server's
+`Manual check-in by ...` or `Manual logout by ...` audit note is visible in global
+Expected/Checked in, including its first-arrival time and Active/Done status.
+It is off-roster and never becomes centre coverage. DONE still means "checked in
+today", not currently present. One named list in each half; never scatter the ids
+as literals.
 
 **Work mode (the badge).** At check-in the agent chooses where they are working *from*.
 The kiosk stores that in `status_log.work_location` and `GET /api/attendance` returns it

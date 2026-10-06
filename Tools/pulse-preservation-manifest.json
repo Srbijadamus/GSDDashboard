@@ -1,6 +1,6 @@
 {
   "LiveRoot": "C:\\GSDDashboard",
-  "CreatedAtUtc": "2026-10-04T19:25:28.5065968Z",
+  "CreatedAtUtc": "2026-10-05T11:28:05.2132041Z",
   "Live": [
     {
       "Path": "Backend.Tests/ALBalanceEligibleDaysTests.cs",
@@ -627,6 +627,10 @@
       "Hash": "7F4CA0CCE61BECCF39DD143861EF95F4EDA5095A29EBCC1CF5EAED1B5C3620C8"
     },
     {
+      "Path": "Frontend/src/pages/attendance/kioskAgents.ts",
+      "Hash": "472EE04BB0B62028A61F67AA263799C1249A16E08B2E470F04EA1B16F002214F"
+    },
+    {
       "Path": "Frontend/src/pages/BoList.tsx",
       "Hash": "7CC885286702F158A38B88369696ED26B61020ED177F5D050319B38CF411DBE7"
     },
@@ -660,7 +664,7 @@
     },
     {
       "Path": "Frontend/src/pages/ManualCheckinModal.tsx",
-      "Hash": "C3301732478973857F87CBB9DB97C1CA547CAF0D1A946BCA1DD952BC0A1322A9"
+      "Hash": "1AAD71E0F23E73B708ABB0EB3066DDC901180C3222776692D14D907F8D2A6D64"
     },
     {
       "Path": "Frontend/src/pages/Overview.tsx",
@@ -688,7 +692,7 @@
     },
     {
       "Path": "Frontend/src/pages/Shifts.tsx",
-      "Hash": "E46E1DD3296A963D3715A1BED84645E9A7526D8937148FBFE660B1A0A7B033F5"
+      "Hash": "047A0E606C6624F0619AAE5A680D904740303C09533931F1BEAE5AB12DF41D31"
     },
     {
       "Path": "Frontend/src/pages/SickLeave.tsx",
@@ -792,7 +796,19 @@
     },
     {
       "Path": "Frontend/vite.config.ts",
-      "Hash": "B245A8CFB0F83CD52872CC7C38DB4F9F3B0063B508D645969E13F32ADF0899FF"
+      "Hash": "06A2D467C31BE3D2E39840FCABCEDD5CB0486C4D507EEB52376F7A3678BF03AC"
+    },
+    {
+      "Path": "import_shifts_xl.py",
+      "Hash": "680803F7A41B0627017C6C2EA459FD9D786FECC0EDBEDCE7AA5A84691B33F597"
+    },
+    {
+      "Path": "import_shifts.py",
+      "Hash": "CE151937FE3DA9672D040E6403A616F77CB4D76F04657B11A3C5E324726EB1CC"
+    },
+    {
+      "Path": "shift_import_guard.py",
+      "Hash": "F2C72D96F8F99CEEA7E26FE361F0E5C160AD69E2B5E999D8AED4D8AA102885AC"
     }
   ],
   "Candidate": [
@@ -833,12 +849,20 @@
       "Hash": "D02C689A49FDA422DAEAC02F4DEEA2F0CBE636A8DB6377F03BDFC372AD712A3E"
     },
     {
-      "Path": "Backend.Tests/ManualShiftEditTests.cs",
-      "Hash": "2E7F1C4B5EA40A78DBDC15B32AE4B868D4ED238F699A977C34D6364DCB948146"
-    },
-    {
       "Path": "Backend.Tests/KioskProxyResponseTests.cs",
       "Hash": "E61D8094FAED9FFE48152E9BA26A36DAEA2B6C56104A895448AE3E949083DAD6"
+    },
+    {
+      "Path": "Backend.Tests/LiveManualShiftAcceptanceTests.cs",
+      "Hash": "95FC3827B98CF8C4EC7A153BA03502CA99710139C045A9FA0FAEF32291A50CA9"
+    },
+    {
+      "Path": "Backend.Tests/ManualShiftEditTests.cs",
+      "Hash": "D240D1CB912169564102BFD044F85792A170E6A514DD501397475D64B58B736B"
+    },
+    {
+      "Path": "Backend.Tests/ManualShiftProtectionTests.cs",
+      "Hash": "B2A742F270EAECAA656BFA8A5BD3DB15D4CE6DD4DC6A36FBDE152813A3F43C97"
     },
     {
       "Path": "Backend.Tests/PrimaryRoleTests.cs",
@@ -867,6 +891,10 @@
     {
       "Path": "Backend.Tests/WicManualChangeTests.cs",
       "Hash": "D251EA524B5C961FE717B702D654D76051207545AF5B13768E435671B449A427"
+    },
+    {
+      "Path": "Backend.Tests/WicManualUiAlwaysSucceedsTests.cs",
+      "Hash": "B860D9E233711690A11729EE92EDC24429C3F8E7D80A692E62D8D6359A6128AC"
     },
     {
       "Path": "Backend.Tests/WicPresenceUnificationTests.cs",
@@ -1018,7 +1046,7 @@
     },
     {
       "Path": "Backend/GSDContext.cs",
-      "Hash": "2D3D2178F33F062CAB9F73B4E40ECF00822F15E0301C4E25D23C8322CA343E38"
+      "Hash": "5CCE889009B0CC505CD8C7F62D88E21D64392F6138EF16F9A7596FAB90E6AC9B"
     },
     {
       "Path": "Backend/GSDDashboard.API.csproj",
@@ -1034,7 +1062,7 @@
     },
     {
       "Path": "Backend/Modules/SubstitutionModule.cs",
-      "Hash": "D6A4A2649DC72011EC162B979333DBC8577EECD221CE7E92D5A822C884343961"
+      "Hash": "186E522B2923B7EF22FE7CDCFFBC5D5595898DD9C318742AFFEC6978738E6655"
     },
     {
       "Path": "Backend/OtherModels.cs",
@@ -1074,7 +1102,7 @@
     },
     {
       "Path": "Backend/RosterService.cs",
-      "Hash": "DE97C56E9698ACCFDEF93AF53D0775C7313FC1371D6AE06D4C4D8A9E082103A6"
+      "Hash": "2566C716A68E8C789FD2D91AFB4698D70DC38E7B1149D50D1A237CB1DEFB3A22"
     },
     {
       "Path": "Backend/RtmEntry.cs",
@@ -1174,7 +1202,7 @@
     },
     {
       "Path": "Backend/ShiftEntry.cs",
-      "Hash": "E6287C4C4945E2C021F67CFEA6549E61FA4663E2147C88802390498146F1C4A9"
+      "Hash": "7EEA14ACA0DD81E808DBA0F3AC915439C4825BD03BE897B55CEFA6F5D5C6CD32"
     },
     {
       "Path": "Backend/ShiftReorderService.cs",
@@ -1182,11 +1210,11 @@
     },
     {
       "Path": "Backend/ShiftService.cs",
-      "Hash": "6CC5698378C68C3FE463BB2254F68B7CB765C3D6166579B410035733B255857B"
+      "Hash": "FB15A8ACA70F51D6A3A30EBC7FB39C83864D34D26F9B26768C28CFEA8CF763D5"
     },
     {
       "Path": "Backend/ShiftSyncService.cs",
-      "Hash": "BC13B8B2A98EA586EA7D84E4D1361CA34206B3AF8914ED25829D59847B58EACC"
+      "Hash": "722E9F019068D0329AC54FEF5508D8EE489131FF905467E46571956B86B353E9"
     },
     {
       "Path": "Backend/ShiftValidationService.cs",
@@ -1202,7 +1230,7 @@
     },
     {
       "Path": "Backend/TrainingService.cs",
-      "Hash": "A58C1B588611552A3AC27AC9AC4039E8FFF873F0C8BDF43677BB8EB538E203E7"
+      "Hash": "620186A9C866C7FFABB8BAB8AC363DA2A430ADEF4814CA2DCE4DC76E90F71DB6"
     },
     {
       "Path": "Backend/VacationService.cs",
@@ -1234,11 +1262,11 @@
     },
     {
       "Path": "Backend/WicScheduleService.cs",
-      "Hash": "B4E9F7DE15A1DBDEE323E2E8F53FB7403D55EED05131FACD0435FDDA0425E306"
+      "Hash": "A339D216A757F4637149519CA4641CF7B8FD2F269FFDDC94D4B20ADA76678849"
     },
     {
       "Path": "Backend/WicShiftService.cs",
-      "Hash": "3702846F9DCCC649C20C148F062FA09F25383FBB7199A58CC5CCF095751FD4A0"
+      "Hash": "45630CAFBDA6A8D461C6BB82B43387287116DBBA349D17D54E0B84497FA3B322"
     },
     {
       "Path": "Frontend/eslint.config.js",
@@ -1442,11 +1470,11 @@
     },
     {
       "Path": "Frontend/src/pages/attendance/checkinStatus.test.ts",
-      "Hash": "5B533E68A6B9BE7B4DCB4E4657DAAC4CFE5C5FC9F406F7BF4D67475A86C2A6E3"
+      "Hash": "775D9174FA9BEA2F8FEFC590CF9C33C73A0CB7DF6FFC4F81F7A1A8BF99D2098B"
     },
     {
       "Path": "Frontend/src/pages/attendance/checkinStatus.ts",
-      "Hash": "7F4CA0CCE61BECCF39DD143861EF95F4EDA5095A29EBCC1CF5EAED1B5C3620C8"
+      "Hash": "F2A29D1D1ED42B4DF6733491A72B9575064A6353D0F621E80474B695DD1EB23A"
     },
     {
       "Path": "Frontend/src/pages/attendance/kioskAgents.test.ts",
@@ -1466,7 +1494,7 @@
     },
     {
       "Path": "Frontend/src/pages/BulkRtm.tsx",
-      "Hash": "F11B9DC72FC65371E9094B4D6059B63F4BA0D65D4ED10BA2B6EF9219C60C52AE"
+      "Hash": "7E46F2DAA764A52E93D6C6FAE4D742C8389A12E7EBEC2CD0584ADC2A63D9AC7E"
     },
     {
       "Path": "Frontend/src/pages/CoverageBar.jsx",
@@ -1546,7 +1574,7 @@
     },
     {
       "Path": "Frontend/src/pages/WicAttendance.tsx",
-      "Hash": "BC5C4527855A9D4D424870C370D37840FDF2D94527E59301A948CD4F0D722C2E"
+      "Hash": "0DB86031C38CB939B0BE87307AD3241F73C5BFCDDD0DA79D230DD52A385450FE"
     },
     {
       "Path": "Frontend/src/pages/WicCoverage.tsx",
@@ -1622,7 +1650,19 @@
     },
     {
       "Path": "Frontend/vite.config.ts",
-      "Hash": "B245A8CFB0F83CD52872CC7C38DB4F9F3B0063B508D645969E13F32ADF0899FF"
+      "Hash": "06A2D467C31BE3D2E39840FCABCEDD5CB0486C4D507EEB52376F7A3678BF03AC"
+    },
+    {
+      "Path": "import_shifts_xl.py",
+      "Hash": "680803F7A41B0627017C6C2EA459FD9D786FECC0EDBEDCE7AA5A84691B33F597"
+    },
+    {
+      "Path": "import_shifts.py",
+      "Hash": "CE151937FE3DA9672D040E6403A616F77CB4D76F04657B11A3C5E324726EB1CC"
+    },
+    {
+      "Path": "shift_import_guard.py",
+      "Hash": "F2C72D96F8F99CEEA7E26FE361F0E5C160AD69E2B5E999D8AED4D8AA102885AC"
     }
   ]
 }

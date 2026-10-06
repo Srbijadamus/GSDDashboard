@@ -35,8 +35,10 @@ public class ShiftEntry
     /// rewritten.
     ///
     /// A manual change is a legitimate decision, never an error and never a gap. Rows
-    /// carrying it are protected from the roster generator's Overwrite mode and from the
-    /// startup cleanup, and never raise a data-quality warning.
+    /// carrying it are protected from automatic updates and deletes (including roster,
+    /// leave sync/revert, WIC reconciliation and imports). Source/batch provenance is
+    /// retained; the marker takes precedence. Only a session-authorized cell edit may
+    /// replace it. No existing unmarked row is inferred or backfilled.
     /// </summary>
     [MaxLength(100)] public string? ManualChangeBy { get; set; }
     public DateTime? ManualChangeAt { get; set; }
@@ -102,6 +104,5 @@ public static class ShiftTypes
         return (null, null);
     }
 }
-
 
 

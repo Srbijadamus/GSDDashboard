@@ -7,15 +7,21 @@ those sections are historical preparation, not available functionality.
 Do not enable SupervisorMode for this candidate. Kiosk proxy routes still
 require a session with DEV/RTM/TEAM_LEAD independently of general RBAC.
 
-Current deployment state is maintained in
-[KIOSK_HARDENING_DEPLOY_NOTE.md](KIOSK_HARDENING_DEPLOY_NOTE.md).
-General enforcement remains OFF; the proxy fixes are secure-copy-only, not deployed.
-The 2026-10-05 secure candidate adds independent session/role checks only for
-the dedicated `/shifts` cell write routes: PATCH `/api/shifts/{id}/manual`
-and POST `/api/shifts/assign/manual`. Anonymous401; AGENT/missing or other role403;
+Current live deployment state is maintained in
+[LIVE_DEPLOY_RUNBOOK.md](LIVE_DEPLOY_RUNBOOK.md).
+General enforcement remains OFF; the proxy and manual-master fixes went live
+on 2026-10-05 under the separately authorized SYSTEM watchdog.
+The deployed candidate adds independent session/role checks for
+both actual legacy cell writes (PATCH `/api/shifts/{id}`, POST `/api/shifts/assign`)
+and their dedicated `/manual` aliases. Anonymous401; AGENT/missing or other role403;
 DEV/RTM/TEAM_LEAD permitted with a nonempty session KID, used as ManualChangeBy.
-Client-supplied actor fields are not accepted. Existing generic shift APIs and
-the general RBAC flag are not changed by this scoped fix.
+Client-supplied actor fields are not accepted; all successful cell writes stamp
+ManualChangeBy/At/Note. Generic assign retains its existing duplicate conflict.
+The candidate Bulk RTM screen now uses `/api/shifts/assign/bulk`, with the same
+session role check but no new manual marker, and 409 on protected manual rows.
+Legacy cell and bulk requests were indistinguishable on `/assign`; clients still
+posting there receive cell semantics (including manual marking), not a guessed
+bulk exemption. The general RBAC flag is unchanged.
 The legacy-login/schema description below is historical (2026-09-21);
 supervisor mode and active-role corrections are in the later sections.
 

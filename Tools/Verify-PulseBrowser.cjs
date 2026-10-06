@@ -9,6 +9,7 @@ function save() { fs.writeFileSync(receipt, JSON.stringify(evidence, null, 2)); 
   const browser = await puppeteer.launch({ headless: true });
   try {
     const page = await browser.newPage();
+    await page.setExtraHTTPHeaders({ 'X-Tunnel-Skip-AntiPhishing-Page': '1' });
     const errors = [];
     const forbidden = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -32,14 +33,14 @@ function save() { fs.writeFileSync(receipt, JSON.stringify(evidence, null, 2)); 
     evidence.anonymous = anonymous;
     save();
     if (anonymous.attendance !== 401 || anonymous.agents !== 401) throw new Error('Anonymous proxy check failed');
-    const login = await page.evaluate(async () => {
+    const login = await page.evaluate(async (kid) => {
       const response = await fetch('/api/auth/login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kid: 'S69307' }),
+        body: JSON.stringify({ kid }),
       });
       const body = await response.json();
       return { status: response.status, role: body.role || null };
-    });
+    }, process.env.PULSE_VERIFY_KID || 'S69307');
     evidence.login = login;
     evidence.cookies = (await page.cookies()).filter(cookie =>
       cookie.name === 'gsd_auth' || cookie.name === 'pulse_stage_auth')

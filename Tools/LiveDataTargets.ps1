@@ -19,7 +19,9 @@ function Get-LiveDataTargets {
         'C:\GSDDashboard\Backend\appsettings.Production.json')) {
         if (Test-Path -LiteralPath $path) {
             $extra = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
-            if ($extra.ConnectionStrings.DefaultConnection) {
+            if ($extra.PSObject.Properties['ConnectionStrings'] -and
+                $extra.ConnectionStrings.PSObject.Properties['DefaultConnection'] -and
+                $extra.ConnectionStrings.DefaultConnection) {
                 throw 'Additional live connection override exists; review before backup.'
             }
         }

@@ -13,7 +13,7 @@ function Get-SourcePaths([string]$Root) {
     $paths = @(& git -C $Root ls-files --cached --others --exclude-standard)
     if ($LASTEXITCODE) { throw 'Cannot inventory source files.' }
     @($paths | Where-Object {
-        $_ -match '^(Backend/.*\.(cs|csproj)|Backend.Tests/.*\.(cs|csproj)|Frontend/(src/.*|[^/]+\.(json|ts|js)))$' -and
+        $_ -match '^(Backend/.*\.(cs|csproj)|Backend.Tests/.*\.(cs|csproj)|Frontend/(src/.*|[^/]+\.(json|ts|js))|import_shifts\.py|import_shifts_xl\.py|shift_import_guard\.py)$' -and
         (Test-Path -LiteralPath (Join-Path $Root $_) -PathType Leaf)
     } | Sort-Object -Unique)
 }
