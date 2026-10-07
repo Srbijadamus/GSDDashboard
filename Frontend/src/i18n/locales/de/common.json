@@ -18,7 +18,7 @@
     "vwic": "VWIC",
     "breaks": "Pausenplaner",
     "wicAttendance": "WIC-Anwesenheit",
-    "remoteAttendance": "Remote Attendance",
+    "remoteAttendance": "Remote-Anwesenheit",
     "wicSchedule": "WIC-Öffnungszeiten",
     "pipeline": "Pipeline",
     "training": "Schulungen",
@@ -42,6 +42,29 @@
       "absence": "Abwesenheit",
       "people": "Personal",
       "tools": "Werkzeuge"
+    }
+  },
+  "remoteAttendance": {
+    "title": "Remote-Anwesenheit",
+    "all": "Alle ({{n}})",
+    "group": "Gruppe",
+    "name": "Name",
+    "teamLeader": "Teamleiter",
+    "status": "Status",
+    "checkIn": "Anmeldung",
+    "checkOut": "Abmeldung",
+    "hours": "Stunden",
+    "loading": "Wird geladen…",
+    "error": "Kiosk-Daten nicht verfügbar.",
+    "emptyTitle": "Keine Agenten",
+    "emptyDescription": "Keine Voice/VWIC/BO-Agenten für diesen Filter.",
+    "statusLabel": {
+      "active": "Aktiv",
+      "pause": "Pause",
+      "done": "Fertig",
+      "emergency": "Notfall",
+      "sick": "Krank",
+      "notCheckedIn": "Nicht angemeldet"
     }
   },
   "shifts": {

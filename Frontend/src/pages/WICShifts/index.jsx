@@ -157,13 +157,23 @@ export default function WICShifts() {
 
   const SPECIAL_STATUSES = ["SL","AL","Training","OFF","GSD"]
 
+  // A rejected PATCH must never look like a success: read res.ok and surface the
+  // server's own { error } text (apiFetch-style), then resync from the backend so the
+  // optimistic UI change is rolled back instead of lying about the new location.
+  async function reportReassignFailure(res, fallback) {
+    let reason = fallback
+    try { const body = await res.json(); if (body?.error) reason = body.error } catch {}
+    showToast(reason)
+    fetchData()
+  }
+
   async function handleReassign(agentId, newLocation, role, isAL) {
     setLocations(prev => prev.map(loc => ({
       ...loc,
       agents: loc.agents.map(a => a.id === agentId ? { ...a, assignedTo: newLocation, role, al: isAL } : a)
     })))
     try {
-      await fetch(`${BASE}/api/wic/${agentId}`, {
+      const res = await fetch(`${BASE}/api/wic/${agentId}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           SPECIAL_STATUSES.includes(newLocation)
@@ -171,6 +181,7 @@ export default function WICShifts() {
             : { task: "WIC", supportLocation: newLocation }
         )
       })
+      if (!res.ok) await reportReassignFailure(res, "Failed to reassign agent")
     } catch { showToast("Failed to reassign agent"); fetchData() }
     setModalAgent(null)
   }
@@ -188,10 +199,11 @@ export default function WICShifts() {
       return updated.map(loc => loc.name === newLocationName ? { ...loc, agents: [...loc.agents, agent] } : loc)
     })
     try {
-      await fetch(`${BASE}/api/wic/${agentId}`, {
+      const res = await fetch(`${BASE}/api/wic/${agentId}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ task: "WIC", supportLocation: newLocationName })
       })
+      if (!res.ok) await reportReassignFailure(res, "Failed to reassign agent")
     } catch { showToast("Failed to reassign agent"); fetchData() }
   }
 

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { Headphones } from "lucide-react"
 import { apiFetch } from "../api/client"
 import { DataTable, type DataColumn } from "../components/DataTable"
@@ -14,6 +15,10 @@ import { isTestEmployee } from "./attendance/checkinStatus"
 // GSDDashboard's KioskProxy with a service device token — see KioskProxyService.cs),
 // filtered to the three non-WIC groups instead of to WIC. No coverage, no centres,
 // no map: those concepts do not exist for remote work.
+//
+// Every user-visible string on this page goes through i18n (EN/DE) — no language may
+// see text from another language. The group names Voice/VWIC/BO are established
+// product names and stay identical in both languages.
 
 type RemoteGroup = "VOICE" | "VWIC" | "BO"
 const REMOTE_GROUPS: RemoteGroup[] = ["VOICE", "VWIC", "BO"]
@@ -38,10 +43,22 @@ const STATUS_TONE: Record<string, StatusTone> = {
   NOT_CHECKED_IN: "neutralst",
 }
 
+// Established names — never translated.
 const GROUP_LABEL: Record<RemoteGroup, string> = {
   VOICE: "Voice",
   VWIC: "VWIC",
   BO: "BO",
+}
+
+// Kiosk status codes mapped to translation keys; unknown codes fall back to the raw
+// code (defaultValue) so a future status can never render as an empty cell.
+const STATUS_I18N: Record<string, string> = {
+  ACTIVE: "active",
+  PAUSE: "pause",
+  DONE: "done",
+  EMERGENCY: "emergency",
+  SICK: "sick",
+  NOT_CHECKED_IN: "notCheckedIn",
 }
 
 function formatTime(iso: string | null): string {
@@ -57,6 +74,7 @@ function formatHours(minutes: number | null | undefined): string {
 }
 
 export default function RemoteAttendance() {
+  const { t } = useTranslation()
   const [groupFilter, setGroupFilter] = useState<RemoteGroup | "ALL">("ALL")
 
   const { data: kioskData = [], isLoading, isError } = useQuery<KioskRecord[]>({
@@ -89,28 +107,28 @@ export default function RemoteAttendance() {
 
   const columns: DataColumn<KioskRecord>[] = [
     {
-      key: "name", header: "Name",
+      key: "name", header: t("remoteAttendance.name"),
       render: r => <span className="text-ink font-medium">{r.full_name}</span>,
     },
     {
-      key: "group", header: "Grupa",
+      key: "group", header: t("remoteAttendance.group"),
       render: r => <StatusBadge tone="info">{GROUP_LABEL[r.agent_group as RemoteGroup] ?? r.agent_group}</StatusBadge>,
     },
     {
-      key: "tl", header: "Tim lider",
+      key: "tl", header: t("remoteAttendance.teamLeader"),
       render: r => <span className="text-ink-muted">{r.team_leader || "—"}</span>,
     },
     {
-      key: "status", header: "Status",
+      key: "status", header: t("remoteAttendance.status"),
       render: r => (
         <StatusBadge tone={STATUS_TONE[r.attendance_status] ?? "neutralst"}>
-          {r.attendance_status}
+          {t(`remoteAttendance.statusLabel.${STATUS_I18N[r.attendance_status] ?? "unknown"}`, { defaultValue: r.attendance_status })}
         </StatusBadge>
       ),
     },
-    { key: "checkin", header: "Check-in", render: r => <span className="font-mono text-ink-muted">{formatTime(r.checkin_time)}</span> },
-    { key: "checkout", header: "Check-out", render: r => <span className="font-mono text-ink-muted">{formatTime(r.checkout_time)}</span> },
-    { key: "hours", header: "Sati", render: r => <span className="font-mono text-ink-muted">{formatHours(r.minutes_on_shift)}</span> },
+    { key: "checkin", header: t("remoteAttendance.checkIn"), render: r => <span className="font-mono text-ink-muted">{formatTime(r.checkin_time)}</span> },
+    { key: "checkout", header: t("remoteAttendance.checkOut"), render: r => <span className="font-mono text-ink-muted">{formatTime(r.checkout_time)}</span> },
+    { key: "hours", header: t("remoteAttendance.hours"), render: r => <span className="font-mono text-ink-muted">{formatHours(r.minutes_on_shift)}</span> },
   ]
 
   return (
@@ -118,7 +136,7 @@ export default function RemoteAttendance() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Headphones size={18} className="text-info-fg" />
-          <h1 className="text-ink" style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Remote Attendance</h1>
+          <h1 className="text-ink" style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>{t("remoteAttendance.title")}</h1>
           <span className="bg-info-solid font-mono" style={{ color: "#fff", borderRadius: 12, padding: "2px 10px", fontSize: 12, fontWeight: 600 }}>
             {counts.ALL}
           </span>
@@ -135,7 +153,7 @@ export default function RemoteAttendance() {
                 borderRadius: 6, padding: "6px 12px", fontSize: 12, cursor: "pointer", fontWeight: 600,
               }}
             >
-              {g === "ALL" ? "Svi" : GROUP_LABEL[g]} ({counts[g]})
+              {g === "ALL" ? t("remoteAttendance.all", { n: counts.ALL }) : `${GROUP_LABEL[g]} (${counts[g]})`}
             </button>
           ))}
         </div>
@@ -143,13 +161,13 @@ export default function RemoteAttendance() {
 
       <div className="bg-raised border border-line-subtle" style={{ borderRadius: 8, overflow: "hidden" }}>
         {isLoading ? (
-          <div className="text-ink-soft" style={{ padding: 40, textAlign: "center", fontSize: 13 }}>Lade...</div>
+          <div className="text-ink-soft" style={{ padding: 40, textAlign: "center", fontSize: 13 }}>{t("remoteAttendance.loading")}</div>
         ) : isError ? (
           <div className="text-crit-fg" style={{ padding: 40, textAlign: "center", fontSize: 13 }}>
-            Kiosk-Daten nicht verfügbar.
+            {t("remoteAttendance.error")}
           </div>
         ) : rows.length === 0 ? (
-          <EmptyState title="Keine Agenten" description="Keine Voice/VWIC/BO-Agenten für diesen Filter." />
+          <EmptyState title={t("remoteAttendance.emptyTitle")} description={t("remoteAttendance.emptyDescription")} />
         ) : (
           <DataTable columns={columns} data={rows} rowKey={r => r.employee_id} />
         )}

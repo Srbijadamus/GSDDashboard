@@ -56,8 +56,12 @@ export function MoveToGsdBacklogAction({ employeeId, agentName, shiftDate, shift
       queryClient.invalidateQueries({ queryKey: ["wic-attendance-forecast"] })
       queryClient.invalidateQueries({ queryKey: ["wic-conflicts"] })
       onSuccess?.()
-    } catch {
-      setError(m("error"))
+    } catch (err) {
+      // Show the server's own reason (apiFetch throws the { error } body text, e.g.
+      // "Range contains a protected manual shift (2026-10-07)..."). The generic
+      // translation is only the fallback when no message came back at all.
+      const detail = err instanceof Error && err.message ? err.message : ""
+      setError(detail || m("error"))
     } finally {
       setIsPending(false)
     }

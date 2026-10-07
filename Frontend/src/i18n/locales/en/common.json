@@ -44,6 +44,29 @@
       "tools": "Tools"
     }
   },
+  "remoteAttendance": {
+    "title": "Remote Attendance",
+    "all": "All ({{n}})",
+    "group": "Group",
+    "name": "Name",
+    "teamLeader": "Team Lead",
+    "status": "Status",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "hours": "Hours",
+    "loading": "Loading…",
+    "error": "Kiosk data unavailable.",
+    "emptyTitle": "No agents",
+    "emptyDescription": "No Voice/VWIC/BO agents for this filter.",
+    "statusLabel": {
+      "active": "Active",
+      "pause": "Pause",
+      "done": "Done",
+      "emergency": "Emergency",
+      "sick": "Sick",
+      "notCheckedIn": "Not checked in"
+    }
+  },
   "shifts": {
     "coveragePerHour": "Coverage per Hour",
     "belowMinimum": "Below minimum ({{min}})",

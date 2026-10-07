@@ -179,7 +179,7 @@ public class ManualShiftEditTests
     }
 
     [Fact]
-    public async Task NonCellSwapSubstitutionAndMove_RefuseManualRowsWithoutPartialWrites()
+    public async Task NonCellSwapSubstitution_RefuseManualRows_AndMoveUsesUiManualActor()
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Testing" });
         builder.Configuration.Sources.Clear();
@@ -229,16 +229,38 @@ public class ManualShiftEditTests
             using var substitute = await client.PostAsJsonAsync("/api/wic/substitutes/accept",
                 new { employeeId = "E1", locationCode = "LOC", date = date.ToString("yyyy-MM-dd") });
             Assert.Equal(HttpStatusCode.Conflict, substitute.StatusCode);
+            // Non-cell routes that touch a manual row still refuse it and write nothing.
+            using (var scope = app.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
+                Assert.Equal("WORKING", (await db.ShiftEntries.FindAsync(101))!.ShiftType);
+                Assert.Equal("WIC_DUTY", (await db.ShiftEntries.FindAsync(102))!.ShiftType);
+                Assert.Equal("WIC_DUTY", (await db.ShiftEntries.FindAsync(103))!.ShiftType);
+                Assert.True((await db.WicShiftEntries.SingleAsync()).IsOnSite);
+                Assert.Empty(await db.SubstitutionHistory.ToListAsync());
+            }
+            // Move-to-GSD follows the same actor rule as the other manual WIC routes
+            // (variant b): an unauthenticated UI call resolves to UI-MANUAL, so the move
+            // succeeds and stamps the row instead of being refused up front. This is what
+            // guarantees no team lead is locked out of a manual change.
             using var move = await client.PostAsJsonAsync("/api/wic/move-to-gsd",
                 new { employeeId = "E1", date = date.ToString("yyyy-MM-dd"), dateTo = date.AddDays(1).ToString("yyyy-MM-dd"), skipWeekends = false });
-            Assert.Equal(HttpStatusCode.Conflict, move.StatusCode);
-            using var scope = app.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
-            Assert.Equal("WORKING", (await db.ShiftEntries.FindAsync(101))!.ShiftType);
-            Assert.Equal("WIC_DUTY", (await db.ShiftEntries.FindAsync(102))!.ShiftType);
-            Assert.Equal("WIC_DUTY", (await db.ShiftEntries.FindAsync(103))!.ShiftType);
-            Assert.True((await db.WicShiftEntries.SingleAsync()).IsOnSite);
-            Assert.Empty(await db.SubstitutionHistory.ToListAsync());
+            Assert.Equal(HttpStatusCode.OK, move.StatusCode);
+            using (var scope = app.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
+                var moved = await db.ShiftEntries.FindAsync(101);
+                Assert.Equal("WORKING", moved!.ShiftType);
+                Assert.Equal("GSD", moved.AgentTask);
+                Assert.Equal("UI-MANUAL", moved.ManualChangeBy);
+                var movedNext = await db.ShiftEntries.FindAsync(103);
+                Assert.Equal("WORKING", movedNext!.ShiftType);
+                Assert.Equal("GSD", movedNext.AgentTask);
+                Assert.Equal("UI-MANUAL", movedNext.ManualChangeBy);
+                var wic = await db.WicShiftEntries.SingleAsync();
+                Assert.False(wic.IsOnSite);
+                Assert.True(wic.IsGSDDay);
+            }
         }
         finally { await app.StopAsync(); }
     }

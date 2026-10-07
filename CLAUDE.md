@@ -32,3 +32,28 @@ C:\GSDDashboard\PS1_19_FinalBuildVerify.ps1
 - **`ExcludedEmployeeIds` in `Backend/Services/TestAccounts.cs` must never be empty.**
   EF Core does not translate `Contains` over an empty collection, so an empty list
   breaks the query at runtime. Keep a sentinel entry such as `"__no_test_account__"`.
+
+## Language rule (permanent — applies to this and every future task)
+
+**Every user-visible string in Pulse is English or German only, according to the selected
+UI language (EN/DE), with no mixing in one view.** This covers menus, titles, buttons,
+table columns, tabs, validation and error messages, tooltips, confirmation dialogs, CSV /
+Excel export headers, empty states and loading text. Serbian, Croatian and Bosnian are
+never allowed anywhere in the interface. Instructions may arrive in another language —
+that is the language of communication with the requester, not of the application: always
+translate the wording, never copy it into the UI. Established product names stay as they
+are in both languages (WIC, VWIC, BO, Voice, GSD, RTM, KID, BO List).
+
+Rules of implementation:
+
+- New or changed strings go through i18n (`Frontend/src/i18n/locales/en/common.json` and
+  `.../de/common.json`). Never hard-code user-visible text in a component.
+- When adding a key, add it to **both** locale files in the same change, and make sure the
+  EN view contains no German and the DE view contains no English (except the established
+  names above).
+- Server messages that the UI shows verbatim must be English or German (English is the
+  current default); they must never be Serbian/Croatian/Bosnian.
+- Export/CSV headers are user-visible: they must be a single language, not a `EN / DE`
+  pair.
+- The same rule applies to the ShiftKiosk dashboard (port 8000) and the kiosk program;
+  its canonical copy of this rule lives in the ShiftKiosk documentation.

@@ -836,6 +836,149 @@ public class WicShiftService
             nppWarning,
         });
     }
+
+    /// <summary>
+    /// POST /api/wic/move-to-gsd — the team lead's deliberate "move to GSD Backlog"
+    /// (WIC Shifts kebab menu, WIC Attendance agent chip, WIC Schedule, Assign-Agent
+    /// dialog). Kept out of the endpoint lambda so the manual-marker rule is directly
+    /// testable in-memory.
+    ///
+    /// <paramref name="manualActor"/> follows the same contract as
+    /// <see cref="CreateShiftAsync"/> / <see cref="CreateAssignmentAsync"/>: non-null
+    /// means THIS call is the human's decision, so it may replace a row another human
+    /// set earlier and re-stamps it via <see cref="GSDContext.RecordManualShiftEdit"/>.
+    /// A null actor (an automatic writer) still gets the protective 409 and moves nothing.
+    /// </summary>
+    public async Task<IResult> MoveToGsdAsync(
+        string employeeId, DateOnly dateFrom, DateOnly dateTo, bool skipWeekends,
+        GSDContext db, string? manualActor = null)
+    {
+        if (dateTo < dateFrom)
+            return Results.BadRequest(new { error = "DateTo must not be before Date." });
+
+        var employee = await db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == employeeId);
+        if (employee == null)
+            return Results.NotFound(new { error = $"Employee '{employeeId}' not found." });
+
+        var allDates = new List<DateOnly>();
+        for (var d = dateFrom; d <= dateTo; d = d.AddDays(1))
+        {
+            if (skipWeekends && (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday))
+                continue;
+            allDates.Add(d);
+        }
+        if (allDates.Count == 0)
+            return Results.BadRequest(new { error = "No dates to move (range is empty after skipping weekends)." });
+
+        var moveCandidates = await db.ShiftEntries
+            .Where(s => s.EmployeeId == employeeId && allDates.Contains(s.ShiftDate))
+            .ToListAsync();
+        // Only an automatic writer (no actor) is refused here. With an actor this is the
+        // human's own move, exactly like CreateShiftAsync/CreateAssignmentAsync: the row is
+        // re-stamped below so the guard lets THIS write through while every later automatic
+        // writer still cannot touch it.
+        if (manualActor == null)
+        {
+            var protectedRow = moveCandidates.FirstOrDefault(s => db.PreserveManualShift(s, "Move to GSD"));
+            if (protectedRow != null)
+                return Results.Conflict(new { error = $"Range contains a protected manual shift ({protectedRow.ShiftDate:yyyy-MM-dd}); edit the cell directly. Nothing moved." });
+        }
+
+        IResult? errorResult = null;
+        var movedDates = new List<string>();
+
+        async Task MoveAllDatesAsync()
+        {
+            movedDates.Clear();
+            foreach (var date in allDates)
+            {
+                var shift = await db.ShiftEntries
+                    .FirstOrDefaultAsync(s => s.EmployeeId == employeeId && s.ShiftDate == date);
+                if (shift != null)
+                {
+                    shift.ShiftType    = ShiftTypes.Working;
+                    shift.AgentTask    = "GSD";
+                    shift.IsWicDuty    = false;
+                    shift.SourceModule = "MOVE_TO_GSD";
+                }
+                else
+                {
+                    shift = new ShiftEntry
+                    {
+                        EmployeeId   = employeeId,
+                        ShiftDate    = date,
+                        ShiftType    = ShiftTypes.Working,
+                        AgentTask    = "GSD",
+                        IsWicDuty    = false,
+                        SourceSheet  = "MOVE_TO_GSD",
+                        SourceModule = "MOVE_TO_GSD",
+                    };
+                    db.ShiftEntries.Add(shift);
+                }
+
+                // This row is now the human's decision, so the database guard must let THIS
+                // same SaveChanges write it and every later automatic writer must leave it alone.
+                if (manualActor != null)
+                    db.RecordManualShiftEdit(shift, manualActor);
+
+                var wicEntries = await db.WicShiftEntries
+                    .Where(w => w.EmployeeId == employeeId && w.ShiftDate == date && w.IsOnSite)
+                    .ToListAsync();
+                foreach (var w in wicEntries)
+                {
+                    w.IsOnSite = false;
+                    w.IsGSDDay = true;
+                }
+
+                movedDates.Add(date.ToString("yyyy-MM-dd"));
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        // The in-memory test provider has no transactions; real SQL Server keeps the
+        // all-or-nothing guarantee this route always had.
+        if (db.Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
+        {
+            try { await MoveAllDatesAsync(); }
+            catch (Exception ex)
+            {
+                return Results.Conflict(new { error = "Move to GSD failed: " + ex.Message, detail = ex.Message });
+            }
+        }
+        else
+        {
+            var strategy = db.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await db.Database.BeginTransactionAsync();
+                try
+                {
+                    await MoveAllDatesAsync();
+                    await tx.CommitAsync();
+                }
+                catch (Exception ex)
+                {
+                    await tx.RollbackAsync();
+                    // Name the real reason instead of a bare "Operation failed": the frontend
+                    // shows this text verbatim, and a swallowed cause is exactly what made the
+                    // original incident look like a mystery.
+                    errorResult = Results.Conflict(new { error = "Move to GSD failed: " + ex.Message, detail = ex.Message });
+                }
+            });
+        }
+        if (errorResult != null) return errorResult;
+
+        return Results.Ok(new
+        {
+            success      = true,
+            employeeName = employee.FullName ?? employeeId,
+            date         = dateFrom.ToString("yyyy-MM-dd"),
+            dateTo       = dateTo.ToString("yyyy-MM-dd"),
+            movedDates,
+            daysMoved    = movedDates.Count,
+        });
+    }
 }
 
 public static class WicEndpointMapper
@@ -903,7 +1046,21 @@ public static class WicEndpointMapper
         grp.MapPost("/assignments", async (CreateAssignmentRequest req, GSDContext db, WicShiftService svc, HttpContext ctx) =>
             await svc.CreateAssignmentAsync(req, db, manualActor: ResolveManualActor(ctx)));
 
-        grp.MapPost("/move-to-gsd", async (MoveToGsdRequest req, GSDContext db, ILogger<WicShiftService> logger) =>
+        // Move-to-GSD is an interactive team-lead action (the WIC Shifts kebab menu,
+        // WIC Attendance agent chip, WIC Schedule and the Assign-Agent dialog). It obeys
+        // the same actor rule as the "+ New Shift"/"Assign to gap" routes above: every
+        // call carries a manualActor and may therefore change a row a human set earlier,
+        // while an automatic caller (manualActor == null) still gets PreserveManualShift.
+        // Before this, the route had no actor at all, so GSDContext.PreserveManualShift
+        // rejected the team lead's own move with a bare 409/Warning (live: 2026-10-07
+        // 07:06, ShiftEntries id 56294) and the UI showed only "Failed to move agent".
+        // 2026-10-07: a strict session/KID gate (401/403) was considered but could not be
+        // justified — no live request log for the last 7 days proves that every real
+        // manual call arrives with a session, and an active team lead without a usable
+        // KID would have been locked out. Variant b therefore reuses ResolveManualActor,
+        // exactly like the two manual routes above and /api/shifts/*, so no team lead ever
+        // loses the ability to make a manual change.
+        grp.MapPost("/move-to-gsd", async (MoveToGsdRequest req, GSDContext db, WicShiftService svc, HttpContext ctx) =>
         {
             if (string.IsNullOrWhiteSpace(req.EmployeeId))
                 return Results.BadRequest(new { error = "EmployeeId is required." });
@@ -912,95 +1069,14 @@ public static class WicEndpointMapper
             var dateToStr = string.IsNullOrWhiteSpace(req.DateTo) ? req.Date : req.DateTo;
             if (!DateOnly.TryParse(dateToStr, out var dateTo))
                 return Results.BadRequest(new { error = "Invalid dateTo format. Expected yyyy-MM-dd." });
-            if (dateTo < dateFrom)
-                return Results.BadRequest(new { error = "DateTo must not be before Date." });
 
-            var employee = await db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId);
-            if (employee == null)
-                return Results.NotFound(new { error = $"Employee '{req.EmployeeId}' not found." });
-
-            var allDates = new List<DateOnly>();
-            for (var d = dateFrom; d <= dateTo; d = d.AddDays(1))
-            {
-                if (req.SkipWeekends && (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday))
-                    continue;
-                allDates.Add(d);
-            }
-            if (allDates.Count == 0)
-                return Results.BadRequest(new { error = "No dates to move (range is empty after skipping weekends)." });
-            var moveCandidates = await db.ShiftEntries
-                .Where(s => s.EmployeeId == req.EmployeeId && allDates.Contains(s.ShiftDate))
-                .ToListAsync();
-            if (moveCandidates.Any(s => db.PreserveManualShift(s, "Move to GSD")))
-                return Results.Conflict(new { error = "Range contains a protected manual shift; edit the cell directly. Nothing moved." });
-
-            IResult? errorResult = null;
-            var movedDates = new List<string>();
-            var strategy = db.Database.CreateExecutionStrategy();
-            await strategy.ExecuteAsync(async () =>
-            {
-                await using var tx = await db.Database.BeginTransactionAsync();
-                try
-                {
-                    movedDates.Clear();
-                    foreach (var date in allDates)
-                    {
-                        var shift = await db.ShiftEntries
-                            .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
-                        if (shift != null)
-                        {
-                            shift.ShiftType    = ShiftTypes.Working;
-                            shift.AgentTask    = "GSD";
-                            shift.IsWicDuty    = false;
-                            shift.SourceModule = "MOVE_TO_GSD";
-                        }
-                        else
-                        {
-                            db.ShiftEntries.Add(new ShiftEntry
-                            {
-                                EmployeeId   = req.EmployeeId,
-                                ShiftDate    = date,
-                                ShiftType    = ShiftTypes.Working,
-                                AgentTask    = "GSD",
-                                IsWicDuty    = false,
-                                SourceSheet  = "MOVE_TO_GSD",
-                                SourceModule = "MOVE_TO_GSD",
-                            });
-                        }
-
-                        var wicEntries = await db.WicShiftEntries
-                            .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date && w.IsOnSite)
-                            .ToListAsync();
-                        foreach (var w in wicEntries)
-                        {
-                            w.IsOnSite = false;
-                            w.IsGSDDay = true;
-                        }
-
-                        movedDates.Add(date.ToString("yyyy-MM-dd"));
-                    }
-
-                    await db.SaveChangesAsync();
-                    await tx.CommitAsync();
-                }
-                catch (Exception ex)
-                {
-                    await tx.RollbackAsync();
-                    logger.LogError(ex, "Move to GSD failed");
-                    errorResult = Results.Conflict(new { error = "Operation failed" });
-                }
-            });
-            if (errorResult != null) return errorResult;
-
-            return Results.Ok(new
-            {
-                success      = true,
-                employeeName = employee.FullName ?? req.EmployeeId,
-                date         = dateFrom.ToString("yyyy-MM-dd"),
-                dateTo       = dateTo.ToString("yyyy-MM-dd"),
-                movedDates,
-                daysMoved    = movedDates.Count,
-            });
+            // Variant b: the same ResolveManualActor contract as /shifts and /assignments.
+            // A signed-in caller is stamped with its KID; an unauthenticated one (while
+            // Auth:EnforceAuthorization is still off) gets the fixed UI-MANUAL tag, so the
+            // move still succeeds and the row is still protected from later automatic
+            // writers. The service-level null actor (an automatic caller) is never used here.
+            return await svc.MoveToGsdAsync(
+                req.EmployeeId, dateFrom, dateTo, req.SkipWeekends, db, ResolveManualActor(ctx));
         });
     }
 }
