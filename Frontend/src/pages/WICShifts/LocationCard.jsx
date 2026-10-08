@@ -108,7 +108,7 @@ export default function LocationCard({ location, onAgentClick, onDrop, dragAgent
               <div key={name} style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 0", borderBottom:"1px solid rgb(var(--line-subtle))" }}>
                 <span style={{ fontSize:9, background:"rgb(var(--st-info-bg))", color:"rgb(var(--st-info-solid))", border:"1px solid rgb(var(--st-info-bd))", borderRadius:3, padding:"1px 5px", fontWeight:600 }}>PRIMARY</span>
                 <span style={{ fontSize:11, color:"rgb(var(--text-primary))", fontWeight:500 }}>{name}</span>
-                <span style={{ fontSize:9, color:"rgb(var(--st-crit-solid))", marginLeft:"auto", fontStyle:"italic" }}>not on shift</span>
+                <span style={{ fontSize:9, color:"rgb(var(--st-crit-solid))", marginLeft:"auto", fontStyle:"italic" }}>{t("wicShifts.notOnShift")}</span>
               </div>
             ))}
             {(location.backupAgents ?? []).map(name => (

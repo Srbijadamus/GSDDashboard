@@ -93,7 +93,10 @@ public sealed class WicConflictDetector(GSDContext db)
                 var loc  = x.ResolvedLoc!;
                 var role = name != null && roleMap.TryGetValue((name, loc.LocationCode), out var r) ? r : "NONE";
                 var h    = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, dow, g.Key.ShiftDate);
-                return new { Entry = x.Entry, Loc = loc, Role = role, Hours = h, IsClosed = h == null || h.IsClosed };
+                var (aStart, aEnd) = AssignmentWindow(x.Entry, h);
+                return new { Entry = x.Entry, Loc = loc, Role = role,
+                             AStart = aStart, AEnd = aEnd,
+                             IsClosed = h == null || h.IsClosed };
             }).ToList();
 
             var closedEntries = classified.Where(x => x.IsClosed).ToList();
@@ -112,13 +115,19 @@ public sealed class WicConflictDetector(GSDContext db)
                         null, null)).ToArray()));
             }
 
-            // OVERLAP or SPLIT_SHIFT: only when at least two open entries remain
+            // OVERLAP or SPLIT_SHIFT: only when at least two open entries remain.
+            // Decided on the AGENT'S OWN assignment windows, not on the centres' opening
+            // hours: two assignments that really clash must be reported even when the two
+            // centres' opening hours do not overlap, and two assignments at centres whose
+            // hours do overlap are only a real clash when the agent's windows clash too.
             if (openEntries.Count > 1)
             {
                 bool anyOverlap = false;
                 for (int i = 0; i < openEntries.Count && !anyOverlap; i++)
                     for (int j = i + 1; j < openEntries.Count && !anyOverlap; j++)
-                        anyOverlap = HoursOverlap(openEntries[i].Hours, openEntries[j].Hours);
+                        anyOverlap = WindowsOverlap(
+                            openEntries[i].AStart, openEntries[i].AEnd,
+                            openEntries[j].AStart, openEntries[j].AEnd);
 
                 string conflictType = anyOverlap ? "OVERLAP" : "SPLIT_SHIFT";
                 if (conflictType != "SPLIT_SHIFT" || includeSplitShifts)
@@ -130,7 +139,7 @@ public sealed class WicConflictDetector(GSDContext db)
                         openEntries.Select(x => new WicConflictEntryDto(
                             x.Entry.Id, x.Entry.SupportLocation!,
                             x.Loc.LocationCode, x.Loc.DisplayName, x.Role,
-                            x.Hours?.OpenTime, x.Hours?.CloseTime)).ToArray()));
+                            x.AStart, x.AEnd)).ToArray()));
                 }
             }
         }
@@ -142,12 +151,28 @@ public sealed class WicConflictDetector(GSDContext db)
             .ToList();
     }
 
-    // Two windows overlap when s1 < e2 AND s2 < e1 (HH:mm lexicographic order is correct for 00:00–23:59)
-    private static bool HoursOverlap(WicOpeningHour? a, WicOpeningHour? b)
+    /// <summary>
+    /// The window the agent is actually committed to AT THIS LOCATION: the row's own
+    /// WorkingShift (<c>WicShiftEntries</c> is unique per employee+date+location, so each row
+    /// describes one centre). Only when the row carries no usable HH:MM pair do we fall back
+    /// to the centre's opening window — the reading this detector used for every row before.
+    /// Reading the centre's hours for both entries is why two overlapping same-day
+    /// assignments at centres whose opening hours do not overlap went unreported.
+    /// </summary>
+    private static (string? Start, string? End) AssignmentWindow(WicShiftEntry entry, WicOpeningHour? hours)
     {
-        if (a is null || b is null || a.IsClosed || b.IsClosed) return false;
-        if (a.OpenTime is null || a.CloseTime is null || b.OpenTime is null || b.CloseTime is null) return false;
-        return string.Compare(a.OpenTime, b.CloseTime, StringComparison.Ordinal) < 0
-            && string.Compare(b.OpenTime, a.CloseTime, StringComparison.Ordinal) < 0;
+        var times = System.Text.RegularExpressions.Regex.Matches(entry.WorkingShift ?? "", @"\d{1,2}:\d{2}");
+        if (times.Count >= 2) return (times[0].Value, times[^1].Value);
+        return WicHoursResolver.DutyWindow(hours);
+    }
+
+    // Two windows overlap when start1 < end2 AND start2 < end1 — the same rule
+    // WicShiftService.CreateAssignmentAsync uses to refuse a second same-day assignment.
+    // Unknown/unparseable times never count as a clash (unknown is not a conflict).
+    private static bool WindowsOverlap(string? s1, string? e1, string? s2, string? e2)
+    {
+        if (!TimeOnly.TryParse(s1, out var a1) || !TimeOnly.TryParse(e1, out var b1) ||
+            !TimeOnly.TryParse(s2, out var a2) || !TimeOnly.TryParse(e2, out var b2)) return false;
+        return a1 < b2 && a2 < b1;
     }
 }

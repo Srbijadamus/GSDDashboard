@@ -450,7 +450,8 @@
     "checkInNotRecorded": {
       "badge": "Besetzt — Check-in nicht erfasst",
       "tooltip": "Im Dienstplan für WIC-Dienst eingeplant, aber für dieses Datum ist kein Vor-Ort-Check-in erfasst. Eine Erfassungslücke, keine Besetzungslücke."
-    }
+    },
+    "notOnShift": "nicht im Dienst"
   },
   "topbar": {
     "themeToLight": "Zu hellem Design wechseln",

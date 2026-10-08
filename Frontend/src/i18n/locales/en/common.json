@@ -450,7 +450,8 @@
     "checkInNotRecorded": {
       "badge": "Staffed — check-in not recorded",
       "tooltip": "Rostered for WIC duty in the shift plan, but no on-site check-in record exists for this date. A record-keeping gap, not a staffing gap."
-    }
+    },
+    "notOnShift": "not on shift"
   },
   "topbar": {
     "themeToLight": "Switch to light mode",

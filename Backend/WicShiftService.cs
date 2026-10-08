@@ -549,11 +549,21 @@ public class WicShiftService
                 if (string.IsNullOrEmpty(shift.ShiftStart)) shift.ShiftStart = openTime;
                 if (string.IsNullOrEmpty(shift.ShiftEnd))   shift.ShiftEnd   = closeTime;
 
+                // Keyed by LOCATION, not only by agent+day. WicShiftEntries is unique on
+                // (EmployeeId, ShiftDate, SupportLocation) — UQ_WicShift_EmpDateLoc — so an
+                // agent may legitimately hold one row per centre per day. Looking the row up
+                // without the location made a SECOND same-day assignment MOVE the first
+                // centre's row instead of adding to it: the Demmin dual-centre report, where
+                // Am Hanseufer flipped to "not on shift" because its only row had been
+                // re-pointed at Woldeforster Str. Non-overlapping times are allowed by design
+                // (the overlap guard lives in CreateAssignmentAsync; the conflict detector
+                // reports real overlaps).
                 var wicShift = await db.WicShiftEntries
-                    .FirstOrDefaultAsync(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date);
+                    .FirstOrDefaultAsync(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date
+                                           && w.SupportLocation == location.DisplayName);
                 if (wicShift != null)
                 {
-                    wicShift.SupportLocation = location.DisplayName;
+                    wicShift.LocationCode    = req.LocationCode;
                     wicShift.IsOnSite        = true;
                     wicShift.IsOffDay        = false;
                     wicShift.IsGSDDay        = false;
@@ -568,6 +578,7 @@ public class WicShiftService
                         ShiftDate       = date,
                         DayOfWeek       = date.DayOfWeek.ToString(),
                         SupportLocation = location.DisplayName,
+                        LocationCode    = req.LocationCode,
                         IsOnSite        = true,
                         IsGSDDay        = false,
                         IsOffDay        = false,

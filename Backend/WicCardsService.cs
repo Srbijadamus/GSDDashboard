@@ -109,6 +109,13 @@ public class WicCardsService
             .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
         // Keyed the way WicPresenceResolver expects (employee + date).
         var shiftByEmpDate = shiftByEmp.ToDictionary(kv => (kv.Key, date), kv => kv.Value);
+        // How many on-site centres this employee holds TODAY. More than one means the
+        // day-level ShiftEntries row (one row per agent-day: UQ_ShiftEntries_EmpDate)
+        // cannot describe every centre, so each card must use its own WicShiftEntries
+        // time instead of that single row.
+        var onSiteCountByEmployee = wicShifts
+            .GroupBy(x => x.e.EmployeeId)
+            .ToDictionary(g => g.Key, g => g.Count());
         // Signal-2 candidates. Cards had NO second signal, which is why 19 staffed centres
         // showed UNCOVERED with 0 agents listed on 2026-10-01.
         var candidateDutyRows = WicPresenceResolver.CandidateDutyRows(shiftEntries)
@@ -173,10 +180,23 @@ public class WicCardsService
                 // so RTM can see they are out; the frontend renders these as absent labels.
                 var marker = isSick ? "SICK" : absentType == "HALF_AL" ? "HALF_AL" : isAL ? "AL"
                     : absentType ?? (isNonWic ? "GSD" : null);
+                // The assignment time AT THIS LOCATION. WicShiftEntries is unique per
+                // (employee, date, location) and each row carries the time assigned to that
+                // centre, so when the agent covers more than one centre that day the row's
+                // own WorkingShift is the only time that describes THIS card. The ShiftEntries
+                // row is one per agent-day (UQ_ShiftEntries_EmpDate) and holds a single
+                // window, which is exactly what made the second Demmin centre read as
+                // uncovered ("not on shift") in the dual-centre report.
+                // Single-centre days are untouched: there the day row IS this centre's
+                // assignment, and every legacy/imported row keeps the time it always had.
+                var multiLocationDay = onSiteCountByEmployee.TryGetValue(x.e.EmployeeId, out var centreCount)
+                    && centreCount > 1;
+                var (locStart, locEnd) = multiLocationDay
+                    ? SplitWorkingShift(x.w.WorkingShift) : (null, null);
                 var shiftStart = marker
-                    ?? (shiftEntry?.ShiftStart ?? x.w.WorkingShift?.Split('-').FirstOrDefault()?.Trim());
+                    ?? locStart ?? shiftEntry?.ShiftStart ?? x.w.WorkingShift?.Split('-').FirstOrDefault()?.Trim();
                 var shiftEnd   = marker
-                    ?? (shiftEntry?.ShiftEnd   ?? x.w.WorkingShift?.Split('-').LastOrDefault()?.Trim());
+                    ?? locEnd   ?? shiftEntry?.ShiftEnd   ?? x.w.WorkingShift?.Split('-').LastOrDefault()?.Trim();
                 var isMain = mainAgentNames.Contains(x.e.FullName ?? "");
 
                 var covered = todaySchedule.IsClosed ? 0 :
@@ -286,6 +306,20 @@ public class WicCardsService
         }).ToList();
 
         return cards;
+    }
+
+    /// <summary>
+    /// First start / last end of a WicShiftEntries WorkingShift value. Handles single-block
+    /// ("13:00-15:00") and two-block ("07:00-12:00 / 12:30-13:30") strings the same way
+    /// WicShiftService.CreateAssignmentAsync does: the working window spans the first block's
+    /// start through the last block's end. Fewer than two HH:MM tokens = unknown (null), so
+    /// the caller keeps its existing fallback.
+    /// </summary>
+    private static (string? Start, string? End) SplitWorkingShift(string? workingShift)
+    {
+        if (string.IsNullOrWhiteSpace(workingShift)) return (null, null);
+        var times = System.Text.RegularExpressions.Regex.Matches(workingShift, @"\d{1,2}:\d{2}");
+        return times.Count >= 2 ? (times[0].Value, times[^1].Value) : (null, null);
     }
 }
 

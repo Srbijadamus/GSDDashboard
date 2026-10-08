@@ -47,11 +47,12 @@ export default function WICShifts() {
       const shifts = await shiftsRes.json()
 
       const ABSENT_TYPES = ['SL','AL','UL','OL','PH','LPH','RESIGNED','OFF','OFF_WEEKEND']
-      // Index the card agents by employeeId so the WIC Shifts list can prefer the
-      // ShiftEntry time (the time the coverage status actually uses) over WorkingShift.
-      const cardAgentById = {}
+      // Index the card agents by employee AND location. An agent can now hold assignments
+      // at two centres on the same day, so an employeeId-only map let the last card
+      // overwrite the first one's times and both rows showed the same shift.
+      const cardAgentByEmpLoc = {}
       cards.forEach(c => (c.assignedAgents ?? []).forEach(a => {
-        if (a.employeeId) cardAgentById[a.employeeId] = a
+        if (a.employeeId) cardAgentByEmpLoc[a.employeeId + '|' + c.displayName] = a
       }))
       const agentsByLoc = {}
       shifts.forEach(s => {
@@ -60,7 +61,7 @@ export default function WICShifts() {
         if (!agentsByLoc[s.supportLocation]) agentsByLoc[s.supportLocation] = []
         const absent = ABSENT_TYPES.includes(s.agentStatus) ||
           (s.agentStatus === 'WORKING' && (s.task === 'GSD' || s.task === 'Backlog'))
-        const cardAgent = s.employeeId ? cardAgentById[s.employeeId] : null
+        const cardAgent = s.employeeId ? cardAgentByEmpLoc[s.employeeId + '|' + s.supportLocation] : null
         const statusStart = cardAgent?.shiftStart
         const statusEnd = cardAgent?.shiftEnd
         const hasStatusTime = statusStart && statusEnd && statusStart !== 'SICK' && statusStart !== 'AL' && statusStart !== 'GSD'
