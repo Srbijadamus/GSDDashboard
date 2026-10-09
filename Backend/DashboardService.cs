@@ -86,8 +86,12 @@ public class DashboardService
         var totalActive       = shifts.Count;
 
         var dow = (int)date.DayOfWeek;
+        // Open = the weekday pattern for this day, or a one-date exception for exactly this
+        // date (manual exception day / Rollout day). An exception row never counts as the
+        // pattern, so it must not make a normally-closed centre look open every week.
         var openLocationCodes = await _db.WicOpeningHours
-            .Where(h => h.DayOfWeek == dow && !h.IsClosed)
+            .Where(h => !h.IsClosed &&
+                        (h.ExceptionDate == date || (h.ExceptionDate == null && h.DayOfWeek == dow)))
             .Select(h => h.LocationCode)
             .Distinct()
             .ToListAsync();

@@ -374,10 +374,16 @@ public class WicShiftService
             // Use .NET DayOfWeek (0=Sun...6=Sat) — same convention as the rest of the codebase
             int dow = (int)x.Wic.ShiftDate.DayOfWeek;
 
+            // Date-specific exception day first (manual exception / Rollout day), then the
+            // weekday pattern — same precedence as WicHoursResolver.
             var oh = openingHours.FirstOrDefault(o =>
-                (o.LocationCode == loc.LocationCode ||
-                 (loc.LocationCodeLegacy != null && o.LocationCode == loc.LocationCodeLegacy)) &&
-                o.DayOfWeek == dow);
+                        (o.LocationCode == loc.LocationCode ||
+                         (loc.LocationCodeLegacy != null && o.LocationCode == loc.LocationCodeLegacy)) &&
+                        o.ExceptionDate == x.Wic.ShiftDate)
+                  ?? openingHours.FirstOrDefault(o =>
+                        (o.LocationCode == loc.LocationCode ||
+                         (loc.LocationCodeLegacy != null && o.LocationCode == loc.LocationCodeLegacy)) &&
+                        o.ExceptionDate == null && o.DayOfWeek == dow);
             if (oh == null || oh.IsClosed || oh.CloseTime == null) continue;
             if (!TimeOnly.TryParse(oh.OpenTime, out var wicOpen) ||
                 !TimeOnly.TryParse(oh.CloseTime, out var wicClose)) continue;
@@ -533,8 +539,14 @@ public class WicShiftService
             if (location != null)
             {
                 int dow = (int)date.DayOfWeek;
+                // This date's exception day (manual exception day / Rollout day) wins over
+                // the weekday pattern — same precedence as WicHoursResolver.
                 var hours = await db.WicOpeningHours
-                    .FirstOrDefaultAsync(h => h.LocationCode == req.LocationCode && h.DayOfWeek == dow);
+                    .Where(h => h.LocationCode == req.LocationCode &&
+                                (h.ExceptionDate == date || (h.ExceptionDate == null && h.DayOfWeek == dow)))
+                    .OrderByDescending(h => h.ExceptionDate == date)
+                    .ThenByDescending(h => h.EffectiveFrom ?? DateOnly.MinValue)
+                    .FirstOrDefaultAsync();
                 // Spans a two-interval centre's break — WicHoursResolver.DutyWindow.
                 var (dutyStart, dutyEnd) = WicHoursResolver.DutyWindow(hours);
                 string openTime  = dutyStart ?? req.ShiftStart ?? "08:00";

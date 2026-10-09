@@ -122,8 +122,12 @@ public class WicScheduleService
         var allHours    = await _db.WicOpeningHours.ToListAsync();
         var assignments = await _db.WicAgentAssignments.Where(a => a.IsActive).ToListAsync();
 
-        // Per location+day, pick the latest version whose EffectiveFrom <= today (NULL = from inception)
+        // Per location+day, pick the latest version whose EffectiveFrom <= today (NULL = from inception).
+        // ExceptionDate rows are one-date overrides (manual exception day, Rollout day) and are
+        // never part of the weekly pattern — WicHoursResolver already refuses to let them act as
+        // one; this weekly view must not show them as the regular hours for that weekday.
         var effectiveHours = allHours
+            .Where(h => h.ExceptionDate == null)
             .Where(h => h.EffectiveFrom == null || h.EffectiveFrom <= effectiveDate)
             .GroupBy(h => (h.LocationCode, h.DayOfWeek))
             .Select(g => g.OrderByDescending(h => h.EffectiveFrom ?? DateOnly.MinValue).First())

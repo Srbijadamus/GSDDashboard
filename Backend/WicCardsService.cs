@@ -76,8 +76,11 @@ public class WicCardsService
             .OrderBy(l => l.Country).ThenBy(l => l.City)
             .ToListAsync();
 
+        // Weekday rows plus this date's manual exception day (a Rollout day projects one).
+        // Without the ExceptionDate arm the pre-filter by weekday alone would hide the
+        // exception row from the resolver below and the centre would read as CLOSED.
         var openingHours = await _db.WicOpeningHours
-            .Where(h => h.DayOfWeek == dow)
+            .Where(h => h.DayOfWeek == dow || h.ExceptionDate == date)
             .ToListAsync();
 
         var sickToday = await _db.SickLeaves

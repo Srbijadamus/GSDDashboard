@@ -72,8 +72,14 @@ public class CoverageEvaluator
         int minRequired = loc.MinAgentsRequired ?? DefaultMin;
         int dow = (int)date.DayOfWeek; // 0=Sun ... 6=Sat
 
+        // This date's manual exception day wins over the weekday pattern, exactly as
+        // WicHoursResolver decides it for every other surface (Rollout days project one).
         var hours = await _db.WicOpeningHours
-            .FirstOrDefaultAsync(h => h.LocationCode == locationCode && h.DayOfWeek == dow);
+            .Where(h => h.LocationCode == locationCode &&
+                        (h.ExceptionDate == date || (h.ExceptionDate == null && h.DayOfWeek == dow)))
+            .OrderByDescending(h => h.ExceptionDate == date)
+            .ThenByDescending(h => h.EffectiveFrom ?? DateOnly.MinValue)
+            .FirstOrDefaultAsync();
         if (hours == null || hours.IsClosed)
             return Classify(true, 0, minRequired, "CLOSED_DAY");
 

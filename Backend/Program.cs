@@ -11,6 +11,7 @@ using GSDDashboard.API.Modules.SickLeave;
 using GSDDashboard.API.Modules.Vacations;
 using GSDDashboard.API.Modules.PublicHolidays;
 using GSDDashboard.API.Modules.Pipeline;
+using GSDDashboard.API.Modules.Rollout;
 using GSDDashboard.API.Modules.WicSchedule;
 using GSDDashboard.API.Modules.Training;
 using GSDDashboard.API.Services;
@@ -64,6 +65,7 @@ builder.Services.AddScoped<AvailabilityResolver>();
 builder.Services.AddScoped<PublicHolidayService>();
 builder.Services.AddScoped<ShiftValidationService>();
 builder.Services.AddScoped<PipelineService>();
+builder.Services.AddScoped<RolloutService>();
 builder.Services.AddScoped<WicScheduleService>();
 builder.Services.AddScoped<TrainingService>();
 builder.Services.AddScoped<EmployeeService>();
@@ -560,6 +562,47 @@ app.UseDefaultFiles();
             ALTER TABLE WicOpeningHours ADD ManualChangeAt DATETIME2 NULL
     """);
 
+    // ROLLOUT (added 2026-10-08): the manual "Rollout" page. Two NEW tables only --
+    // additive and idempotent, no existing table or column is altered and no existing row
+    // is written by this migration. WicRolloutDays is the authority for one WIC centre
+    // opened on one date for new workers (hours + who entered it); WicRolloutWorkers holds
+    // the selected workers and the ids of the assignment rows the rollout created, so an
+    // edit or a delete touches only what came from it. See documentation/ROLLOUT.md.
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'WicRolloutDays')
+        CREATE TABLE WicRolloutDays (
+            Id               INT            IDENTITY(1,1) PRIMARY KEY,
+            LocationCode     NVARCHAR(50)   NOT NULL,
+            LocationName     NVARCHAR(200)  NULL,
+            RolloutDate      DATE           NOT NULL,
+            StartTime        NVARCHAR(5)    NOT NULL,
+            EndTime          NVARCHAR(5)    NOT NULL,
+            Note             NVARCHAR(1000) NULL,
+            IsManual         BIT            NOT NULL DEFAULT 1,
+            ManualChangeBy   NVARCHAR(100)  NULL,
+            ManualChangeAt   DATETIME2      NULL,
+            ManualChangeNote NVARCHAR(500)  NULL,
+            HoursRowId       INT            NULL,
+            CreatedAt        DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME()
+        )
+    """);
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'WicRolloutWorkers')
+        CREATE TABLE WicRolloutWorkers (
+            Id              INT           IDENTITY(1,1) PRIMARY KEY,
+            RolloutDayId    INT           NOT NULL REFERENCES WicRolloutDays(Id) ON DELETE CASCADE,
+            EmployeeId      NVARCHAR(20)  NOT NULL,
+            EmployeeName    NVARCHAR(200) NULL,
+            FromPipeline    BIT           NOT NULL DEFAULT 0,
+            PipelineNote    NVARCHAR(500) NULL,
+            ShiftEntryId    INT           NULL,
+            WicShiftEntryId INT           NULL
+        )
+    """);
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UQ_WicRolloutDays_LocDate' AND object_id=OBJECT_ID('WicRolloutDays')) CREATE UNIQUE INDEX UQ_WicRolloutDays_LocDate ON WicRolloutDays (LocationCode, RolloutDate)");
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_WicRollout_Date' AND object_id=OBJECT_ID('WicRolloutDays')) CREATE INDEX IX_WicRollout_Date ON WicRolloutDays (RolloutDate)");
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UQ_WicRolloutWorkers_DayEmp' AND object_id=OBJECT_ID('WicRolloutWorkers')) CREATE UNIQUE INDEX UQ_WicRolloutWorkers_DayEmp ON WicRolloutWorkers (RolloutDayId, EmployeeId)");
+
     // Clear IsWicDuty on any non-WIC_DUTY row (safe: sets corrupt 1→0, never removes rows)
     var wicDutyFixed = db.Database.ExecuteSqlRaw("""
         UPDATE ShiftEntries
@@ -651,6 +694,7 @@ app.MapSickLeaveEndpoints();
 app.MapVacationEndpoints();
 app.MapPublicHolidayEndpoints();
 app.MapPipelineEndpoints();
+app.MapRolloutEndpoints();
 app.MapWicScheduleEndpoints();
 app.MapTrainingEndpoints();
 app.MapALBalanceEndpoints();

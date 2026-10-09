@@ -8,6 +8,10 @@ public class GSDContext : DbContext
     private readonly ILogger<GSDContext>? _log;
     private readonly HashSet<ShiftEntry> _manualEdits = [];
 
+    // ShiftEntries ids the ROLLOUT feature is allowed to delete in this unit of work. See
+    // AllowRolloutOwnedDelete.
+    private readonly HashSet<int> _rolloutOwnedDeletes = [];
+
     public GSDContext(DbContextOptions<GSDContext> options, ILogger<GSDContext>? log = null) : base(options) => _log = log;
 
     public bool PreserveManualShift(ShiftEntry? row, string operation)
@@ -30,6 +34,25 @@ public class GSDContext : DbContext
         row.ManualChangeNote = "Manual shift cell edit (/shifts); automatic writers must preserve this row.";
     }
 
+    /// <summary>
+    /// Explicit, narrow escape hatch for removing a ShiftEntries row the ROLLOUT feature
+    /// itself created. GuardManualShifts refuses to delete a manual row through
+    /// SaveChanges — deliberately, because every other writer must not remove a human
+    /// decision. A rollout day that is edited or deleted must remove exactly the rows
+    /// that came from it (requirement: "a change or delete of a rollout day changes only
+    /// what came from it"), so the rollout service registers those rows here first.
+    ///
+    /// It only ever accepts a row whose SourceModule is ROLLOUT, and the caller must pass
+    /// the row it actually owns. Nothing else can delete a manual row.
+    /// </summary>
+    internal void AllowRolloutOwnedDelete(ShiftEntry row)
+    {
+        if (!string.Equals(row.SourceModule, RolloutSource.Module, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"ShiftEntry {row.Id} is not rollout-owned (SourceModule='{row.SourceModule}'); refusing to delete it.");
+        _rolloutOwnedDeletes.Add(row.Id);
+    }
+
     private void GuardManualShifts()
     {
         ChangeTracker.DetectChanges();
@@ -39,6 +62,10 @@ public class GSDContext : DbContext
             var wasManual = !string.IsNullOrWhiteSpace(entry.OriginalValues.GetValue<string?>(
                 nameof(ShiftEntry.ManualChangeBy)));
             if (!wasManual || (_manualEdits.Contains(entry.Entity) && entry.State != EntityState.Deleted)) continue;
+            // Rollout-owned rows: only the explicit, SourceModule-checked registration above.
+            if (entry.State == EntityState.Deleted &&
+                string.Equals(entry.Entity.SourceModule, RolloutSource.Module, StringComparison.Ordinal) &&
+                _rolloutOwnedDeletes.Contains(entry.Entity.Id)) continue;
             _log?.LogError("Blocked unapproved {State} of manual ShiftEntry {Id}", entry.State, entry.Entity.Id);
             throw new InvalidOperationException($"Manual shift {entry.Entity.Id} cannot be overwritten or deleted by this operation.");
         }
@@ -49,6 +76,7 @@ public class GSDContext : DbContext
         GuardManualShifts();
         var result = base.SaveChanges(acceptAllChangesOnSuccess);
         _manualEdits.Clear();
+        _rolloutOwnedDeletes.Clear();
         return result;
     }
 
@@ -57,6 +85,7 @@ public class GSDContext : DbContext
         GuardManualShifts();
         var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         _manualEdits.Clear();
+        _rolloutOwnedDeletes.Clear();
         return result;
     }
 
@@ -83,6 +112,8 @@ public class GSDContext : DbContext
     public DbSet<RtmEntry>            RtmEntries           { get; set; }
     public DbSet<AppUserRole>         AppUserRoles         { get; set; }
     public DbSet<RosterBatch>         RosterBatches        { get; set; }
+    public DbSet<WicRolloutDay>       WicRolloutDays       { get; set; }
+    public DbSet<WicRolloutWorker>    WicRolloutWorkers    { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -183,6 +214,20 @@ public class GSDContext : DbContext
             // may repeat and never authenticate (AuthService requires a non-empty Kid).
             e.HasIndex(x => x.Kid).IsUnique().HasFilter("[Kid] <> ''")
              .HasDatabaseName("UX_AppUserRoles_Kid");
+        });
+        modelBuilder.Entity<WicRolloutDay>(e => {
+            // One rollout day per centre and date: a second one for the same pair would make
+            // "the hours for that centre and date" ambiguous, and the WicOpeningHours
+            // exception projection is keyed by (centre, date) too.
+            e.HasIndex(x => new { x.LocationCode, x.RolloutDate })
+             .IsUnique().HasDatabaseName("UQ_WicRolloutDays_LocDate");
+            e.HasIndex(x => x.RolloutDate).HasDatabaseName("IX_WicRollout_Date");
+            e.HasMany(x => x.Workers).WithOne(w => w.RolloutDay!)
+             .HasForeignKey(w => w.RolloutDayId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<WicRolloutWorker>(e => {
+            e.HasIndex(x => new { x.RolloutDayId, x.EmployeeId })
+             .IsUnique().HasDatabaseName("UQ_WicRolloutWorkers_DayEmp");
         });
         base.OnModelCreating(modelBuilder);
     }

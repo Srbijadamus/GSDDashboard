@@ -33,6 +33,34 @@ C:\GSDDashboard\PS1_19_FinalBuildVerify.ps1
   EF Core does not translate `Contains` over an empty collection, so an empty list
   breaks the query at runtime. Keep a sentinel entry such as `"__no_test_account__"`.
 
+## Rollout (added 2026-10-08)
+
+A **Rollout day** is one WIC centre opened on ONE date especially for new workers, with its
+own working hours. RTM enters it by hand on the `Rollout` page (Planning menu, immediately
+below `Pipeline`). Full document: **[documentation/ROLLOUT.md](documentation/ROLLOUT.md)**.
+
+- It is a **primary manual entry**. Automatic writers (roster generator, imports,
+  substitutions, startup reconciliation, closed-day cleanup) must never change, move or
+  delete a rollout day or anything created from it.
+- Stored in two NEW additive tables, `WicRolloutDays` and `WicRolloutWorkers`. No existing
+  table or column was changed; the startup migration only creates these two names.
+- The hours are applied by projecting ONE `WicOpeningHours` row with `ExceptionDate` = the
+  rollout date and `ChangeNote = 'ROLLOUT'` — the mechanism `WicHoursResolver` already
+  prefers over the weekday pattern, so coverage, WIC cards, forecast, the WIC schedule, WIC
+  Shifts and the conflict detector all honour it. `ChangeNote = 'ROLLOUT'` is the ownership
+  marker: that is the only opening-hours row this feature may rewrite or delete.
+- The workers become ordinary assignment rows (`WicShiftEntries` per employee/date/centre,
+  plus a manual `ShiftEntries` WIC_DUTY row only when the worker has none for that date).
+  A pre-existing row is **never** rewritten; a rollout only adds workers.
+- A same-day overlapping assignment elsewhere is a **warning, never a block** (same
+  `start1 < end2 && start2 < end1` rule the conflict detector uses).
+- **Pipeline stores pipeline EVENTS with free-text agent names, not workers.** There is no
+  new-hire table in this repository. The Rollout candidate list therefore flags employees
+  whose name matches a Pipeline agent name for that centre and date (`fromPipeline`) and
+  requires an explicit confirmation for anyone else. Do not assume a worker source exists.
+- User-visible text is EN/DE through i18n, like everything else. The page name is
+  "Rollout" in both languages.
+
 ## Language rule (permanent — applies to this and every future task)
 
 **Every user-visible string in Pulse is English or German only, according to the selected

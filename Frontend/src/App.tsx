@@ -14,6 +14,7 @@ import WicLocations from "./pages/WicLocations"
 import WicShifts from "./pages/WICShifts/index"
 // @ts-ignore
 import Pipeline from "./pages/Pipeline"
+import Rollout from "./pages/Rollout"
 import Training from "./pages/Training"
 import WicAttendance from "./pages/WicAttendance"
 import RemoteAttendance from "./pages/RemoteAttendance"
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="/remote-attendance" element={<OverviewErrorBoundary><RemoteAttendance /></OverviewErrorBoundary>} />
           <Route path="/wic-schedule"    element={<WicSchedule />} />
           <Route path="/pipeline"        element={<Pipeline />} />
+          <Route path="/rollout"         element={<Rollout />} />
           <Route path="/training"        element={<Training />} />
           <Route path="/wic"             element={<WicLocations />} />
           <Route path="/attendance"      element={<Attendance />} />
