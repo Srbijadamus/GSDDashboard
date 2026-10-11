@@ -1,5 +1,14 @@
 # ShiftKiosk hardening - deployment note
 
+> ## ⚠ NOT IMPLEMENTED IN CODE as of 2026-10-11
+>
+> **Wherever this note sequences a deployment behind Pulse `Auth:SupervisorMode=enforce`, that gate does
+> not exist.** `SupervisorMode` occurs **only in `documentation\` files**; no `.cs` file contains it, no
+> `appsettings*.json` contains the key, and `Backend/Services/SupervisorAuthClient.cs` does not exist.
+> Reading this note as a runbook would make a deployment look gated on supervision that is not
+> implemented. See [SECURITY_MODEL.md](./SECURITY_MODEL.md) §4 and
+> [OPEN_ITEMS_AND_RISKS.md](./OPEN_ITEMS_AND_RISKS.md) §0 / item **S14** (finding number 1).
+
 **Canonical live-state record: 2026-10-03.** Live-state and laptop results below were supplied
 by the operator; this documentation update did not recheck them or access live
 servers, databases or ports. This replaces the obsolete "nothing deployed",
@@ -20,7 +29,7 @@ Pulse authorization details are in [auth_rbac.md](auth_rbac.md).
 | Database backups | **`C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\Backup\`**; test copies also created |
 | Old kiosks | Approximately **60** still work with `legacy_key`; do not revoke/rotate the shared key now |
 | Pulse secure copy | Attendance proxy gate completed, **NOT deployed** |
-| New kiosk | `3.0.0-ng` proven on `DESKTOP-1302198`; see evidence below |
+| New kiosk | `3.0.0-ng` proven on a clean test laptop (hostname withheld); see evidence below |
 | Next stages | **dan2 and dan3 NOT applied**; Pulse build/config and supervisor preparation must come first |
 
 Do not replay the completed migrations/dan0/dan1 steps as if they were pending.
@@ -54,6 +63,12 @@ remain shadow. The old browser attendance path still exposes identifiers.
 | device_binding | shadow | shadow | shadow |
 | rate_limit | shadow | shadow | shadow |
 | anomaly_detection | shadow | shadow | shadow |
+
+> **The `device_binding` row above describes the tracked profiles only, and it is wrong about live.**
+> The live server (`C:\ShiftKiosk\server\server_config.ini`) runs `device_binding = enforce`.
+> **Owner decision 2026-10-11: the live server stays `enforce`; nothing is changed in code or
+> configuration; the profiles (`dan1.ini`, `dan2.ini`, `dan3.ini`) are the side that must be
+> corrected.** See [OPEN_ITEMS_AND_RISKS.md](./OPEN_ITEMS_AND_RISKS.md) items **S17** and **C26**.
 
 There are nine flags, no implemented `kiosk_min_data`, and profiles dan0..dan3.
 Keep device binding and rate limiting at shadow until observation supports
@@ -114,7 +129,7 @@ General RBAC remains a separate rollout; this change does not turn it on.
 
 ## Proven client result and packaging status
 
-On a clean test laptop `DESKTOP-1302198`, the operator proved the cycle
+On a clean test laptop (hostname withheld), the operator proved the cycle
 **ON_SHIFT -> PAUSE -> ON_SHIFT -> OFF**, reporting `status_log` IDs **1920..1922**,
 `client_version=3.0.0-ng`, `device_id=iNf8-aq1u50U-KGH`, and
 `sec_observation_log` `credential_type=device_token`, HTTP **200**.
@@ -133,7 +148,7 @@ The canonical client evidence/defect ledger is the NG rollout document.
 
 Code investigation: `server.py:494-498` returns MIN(agent_timestamp) unchanged,
 not server_received. Operator-supplied live evidence identifies row **1906**:
-S69307 ON_SHIFT at **2026-10-03 11:33:37.9525120 local**, received **09:33:35 UTC**,
+Operator account (KID withheld) ON_SHIFT at **2026-10-03 11:33:37.9525120 local**, received **09:33:35 UTC**,
 v2.1.1; row **1907** OFF at **11:36:21 local**. The server-resumed kiosk timer and
 dashboard Check-in / Im Dienst remain anchored to the first ON_SHIFT after OFF/ON
 cycles. This is **not a timezone defect**; intention of the shift definition is

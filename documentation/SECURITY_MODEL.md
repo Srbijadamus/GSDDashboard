@@ -153,6 +153,16 @@ started.
 
 ## 4. Supervisor sign-in — implemented on the kiosk side only, and **not wired into Pulse**
 
+> ## ⚠ NOT IMPLEMENTED IN CODE as of 2026-10-11
+>
+> **A supervisor enforcement mode is described in several documents as an operating switch, an
+> interface and a client class — none of which exists in the application code.** `SupervisorMode`
+> occurs **only in `documentation\*.md`**; no `.cs` file contains it, no `appsettings*.json` contains
+> the key, and `Backend/Services/SupervisorAuthClient.cs` does not exist. Do not set this switch and do
+> not follow a recovery procedure that depends on it. **This is finding number 1** of
+> [OPEN_ITEMS_AND_RISKS.md](./OPEN_ITEMS_AND_RISKS.md) (§0, item **S14**, and the contradiction table
+> item **C22**).
+
 This section carries a correction that matters more than anything else in this document.
 
 **What exists.** The kiosk server contains a complete, hardened supervisor credential path:
@@ -213,7 +223,7 @@ All of these live in the kiosk database. Row counts are as read on 2026-10-11.
 | `sec_recovery_codes` | 0 | Single-use recovery codes (stored hashed) | Yes |
 | `sec_user_hosts` | 76 | Which user name has been seen on which host — the data behind host/user binding decisions | Yes — user, host |
 
-**Observation decisions on 2026-10-11 (all time):** 268,952 `allow`, 13,740 `would_block`, 53 `block`.
+**Observation decisions on 2026-10-11 (all time, re-read):** 269,568 `allow`, 13,810 `would_block`, 53 `block`.
 The `would_block` figure is the one to understand: those are requests a shadow-mode rule would have
 refused and which were allowed through anyway. Reading them as blocked requests is the most common
 misinterpretation of this data.
@@ -296,42 +306,54 @@ reachable-city data is used for reachability calculations.
 
 ## 9. What is open — the unvarnished list
 
-1. **Anonymous reading on the kiosk server.** A session token can be obtained without any credential
+1. **⚠ THE MOST IMPORTANT ITEM — the supervisor enforcement mode does not exist in the code.**
+   **NOT IMPLEMENTED IN CODE as of 2026-10-11.** Several documents describe a three-state supervisor
+   enforcement switch, a provider interface and a client class; `SupervisorMode` occurs **only in
+   `documentation\*.md`**, no `.cs` file contains it, no `appsettings*.json` contains the key, and
+   `Backend/Services/SupervisorAuthClient.cs` does not exist. No supervisor accounts exist either. The
+   documented switch has **no reader**, so following the instructions would change nothing while looking
+   like a safety control had been enabled. Full statement: §4 above,
+   [OPEN_ITEMS_AND_RISKS.md](./OPEN_ITEMS_AND_RISKS.md) §0 and item **S14**.
+2. **Anonymous reading on the kiosk server.** A session token can be obtained without any credential
    and used to read history, the audit log and the exports. Closed only at the final planned profile.
-2. **Anonymous identifiers are still returned live.** The stripping rule is in shadow, so anonymous
+3. **Anonymous identifiers are still returned live.** The stripping rule is in shadow, so anonymous
    attendance and agent queries still return the very identifiers that, combined with the Pulse sign-in
    rule, constitute a working agent-level credential. This is the closure that must precede any
    enforcement of Pulse authorisation.
-3. **The shared legacy key** remains valid and is used daily by roughly sixty machines. It is
-   *also the session-token signing key*, so its effective reach is wider than its stated scope.
-4. **No supervisor accounts exist, and the Pulse side that would consume them is not implemented.** The
+4. **The shared legacy key** remains valid and is used daily by **44 computers**
+   (`sec_kiosk_registry.credential_type='legacy_key'`, 2026-10-11; 19 further computers use the new
+   device credential). It is *also the session-token signing key*, so its effective reach is wider than
+   its stated scope. It cannot be retired while the kiosk client migration — which is **in progress** —
+   is unfinished.
+5. **No supervisor accounts exist, and the Pulse side that would consume them is not implemented.** The
    documented enforcement switch has no reader in the code.
-5. **Two administrative command endpoints have no gate of their own** and are reachable while the
+6. **Two administrative command endpoints have no gate of their own** and are reachable while the
    general authorisation middleware is off.
-6. **A device-token device cannot be force-migrated:** revoking a token does not stop a legacy client,
+7. **A device-token device cannot be force-migrated:** revoking a token does not stop a legacy client,
    because the fallback key still works.
-7. **Two of the nine kiosk controls are still shadow in the plan and one is enforcing without having
-   been promoted.** The recorded live configuration sets device binding to **enforce**, while every
-   tracked profile and both canonical documents say it is still observing. A control is blocking in
-   production that the recorded promotion gate says has not been promoted — the mismatch itself is the
-   finding, whichever way it is resolved.
-8. **Rate limiting is observation-only**, and the bucket designed to protect bulk reads does not cover
+8. **Two of the nine kiosk controls are still shadow in the plan and one is enforcing without having
+   been promoted.** The recorded live configuration sets device binding to **enforce**, while the
+   tracked profile files `dan1/2/3.ini` still say it is observing. **Owner decision 2026-10-11: the live
+   server stays `enforce` and nothing is changed in code or configuration; the profiles are the side
+   that must be corrected.** A control is blocking in production that the recorded promotion gate says
+   has not been promoted — the mismatch itself is the finding, whichever way it is resolved.
+9. **Rate limiting is observation-only**, and the bucket designed to protect bulk reads does not cover
    the endpoints that return every agent's attendance and identifiers. Even enforced, it would not
    protect the largest surface.
-9. **Anomaly detection is observation-only by design**, and its alert column is never written.
-10. **A device token is not user authentication.** A local administrator can read it or bypass the
+10. **Anomaly detection is observation-only by design**, and its alert column is never written.
+11. **A device token is not user authentication.** A local administrator can read it or bypass the
     broker.
-11. **The kiosk transport is not private in transit** beyond the tunnel's TLS, and the legacy client
+12. **The kiosk transport is not private in transit** beyond the tunnel's TLS, and the legacy client
     does not verify the certificate. Cross-origin policy on the kiosk server allows any origin.
-12. **Team-lead scoping exists in the kiosk dashboard only**, not across Pulse. Every team filter in
+13. **Team-lead scoping exists in the kiosk dashboard only**, not across Pulse. Every team filter in
     Pulse is a caller-supplied parameter, not a bound scope.
-13. **No retention or deletion rule** exists for the observation log and other personal-data stores;
+14. **No retention or deletion rule** exists for the observation log and other personal-data stores;
     a used recovery code is the only row any code deletes from the security tables.
-14. **The supervisor password-change endpoint** has neither a session requirement nor lockout.
-15. **Pulse's general authorisation is off**, so on the endpoints that do not carry an always-on gate,
+15. **The supervisor password-change endpoint** has neither a session requirement nor lockout.
+16. **Pulse's general authorisation is off**, so on the endpoints that do not carry an always-on gate,
     any resolved session has full read and write rights regardless of role.
-16. **A second-factor code can be replayed** within its time step.
-17. **Default sign-in flows over plain loopback** in development, where the session cookie is
+17. **A second-factor code can be replayed** within its time step.
+18. **Default sign-in flows over plain loopback** in development, where the session cookie is
     deliberately not marked secure, and cross-origin policy is fully open.
 
 ---

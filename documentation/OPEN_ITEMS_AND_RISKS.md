@@ -42,7 +42,7 @@ document — nothing here is invented or rounded off.
 | S14 | **A documented enforcement switch does not exist in the code — THE NUMBER ONE FINDING.** Several documents instruct an operator to set a supervisor mode to off / shadow / enforce. A repository-wide search of the application finds **no reader for it**, no provider interface and no client class, and no `appsettings*.json` contains the key. Re-verified 2026-10-11: `SupervisorMode` appears only in `documentation\*.md`; `SupervisorAuthClient.cs` does not exist. The seam the documentation says Pulse uses to verify a supervisor credential is **not implemented**, and the endpoint that would serve it has no caller. An operator following those instructions would believe supervision had been enforced when nothing had changed. | **High** | Pulse code search; configuration key inventory (re-verified 2026-10-11) |
 | S1 | **Anonymous read on the kiosk server.** Anyone who can reach it can obtain a session token and read history, the audit log and the exports. Closed only at the `dan3` profile, which is not applied. | **High** | Recorded live state and the `session_auth` flag in shadow |
 | S2 | **Anonymous identifiers.** The control that strips employee ids, KIDs and e-mail addresses from anonymous responses is still in shadow. | **High** | `anon_identifiers` = shadow; six fields named in the stripper |
-| S3 | **The shared legacy key.** Still used by **44 hosts** (`sec_kiosk_registry.credential_type='legacy_key'`, 2026-10-11), readable on those machines by design, and present in git history in three early commits. The kiosk client migration is **in progress**; 19 hosts already use the new device credential. Retirement criterion: no legacy inventory for 30 days; the clock has not started because legacy clients are still sending events (438 events tagged `2.1.1` in the last 90 days). | **High** | Live `sec_kiosk_registry`; live `status_log` |
+| S3 | **The shared legacy key.** Still used by **44 hosts** (`sec_kiosk_registry.credential_type='legacy_key'`, 2026-10-11 — a further 19 hosts use the new device credential, 63 in total), readable on those machines by design, and present in git history in three early commits. The kiosk client migration is **in progress**; the legacy count is the reason the key cannot yet be retired. Retirement criterion: no legacy inventory for 30 days; the clock has not started because legacy clients are still sending events (438 events tagged `2.1.1` in the last 90 days, `status_log`). | **High** | Live `sec_kiosk_registry`; live `status_log` |
 | S4 | **Zero supervisor accounts exist.** The password + TOTP path and the break-glass recovery codes are prepared but unprovisioned, so supervisor authentication cannot be enforced. | **High** | Live `sec_accounts` = 0 rows |
 | S5 | **Device tokens are not user authentication.** A local administrator can read a token or bypass the broker — stated in the code's own comment. | Medium | Broker module comment |
 | S6 | **A credential-shape bypass exists on the kiosk server.** The identifier-stripping rule protects the attendance and agent endpoints, but an equivalent CSV export of the same agent data is reachable with a credential that anyone can mint. Read the finding as a design gap in the endpoint-by-endpoint shield, not just a missing field. | **High** | Endpoint inventory of the kiosk server |
@@ -77,7 +77,7 @@ document — nothing here is invented or rounded off.
 | D8 | **An unmanaged column dependency on the kiosk side.** One column is written by an endpoint but created by no migration in the repository; if it is absent on a fresh database the endpoint fails. | Medium | Kiosk schema inventory |
 | D9 | **A destructive startup step on the kiosk side.** When a legacy column is detected in one table, the whole table is dropped and recreated empty. The migration script is described as additive. It has not been observed to fire, but it is in the code. | Medium | Kiosk `db_init` |
 | D10 | **26 archive/backup tables live inside the production database** with no documented retention, making the table count ambiguous: **52 physical base tables = 26 application/framework tables + 26 archive/backup copies**. | Low | Live `INFORMATION_SCHEMA.TABLES`, 2026-10-11 |
-| D11 | **No retention or deletion path anywhere:** attendance events, the observation log (**283,206 rows**, `sec_observation_log`, 2026-10-11) and manual actions grow without bound. Named sickness data is a special category. | **High** | Live row counts; no cleanup code |
+| D11 | **No retention or deletion path anywhere:** attendance events, the observation log (**283,430 rows** on a re-read of `sec_observation_log` on 2026-10-11; **283,206** at the earlier reading the same day — the table grows with every request) and manual actions grow without bound. Named sickness data is a special category. | **High** | Live row counts; no cleanup code |
 | D12 | **Historical attendance is not valid evidence of individual performance.** Recorded as a data-protection position; must be honoured in any reporting built from it. | **High** | Recorded in the kiosk documentation |
 | D13 | **The kiosk client migration is in progress, not finished.** On 2026-10-11 the live registry lists 63 computers: **44 hosts on the legacy shared key** (`credential_type='legacy_key'`) and **19 hosts on the new device credential** (`credential_type='device_token'`). The legacy count is the reason the shared key cannot yet be retired. | Medium | Live `sec_kiosk_registry.credential_type`, 2026-10-11 |
 
@@ -154,8 +154,12 @@ corrected by whoever owns the kiosk repository:
 | `C:\ShiftKiosk\server\server.py` | 514 | comment: "can base the 9h AUTO_LOGOUT timer on the real shift start" |
 | `C:\ShiftKiosk\server\server.py` | 1519 | comment: "so the 9h AUTO_LOGOUT timer can be based on it instead of process start" |
 
-The live client code in use (`C:\ShiftKiosk\deploy\Files\main_kiosk.py:785`,
-`C:\ShiftKiosk\kiosk\main_kiosk.py:784`) sets `AUTO_LOGOUT_SECONDS = 11 * 3600`.
+The live client code in use sets `AUTO_LOGOUT_SECONDS = 11 * 3600`:
+`C:\ShiftKiosk\kiosk\main_kiosk.py:784` and `C:\ShiftKiosk\KIOSK_PACKAGE\Files\main_kiosk.py:784`, and the
+same value in the per-machine packages under `C:\ShiftKiosk\PAKETI\*`. The `deploy\main_kiosk.py` copies,
+by contrast, are the old ones — the two listed above — so the `deploy\` folder must not be read as the
+live client. **None of these files is changed by this task** (no code may be modified); the correction
+belongs to whoever owns the kiosk repository.
 
 ---
 

@@ -136,9 +136,11 @@ Current and planned profiles:
 | `anomaly_detection` | shadow | shadow |
 
 > **The live configuration does not match any tracked profile.** Device binding, recorded as
-> observation-only with a fourteen-day promotion gate, is **enforcing in production**. Read the live
-> file, not the profile file, before making any statement about what is blocking. Which of the two is
-> correct is a decision for the owner; leaving them disagreeing is not.
+> observation-only with a fourteen-day promotion gate, is **enforcing in production**, and it **stays
+> enforcing**: this is the owner's decision of 2026-10-11, and nothing is changed in code or
+> configuration. The tracked profiles (`dan1.ini`, `dan2.ini`, `dan3.ini`) are the side that must be
+> corrected. Read the live file, not the profile file, before making any statement about what is
+> blocking. See [OPEN_ITEMS_AND_RISKS.md](./OPEN_ITEMS_AND_RISKS.md) items **S17** and **C26**.
 
 Promotion of the shadow flags requires **14 consecutive days without a kiosk-related would-block
 event**. `rate_limit` stays in shadow until then; `anomaly_detection` is observational by design and
@@ -238,7 +240,7 @@ instance against the live database.
 | A profile is too strict | The profile tool's rollback restores the previous config backup | not code, not the database, not Pulse |
 | Bad server code | Restore the recorded code snapshot under an approved procedure | not config, not the database |
 | A schema change must be undone | Revert the dependent code first | rollback SQL is not authorised casually |
-| Supervisors cannot sign in | Break-glass, or revert the supervisor mode | does **not** disable the always-on proxy role gate |
+| Supervisors cannot sign in | Break-glass server-side, not a configuration switch | the `Auth:SupervisorMode` switch these rows name is **NOT IMPLEMENTED IN CODE as of 2026-10-11** (no reader in any `.cs` file); does **not** disable the always-on proxy role gate |
 | Pulse is broken | Restore the known-good build and configuration | reverting the supervisor mode does not turn off the proxy role gate |
 | An NG client must be removed | The uninstall batch file; the legacy client can be restored separately | an old task removed during replacement must be restored explicitly |
 

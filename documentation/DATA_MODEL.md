@@ -109,7 +109,7 @@ Live role distribution: 1 `DEV`, 2 `RTM`, 6 `TEAM_LEAD`, 0 `AGENT` rows.
 |---|---|---|---|
 | `WicLocations` | **43** (all active) | Master list of WIC centres: display name, address, city, country, coordinates, `Bundesland`, `MinAgentsRequired`, `IsNpp`, legacy code. | `LocationCode` is the canonical key used by every other WIC table |
 | `WicOpeningHours` | **417** | Opening hours per location **per weekday**, with `EffectiveFrom` date versioning and an optional second interval for split days, `IsClosed`, `MinRequired` override, and `ChangeNote`. The row with the greatest `EffectiveFrom <= date` wins. | `LocationCode` → `WicLocations` |
-| `WicAgentAssignments` | **162** (49 MAIN, 60 BACKUP, 39 REGIONAL) | Who is the MAIN / BACKUP / REGIONAL agent for which centre. | `EmployeeName` → `Employees.FullName` **by string equality** (no FK) — renaming an employee requires a manual update here |
+| `WicAgentAssignments` | **162** (52 MAIN, 70 BACKUP, 40 REGIONAL — re-read live 2026-10-11; the three parts sum to the total) | Who is the MAIN / BACKUP / REGIONAL agent for which centre. | `EmployeeName` → `Employees.FullName` **by string equality** (no FK) — renaming an employee requires a manual update here |
 | `WicPipeline` | **3** | One-off events at a centre that need extra agents: date range, title, agents required, primary/backup agent, status. | `LocationCode` → `WicLocations` |
 | `SubstitutionHistory` | **49** | Every accepted substitute assignment, with the tier that produced it (`BACKUP`/`SSP`/`WIC_DONOR`/`CALL_IN`). Read back as a 30-day fairness load count. | `EmployeeId`, `LocationCode` |
 | `VwicRotationSlots` | (rotation plans) | Time-slot assignments for Virtual WIC rotation planning. | `EmployeeId` |
@@ -183,7 +183,7 @@ Views: `vw_current_status`, `vw_shift_summary`, `vw_daily_attendance`.
 | `sec_accounts` | **0** | Supervisor accounts for the password + TOTP sign-in path: username, display name, role, KID, team leader, password algorithm/iterations/salt/hash, TOTP secret and enrolment, failed count, lock-until, active, break-glass flag, last login. **Zero accounts exist today** — the supervisor sign-in path is prepared but not provisioned. |
 | `sec_devices` | **71** (4 revoked) | One row per enrolled computer credential: device id, hostname, token **hash**, bound username, creator, last source IP, revocation. Note: `last_seen` is not populated by the device-list command, so activity must be read from `sec_observation_log`. |
 | `sec_kiosk_registry` | **63** | Inventory of computers seen by the kiosk server, with the credential type and client version they used, first/last seen, source IP and request count. This is the table that shows which clients are legacy vs NG. |
-| `sec_observation_log` | **282,745** | The high-volume observation log: one row per request with credential type, host, agent username, client version, device id, method, path, status code, decision (`allow` / `would_block` / `block`), rule id and reason. This is how flag promotion is decided. |
+| `sec_observation_log` | **283,430** (re-read 2026-10-11; 283,206 earlier the same day — it grows with every request) | The high-volume observation log: one row per request with credential type, host, agent username, client version, device id, method, path, status code, decision (`allow` / `would_block` / `block`), rule id and reason. This is how flag promotion is decided. |
 | `sec_auth_events` | **76** (71 device enrollments, 5 revocations) | Authentication lifecycle events. |
 | `sec_anomalies` | **47** | Flagged anomalies: `new_host_for_user` (23), `host_user_not_allowed` (17), `unknown_username` (7), all severity `warning`. |
 | `sec_sessions` | **0** | Server-side supervisor sessions. Unused while supervisor sign-in is not enforced. |
@@ -199,7 +199,7 @@ Read from `status_log` and `sec_kiosk_registry` on 2026-10-11:
 | Events in the last 90 days by client version | 1,435 with no version recorded, 438 × `2.1.1`, 198 × `3.0.0-ng` |
 | Registry rows by credential type | 43 hosts on the legacy key (`2.1.1`, 426 requests), 18 hosts on device tokens (`3.0.0-ng`, 39,749 requests), 1 host using the legacy key with the NG version, 1 device-token host with no version |
 | `status_log` rows carrying a `device_id` (last 90 days) | 195 of 2,071 |
-| Observation decisions (all time) | 268,952 `allow`, 13,740 `would_block`, 53 `block` |
+| Observation decisions (all time, re-read 2026-10-11) | 269,568 `allow`, 13,810 `would_block`, 53 `block` |
 
 > **Interpretation (stated, not assumed):** the NG client is handling the large majority of request
 > volume, but the legacy 2.1.1 clients are still active and still authenticate with the shared legacy

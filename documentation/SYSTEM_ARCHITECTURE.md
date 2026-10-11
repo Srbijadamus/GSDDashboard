@@ -337,7 +337,7 @@ Newest-row-wins rule means this affects history, not the current status.
 | **Real-time** | Pulse has **no WebSocket at all** and polls (60 s for kiosk data, 30 s for WIC Shifts and breaks, 10 min for the forecast). The kiosk dashboard does use a WebSocket with a 60-second polling fallback. |
 | **Manual edits** | A manual marker plus a save-time guard plus concurrency tokens. If any automatic writer misses its check, the guard throws instead of silently overwriting. Full rules in [ROSTER_AND_SCHEDULING.md](./ROSTER_AND_SCHEDULING.md). |
 | **Reversibility** | Roster batches snapshot what they overwrite; the deploy keeps code/config/import rollback snapshots; flag, code, schema and application rollbacks are four separate operations. |
-| **Observability** | A watchdog per service, an independent 5-minute health check per port, an append-only deploy sentinel, and — on the kiosk side — a per-request observation log of 282,745 rows. |
+| **Observability** | A watchdog per service, an independent 5-minute health check per port, an append-only deploy sentinel, and — on the kiosk side — a per-request observation log of 283,430 rows (re-read 2026-10-11). |
 | **Backup** | SQL backups to the instance's default folder, verified; a database backup is not the same as a code snapshot and neither is a rollback. |
 
 ---
@@ -353,8 +353,10 @@ Newest-row-wins rule means this affects history, not the current status.
 3. **Anonymous read path on the kiosk server.** The session token that the kiosk dashboard needs is
    issued without authentication, and it can still read history, audit and exports. Closing it is the
    remaining `dan3` step, not a completed control.
-4. **A shared legacy key with roughly sixty dependants.** The retirement criterion is "no legacy
-   inventory for 30 days", and the legacy clients are still sending events.
+4. **A shared legacy key with 44 dependants** (`sec_kiosk_registry.credential_type='legacy_key'`,
+   read live 2026-10-11; 19 further computers already use the new device credential, 63 seen in total —
+   the kiosk client migration is **in progress**). The retirement criterion is "no legacy inventory for
+   30 days", and the legacy clients are still sending events.
 5. **Archive tables inside the live database.** 26 of the 52 tables are point-in-time copies with no
    documented retention. Any statement of "how many tables" must say which count it means.
 6. **Session-optional manual stamping.** Three WIC write routes and the rollout routes fall back to a

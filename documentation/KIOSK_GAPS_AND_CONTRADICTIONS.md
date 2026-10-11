@@ -145,7 +145,7 @@ real column lists.
 | | |
 |---|---|
 | **Docs say** | `auth_rbac.md` § "Where roles live" lists the six `TEAM_LEAD` rows as placeholders with `Kid = ''` and `IsActive = 0`, which "can never authenticate". |
-| **Database says** | `AppUserRoles` now holds **9 active rows with real KIDs**: `S69307` DEV, `S60028` + `Y6525` RTM, and all six team leads (`T31561`, `M73784`, `O7164`, `K33261`, `I15078`, `J51904`) active. |
+| **Database says** | `AppUserRoles` now holds **9 active rows with real KIDs** — one DEV, two RTM and all six team leads. (The concrete KIDs are personal data and are withheld here; the live table and the seeding script are the authoritative record.) |
 | **Verdict** | **The database is correct; `auth_rbac.md` is stale.** It matters operationally: the deploy note creates one supervisor account per real KID, so the count is 9, not 3. |
 
 ### New finding — the schema script targets production regardless of `-d`

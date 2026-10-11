@@ -208,7 +208,8 @@ use; an off-roster check-in has no rostered shift to be late for.
 
 **Excluded accounts.** `TEST_EMPLOYEE_IDS` (frontend) and
 `GSDDashboard.API.Services.TestAccounts.ExcludedEmployeeIds` (backend) hold the same list —
-currently `9074466` (DEMO / Stojnic Nebojsa, a DEV account). Unattended test events remain
+currently the developer's own DEMO / DEV employee record (employee id and name withheld here —
+see `TestAccounts.ExcludedEmployeeIds` in the source). Unattended test events remain
 excluded from attendance, and roster/cards/coverage/forecast/briefing always exclude
 this account. Owner-authorized 2026-10-05 exception: a kiosk event with the server's
 `Manual check-in by ...` or `Manual logout by ...` audit note is visible in global

@@ -225,8 +225,9 @@ the hard ones make a shift invalid.
 
 **Break deduction:** a shift longer than 6 hours is treated as net gross-minus-one-hour. This is
 applied **only to the weekly total (R3)**; the daily maximum and the rest rule use gross hours. The
-code comment in the model claims the deduction is applied to the 9-hour daily span as well — that
-comment is stale.
+code comment that introduces the deduction (`Backend/ShiftValidationService.cs:129`) sits in the middle
+of the validator and does not say which totals it feeds, so it reads as if the deduction applied to
+every total — that reading is stale, and the live behaviour is the weekly-only one above.
 
 **Two real limitations of these rules**, both verifiable:
 

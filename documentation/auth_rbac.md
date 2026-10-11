@@ -1,5 +1,15 @@
 # Auth & RBAC — KID-only login and role-based access control
 
+> ## ⚠ NOT IMPLEMENTED IN CODE as of 2026-10-11
+>
+> **Every `SupervisorMode` setting described on this page — `off`, `shadow`, `enforce` — has no reader
+> in the application code.** A repository-wide search finds `SupervisorMode` **only in `documentation\`
+> files**; no `.cs` file contains it, no `appsettings*.json` contains the key, and
+> `Backend/Services/SupervisorAuthClient.cs` does not exist. The sign-in model and the settings table
+> below are **historical preparation**, not available functionality. **Do not use this page as a
+> runbook.** Current state: [SECURITY_MODEL.md](./SECURITY_MODEL.md) §4 and
+> [OPEN_ITEMS_AND_RISKS.md](./OPEN_ITEMS_AND_RISKS.md) §0 / item **S14** (finding number 1).
+
 **Current proxy-only candidate (2026-10-04):** production sign-in is the live
 KID-only implementation, unchanged. The earlier supervisor password/TOTP
 implementation described later on this page was removed from this candidate;
@@ -55,19 +65,21 @@ CREATE TABLE AppUserRoles (
 CREATE UNIQUE INDEX UX_AppUserRoles_Kid ON AppUserRoles (Kid) WHERE Kid <> '';
 ```
 
-Seeded at startup (idempotent) — verified 2026-09-21:
+Seeded at startup (idempotent) — verified 2026-09-21. **The concrete KIDs, employee ids and display
+names are deliberately not reproduced here** (personal data); the authoritative copy is the seeding
+script `PS1_Seed_AppUserRoles.ps1` and the live `AppUserRoles` table:
 
 | Kid    | Role      | EmployeeId | DisplayName         | IsActive |
 |--------|-----------|-----------|---------------------|----------|
-| S69307 | DEV       | 9074466   | Stojnic Nebojsa     | 1 |
-| S60028 | RTM       | NULL      | Silvija Angelova    | 1 |
-| Y6525  | RTM       | NULL      | Yiting Qiang        | 1 |
-| (empty)| TEAM_LEAD | NULL      | Tobias Rossberg     | 0 |
-| (empty)| TEAM_LEAD | NULL      | Delia Panaitescu    | 0 |
-| (empty)| TEAM_LEAD | NULL      | Oliver Schleusen    | 0 |
-| (empty)| TEAM_LEAD | NULL      | Karlo Coric         | 0 |
-| (empty)| TEAM_LEAD | NULL      | Ion Ciuceanu        | 0 |
-| (empty)| TEAM_LEAD | NULL      | Jaroslaw Brzeszkiewicz | 0 |
+| `<DEV KID>` | DEV       | `<employee id>`   | `<developer>`     | 1 |
+| `<RTM KID 1>` | RTM       | NULL      | `<RTM>`           | 1 |
+| `<RTM KID 2>` | RTM       | NULL      | `<RTM>`           | 1 |
+| (empty)| TEAM_LEAD | NULL      | `<team lead>`       | 0 |
+| (empty)| TEAM_LEAD | NULL      | `<team lead>`       | 0 |
+| (empty)| TEAM_LEAD | NULL      | `<team lead>`       | 0 |
+| (empty)| TEAM_LEAD | NULL      | `<team lead>`       | 0 |
+| (empty)| TEAM_LEAD | NULL      | `<team lead>`       | 0 |
+| (empty)| TEAM_LEAD | NULL      | `<team lead>`       | 0 |
 
 The six TEAM_LEAD rows are placeholders: `Kid = ''` + `IsActive = 0` means they
 **can never authenticate**. When a team lead's real KID arrives:
@@ -154,7 +166,7 @@ general-RBAC rollout, not authorization to run live operations now.
    (`PS1_Seed_AppUserRoles.ps1`).
 2. **(done)** Backend smoke test on a spare port with `Auth__EnforceAuthorization=true`:
    24/24 checks pass (`PS1_AuthSmokeTest.ps1 -BaseUrl http://localhost:5050`).
-3. **(next, deploy)** Deploy normally; log in with S69307 over BOTH
+3. **(next, deploy)** Deploy normally; log in with the developer account over BOTH
    `https://<devtunnel>` and `http://localhost:5000` — re-run
    `PS1_AuthSmokeTest.ps1 -BaseUrl <url>` against both.
 4. **(only then)** Set `"Auth": { "EnforceAuthorization": true }` in
@@ -173,12 +185,14 @@ the app — you can never be locked out of your own machine:
 
 ```sql
 -- sqlcmd -S localhost\SQLEXPRESS -d GSDDashboard -i recovery.sql
-IF NOT EXISTS (SELECT 1 FROM AppUserRoles WHERE Kid = 'S69307')
-    INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
-    VALUES ('S69307', 'DEV', '9074466', 'Stojnic Nebojsa', 1);
+-- Revives the existing DEV account WITHOUT reproducing its KID or display name here.
+-- If no DEV row exists, insert one with the operator's own KID, employee id and name.
+IF EXISTS (SELECT 1 FROM AppUserRoles WHERE Role = 'DEV')
+    UPDATE AppUserRoles SET IsActive = 1, UpdatedAt = SYSUTCDATETIME()
+    WHERE Role = 'DEV';
 ELSE
-    UPDATE AppUserRoles SET Role = 'DEV', IsActive = 1, UpdatedAt = SYSUTCDATETIME()
-    WHERE Kid = 'S69307';
+    INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
+    VALUES ('<DEV KID>', 'DEV', '<employee id>', '<developer>', 1);
 ```
 
 If enforcement itself is the problem, set `"Auth": { "EnforceAuthorization": false }`
@@ -240,15 +254,19 @@ true.** Read from the live `AppUserRoles` on 2026-10-02 (read-only): there are
 
 | Kid | Role | DisplayName |
 |---|---|---|
-| S69307 | DEV | Stojnic Nebojsa |
-| S60028 | RTM | Silvija Angelova |
-| Y6525 | RTM | Yiting Qiang |
-| T31561 | TEAM_LEAD | Tobias Rossberg |
-| M73784 | TEAM_LEAD | Delia Panaitescu |
-| O7164 | TEAM_LEAD | Oliver Schleusen |
-| K33261 | TEAM_LEAD | Karlo Coric |
-| I15078 | TEAM_LEAD | Ion Ciuceanu |
-| J51904 | TEAM_LEAD | Jaroslaw Brzeszkiewicz |
+| `<DEV KID>` | DEV | `<developer>` |
+| `<RTM KID 1>` | RTM | `<RTM>` |
+| `<RTM KID 2>` | RTM | `<RTM>` |
+| `<TEAM_LEAD KID 1>` | TEAM_LEAD | `<team lead>` |
+| `<TEAM_LEAD KID 2>` | TEAM_LEAD | `<team lead>` |
+| `<TEAM_LEAD KID 3>` | TEAM_LEAD | `<team lead>` |
+| `<TEAM_LEAD KID 4>` | TEAM_LEAD | `<team lead>` |
+| `<TEAM_LEAD KID 5>` | TEAM_LEAD | `<team lead>` |
+| `<TEAM_LEAD KID 6>` | TEAM_LEAD | `<team lead>` |
+
+**The real KIDs and names are not reproduced in this document set.** They are personal data. The list
+above preserves the shape (one developer, two RTM, six team leads); the concrete values live in the
+live `AppUserRoles` table and in the seeding script.
 
 This is why `tools/create_supervisors.ps1` creates **nine** accounts, not three.
 
@@ -321,7 +339,7 @@ startup migrations. Preserve the existing deployment-note/runbook edits.
 No live deployment, restart, SQL, or kiosk profile change is part of this fix.
 
 One focused HTTP regression test uses real `gsd_auth` cookies, the production
-endpoint mapper and `RbacMiddleware` on **127.0.0.1:5056**, with an in-memory
+endpoint mapper and `RbacMiddleware` on a **loopback port**, with an in-memory
 kiosk stub and ephemeral cookie keys. It verifies anonymous 401 (no proxy call),
 all three supervisor roles 200 with unchanged JSON and query forwarding, and
 AGENT/missing/unknown roles 403, with the RBAC flag both false and true.

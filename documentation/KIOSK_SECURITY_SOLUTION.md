@@ -258,7 +258,8 @@ Now join that to the kiosk server: **`GET /api/attendance` requires no credentia
 `GET /api/agents` (also unauthenticated) additionally exposes `primary_kid` /
 `secondary_kid` via `SELECT *` if those columns hold data, which would satisfy rule (b) and
 — if any `AppUserRoles` KID appears there — rule (a) at **DEV or RTM** level
-(`auth_rbac.md` seeds `S69307`=DEV, `S60028`/`Y6525`=RTM). Whether they hold data is
+(the `auth_rbac.md` seed list, whose concrete KIDs are withheld there as personal data — one DEV and
+two RTM accounts). Whether they hold data is
 **NOT FOUND**: `import_agents_from_excel` maps only `emp id`, `name`, `team leader`,
 `location`, `engagement`, `windows_username` (`server.py:782-787`) and never writes the KID
 columns. A separate path may: `sync_shiftkiosk_agents.ps1:179` notes *"Agenti ciji je ID

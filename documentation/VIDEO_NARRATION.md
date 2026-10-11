@@ -1,260 +1,204 @@
 # VIDEO_NARRATION — full voice-over script
 
-**Prepared 2026-10-11.** This is the complete narration for the whiteboard explainer described in
-[VIDEO_BRIEF.md](./VIDEO_BRIEF.md). It is written to be read aloud, slowly and plainly. Read the words
-as they are; the drawing happens beside the voice, it is not described in the text.
+**Prepared 2026-10-11.** This is the complete spoken script for the whiteboard explainer described in
+[VIDEO_BRIEF.md](./VIDEO_BRIEF.md). It is written to be **read aloud**: short sentences, one idea at a
+time, plain words. The drawing happens beside the voice — the text does not describe the drawing, so the
+narrator never has to say "as you can see".
 
 **How to read it**
 
-- One scene at a time. Pause after each scene while the drawing finishes.
-- Short sentences. Breathe at the full stops.
-- Never say a person's name, a user name, a computer name or a network address. If a number appears
-  below, it was read from the live systems on 2026-10-11 and it names the system it belongs to.
-- The two agent lists are different. Say "the workforce application" or "the kiosk" every time.
+- Read one scene at a time. Pause after each scene while the drawing finishes.
+- Breathe at the full stops. Do not hurry.
+- The only numbers spoken are two rules — eleven hours of rest, and eleven hours before a kiosk session
+  closes itself — plus one date in the holiday example and one date in the code-search scene. Nothing
+  else is counted aloud.
+- Never say a real person's name, a user name, an employee number, a computer name or a network address.
+  The people in the story are invented, and they have first names only.
+- The workforce application and the kiosk are two different systems. Whenever both are mentioned, say
+  which one you mean.
+
+Target length: three to five minutes at a calm pace.
 
 ---
 
-## Scene 1 — The four questions
+## Scene 1 — Monday, seven in the morning
 
-Before this system, four simple questions were hard to answer.
+It is Monday morning, just after seven.
 
-Who works where today?
+Anna is the planner. She has a calendar and a question she has been asked a hundred times.
 
-Is every customer centre covered?
+Who is working where today? And who has not turned up?
 
-Who is off sick?
-
-And who has actually turned up?
-
-Four questions. Four different people. Four different answers.
-
-The problem was never effort. The problem was that nobody had one shared picture.
+For a long time, no single place held both answers.
 
 ---
 
-## Scene 2 — Two systems, one goal
+## Scene 2 — One plan, one truth
 
 Today there are two systems.
 
-The first one plans the work. It is called WorkForce Pulse.
+One plans the work: the workforce application.
 
-The second one records what really happened. It is called ShiftKiosk.
+One records what really happened: the kiosk.
 
-They are separate products, with separate databases.
+Separate products. Separate lists of people.
 
-They meet in exactly one place: the employee.
-
----
-
-## Scene 3 — The plan is generated, not typed
-
-A planner creates a whole roster in one action.
-
-The system follows each centre's own opening hours.
-
-It skips weekends and public holidays.
-
-And it shows a preview before it saves anything.
-
-So the plan is made by a rule. That is why it is consistent, and that is why it is fast.
+And they meet in one place only. Not a building. The employee.
 
 ---
 
-## Scene 4 — The plan is complete
+## Scene 3 — Anna builds a fortnight
 
-On the eleventh of October, the workforce application had one hundred and twenty-two active employees.
+So Anna builds the plan. Not cell by cell. She generates it, in one action.
 
-All one hundred and twenty-two of them had a shift in the next fourteen days.
+The system reads each centre's own opening hours. Augsburg. Essen. Quickborn. And the others.
 
-One hundred and twenty-two out of one hundred and twenty-two.
+We are not putting a number on the board. The point is not how many. The point is that the plan comes
+from a rule, so it comes out the same way every time.
 
-That is not luck. It is the result of the roster generator, plus a warning on the front page that
-shows when somebody is missing from the plan.
-
----
-
-## Scene 5 — Coverage before the customer feels it
-
-Every WIC centre is checked continuously.
-
-There are forty-three of them: forty-one in Germany and two in the Netherlands.
-
-Each centre is classified as covered, partly covered, uncovered, or closed.
-
-When a centre is at risk, it is shown before it becomes a customer problem.
-
-And it comes with a ranked list of people who could fill the gap.
+She sees a preview, then confirms it.
 
 ---
 
-## Scene 6 — How attendance is captured
+## Scene 4 — The rules are already in the plan
 
-On the agent's own laptop, a small program shows four choices.
+This is the part that matters.
 
-Start the shift. Take a break. Report an emergency. Finish.
+The generator does not invent working days. It follows each centre's pattern. Weekends are not working
+days. Holidays are not working days.
 
-If the network is down, the events wait in a queue on the laptop.
+So the rules are not a checklist to remember. They are already inside the plan.
 
-Nothing is lost. When the connection returns, the queue is sent.
-
-And a shift closes automatically after eleven hours.
-
----
-
-## Scene 7 — Where the two systems meet
-
-The attendance page puts expectation next to reality.
-
-On one side: who was expected to work, from the plan.
-
-On the other side: who actually checked in, from the kiosk.
-
-The page shows the difference in both directions.
-
-And it always matches people by employee, never by the name of a place.
-
-That one rule is what makes the comparison trustworthy.
+And if Anna does not like the result, she can undo the whole run.
 
 ---
 
-## Scene 8 — A human decision is protected
+## Scene 5 — A holiday is not the same everywhere
 
-When a person changes a shift, the change carries their mark and the time it was made.
+Watch this, because it surprises people.
 
-Automatic jobs are not allowed to overwrite it.
+The sixth of January. In Augsburg, in Bavaria, that is a holiday. The centre is closed.
 
-A generator, an import, a cleanup — each one checks first, and each one fails loudly if it tries.
+The same day in Essen, in North Rhine-Westphalia, is an ordinary working day.
 
-So a human decision cannot be silently undone.
+Same date. Different federal state. Different answer.
 
----
-
-## Scene 9 — The two agent lists
-
-Here is something to be careful about.
-
-The workforce application has one hundred and twenty-two active employees. That list lives in the Pulse
-database, in the employees table, with one hundred and twenty-eight rows in total.
-
-The kiosk has its own list. It has one hundred and twenty-three active agents, in one hundred and
-thirty-nine rows. Those agents are grouped as WIC, sixty-two; Voice, thirty-two; Virtual WIC, four;
-Back Office, twenty-five; and none left unclassified.
-
-Same people, two different systems.
-
-So when you say a number, always say which system you mean.
+And the system knows, because it looks at where the centre is.
 
 ---
 
-## Scene 10 — The security story: what was found and fixed
+## Scene 6 — The plan is checked before it is saved
 
-In early October, a review found a real problem.
+Anna makes one change by hand.
 
-The kiosk server published every agent's employee number on an address that asked for no credential at
-all.
+The system stops her. Not with a warning she can click away. It refuses.
 
-And the workforce application accepted a bare employee number as a sign-in.
-
-Together, those two facts let anyone who could reach the kiosk server sign in as an agent.
-
-It was bounded to agent level. It was never an administrator and never a team lead.
-
-Both halves are now closed.
-
-The workforce application reaches kiosk data only through its own authenticated proxy. And the kiosk
-server's shared key can no longer be used on the session addresses, and a session credential can no
-longer write attendance.
-
-The agents had to do nothing.
+A shift that breaks a working-time rule is not saved. The system says which rule. Anna moves the shift
+until it fits.
 
 ---
 
-## Scene 11 — The security story: what is still open
+## Scene 7 — Eleven hours of rest
 
-We also have to say what is still open.
+Here is the rule people remember.
 
-A session credential can still be obtained from the kiosk server without signing in, and it can still be
-used to read attendance history, the audit log and the exports.
+Between two shifts, a person must have at least eleven hours of rest.
 
-The shared legacy key is still used every day by forty-four computers.
+If a shift ends at ten in the evening, the next one cannot start at seven the next morning. That is only
+nine hours.
 
-And there is no retention rule for the attendance data and the observation data, which includes
-sickness information. The observation log holds two hundred and eighty-three thousand two hundred and
-six rows, and it grows with every request.
-
-We do not claim there is no risk here. We say exactly where the risk is.
+The system blocks it, and tells her the real gap. She moves the start to nine. Then it saves.
 
 ---
 
-## Scene 12 — Finding number one: the supervisor switch that does not exist
+## Scene 8 — The gap is seen before the customer feels it
 
-This is the most important thing in this video.
+Now it is afternoon. Anna is not typing. She is watching.
 
-Several documents describe a supervisor sign-in switch. They tell an operator to set it to off, or to
-shadow, or to enforce.
+Every centre is checked again and again. Green means covered. Amber means partly. Red means nobody is
+there.
 
-That switch is not implemented in the code as of the eleventh of October.
+One pin turns red. And the system shows her people who could fill it, ranked, best fit first.
 
-There is no such setting in any source file and no such setting in the configuration. The part that
-would connect the workforce application to the kiosk's supervisor check does not exist. And nothing in
-the running application reads it, so it cannot be switched on.
-
-An operator who follows those instructions would believe supervision had been switched on, when nothing
-had changed.
-
-So please do not follow those instructions. The documents are wrong, and the correct behaviour today is
-to leave the switch alone.
+The customer never notices there was a problem.
 
 ---
 
-## Scene 13 — Device binding: live state versus the profile files
+## Scene 9 — What really happened
 
-One more honest point.
+Meanwhile, at the centre, Murat starts his day.
 
-On the live kiosk server, device binding is enforcing. It blocks.
+A small program on the counter laptop, with a choice of big buttons. Start. Break. Emergency. End.
 
-Device binding ties a credential to one computer and one user, and it rejects an unknown computer.
+If the network is down, he presses the button anyway. The event waits in a queue and goes out later.
 
-But the tracked profile files still record it as observing only.
-
-The live server is the authority. The documents are behind reality, and that difference has to be
-settled by the owner.
+And if somebody forgets to sign off? After eleven hours, the session closes itself.
 
 ---
 
-## Scene 14 — The migration is in progress
+## Scene 10 — Planned and actual, side by side
 
-The kiosk client is being replaced.
+On Tuesday, Anna opens the attendance page.
 
-The server has seen sixty-three computers.
+On the left, who was expected. On the right, who checked in.
 
-Forty-four of them still use the old shared key.
+The two sides do not always match. That is why the page exists.
 
-Nineteen of them already use the new device credential.
-
-So the migration is real, but it is not finished. That is why we say "migration in progress".
-
-No rounding. No guessing. Just the count from the live registry.
+And they are compared by employee — never by the name of the building. A comparison built on spelling
+would lie to her.
 
 ---
 
-## Scene 15 — What happens next
+## Scene 11 — A person's decision outranks the machine
 
-So what happens next?
+One more thing Anna relies on.
 
-One. Make the supervisor sign-in documents match reality, so nobody acts on a switch that does nothing.
+When she changes a shift, her change carries her name and the time.
 
-Two. Record the live device-binding state, so the profile files and the server agree.
+After that, no automatic job may overwrite it. Not the roster run. Not an import. Not the nightly
+cleanup.
 
-Three. Provision the supervisor accounts and prove the recovery path.
-
-Four. Finish the client migration.
-
-Five. Agree a retention rule for attendance and observation data.
-
-The system is in daily use, and the plan is complete. The work that remains is finishing security, and
-making the documents true. That is the right order for a system people now depend on.
+They are not asked to be careful. The system refuses them.
 
 ---
 
-**End of narration.**
+## Scene 12 — The switch that is not connected
+
+Now the part we must say clearly.
+
+Several of our documents describe a supervisor sign-in switch. They tell an operator to set it.
+
+We searched the code on the eleventh of October. That switch is not implemented in code.
+
+Nothing reads it. There is no setting for it. The piece that would connect it does not exist.
+
+So please: do not treat those instructions as a procedure. An operator could follow them, believe
+supervision was on, and nothing would have changed.
+
+---
+
+## Scene 13 — Closing the loop
+
+We also want to be straight about what is finished and what is not.
+
+Finished: the exposure we found in October is closed on both sides. A human decision is protected.
+
+Not finished: the old shared key is still in daily use, because the client replacement is still in
+progress. A session can still be obtained without signing in. And we have not agreed how long the data
+is kept.
+
+---
+
+## Scene 14 — One more Monday, later
+
+So. One more Monday.
+
+The same desk. The same lamp. The same calendar.
+
+But now Anna has one screen, one picture, and one answer she trusts. The map is green where it should
+be. One amber pin is already being handled.
+
+The questions from this morning are gone.
+
+What is left is not new features. It is finishing what is already in motion — and making the documents
+tell the truth.

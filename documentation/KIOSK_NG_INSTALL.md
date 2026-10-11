@@ -7,8 +7,8 @@ installation, code/token ACLs, per-user logs, old-client removal and rollback.
 
 Current secure-copy installer requires no requests/pip/shared vendor, gives the
 UI Limited privileges, uses protected code and a separate NG public shortcut.
-It has **not** been tested on a clean machine. The original DESKTOP-1302198
-cycle is proven; no new clean-machine result, hotkey test or live deployment
+It has **not** been tested on a clean machine. The original clean-test-laptop
+cycle is proven (hostname withheld); no new clean-machine result, hotkey test or live deployment
 is claimed.
 
 Live state and server/Pulse ordering are maintained in
