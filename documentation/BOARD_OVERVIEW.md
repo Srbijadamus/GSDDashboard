@@ -81,7 +81,7 @@ Two products, deliberately separate.
 
 - **WorkForce Pulse plans the work.** A planner generates a person's roster in one action, using each
   centre's own opening hours; the system skips weekends and public holidays, shows a preview before it
-  writes, and keeps a snapshot so the run can be undone. Coverage is classified continuously as covered,
+  writes, and keeps a snapshot so the run can be undone. Coverage is classified on demand as covered,
   partly covered, uncovered or closed. Sickness and annual leave are entered once and applied to the plan
   automatically. A back-office list, a bulk one-day entry tool, a training scheduler and a central export
   complete the picture. An in-app assistant answers questions from this system's own data — **no external
@@ -135,15 +135,15 @@ less than eleven hours of rest, or that would break the daily, weekly or consecu
 says which rule was broken. Some rules are hard blocks; a few, such as work on a Sunday or a public
 holiday, are warnings the planner may accept deliberately.
 
-**Afternoon.** The planner watches coverage rather than typing. Centres are classified continuously; a
+**Afternoon.** The planner watches coverage rather than typing. Centres are classified on demand; a
 centre that is short turns amber or red early, and the screen offers ranked people who could fill it. The
 customer never sees the gap.
 
-**During the shift.** At the centre, an agent presses one of four buttons on the counter laptop: start,
-break, emergency, end. If the network is down, the event waits in a queue and is sent later. If the
-agent forgets to sign off, the session closes itself after eleven hours.
+**During the shift.** At the centre, an agent presses one of the big buttons on their own laptop: start,
+break, sick leave, emergency, end. If the network is down, the event waits in a queue and is sent later.
+If the agent forgets to sign off, the session closes itself after eleven hours.
 
-**Next day.** The team lead opens the attendance page: who was expected on the left, who checked in on
+**Next day.** The planner opens the attendance page: who was expected on the left, who checked in on
 the right, matched by employee. Where the two disagree, that is exactly what the page is for.
 
 **Holidays in that day.** A holiday is a property of the **centre's federal state**, not of the date

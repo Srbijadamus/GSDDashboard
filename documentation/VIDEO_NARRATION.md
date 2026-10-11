@@ -21,186 +21,125 @@ Target length: three to five minutes at a calm pace.
 
 ---
 
-## Scene 1 — Monday, seven in the morning
+## Scene 1 — Monday morning
 
-It is Monday morning, just after seven.
-
-Anna is the planner. She has a calendar and a question she has been asked a hundred times.
-
-Who is working where today? And who has not turned up?
-
-For a long time, no single place held both answers.
+It is Monday, just after seven.
+Anna plans the shifts. Every morning she gets the same two questions.
+Who is working where today? And who is missing?
+For a long time, there was no single place with both answers.
 
 ---
 
-## Scene 2 — One plan, one truth
+## Scene 2 — Two systems, one picture
 
-Today there are two systems.
-
-One plans the work: the workforce application.
-
-One records what really happened: the kiosk.
-
-Separate products. Separate lists of people.
-
-And they meet in one place only. Not a building. The employee.
+Now there are two systems that work together.
+Pulse plans the work.
+The kiosk records what really happens.
+Put them side by side, and Anna sees the whole day.
 
 ---
 
-## Scene 3 — Anna builds a fortnight
+## Scene 3 — Building the plan
 
-So Anna builds the plan. Not cell by cell. She generates it, in one action.
-
-The system reads each centre's own opening hours. Augsburg. Essen. Quickborn. And the others.
-
-We are not putting a number on the board. The point is not how many. The point is that the plan comes
-from a rule, so it comes out the same way every time.
-
-She sees a preview, then confirms it.
+Anna does not type the plan cell by cell. She creates it in one step.
+Pulse reads the opening hours of each centre. Augsburg. Essen. Quickborn. And all the others.
+She checks a preview, and confirms.
+If she does not like the result, she can undo the whole run.
 
 ---
 
-## Scene 4 — The rules are already in the plan
+## Scene 4 — Only when the centre is open
 
-This is the part that matters.
-
-The generator does not invent working days. It follows each centre's pattern. Weekends are not working
-days. Holidays are not working days.
-
-So the rules are not a checklist to remember. They are already inside the plan.
-
-And if Anna does not like the result, she can undo the whole run.
+The plan only puts people where a centre is actually open.
+A closed centre is a closed centre. A holiday is not a working day.
+Anna does not have to remember this. It is built in.
 
 ---
 
 ## Scene 5 — A holiday is not the same everywhere
 
-Watch this, because it surprises people.
-
-The sixth of January. In Augsburg, in Bavaria, that is a holiday. The centre is closed.
-
-The same day in Essen, in North Rhine-Westphalia, is an ordinary working day.
-
-Same date. Different federal state. Different answer.
-
-And the system knows, because it looks at where the centre is.
+This one surprises people.
+The sixth of January. In Augsburg, in Bavaria, it is a public holiday. The centre is closed.
+The same day in Essen, in North Rhine-Westphalia, is a normal working day.
+Same date. Different state. Different answer.
+Pulse knows, because it knows where each centre is.
 
 ---
 
-## Scene 6 — The plan is checked before it is saved
+## Scene 6 — Checked before it is saved
 
-Anna makes one change by hand.
-
-The system stops her. Not with a warning she can click away. It refuses.
-
-A shift that breaks a working-time rule is not saved. The system says which rule. Anna moves the shift
-until it fits.
+Now Anna changes one shift by hand.
+Pulse checks it against German working-time law before it saves anything.
+Some rules simply stop the change. Others warn her, and she decides.
+Either way, she sees exactly which rule it is.
 
 ---
 
 ## Scene 7 — Eleven hours of rest
 
-Here is the rule people remember.
-
-Between two shifts, a person must have at least eleven hours of rest.
-
-If a shift ends at ten in the evening, the next one cannot start at seven the next morning. That is only
-nine hours.
-
-The system blocks it, and tells her the real gap. She moves the start to nine. Then it saves.
+Here is the rule everyone knows.
+Between two shifts, a person needs at least eleven hours of rest.
+A shift ends at ten in the evening. The next one is planned for seven in the morning. That is only nine hours.
+Pulse does not save it. Anna moves the start to nine. Now it saves.
 
 ---
 
-## Scene 8 — The gap is seen before the customer feels it
+## Scene 8 — Seeing the gap early
 
-Now it is afternoon. Anna is not typing. She is watching.
-
-Every centre is checked again and again. Green means covered. Amber means partly. Red means nobody is
-there.
-
-One pin turns red. And the system shows her people who could fill it, ranked, best fit first.
-
-The customer never notices there was a problem.
+In the afternoon, Anna looks at coverage.
+Green means a centre is covered. Amber means partly. Red means nobody is there.
+One centre turns red.
+Pulse suggests who could step in, best match first. Anna picks one, and the gap is closed.
 
 ---
 
-## Scene 9 — What really happened
+## Scene 9 — What really happens
 
-Meanwhile, at the centre, Murat starts his day.
-
-A small program on the counter laptop, with a choice of big buttons. Start. Break. Emergency. End. And
-while the session is open, it holds the Windows keys, so nobody wanders off the screen by mistake.
-
-If the network is down, he presses the button anyway. The event waits in a queue and goes out later, by
-itself.
-
-And if somebody forgets to sign off? After eleven hours, the session closes itself.
+Meanwhile, Murat starts his day on his laptop.
+The kiosk shows a few large buttons: start, break, sick leave, emergency. Once the shift is running, one more button ends it.
+While it is open, it holds the Windows keys, so the screen cannot be closed by accident.
+If the network is down, he presses the button anyway. The kiosk keeps it and sends it later, on its own.
+And if someone forgets to sign off? After eleven hours, the kiosk closes the shift by itself.
 
 ---
 
-## Scene 10 — Planned and actual, side by side
+## Scene 10 — Planned and actual
 
 On Tuesday, Anna opens the attendance page.
-
-On the left, who was expected. On the right, who checked in.
-
-The two sides do not always match. That is why the page exists.
-
-And they are compared by employee — never by the name of the building. A comparison built on spelling
-would lie to her.
+On one side, who was planned. On the other, who actually checked in.
+They do not always match. That is exactly why this page exists.
+Every person is matched by their own record, not by a typed name, so the comparison stays honest.
 
 ---
 
-## Scene 11 — A person's decision outranks the machine
+## Scene 11 — A person's decision comes first
 
-One more thing Anna relies on.
-
-When she changes a shift, her change carries her name and the time.
-
-After that, no automatic job may overwrite it. Not the roster run. Not an import. Not the nightly
-cleanup.
-
-They are not asked to be careful. The system refuses them.
+When Anna changes a shift, Pulse records who changed it and when.
+From then on, no automatic process may overwrite it. Not the plan generator. Not an import.
+A human decision stays.
 
 ---
 
-## Scene 12 — The switch that is not connected
+## Scene 12 — One switch that does not exist yet
 
-Now the part we must say clearly.
-
-Several of our documents describe a supervisor sign-in switch. They tell an operator to set it.
-
-We searched the code on the eleventh of October. That switch is not implemented in code.
-
-Nothing reads it. There is no setting for it. The piece that would connect it does not exist.
-
-So please: do not treat those instructions as a procedure. An operator could follow them, believe
-supervision was on, and nothing would have changed.
+Now something we must say clearly.
+Some of our instructions describe a switch for supervisor sign-in.
+We checked the code on the eleventh of October. That switch is not built yet.
+So if someone follows those instructions, nothing changes, and supervision is not switched on.
+Until it is built, those instructions must not be used.
 
 ---
 
-## Scene 13 — Closing the loop
+## Scene 13 — What is done, and what is not
 
-We also want to be straight about what is finished and what is not.
-
-Finished: the exposure we found in October is closed on both sides. A human decision is protected.
-
-Not finished: the kiosk server still hands out those sessions by itself, and they are not yet tied to
-supervisor accounts. A session can still be obtained without signing in. And we have not agreed how
-long the data is kept.
+Done: each kiosk laptop now has its own key. And a decision made by a person can no longer be overwritten by the system.
+Not done yet: supervisor sign-in for the kiosk, and a clear rule on how long attendance data is kept.
 
 ---
 
-## Scene 14 — One more Monday, later
+## Scene 14 — Another Monday
 
-So. One more Monday.
-
-The same desk. The same lamp. The same calendar.
-
-But now Anna has one screen, one picture, and one answer she trusts. The map is green where it should
-be. One amber pin is already being handled.
-
-The questions from this morning are gone.
-
-What is left is not new features. It is finishing what is already in motion — and making the documents
-tell the truth.
+Another Monday. Same desk. Same coffee.
+But now Anna has one picture, and she trusts it.
+The map is green where it should be. The one red spot is already being handled.
+What comes next is not more features. It is finishing the work that is already underway.
