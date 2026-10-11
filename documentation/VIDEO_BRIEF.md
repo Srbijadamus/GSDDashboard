@@ -30,15 +30,17 @@ These rules are binding. They were written because the first version of this bri
    worked example. Exactly two rules carry a number: the **11-hour minimum rest between shifts** and the
    **11-hour automatic end of a kiosk session**. Dates appear only in the holiday example and the
    "prepared on" line of the documents.
-4. **Migration is a process, not a figure.** The kiosk client replacement is described as
-   "in progress", with no count of devices and no percentage and no end date.
+4. **The kiosk is described only by what it does.** Every statement about the kiosk is one of its
+   visible behaviours — the credential that belongs to the individual computer, the automatic end of
+   a forgotten session after eleven hours, the blocked Windows keys, and the offline queue that sends
+   again by itself. No volume of devices, no percentage and no date is ever shown.
 5. **Real places, invented people.** The example centres are real: **Augsburg (Bavaria)**,
    **Essen (North Rhine-Westphalia)** and **Quickborn (Schleswig-Holstein)**. The people are invented and
    carry a **first name only** — Anna the planner, Murat the agent. No real employee name, no user name,
    no employee number, no computer name, no network address and no key or token ever appears.
 6. **Say the hard thing.** The security part of the video states plainly that a supervisor sign-in
-   switch described in several documents **is not implemented in the code**, and that the kiosk client
-   migration is unfinished. It is not softened and it is not skipped.
+   switch described in several documents **is not implemented in the code**. It is not softened and
+   it is not skipped.
 7. **Two systems are never mixed up.** The workforce application and the kiosk have separate lists.
    Whenever the two are compared, the video says which system it means.
 8. **Plain language.** Short sentences. One idea per scene. If a word would need explaining, it is
@@ -160,10 +162,17 @@ The spoken words are in [VIDEO_NARRATION.md](./VIDEO_NARRATION.md).
   inside it.
 - **Key message:** The kiosk records the real day where the work happens, keeps working when the network
   does not, and closes a forgotten session on its own.
-- **Source:** The kiosk client states and the offline queue (`C:\ShiftKiosk\deploy\main_kiosk.py`);
-  the automatic end of session after **11 hours** from the shift start
-  (`AUTO_LOGOUT_SECONDS = 11 * 3600` at `main_kiosk.py:784` in the live packages under `C:\ShiftKiosk\kiosk\`
-  and `C:\ShiftKiosk\KIOSK_PACKAGE\Files\`). The history of this change is recorded in
+- **Source:** The kiosk program `kiosk-ng\main_kiosk.py` (living copy
+  `C:\ShiftKiosk_secure\kiosk-ng\main_kiosk.py`): the credential belongs to the individual computer and
+  is held by the privileged broker — the installed device token is sent as `X-Device-Token`
+  (`kiosk-ng\broker.py:132`) and there is **no login step**, identity comes from the Windows session
+  alone (`main_kiosk.py:721`); the Windows keys are blocked while the session runs — the low-level
+  keyboard hook swallows the Windows key and Alt+F4 (`main_kiosk.py:771-788`); the event queue survives
+  a dead network — an event that cannot be delivered is written to `pending_queue.json`
+  (`main_kiosk.py:368-405`) and sent again by itself once the server answers
+  (`main_kiosk.py:757-766`); and a forgotten session ends automatically after **11 hours** from the real
+  shift start (`AUTO_LOGOUT_SECONDS = 11 * 3600` at `main_kiosk.py:816`, deadline computed at
+  `main_kiosk.py:863`). The history of the 11-hour change is recorded in
   [CHANGE_HISTORY.md](./CHANGE_HISTORY.md) (2026-09-16, commit `a1b1f74`). The stale nine-hour copies that
   remain in the working trees — `C:\ShiftKiosk\deploy\main_kiosk.py:682` and
   `C:\ShiftKiosk_secure\deploy\main_kiosk.py:682`, plus two comments in
@@ -212,8 +221,7 @@ The spoken words are in [VIDEO_NARRATION.md](./VIDEO_NARRATION.md).
 - **On the board:** The board is divided in two by a vertical line. Left, under a shield with a tick:
   **closed**. Right, under an open padlock: **still open**. Under "still open" the hand draws three
   small icons and labels them in words, never in numbers: *a session can still be obtained without
-  signing in*, *the old shared key is still in daily use*, *an unfinished client migration*, and
-  *no retention rule yet*.
+  signing in*, *the kiosk server still signs those sessions itself*, and *no retention rule yet*.
 - **Key message:** Some things are fixed and some are not, and the board is told which is which.
 - **Source:** [SECURITY_MODEL.md](./SECURITY_MODEL.md) §8 (what is closed) and §9 (what is open);
   [OPEN_ITEMS_AND_RISKS.md](./OPEN_ITEMS_AND_RISKS.md) §1; the owner's device-binding decision is item
@@ -225,11 +233,11 @@ The spoken words are in [VIDEO_NARRATION.md](./VIDEO_NARRATION.md).
 - **On the board:** The same desk, lamp and calendar as Scene 1, drawn again but calmer. Anna now has a
   single screen: the map with green pins, one amber pin already being handled, and a short note under
   it. The question marks from Scene 1 are gone. In the corner, a small horizon line with a flag —
-  **next** — and beside it two words only: *finish the migration*, *make the documents true*.
+  **next** — and beside it two words only: *finish the security stages*, *make the documents true*.
 - **Key message:** The day now has one shared picture, and the remaining work is finishing what is
   already started.
 - **Source:** The completeness and coverage behaviour in
-  [BOARD_OVERVIEW.md](./BOARD_OVERVIEW.md) §3; the migration status and the documentation work in
+  [BOARD_OVERVIEW.md](./BOARD_OVERVIEW.md) §3; the security stages and the documentation work in
   [OPEN_ITEMS_AND_RISKS.md](./OPEN_ITEMS_AND_RISKS.md) §5 (recommended order of work).
 
 ---

@@ -128,9 +128,11 @@ The customer never notices there was a problem.
 
 Meanwhile, at the centre, Murat starts his day.
 
-A small program on the counter laptop, with a choice of big buttons. Start. Break. Emergency. End.
+A small program on the counter laptop, with a choice of big buttons. Start. Break. Emergency. End. And
+while the session is open, it holds the Windows keys, so nobody wanders off the screen by mistake.
 
-If the network is down, he presses the button anyway. The event waits in a queue and goes out later.
+If the network is down, he presses the button anyway. The event waits in a queue and goes out later, by
+itself.
 
 And if somebody forgets to sign off? After eleven hours, the session closes itself.
 
@@ -183,9 +185,9 @@ We also want to be straight about what is finished and what is not.
 
 Finished: the exposure we found in October is closed on both sides. A human decision is protected.
 
-Not finished: the old shared key is still in daily use, because the client replacement is still in
-progress. A session can still be obtained without signing in. And we have not agreed how long the data
-is kept.
+Not finished: the kiosk server still hands out those sessions by itself, and they are not yet tied to
+supervisor accounts. A session can still be obtained without signing in. And we have not agreed how
+long the data is kept.
 
 ---
 

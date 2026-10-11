@@ -18,11 +18,11 @@ sources live in [DATA_MODEL.md](./DATA_MODEL.md) and in the companion briefs
   ćelija — generiše se jednom akcijom, po radnom vremenu svakog centra, uz pregled pre upisa i mogućnost
   vraćanja na prethodnu verziju.
 - **ShiftKiosk** je evidencija prisustva. Na laptopu agenta radi mali program koji javlja početak smene,
-  pauzu, hitan slučaj i kraj. Radi i kad mreža padne — događaji čekaju u redu i šalju se kasnije.
+  pauzu, hitan slučaj i kraj. Prijava nije potrebna — identitet dolazi iz Windows sesije, a pristup nosi
+  **token vezan za taj računar**. Radi i kad mreža padne — događaji čekaju u redu i šalju se kasnije, sami.
+  Dok smena traje, Windows tasteri su blokirani, a zaboravljena smena se sama zatvara posle **11 sati**.
 - **Spojna tačka je samo jedna: identifikator zaposlenog.** Ne ime zgrade, ne adresa — čovek. Zato se
   plan i stvarno stanje mogu pouzdano porediti.
-- **Migracija kiosk klijenata je u toku**, nije završena. Stari deljeni ključ se još koristi u svakodnevnom
-  radu, i zato ne može da se ukine dok se migracija ne završi.
 
 **Dva nalaza koja moraš znati pre nego što bilo šta kažeš o bezbednosti:**
 
@@ -87,9 +87,13 @@ Two products, deliberately separate.
   complete the picture. An in-app assistant answers questions from this system's own data — **no external
   artificial-intelligence service is called**.
 - **ShiftKiosk records what actually happened.** A small program on the agent's laptop shows a fullscreen
-  choice at the start of the day and then a compact floating panel. It records start, breaks, emergencies
-  and the end of the shift, and it queues events when the network is down so nothing is lost. A session
-  closes itself automatically after **11 hours**, so a forgotten sign-off still produces an honest record.
+  choice at the start of the day and then a compact floating panel. The agent never signs in: identity is
+  taken from the Windows session and the program carries a **token that belongs to that individual
+  computer**, so no shared credential sits on the desks. It records start, breaks, emergencies and the end
+  of the shift, and it queues events when the network is down so nothing is lost — the queue sends them
+  again by itself. While a session is running the Windows keys are blocked, so the screen cannot be left
+  by accident. A session closes itself automatically after **11 hours**, so a forgotten sign-off still
+  produces an honest record.
 
 The two meet in exactly one place: **the employee identifier**. Pulse decides who *should* be somewhere;
 the kiosk records who actually checked in; the attendance page joins the two and shows the difference in
@@ -164,18 +168,19 @@ published every agent's employee number on an endpoint that required no credenti
 application accepted a bare employee number as a sign-in. Together those two facts allowed anyone who
 could reach the kiosk server to sign in **as an agent** — bounded to agent level, never an administrator
 or a team lead. Both halves were closed: the workforce application now reaches kiosk data only through
-its authenticated proxy, and the kiosk server's shared key can no longer be used on the session
-endpoints, nor a session token on the attendance-write endpoint. The change required no action from
-agents.
+its authenticated proxy, and the kiosk's own credential no longer opens the paths it was not meant to
+open — the session endpoints answer to the credential of the computer that was enrolled, and the
+attendance-write endpoint to a session. The change required no action from agents.
 
 **What is still open — and the board should hear this without softening.** The kiosk server still issues
 its session token to anyone who can reach it, and that token can still be used to **read** attendance
 history, the audit log and the exports; closing that needs supervisor accounts first, or supervisors
-would be locked out. The shared legacy key is still in daily use, and it is also the key that signs
-those tokens, so its reach is wider than its stated scope; it cannot be retired until the kiosk client
-migration is finished, and that migration is **in progress**. Two administrative command endpoints have
-no gate of their own while the general authorisation switch is off. No retention or deletion rule has
-been agreed for the attendance and observation data, which includes sickness information.
+would be locked out. That server-side session credential is not tied to a person yet: each computer
+carries its own device credential under the device-binding control described below, and tying the
+session itself to a supervisor account is what the missing supervisor accounts are needed for. Two
+administrative command endpoints have no gate of their own while the general authorisation switch is
+off. No retention or deletion rule has been agreed for the attendance and observation data, which
+includes sickness information.
 
 **One configuration fact the board should know.** On the live kiosk server, **device binding is
 enforcing**: the control that ties a credential to one computer and one user is blocking in production.
@@ -198,7 +203,7 @@ built from it.
 | 1 | **Make the supervisor sign-in documents match reality** | Finding number 1: documents tell an operator to switch on a mode that no code reads, and the part that would connect it does not exist. Correct the documents (or build the missing connection) before anyone acts on them. |
 | 2 | **Bring the tracked device-binding profiles into line with the live server** | The live server enforces while `dan1/2/3.ini` say `shadow`. The owner has decided the server stays as it is, so the profiles must be corrected. |
 | 3 | Provision the supervisor accounts and prove the recovery path | It is the prerequisite for the next two security stages; without it supervisors would be locked out |
-| 4 | Finish the attendance-capture migration | The legacy key cannot be retired until the remaining clients move to the new device credential |
+| 4 | **Confirm that the new kiosk runs in production the way it does in the code** | The device token belongs to the computer that was enrolled, and it is the only credential the new kiosk is meant to use |
 | 5 | Complete the enforcement stages for anonymous identifiers and anonymous reads | Some kiosk controls are still observing while others already enforce |
 | 6 | Close the two administrative endpoints that have no gate of their own | They rely on the general authorisation switch, which is off |
 | 7 | Agree a data-retention rule for attendance and observation data | The observation log grows with every request; sickness data is a special category |
