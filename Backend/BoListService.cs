@@ -5,13 +5,21 @@ using Microsoft.EntityFrameworkCore;
 namespace GSDDashboard.API.Modules.BoList;
 
 public record BoEntryDto(int Id, string EmployeeName, string ShiftStart, string ShiftEnd, string? Note, int SortOrder);
-public record BoEntryCreateDto(string Date, string EmployeeName, string ShiftStart, string ShiftEnd, string? Note);
-public record BoEntryUpdateDto(string ShiftStart, string ShiftEnd, string? Note);
+
+// ShiftStart/ShiftEnd are NOT NULL nvarchar(10) in BoEntries. Bulk RTM Entry pastes
+// names only ("applies to today, whole day, no time"), so both may arrive empty and
+// are stored as the empty string — a whole-day BO entry with no time. The BO Liste
+// page still sends real times, unchanged.
+public record BoEntryCreateDto(string Date, string EmployeeName, string? ShiftStart, string? ShiftEnd, string? Note);
+public record BoEntryUpdateDto(string? ShiftStart, string? ShiftEnd, string? Note);
 
 public class BoListService
 {
     private readonly GSDContext _db;
     public BoListService(GSDContext db) => _db = db;
+
+    private static string NoTime(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
 
     public async Task<List<BoEntryDto>> GetByDateAsync(DateOnly date) =>
         await _db.BoEntries
@@ -31,8 +39,8 @@ public class BoListService
         {
             EntryDate    = date,
             EmployeeName = dto.EmployeeName,
-            ShiftStart   = dto.ShiftStart,
-            ShiftEnd     = dto.ShiftEnd,
+            ShiftStart   = NoTime(dto.ShiftStart),
+            ShiftEnd     = NoTime(dto.ShiftEnd),
             Note         = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim(),
             SortOrder    = maxOrder + 1
         };
@@ -45,8 +53,8 @@ public class BoListService
     {
         var entry = await _db.BoEntries.FindAsync(id);
         if (entry == null) return null;
-        entry.ShiftStart = dto.ShiftStart;
-        entry.ShiftEnd   = dto.ShiftEnd;
+        entry.ShiftStart = NoTime(dto.ShiftStart);
+        entry.ShiftEnd   = NoTime(dto.ShiftEnd);
         entry.Note       = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
         await _db.SaveChangesAsync();
         return new BoEntryDto(entry.Id, entry.EmployeeName, entry.ShiftStart, entry.ShiftEnd, entry.Note, entry.SortOrder);

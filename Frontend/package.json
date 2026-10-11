@@ -9,7 +9,8 @@
     "build:deploy": "npm run build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:attendance": "tsc --ignoreConfig src/pages/attendance/checkinStatus.ts src/pages/attendance/checkinStatus.test.ts --outDir .attendance-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .attendance-test-out/checkinStatus.test.js"
+    "test:attendance": "tsc --ignoreConfig src/pages/attendance/checkinStatus.ts src/pages/attendance/checkinStatus.test.ts --outDir .attendance-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .attendance-test-out/checkinStatus.test.js",
+    "test:bulk-rtm": "tsc --ignoreConfig src/utils/resolveEmployee.ts src/utils/bulkRtmParse.ts src/utils/bulkRtmParse.test.ts --outDir .bulk-rtm-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .bulk-rtm-test-out/bulkRtmParse.test.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.14",

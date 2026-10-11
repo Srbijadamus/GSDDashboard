@@ -1,4 +1,4 @@
-﻿using ClosedXML.Excel;
+using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Auth;
@@ -460,6 +460,14 @@ public class ShiftService
 
 public static class ShiftEndpointMapper
 {
+    // Bulk RTM Entry has no date field: the entry day is the day it is entered, taken
+    // from the server's local date (Europe/Berlin). A caller that omits the date gets
+    // today; an explicit but unparsable date still fails closed below.
+    private static AssignShiftDto WithTodayWhenMissing(AssignShiftDto dto) =>
+        string.IsNullOrWhiteSpace(dto.ShiftDate)
+            ? dto with { ShiftDate = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd") }
+            : dto;
+
     private static IResult? CheckManualAccess(HttpContext ctx)
     {
         if (ctx.User.Identity?.IsAuthenticated != true)
@@ -524,7 +532,7 @@ public static class ShiftEndpointMapper
         {
             var denied = CheckManualAccess(ctx);
             if (denied != null) return denied;
-            var result = await svc.AssignShiftAsync(dto);
+            var result = await svc.AssignShiftAsync(WithTodayWhenMissing(dto));
             if (result.DuplicateError != null) return Results.Conflict(new { error = result.DuplicateError });
             if (result.Row == null) return Results.BadRequest(new { error = "Invalid date, unknown employee, or date beyond the planning horizon" });
             return Results.Ok(result.Row);
@@ -534,7 +542,7 @@ public static class ShiftEndpointMapper
         {
             var denied = CheckManualAccess(ctx);
             if (denied != null) return denied;
-            var result = await svc.AssignShiftAsync(dto, ctx.User.FindFirst(AuthClaims.Kid)!.Value);
+            var result = await svc.AssignShiftAsync(WithTodayWhenMissing(dto), ctx.User.FindFirst(AuthClaims.Kid)!.Value);
             if (result.DuplicateError != null) return Results.Conflict(new { error = result.DuplicateError });
             if (result.Row == null) return Results.BadRequest(new { error = "Invalid date, unknown employee, or date beyond the planning horizon" });
             return Results.Ok(result.Row);

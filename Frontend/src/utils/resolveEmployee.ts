@@ -23,6 +23,17 @@ export interface ResolveResult<T extends EmployeeBase = EmployeeBase> {
   suggestions?: T[]
 }
 
+export interface ResolveOptions {
+  /**
+   * When false, a match that needs fuzz (any non-zero edit distance) is offered
+   * as a suggestion instead of being chosen automatically. Bulk RTM Entry sets
+   * this: a typo must be visible as "name not found — did you mean …?" and must
+   * never be silently corrected. Default true keeps the earlier behaviour for
+   * the other caller (Vacations bulk import).
+   */
+  autoCorrect?: boolean
+}
+
 export function normStr(s: string): string {
   return (s ?? "")
     .toLowerCase()
@@ -72,10 +83,15 @@ function tokenThresh(t: string): number {
 //   4. Whole-string Damerau-Levenshtein (autoThresh) → "resolved-corrected"
 //   5. Within suggestThresh                          → "suggest" (top 1–3)
 //   6. Nothing                                       → "unresolved"
+//
+// With opts.autoCorrect === false steps 3 and 4 never auto-resolve: they stop at
+// "suggest" with the nearest employees, so the caller must confirm a typo.
 export function resolveEmployee<T extends EmployeeBase>(
   rawName: string,
-  employees: T[]
+  employees: T[],
+  opts: ResolveOptions = {}
 ): ResolveResult<T> {
+  const autoCorrect = opts.autoCorrect !== false
   const q     = normStr(rawName)
   const typed = q.split(" ").filter(w => w.length > 1)
 
@@ -119,7 +135,7 @@ export function resolveEmployee<T extends EmployeeBase>(
       tfm.sort((a, b) => a.score - b.score)
       const best = tfm[0].score
       const tied = tfm.filter(x => x.score === best)
-      if (tied.length === 1)
+      if (tied.length === 1 && autoCorrect)
         return { resolved: tied[0].emp, ambiguous: [], status: "resolved-corrected", matchType: "token-fuzzy" }
       return { resolved: null, ambiguous: [], status: "suggest", suggestions: tfm.slice(0, 3).map(x => x.emp) }
     }
@@ -139,7 +155,7 @@ export function resolveEmployee<T extends EmployeeBase>(
   const best    = scored[0].dist
   const topTied = scored.filter(x => x.dist === best)
 
-  if (best <= autoThresh && topTied.length === 1)
+  if (best <= autoThresh && topTied.length === 1 && autoCorrect)
     return { resolved: topTied[0].emp, ambiguous: [], status: "resolved-corrected", matchType: "fuzzy" }
 
   return { resolved: null, ambiguous: [], status: "suggest", suggestions: scored.slice(0, 3).map(x => x.emp) }
