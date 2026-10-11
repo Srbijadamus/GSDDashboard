@@ -141,5 +141,5 @@ Not done yet: supervisor sign-in for the kiosk, and a clear rule on how long att
 
 Another Monday. Same desk. Same coffee.
 But now Anna has one picture, and she trusts it.
-The map is green where it should be. The one red spot is already being handled.
+The map is green where it should be. The one amber spot is already being handled.
 What comes next is not more features. It is finishing the work that is already underway.
