@@ -56,7 +56,7 @@ flowchart TB
             DASH["Embedded supervisor dashboard<br/>8 views"]
             KAPI --- DASH
         end
-        DB1[("GSDDashboard<br/>35 application tables")]
+        DB1[("GSDDashboard<br/>52 physical tables<br/>26 app/framework + 26 archive")]
         DB2[("ShiftKioskDB<br/>14 tables")]
         API --> DB1
         KAPI --> DB2
@@ -95,7 +95,7 @@ calendar. Nothing else is shared — not the database, not the credentials, not 
 | API | ASP.NET Core 8 Minimal API | `Backend` | **161 routes**, all registered by 40 mapper extension methods called in sequence from `Program.cs:683-722` |
 | Domain services | C# service classes | `Backend/Services`, `Backend/Modules`, `Backend/Assistant`, top-level `*Service.cs` | 60+ classes; the only provably dead class is `CoverageCalculatorTests` |
 | Data access | EF Core 8 against SQL Server Express | `Backend/GSDContext.cs` | No EF migrations — idempotent DDL blocks in `Program.cs` are the migration strategy |
-| Database | SQL Server Express 2022 | `GSDDashboard` | 52 physical tables: 35 functional + 17 archive copies |
+| Database | SQL Server Express 2022 | `GSDDashboard` | 52 physical tables: 26 application/framework + 26 archive copies |
 | Static hosting | The API serves the built SPA from `Backend/wwwroot` | — | Content-hashed assets cached forever; `index.html` never cached |
 
 ### 2.2 Request path
@@ -355,7 +355,7 @@ Newest-row-wins rule means this affects history, not the current status.
    remaining `dan3` step, not a completed control.
 4. **A shared legacy key with roughly sixty dependants.** The retirement criterion is "no legacy
    inventory for 30 days", and the legacy clients are still sending events.
-5. **Archive tables inside the live database.** 17 of the 52 tables are point-in-time copies with no
+5. **Archive tables inside the live database.** 26 of the 52 tables are point-in-time copies with no
    documented retention. Any statement of "how many tables" must say which count it means.
 6. **Session-optional manual stamping.** Three WIC write routes and the rollout routes fall back to a
    fixed actor tag when the session carries no KID, so while the global RBAC flag is off they have no

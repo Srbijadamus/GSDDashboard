@@ -13,13 +13,36 @@ document — nothing here is invented or rounded off.
 
 ---
 
+## 0. Finding number 1 (read this before anything else)
+
+> ## ⚠ Supervisor sign-in is NOT IMPLEMENTED IN CODE as of 2026-10-11
+>
+> Several documents — in this set and in the older corpus — describe a supervisor sign-in switch
+> (`Auth:SupervisorMode`) as an operating control with `off`, `shadow` and `enforce` states, and one
+> describes a recovery procedure that depends on it. **None of that exists in the running code.**
+> Re-verified 2026-10-11:
+>
+> - A repository-wide search of `C:\GSDDashboard_secure` finds `SupervisorMode` **only in `documentation\`
+>   files** — there is no occurrence in any `.cs` file.
+> - No `appsettings.json` or `appsettings.Development.json` (working tree, release output or deployment
+>   copy) contains the key. The `Auth` section holds exactly one setting, `EnforceAuthorization`.
+> - `Backend/Services/SupervisorAuthClient.cs` **does not exist**. No provider interface and no client
+>   class for it exists anywhere in the repository.
+>
+> An operator following the old instructions would believe supervision had been switched on when nothing
+> had changed. **Do not treat any document that instructs you to set this switch as a runbook step.**
+> This is finding number 1 of this document and it is item **S14** below.
+
+---
+
 ## 1. Security items still open
 
 | # | Item | Severity | Evidence |
 |---|---|---|---|
+| S14 | **A documented enforcement switch does not exist in the code — THE NUMBER ONE FINDING.** Several documents instruct an operator to set a supervisor mode to off / shadow / enforce. A repository-wide search of the application finds **no reader for it**, no provider interface and no client class, and no `appsettings*.json` contains the key. Re-verified 2026-10-11: `SupervisorMode` appears only in `documentation\*.md`; `SupervisorAuthClient.cs` does not exist. The seam the documentation says Pulse uses to verify a supervisor credential is **not implemented**, and the endpoint that would serve it has no caller. An operator following those instructions would believe supervision had been enforced when nothing had changed. | **High** | Pulse code search; configuration key inventory (re-verified 2026-10-11) |
 | S1 | **Anonymous read on the kiosk server.** Anyone who can reach it can obtain a session token and read history, the audit log and the exports. Closed only at the `dan3` profile, which is not applied. | **High** | Recorded live state and the `session_auth` flag in shadow |
 | S2 | **Anonymous identifiers.** The control that strips employee ids, KIDs and e-mail addresses from anonymous responses is still in shadow. | **High** | `anon_identifiers` = shadow; six fields named in the stripper |
-| S3 | **The shared legacy key.** Shared by roughly sixty clients, readable on those machines by design, and present in git history in three early commits. Retirement criterion: no legacy inventory for 30 days; the clock has not started because legacy clients are still sending events (438 events in the last 90 days). | **High** | Live event data; recorded in the kiosk documentation |
+| S3 | **The shared legacy key.** Still used by **44 hosts** (`sec_kiosk_registry.credential_type='legacy_key'`, 2026-10-11), readable on those machines by design, and present in git history in three early commits. The kiosk client migration is **in progress**; 19 hosts already use the new device credential. Retirement criterion: no legacy inventory for 30 days; the clock has not started because legacy clients are still sending events (438 events tagged `2.1.1` in the last 90 days). | **High** | Live `sec_kiosk_registry`; live `status_log` |
 | S4 | **Zero supervisor accounts exist.** The password + TOTP path and the break-glass recovery codes are prepared but unprovisioned, so supervisor authentication cannot be enforced. | **High** | Live `sec_accounts` = 0 rows |
 | S5 | **Device tokens are not user authentication.** A local administrator can read a token or bypass the broker — stated in the code's own comment. | Medium | Broker module comment |
 | S6 | **A credential-shape bypass exists on the kiosk server.** The identifier-stripping rule protects the attendance and agent endpoints, but an equivalent CSV export of the same agent data is reachable with a credential that anyone can mint. Read the finding as a design gap in the endpoint-by-endpoint shield, not just a missing field. | **High** | Endpoint inventory of the kiosk server |
@@ -30,10 +53,9 @@ document — nothing here is invented or rounded off.
 | S11 | **Notification payloads are not escaped** before being placed in an e-mail body, so a free-text note can influence the rendering. Notifications were disabled at the last recorded state. | Medium | Kiosk server notification code |
 | S12 | **The legacy key is committed in git history.** The repository must stay private. | Medium | Kiosk documentation |
 | S13 | **A live-looking device-token file exists in the kiosk working tree.** It is gitignored and its presence is not proof of any deployment, but it should not be in a repository folder at all. | Low | Working tree |
-| S14 | **A documented enforcement switch does not exist in the code.** Several documents instruct an operator to set a supervisor mode to off / shadow / enforce. A repository-wide search of the application finds **no reader for it**, no provider interface and no client class, and the configuration file has no such key. The seam the documentation says Pulse uses to verify a supervisor credential is **not implemented**, and the endpoint that would serve it has no caller. An operator following those instructions would believe supervision had been enforced when nothing had changed. | **High** | Pulse code search; configuration key inventory |
 | S15 | **The shared legacy key is also the session-token signing key.** The rule restricting the raw key to six endpoints does not restrict tokens *derived* from it on any other route, so a holder of the key can mint a token reaching history, audit, exports and imports. The key's scope restriction is defeated by the key itself. Separating the signing secret is recorded as a required future change and has not been done. | **High** | Kiosk token issuance and scope rules |
 | S16 | **Two administrative command endpoints have no gate of their own.** They rely entirely on the general authorisation middleware, which is switched off, so both are reachable without signing in. Every other protected family carries an independent gate. | **High** | Pulse endpoint inventory; middleware configuration |
-| S17 | **An enforcing control contradicts its own recorded promotion gate.** The live kiosk configuration sets device binding to **enforce**, while every tracked profile and both canonical documents say it is still observing and that promotion requires fourteen consecutive clean days. A control is blocking in production that the recorded process says has not been promoted. | **High** | Live configuration versus tracked profiles and documents |
+| S17 | **Device binding is enforcing while the tracked profiles say it is observing — and the owner has decided it stays enforcing.** The live kiosk configuration (`C:\ShiftKiosk\server\server_config.ini`) sets `device_binding = enforce`, while `C:\ShiftKiosk_secure\server\profiles\dan1.ini`, `dan2.ini` and `dan3.ini` all record `device_binding = shadow`. **Owner decision 2026-10-11: the live server stays `enforce`; nothing in code or configuration is changed. The profiles are the side that must be corrected.** | **High** | Live `server_config.ini` versus tracked profile files |
 | S18 | **Zero supervisor accounts exist, so the stronger sign-in path has never been exercised end to end.** | Medium | Live `sec_accounts` |
 | S19 | **A second-factor code can be replayed within its 30-second time step**; there is no replay prevention. | Low | Kiosk crypto module |
 | S20 | **The rate-limit bucket that would protect bulk reads excludes the attendance, agent-list and team-list endpoints** — the largest and most sensitive surface stays unlimited even if rate limiting is enforced. Supervisor lockout is per account, not per address. | Medium | Kiosk security layer |
@@ -45,8 +67,8 @@ document — nothing here is invented or rounded off.
 
 | # | Item | Severity | Evidence |
 |---|---|---|---|
-| D1 | **`ShiftEntries` duplicate-row rule is mis-documented.** At least ten files claim a unique index on (employee, date) that makes duplicates impossible. **No such index exists.** The real unique indexes are (employee, date, source) and (employee, date, type). Anyone who trusts the comment writes a wrong query. | **High** | Schema versus code comments |
-| D2 | **Three different duplicate tie-breaks.** Most services take the highest id; the Shift Plan grid takes the last row in query order; the roster plan builder takes the first row materialised. The same day can therefore show differently on two pages. | Medium | Service and page code |
+| D1 | **`ShiftEntries` unique-index claim — CORRECTED against the live database.** The earlier review recorded that a unique index on (employee, date) "does not exist". **That conclusion was wrong.** Re-verified on 2026-10-11 against live `sys.indexes`: **`UQ_ShiftEntries_EmpDate` EXISTS** — active (`is_disabled=0`), unique, non-clustered, on `(EmployeeId, ShiftDate)`, with **0 duplicate `(EmployeeId, ShiftDate)` pairs across all 41,931 rows**. Two further unique indexes sit beside it: `UQ_ShiftEntries_EmpDateSheet` (a unique **constraint** on `(EmployeeId, ShiftDate, SourceSheet)`) and `UQ_ShiftEntries_EmpDateType` (a unique **index** on `(EmployeeId, ShiftDate, ShiftType)`). No document may say the (employee, date) index is absent or is to be introduced later; the places that did are corrected in this task. | **High** | Live `sys.indexes` + duplicate-count query, 2026-10-11 |
+| D2 | **Three different duplicate tie-breaks in code.** Most services take the highest id; the Shift Plan grid takes the last row in query order; the roster plan builder takes the first row materialised. **Note (2026-10-11):** with `UQ_ShiftEntries_EmpDate` active (see **D1**), two `ShiftEntries` rows for the same employee and date cannot exist, so this divergence cannot be triggered on that table. The resolver code is retained as defensive/legacy behaviour and should be read as such. | Low | Service and page code; live `sys.indexes` |
 | D3 | **At least four different “absence type” lists.** The canonical resolver's full-absence set, its blocking set, the roster's protected-overwrite set and the coverage-gap set all differ (one includes `OL`, another adds `CD` and drops `OFF_WEEKEND`/`RESIGNED`). Each is defensible in isolation; together they make "absent" mean different things on different screens. | Medium | Five named locations in code |
 | D4 | **Two different opening-hours resolution paths.** The designated single resolver orders dated exceptions by last-edited time; the coverage evaluator re-implements the same query without that tie-break. Two exception rows for the same day can resolve differently on the two paths. | Medium | Resolver versus evaluator |
 | D5 | **The VWIC assignment path looks up a WIC entry by employee and date only**, ignoring the centre, and can repoint a real centre row to "VWIC". The same class of bug was already found and fixed in the WIC assignment service. | Medium | VWIC service |
@@ -54,10 +76,10 @@ document — nothing here is invented or rounded off.
 | D7 | **`LeaveQuotas` is a reserved table** that no code reads or writes, while one document describes it as written by quota endpoints. | Low | Code versus documentation |
 | D8 | **An unmanaged column dependency on the kiosk side.** One column is written by an endpoint but created by no migration in the repository; if it is absent on a fresh database the endpoint fails. | Medium | Kiosk schema inventory |
 | D9 | **A destructive startup step on the kiosk side.** When a legacy column is detected in one table, the whole table is dropped and recreated empty. The migration script is described as additive. It has not been observed to fire, but it is in the code. | Medium | Kiosk `db_init` |
-| D10 | **17 archive/backup tables live inside the production database** with no documented retention, making the table count ambiguous (52 physical, 35 functional). | Low | Live schema |
-| D11 | **No retention or deletion path anywhere:** attendance events, the observation log (282,745 rows) and manual actions grow without bound. Named sickness data is a special category. | **High** | Live row counts; no cleanup code |
+| D10 | **26 archive/backup tables live inside the production database** with no documented retention, making the table count ambiguous: **52 physical base tables = 26 application/framework tables + 26 archive/backup copies**. | Low | Live `INFORMATION_SCHEMA.TABLES`, 2026-10-11 |
+| D11 | **No retention or deletion path anywhere:** attendance events, the observation log (**283,206 rows**, `sec_observation_log`, 2026-10-11) and manual actions grow without bound. Named sickness data is a special category. | **High** | Live row counts; no cleanup code |
 | D12 | **Historical attendance is not valid evidence of individual performance.** Recorded as a data-protection position; must be honoured in any reporting built from it. | **High** | Recorded in the kiosk documentation |
-| D13 | **Roughly sixty computers still send events with the legacy client** while eighteen use the new one — the migration is real but incomplete. | Medium | Live `sec_kiosk_registry` |
+| D13 | **The kiosk client migration is in progress, not finished.** On 2026-10-11 the live registry lists 63 computers: **44 hosts on the legacy shared key** (`credential_type='legacy_key'`) and **19 hosts on the new device credential** (`credential_type='device_token'`). The legacy count is the reason the shared key cannot yet be retired. | Medium | Live `sec_kiosk_registry.credential_type`, 2026-10-11 |
 
 ---
 
@@ -91,13 +113,13 @@ listed rather than silently edited, because a reader who trusts the older docume
 
 | # | Contradiction | Which is right |
 |---|---|---|
-| C1 | **9-hour versus 11-hour auto-logout.** Five places in the kiosk documentation say 9 hours; the code and the live data say 11. | **11 hours** |
-| C2 | **The kiosk described as QR/card terminals at WIC locations that are "not yet deployed"** versus approximately sixty laptop applications in daily use. One Pulse document still contains the former. | The laptops are real |
+| C1 | **9-hour versus 11-hour auto-logout.** The threshold is **11 hours** (`AUTO_LOGOUT_SECONDS = 11 * 3600`). Four stale 9-hour copies remain in the kiosk working trees and are listed with their exact paths below; they are **not changed by this task**. | **11 hours** |
+| C2 | **The kiosk described as QR/card terminals at WIC locations that are "not yet deployed"** versus laptop applications in daily use (44 hosts on the legacy key, 19 on the device credential). One Pulse document still contains the former. | The laptops are real |
 | C3 | **"Nothing was implemented" proposals** versus three enforcement flags actually live. | The proposals are historical |
 | C4 | **Team-lead role rows described as placeholders that can never authenticate** versus nine active accounts with real identifiers. | The later reading |
 | C5 | **"The project has no audit log or authentication system"** in the data-model document versus a live login table, role middleware and a manual-action audit. | Stale and actively misleading |
-| C6 | **Table counts**: one document documents 21 tables; the live database has 52 (35 functional). | 35 functional |
-| C7 | **Employee headcount**: documents say 57, ~123, ~130 and 129 in different places; the live figure is **122 active** (128 rows). | 122 active |
+| C6 | **Table counts**: one document documents 21 tables; the live database has 52 physical base tables (26 application/framework + 26 archive/backup). | Use "52 physical; 26 application/framework" |
+| C7 | **Employee headcount**: documents say 57, ~123, ~130 and 129 in different places; the live figure is **122 active** (128 rows) in `GSDDashboard.Employees`. The kiosk separately has **123 active** (139 rows) in `ShiftKioskDB.agents` — a different system's list. | 122 active (Pulse); 123 active (kiosk, separate list) |
 | C8 | **WIC location count**: 40, 43 and 44 all appear. Live: **43** (41 DE, 2 NL). | 43 |
 | C9 | **Forecast horizon**: documented as both "1–30" and "1–62". | Both appear in code paths; verify per endpoint |
 | C10 | **Substitute-accept and WIC-schedule paths** are documented with an older prefix in one file and the current one in another. | The current prefixes |
@@ -112,12 +134,28 @@ listed rather than silently edited, because a reader who trusts the older docume
 | C19 | **A database view's own header says it is "not yet applied"** while two code paths depend on it. | Unresolved — needs a live check |
 | C20 | **Two tables are documented as "written by" endpoints that do not exist** in the repository. | The code |
 | C21 | **The Excel shift import is documented as the writer of the shift plan** in the data-model document while another document declares it dead and forbids re-running it. | Dead; the Roster Generator is the mechanism |
-| C22 | **A supervisor enforcement mode is documented as an operating switch, an interface and a client class — none of which exist in the application code.** Two documents instruct an operator to set it, and one documents a recovery procedure that depends on it. | The documentation is wrong; the setting has no reader |
+| C22 | **⚠ NOT IMPLEMENTED IN CODE as of 2026-10-11: a supervisor enforcement mode is documented as an operating switch, an interface and a client class — none of which exist in the application code.** Two documents instruct an operator to set it, and one documents a recovery procedure that depends on it. Re-verified 2026-10-11: `SupervisorMode` occurs only in `documentation\*.md`, no `appsettings*.json` contains the key, and `SupervisorAuthClient.cs` does not exist. | The documentation is wrong; the setting has no reader |
 | C23 | **Two canonical deployment documents disagree about whether the Pulse proxy cutover is live** — one says it is not deployed, the other records it as live on a later date. | The later record; the earlier state table is stale |
 | C24 | **A configuration key for a removed control is still present in a test configuration**, which makes it look like a control exists. | The flag was removed and is silently ignored |
 | C25 | **A configured cross-origin allow-list in the application's configuration file is never read**; the running policy is fully open. | The configuration file misleads; the code is authoritative |
-| C26 | **A rights-managed control (device binding) is enforcing in live configuration while the documentation says it is observation-only.** | The live configuration; the documentation must be corrected |
+| C26 | **Device binding: the live server and the tracked profiles disagree.** Owner decision 2026-10-11: **device binding is `enforce` on the live server and stays that way; nothing is changed in code or configuration.** The tracked profile files `C:\ShiftKiosk_secure\server\profiles\dan1.ini`, `dan2.ini` and `dan3.ini` still record `device_binding = shadow`, so the profiles are the side that is wrong. | The live configuration (`server_config.ini`: `device_binding = enforce`); the profiles must be corrected |
 | C27 | **The escape procedure in the documentation points at a file that is deliberately not in the repository** (it exists only on the host). | Intentional for secrets, but the reference should say so |
+
+### C1 evidence — the four stale 9-hour code copies, with exact paths
+
+The auto-logout threshold is **11 hours**. The following four places still say **9 hours**. They are
+**not changed by this task** (no code may be modified), but they must not be quoted, and they must be
+corrected by whoever owns the kiosk repository:
+
+| File | Line | Stale text |
+|---|---|---|
+| `C:\ShiftKiosk\deploy\main_kiosk.py` | 682 | `AUTO_LOGOUT_SECONDS = 9 * 3600` |
+| `C:\ShiftKiosk_secure\deploy\main_kiosk.py` | 682 | `AUTO_LOGOUT_SECONDS = 9 * 3600` |
+| `C:\ShiftKiosk\server\server.py` | 514 | comment: "can base the 9h AUTO_LOGOUT timer on the real shift start" |
+| `C:\ShiftKiosk\server\server.py` | 1519 | comment: "so the 9h AUTO_LOGOUT timer can be based on it instead of process start" |
+
+The live client code in use (`C:\ShiftKiosk\deploy\Files\main_kiosk.py:785`,
+`C:\ShiftKiosk\kiosk\main_kiosk.py:784`) sets `AUTO_LOGOUT_SECONDS = 11 * 3600`.
 
 ---
 
@@ -128,7 +166,8 @@ executed.
 
 **Before the next board demonstration**
 
-1. Decide which number is quoted for employees (122 active) and tables (35 application tables) and use
+1. Decide which number is quoted for employees (122 active) and tables (52 physical: 26
+   application/framework + 26 archive/backup) and use
    it everywhere.
 2. Do not show the two pages that violate the language rule during a German-language demo, or fix them
    first.
@@ -178,7 +217,7 @@ executed.
 
 **Medium term — hygiene**
 
-16. Decide the fate of the 17 archive tables and record it (**D10**).
+16. Decide the fate of the 26 archive tables and record it (**D10**).
 17. Remove the dead files and the no-op endpoint, or mark them clearly as dead (**F7**, **F8**).
 18. Fix or make explicit the broken documentation cross-references (**C15**) and the two unmanaged
     schema dependencies (**D8**, **C19**).

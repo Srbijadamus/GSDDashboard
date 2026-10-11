@@ -17,20 +17,59 @@ migrations. ShiftKiosk likewise applies additive migrations in `db_init()` at st
 
 **Number of tables**
 
-| Database | `INFORMATION_SCHEMA` base tables | Of which functional | Of which archived/backup |
+| Database | `INFORMATION_SCHEMA` base tables | Of which application/framework | Of which archive/backup |
 |---|---|---|---|
-| `GSDDashboard` | **52** | 35 | 17 |
+| `GSDDashboard` | **52** | 26 | 26 |
 | `ShiftKioskDB` | **14** | 14 | 0 |
+
+**How the 52 `GSDDashboard` base tables were split 26 + 26.** The inventory was read **read-only** from
+`INFORMATION_SCHEMA.TABLES` on 2026-10-11 with this query (the same enumeration as
+`PS1_24_GroundTruth.ps1` §10):
+
+```sql
+SELECT TABLE_NAME
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_TYPE = 'BASE TABLE'
+ORDER BY TABLE_NAME;
+```
+
+**Criterion applied to each base table** (it is reproducible as a query):
+
+- **application/framework (26)** — a base table that application code reads or writes, **plus the one
+  framework-owned bookkeeping table `__EFMigrationsHistory`**. `__EFMigrationsHistory` is EF Core's
+  migration-history table: it is *framework*, not an application feature, and this project does not use
+  EF migrations for schema changes (the startup DDL blocks are the migration strategy). The count is
+  therefore **25 application tables (§1.1–§1.5) + 1 framework table (§1.6) = 26**.
+- **archive/backup (26)** — a base table whose name marks it as a point-in-time copy or a one-off
+  repair artefact and that **no application code reads or writes**. The name markers are `_bak`,
+  `_backup`, `_fix` and `mojibake`.
+
+```sql
+-- reproduces 26 application/framework + 26 archive/backup = 52
+SELECT
+    SUM(CASE WHEN TABLE_NAME LIKE '%[_]bak%'
+              OR TABLE_NAME LIKE '%[_]backup%'
+              OR TABLE_NAME LIKE '%[_]fix%'
+              OR TABLE_NAME LIKE '%mojibake%'
+         THEN 1 ELSE 0 END) AS archive_backup_count,
+    SUM(CASE WHEN TABLE_NAME LIKE '%[_]bak%'
+              OR TABLE_NAME LIKE '%[_]backup%'
+              OR TABLE_NAME LIKE '%[_]fix%'
+              OR TABLE_NAME LIKE '%mojibake%'
+         THEN 0 ELSE 1 END) AS application_framework_count
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_TYPE = 'BASE TABLE';
+```
 
 > **Discrepancy with existing documentation.** `documentation/BLUEPRINT_DATA_MODEL.md` documents 21
 > tables; the live database has 52. It is missing `AppUserRoles`, `RosterBatches`,
-> `WicRolloutDays`, `WicRolloutWorkers` and all 17 archive tables, and it contains a detail that the
+> `WicRolloutDays`, `WicRolloutWorkers` and all 26 archive tables, and it contains a detail that the
 > live schema contradicts (see § "Corrections"). This document supersedes it for table inventory.
 > `CLAUDE.md` and `Tools/Read-LiveTableBaseline.ps1:8` both expect **52** — that expectation is met.
 
 ---
 
-## 1. `GSDDashboard` — functional tables (35)
+## 1. `GSDDashboard` — application/framework tables (26)
 
 Row counts are as read on 2026-10-11.
 
@@ -92,10 +131,10 @@ Live role distribution: 1 `DEV`, 2 `RTM`, 6 `TEAM_LEAD`, 0 `AGENT` rows.
 |---|---|
 | `__EFMigrationsHistory` | EF Core bookkeeping table. Present, but the project does not use EF migrations for schema changes — the startup DDL blocks are the migration strategy. |
 
-### 1.7 Archive / backup tables (17) — NOT application tables
+### 1.7 Archive / backup tables (26) — NOT application tables
 
 These exist in the live database and are the reason the raw table count (52) is higher than the
-functional count (35). They hold point-in-time copies made during earlier data repairs. **Nothing in
+application/framework count (26). They hold point-in-time copies made during earlier data repairs. **Nothing in
 the application reads or writes them.** They must not be mistaken for a feature.
 
 ```text
@@ -117,8 +156,9 @@ WicOpeningHours_backup_20260918
 ```
 
 > **Open question (NIJE POTVRĐENO):** whether these archive tables should be retained. No retention
-> rule is recorded anywhere. They are ~27 of the 52 tables, so they materially affect any table-count
-> statement made to the board. Recommend stating "35 application tables" rather than "52 tables".
+> rule is recorded anywhere. They are 26 of the 52 tables, so they materially affect any table-count
+> statement made to the board. Recommend stating "52 physical tables: 26 application/framework +
+> 26 archive/backup" rather than an ambiguous "52 tables".
 
 ---
 
@@ -177,7 +217,7 @@ rather than silently edited, per the task rule.
 | `BLUEPRINT_DATA_MODEL.md:24` — `Employees.EmployeeId` is `NVARCHAR(20)` | `NVARCHAR(40)` | Documentation error; schemas are wider than documented |
 | `BLUEPRINT_DATA_MODEL.md:24` — first/last/full name are `100`/`200` | `200`/`400` | same |
 | `BLUEPRINT_DATA_MODEL.md:32` — `Employees.Category` is "legacy category label (not actively used in logic)" | Live data uses it: 107 rows with an empty value, 20 NULL, 1 `Management`; it is **not** the agent-group field | Wording is misleading; the kiosk-side equivalent is `agents.agent_group` |
-| `BLUEPRINT_DATA_MODEL.md` documents 21 tables | 52 tables exist (35 functional) | Superseded by this document |
+| `BLUEPRINT_DATA_MODEL.md` documents 21 tables | 52 tables exist (26 application/framework) | Superseded by this document |
 | `BLUEPRINT_DATA_MODEL.md:341-344` — "the project has no audit-log or user-authentication system (no `AuditLog` table, no `ClaimsPrincipal`/`[Authorize]` anywhere in `Backend/`)" | `AppUserRoles`, a live KID login, a session cookie and a role middleware all exist. The statement was true when written and is now false. | **Stale and actively misleading** — must not be quoted to the board |
 | `documentation/README.md:3-5` — "ASP.NET Core 8 · React 19 · …" | `dotnet --version` on the machine reports **10.0.204**; `CLAUDE.md` records that the live DLL was built with SDK 10.0.204 and cannot be reproduced with SDK 8 | Version statement is stale; see [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) |
 | `documentation/overview.md:20` — "Approximately 130 employees, 43 WIC locations" | 122 active employees (128 rows) and 43 locations | 130 was never correct for "active"; corrected with date |
@@ -198,4 +238,4 @@ rather than silently edited, per the task rule.
   records on 2026-10-11, so all 350 records have real end dates.
 - **`ShiftEntries.IsWicDuty` and `WicShiftEntries.IsOffDay` are fossils.** A startup migration clears
   inconsistent `IsWicDuty` values; new code must use `ShiftType` only.
-- **Archive tables inflate the table count.** Use "35 application tables" in any board statement.
+- **Archive tables inflate the table count.** Use "52 physical tables: 26 application/framework + 26 archive/backup" in any board statement.

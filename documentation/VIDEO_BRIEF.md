@@ -1,161 +1,170 @@
-# VIDEO_BRIEF — a suggested board storyline
+# VIDEO_BRIEF — whiteboard explainer (Erklärvideo)
 
-**Prepared 2026-10-11.** This is a proposal for how to tell the story on camera, not a script to read
-out. Every number below was verified against the live systems on **2026-10-11** and cites its source.
-Every screen is named with its route and menu location so it can be found quickly.
+**Prepared 2026-10-11.** This is the brief for a **whiteboard explainer** — a hand drawing on a board
+with a voice-over. It is **not** a screen recording: no screenshots, no application capture, no film of
+a person's desktop. Everything is drawn with simple shapes and icons, and the numbers are the live
+figures from 2026-10-11 with the system and table they came from.
 
-**Two rules that make this video credible:**
+**Rules this video follows:**
 
-1. **Say the hard things.** The security section includes what is still open. A board that discovers a
-   gap after being told everything is fine loses trust in the whole report.
-2. **Do not film the mixed-language pages.** Two pages still show German in the English view or English
-   in the German view and will look unfinished on camera. They are named in the "do not show" list at
-   the end.
+1. **No screenshots and no screen recording.** The board is the only picture.
+2. **No personal data of any kind.** No people's names, no user names, no computer names, no network
+   addresses, no device identifiers, no keys or tokens. Where a machine appears, it is a generic laptop
+   icon.
+3. **Say the hard things.** The security part includes what is closed, what is still open, and the
+   supervisor-sign-in defect that must not be acted on.
+4. **Two systems, never mixed up.** The workforce application and the kiosk have separate agent lists;
+   every number on the board is labelled with the system it belongs to.
+5. **Simple English.** Short sentences, everyday words, one idea per scene.
 
----
+Figures named in this brief (all read live, read-only, on 2026-10-11):
 
-## 1. Chapters and the message each one carries
-
-| # | Chapter | Duration (suggested) | The one message |
-|---|---|---|---|
-| 1 | The problem | 60 s | Four questions nobody could answer reliably before: who is working where, is every centre covered, what is today's absence picture, and who actually turned up. |
-| 2 | What we built | 60 s | One system that plans the work, and a second that records what really happened; they meet on the employee. |
-| 3 | The plan | 120 s | The roster is generated, not typed, and the plan is complete: 122 of 122 people have a shift in the next fortnight. |
-| 4 | Coverage | 120 s | A coverage gap is visible before it becomes a customer problem; the map, the cards and the report cannot disagree. |
-| 5 | Attendance | 120 s | Who really turned up, compared against who was expected — in both directions. |
-| 6 | Trust | 90 s | Every human change is attributable and protected; nothing automation does can silently undo a person's decision. |
-| 7 | Security | 120 s | What is closed, what was fixed, what is still open — and what we deliberately do not claim. |
-| 8 | What is next | 60 s | Nine prioritised actions with owners; the first two are documentation and configuration corrections, not features. |
-
-Total: roughly 12–13 minutes. Chapter 7 is the one to rehearse most.
-
----
-
-## 2. What to show on screen — the shot list
-
-Fifteen items, each with the exact place to find it and the reason to show it.
-
-| # | Show this | Where | Why it earns screen time |
-|---|---|---|---|
-| 1 | The command centre with its five figures and the coverage map | **Overview** — the landing page at `/` | One screen that answers "what does today look like". The map's 43 markers are the clearest visual proof of scope. |
-| 2 | Point at one at-risk marker and open the substitute panel | **Overview** → click a marker | Shows that a gap is not just flagged, it comes with ranked names. |
-| 3 | The roster completeness figure | **Overview** — the missing-roster banner area, deliberately empty | "122 of 122" is the strongest single number in the whole story. An empty warning is the good outcome. |
-| 4 | The shift-plan grid with its colour coding and the coverage-per-hour bar | **Shift Plan** — Planning menu, `/shifts` | Proves this is a real planning tool, not a dashboard over a spreadsheet. |
-| 5 | The roster preview: rows, skipped weekends, skipped holidays, collisions | **Roster Generator** — Planning menu, `/roster`; press Preview and stop | The single most convincing feature on camera: it tells you exactly what it is about to do before it does it. |
-| 6 | The batch list with a delete-and-restore | **Roster Generator** — scroll to the batches table | "Everything is reversible" made visible. |
-| 7 | The WIC Shifts card grid, covered / partial / uncovered | **WIC Shifts** — Planning menu, `/wic-shifts` | The daily operational view; shows the three coverage states at a glance. |
-| 8 | The WIC Attendance header — Expected, Checked in, Not yet in — and the per-centre split | **WIC Attendance** — WIC Operations menu, `/wic-attendance` | The heart of the story: expectation against reality, with the arithmetic that cannot produce three disagreeing numbers. |
-| 9 | The same feed in the read-only remote view | **Remote Attendance** — Operations menu, `/remote-attendance` | Shows the deliberate separation of on-site and remote, and that the remote view has no buttons at all. |
-| 10 | The WIC assignment directory: main, backup and regional tiers | **WIC Assignments** — WIC Operations menu, `/wic-coverage` | Shows the system knows *who* can cover, not just *that* someone is missing. |
-| 11 | The central export: pick people, a date range, data types and a format | **HR Export** — Tools menu, `/export` | One click replaces the monthly report assembly. |
-| 12 | The shift cell change with its validation dialog, and the manual marker afterwards | **Shift Plan** — edit a cell, trigger the validation, then hover the edited cell | Makes "manual changes are protected" concrete rather than a claim. |
-| 13 | The kiosk screen itself: the fullscreen start, then the floating panel | **Kiosk client** on an agent machine, or a recording supplied by the owner | The physical reality of attendance capture. |
-| 14 | The kiosk supervisor dashboard and its eight views | **Kiosk dashboard** — port 8000, `/dashboard` → the Live view, then Hours Report | The second product, and the source of the attendance truth. |
-| 15 | The security observation figures and a decision breakdown | **Security observation data** — shown as an aggregate chart or table, not the raw rows | Turns "we observe before we enforce" into evidence. Show totals only — the raw log contains personal data. |
-
-**If you have time for only five shots:** items **3**, **5**, **8**, **12** and **15**.
-
----
-
-## 3. Key figures, each with its date and source
-
-Use these exact numbers. Every one was read on **2026-10-11**.
-
-| Figure | Value | Source |
+| System | Figure | Source |
 |---|---|---|
-| Active employees | **122** (128 records including leavers) | `GSDDashboard.Employees` |
-| Active team leads | **6** | distinct team-lead values |
-| WIC centres | **43** — 41 in Germany, 2 in the Netherlands | `WicLocations` |
-| Shift-plan rows | **41,931** | `ShiftEntries` |
-| Plan horizon | **2026-01-01 → 2027-02-26** | `ShiftEntries` min/max date |
-| Roster completeness | **122 of 122** active employees have a shift within 14 days | computed, same date |
-| WIC assignment rows | **23,945**, of which **9,137** on-site | `WicShiftEntries` |
-| WIC tiers | **49** main · **60** backup · **39** regional | `WicAgentAssignments` |
-| Opening-hours records | **417** | `WicOpeningHours` |
-| Annual-leave bookings | **765** total — 764 in 2026 (2,117 net days) plus 1 in 2027 | `Vacations` |
-| Sick-leave records | **350** | `SickLeaves` |
-| Attendance events stored | **2,552** since **2026-05-28** | `status_log` |
-| Supervisor manual actions | **519** — 331 check-ins, 188 log-outs | `manual_actions` |
-| Registered computers | **71** (67 active, 4 revoked) | `sec_devices` |
-| Computers seen by the kiosk | **63** | `sec_kiosk_registry` |
-| Requests observed by the security layer | **282,745** | `sec_observation_log` |
-| Observation decisions | **268,952** allowed · **13,740** "would have blocked" · **53** blocked | `sec_observation_log` |
-| Client versions in use | **2.1.1** (legacy) and **3.0.0-ng** (current) | `status_log` |
-| Administrative accounts | **9** — 1 developer, 2 RTM, 6 team leads | `AppUserRoles` |
-| Application tables | **35** functional (52 physical, 17 of them historical copies) | live schema |
-| Shift auto-logout | **11 hours** from the recorded shift start | kiosk client |
-| Newest features | Rollout and improved Bulk RTM — **live, not yet used** (0 rows) | `WicRolloutDays`, `WicRolloutWorkers` |
+| WorkForce Pulse | **122 active employees** (128 rows) | `GSDDashboard.Employees` |
+| WorkForce Pulse | **43 WIC centres** (41 Germany, 2 Netherlands) | `GSDDashboard.WicLocations` |
+| WorkForce Pulse | **41,931 shift-plan rows**, 122 of 122 people covered in the next 14 days | `GSDDashboard.ShiftEntries` |
+| ShiftKiosk | **123 active kiosk agents** (139 rows): WIC 62, VOICE 32, VWIC 4, BO 25, unclassified 0 | `ShiftKioskDB.agents` (`active=1`) |
+| ShiftKiosk | **2,552 attendance events**; **519 supervisor manual actions** | `ShiftKioskDB.status_log`, `manual_actions` |
+| ShiftKiosk | **63 computers seen**: **44** on the legacy shared key, **19** on the new device credential | `ShiftKioskDB.sec_kiosk_registry.credential_type` |
+| ShiftKiosk | **283,206 observation rows** | `ShiftKioskDB.sec_observation_log` |
+| ShiftKiosk | Auto-logout after **11 hours** | kiosk client code |
 
-**Two figures to narrate carefully.**
-
-- **519 supervisor interventions against 2,552 events** means most attendance is still recorded by a
-  supervisor on someone's behalf. That is the honest reason the kiosk rollout matters: it moves the
-  recording to the agent.
-- **13,740 "would have blocked"** rows are the security layer doing its job in observation mode. They
-  are *not* blocked requests. Say that explicitly on camera or the number will be misread.
+> **The two lists are not the same list.** Pulse's 122 active employees and the kiosk's 123 active
+> agents come from two different databases. Say both, and always say which system you mean.
 
 ---
 
-## 4. The security chapter, in the order to say it
+## Scene list
 
-1. **The model.** Two products, two independent sign-in worlds: the workforce application uses a
-   role-based session; the kiosk uses a per-computer device credential, with the agent's identity taken
-   from the operating system rather than from anything the client sends.
-2. **What we found and fixed.** A review found that the kiosk server published every agent's employee
-   number without requiring a credential, and that the workforce application accepted a bare employee
-   number as a sign-in. Together those allowed anyone who could reach the kiosk server to sign in as an
-   agent — bounded to agent level, never an administrator or a team lead. Both halves are closed, and
-   agents had to do nothing.
-3. **What is closed today.** The attendance feed is reachable only through an authenticated proxy that
-   refuses anonymous callers before any request leaves the application. Device binding, credential
-   scoping and the documentation page closure are live. Every request is recorded with the rule that
-   decided it.
-4. **What is still open.** Anonymous callers can still obtain a session credential and use it to read
-   attendance history, the audit log and the exports. The shared legacy key is still used by roughly
-   sixty machines and still signs those tokens. Device binding is enforcing while the recorded plan says
-   it is only observing. And two administrative commands currently have no gate of their own.
-5. **What we do not claim.** No penetration-test report. No alerting pipeline. No retention rule for the
-   attendance and observation data, which includes sickness information. Historical attendance is
-   recorded as *not* valid evidence of individual performance.
-6. **The documentation defect an operator must not act on.** A supervisor enforcement switch that
-   several documents describe does not exist in the code, and the part that would connect it to the
-   application is not implemented. Say this plainly; an operator following the current instructions
-   would believe supervision had been enforced when nothing had changed.
+### Scene 1 — The four questions
+- **Narration:** "Before this system, four simple questions were hard to answer. Who works where today?
+  Is every customer centre covered? Who is off sick? And who has actually turned up?"
+- **On the board:** A large question mark in the centre. Four speech bubbles around it, one per question,
+  each with a tiny icon: a map pin, a shop, a plaster, a clock.
+- **Key message:** The problem was not effort — it was that nobody had one shared picture.
+
+### Scene 2 — Two systems, one goal
+- **Narration:** "Today there are two systems. One plans the work. The other records what really
+  happened. They meet on one thing only: the employee."
+- **On the board:** Two boxes side by side. Left box labelled "PLAN". Right box labelled "REALITY". A
+  single arrow between them labelled "employee". Under the arrow, a small key icon.
+- **Key message:** Planning and attendance are separate products joined by one identifier.
+
+### Scene 3 — The plan is generated, not typed
+- **Narration:** "A planner creates a whole roster in one action. The system follows each centre's
+  opening hours, skips weekends and holidays, and shows a preview before it saves."
+- **On the board:** A calendar grid drawn by hand. A wand icon touches it and fills several boxes at
+  once. A small "preview" card floats above, then a save tick.
+- **Key message:** The plan is produced by a rule, so it is consistent and fast.
+
+### Scene 4 — The plan is complete
+- **Narration:** "On the eleventh of October, all one hundred and twenty-two active employees in the
+  workforce application had a shift in the next fourteen days. The plan was complete."
+- **On the board:** One big number "122 / 122". Under it, fourteen small calendar squares, all ticked. A
+  separate small box labelled "Pulse".
+- **Key message:** Completeness is measured, not assumed.
+
+### Scene 5 — Coverage before the customer feels it
+- **Narration:** "Every centre is checked continuously: covered, partly covered, uncovered, or closed. A
+  gap is shown before it becomes a problem, together with ranked people who could fill it."
+- **On the board:** A map outline with 43 dots (label "43 WIC centres"). Three dots are coloured
+  differently — green, amber, red. An arrow from the red dot to a short ranked list with a number one,
+  two, three beside small person icons.
+- **Key message:** A gap becomes visible early and comes with options.
+
+### Scene 6 — How attendance is captured
+- **Narration:** "On the agent's laptop, a small program shows four choices: start, break, emergency,
+  off. If the network is down, the events wait in a queue and are sent later."
+- **On the board:** A laptop icon. On its screen, four buttons. A dashed line from the laptop to a cloud,
+  with a small stack of cards beside the laptop labelled "queue". A clock icon shows "11 h" for the
+  automatic end of shift.
+- **Key message:** Attendance is captured where the agent is, and nothing is lost offline.
+
+### Scene 7 — Where the two systems meet
+- **Narration:** "The attendance page compares who was expected with who checked in. It shows the
+  difference in both directions, and it always matches people by employee, never by place name."
+- **On the board:** Two columns of small person icons. Left column headed "EXPECTED", right column
+  headed "CHECKED IN". Two arrows cross between them, one each way. A small note: "match = employee".
+- **Key message:** Expected and actual can disagree safely, because the comparison is honest.
+
+### Scene 8 — A human decision is protected
+- **Narration:** "When a person changes a shift, the change carries their mark and the time. Automatic
+  jobs are not allowed to overwrite it, and they fail loudly if they try."
+- **On the board:** A single calendar cell with a small pen icon and a stamp. Three arrows come towards
+  it from boxes labelled "roster", "import" and "cleanup", and each arrow hits a shield and bounces off.
+- **Key message:** Automation cannot silently undo a person's decision.
+
+### Scene 9 — The two agent lists (do not mix them up)
+- **Narration:** "The workforce application has one hundred and twenty-two active employees. The kiosk
+  has its own list: one hundred and twenty-three active agents. Same people, two different systems."
+- **On the board:** Two labelled columns. Left: "PULSE 122 active (128 rows)". Right: "KIOSK 123 active
+  (139 rows)" with four small group boxes — WIC 62, VOICE 32, VWIC 4, BO 25 — and a fifth box "other 0".
+  A thick vertical line with a "not the same list" note between them.
+- **Key message:** Two counts, two sources — always say which one you mean.
+
+### Scene 10 — The security story: what was found and fixed
+- **Narration:** "A review found that the kiosk server gave out an agent's employee number without
+  asking for a credential, and the workforce application accepted it as a sign-in. That path allowed
+  someone to sign in as an agent. Both halves are now closed."
+- **On the board:** A broken chain of three links. A big red cross over the middle. Then a new chain with
+  a padlock, drawn beside it. A small "closed" tick.
+- **Key message:** A real exposure was found, bounded, and closed on both sides.
+
+### Scene 11 — The security story: what is still open
+- **Narration:** "Some things are still open. A session credential can still be obtained without signing
+  in and used to read history and exports. The shared legacy key is still used by forty-four computers.
+  And the observation log grows without a retention rule."
+- **On the board:** Three open padlocks in a row. Under the first: "read history / exports". Under the
+  second: "44 legacy computers". Under the third: "283,206 observation rows and counting". No ticks.
+- **Key message:** The honest position is stated, not softened.
+
+### Scene 12 — Finding number one: the supervisor switch that does not exist
+- **Narration:** "Several documents describe a supervisor sign-in switch. That switch is not implemented
+  in the code as of the eleventh of October. Nothing reads it, so it cannot be switched on. Do not
+  follow those instructions."
+- **On the board:** A large light switch drawn on the board with a red circle-and-slash over it. Below
+  it, the words "NOT IMPLEMENTED IN CODE" and the date. A small document icon with a warning triangle.
+- **Key message:** The most serious documentation defect: an operator would think supervision was on
+  when nothing had changed.
+
+### Scene 13 — Device binding: live state versus the profile files
+- **Narration:** "On the live kiosk server, device binding is enforcing — it blocks. The profile files
+  still record it as observing only. The live server is the authority."
+- **On the board:** A shield labelled "device binding" with a solid "ENFORCE" tag. Beside it, three small
+  file icons labelled "dan1", "dan2", "dan3", each with a faint "shadow" tag and a small clock, drawn
+  behind the shield.
+- **Key message:** A control is blocking in production while the documents say it has not been promoted.
+
+### Scene 14 — The migration is in progress
+- **Narration:** "The kiosk client is being replaced. Sixty-three computers have been seen: forty-four
+  still use the old shared key and nineteen use the new device credential. The migration is in
+  progress."
+- **On the board:** A long horizontal bar split into two parts: a large part labelled "44 legacy", a
+  smaller part labelled "19 new". An arrow moving from left to right, labelled "migration in progress".
+  No end date is drawn.
+- **Key message:** Real progress, not finished — and no rounded numbers.
+
+### Scene 15 — What happens next
+- **Narration:** "Next: make the supervisor documents match reality, record the live device-binding
+  state, provision supervisor accounts, finish the client migration, and agree a retention rule."
+- **On the board:** Five numbered boxes in a row, drawn left to right, each with a small icon: a
+  document with a warning, a shield with a tick, a key, a laptop, an hourglass. A horizon line behind
+  them.
+- **Key message:** The remaining work is finishing security and making the documents true.
 
 ---
 
-## 5. Do not show, and do not say
+## Production notes
 
-**Do not film these screens** (language rule not met — they will look unfinished):
-
-- **The BO List page** — German-only, while its menu label is English.
-- **The WIC Schedule page** — German empty-state text and column headers inside the English view.
-- **The Shift Plan's bilingual warning line** — if a validation warning appears in the recording, re-take
-  the shot or crop above it.
-- **Any page in the German view that falls back to English** — about eleven pages are largely
-  hardcoded English, so switch the recording to English and keep it there.
-
-**Do not say or show:**
-
-- No agent names, user names, machine names, network addresses, device identifiers or internal
-  identifiers. Blur or crop any account badge, session identifier or device identifier.
-- No individual sickness, incident or device story. Speak only about the general controls.
-- No secret values, configuration contents or credentials.
-- No individual performance claims based on attendance data — that is explicitly recorded as invalid
-  use.
-- Do not describe the supervisor sign-in as protecting the workforce application; today it does not.
-
----
-
-## 6. Preparation checklist before recording
-
-1. Confirm which build is being filmed and verify it on the **served** address, not a development
-   server.
-2. Populate the Rollout page with a clearly fictional example if you want to show it — it currently has
-   no data, and an empty new feature is worse than no shot.
-3. Prepare the observation-data visual as an **aggregate** chart or table, never the raw log.
-4. Check the language switch on every screen you intend to film.
-5. Have the two "still open" security sentences written down and in front of you. Improvising them is
-   how a credible report becomes a comfortable one.
-6. Confirm the figures on the day of filming if the recording is more than a day after 2026-10-11, and
-   update this brief's numbers accordingly.
+- **Length:** 15 scenes; at roughly 45–60 seconds each the video lands at about 11–15 minutes. Scene 12
+  is the one to rehearse most.
+- **Drawing style:** one continuous hand, simple black lines, at most two accent colours. Icons are
+  basic shapes: circles for people, rectangles for systems, arrows for flows, a padlock for security, a
+  clock for time.
+- **Numbers on screen:** draw them large and leave them visible long enough to read. Always write the
+  system name next to a count.
+- **What never appears on the board:** any screenshot, any real name, any user name, any computer name,
+  any network address, any key or token, any individual sickness or incident story.
+- **If the recording happens after 2026-10-11:** the observation log and the attendance counts grow
+  daily. Re-read the figures and update the board before filming.
