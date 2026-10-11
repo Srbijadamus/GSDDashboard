@@ -1,4 +1,12 @@
-param([Parameter(Mandatory)][string]$OutputDirectory)
+param(
+    [Parameter(Mandatory)][string]$OutputDirectory,
+    # Expected non-system table count of the live Pulse database. 50 was the
+    # 2026-10-04 baseline; the Rollout feature added WicRolloutDays and
+    # WicRolloutWorkers (additive, no existing table changed), so the current
+    # expectation is 52. This is reported, never enforced: a mismatch is a prompt
+    # to review, not a reason to abort a read-only baseline.
+    [int]$ExpectedPulseTables = 52
+)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'LiveDataTargets.ps1')
 if (!(Test-Path -LiteralPath $OutputDirectory)) { throw 'Provide an existing protected output directory.' }
@@ -54,6 +62,7 @@ if (Test-Path -LiteralPath $path) { throw 'Baseline output already exists.' }
     StartedUtc = $started; FinishedUtc = [DateTime]::UtcNow.ToString('o')
     Consistency = 'Per-table single SELECT under default isolation; not a database-wide snapshot.'
     ChecksumLimit = '32-bit non-cryptographic aggregate; collisions and ignored/noncomparable columns are possible.'
+    ExpectedPulseTables = $ExpectedPulseTables
     Tables = $results
 } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $path -Encoding UTF8
 Set-DataProtectionAcl $path
@@ -61,8 +70,14 @@ $csv = Join-Path $OutputDirectory "table-baseline-$stamp.csv"
 $results | Export-Csv -LiteralPath $csv -NoTypeInformation -Encoding UTF8
 Set-DataProtectionAcl $csv
 foreach ($group in $results | Group-Object Database) {
-    Write-Output ("{0}: {1} tables; {2} rows" -f $group.Name, $group.Count,
-        ($group.Group | Measure-Object RowCount -Sum).Sum)
+    $expected = if ($group.Name -eq 'GSDDashboard') {
+        " (expected $ExpectedPulseTables$(if ($group.Count -eq $ExpectedPulseTables) { ', match' } else { ', REVIEW' }))"
+    } else { '' }
+    Write-Output ("{0}: {1} tables; {2} rows{3}" -f $group.Name, $group.Count,
+        ($group.Group | Measure-Object RowCount -Sum).Sum, $expected)
+}
+if (($results | Where-Object Database -eq 'GSDDashboard').Count -ne $ExpectedPulseTables) {
+    Write-Warning ("GSDDashboard table count differs from the recorded expectation ({0})." -f $ExpectedPulseTables)
 }
 Write-Output "Baseline JSON: $path"
 Write-Output "Baseline CSV: $csv"
