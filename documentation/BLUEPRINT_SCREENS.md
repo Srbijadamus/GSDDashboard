@@ -598,7 +598,7 @@ Creates an employee's roster in one batch. RTM / TEAM_LEAD / DEV only — the pa
 
 **Two modes:**
 - **Plain** — employee + date range + shift times + working days → `WORKING` ShiftEntries.
-- **WIC** — employee + WIC location (dropdown from `/api/roster/locations`, opening days shown read-only) + date range → WIC duty on the centre's open days (times from the location's opening hours), `BO` on the other working days. `WorkingDays`/`AgentTask` are ignored in this mode; a MAIN `WicAgentAssignments` row is created if none exists.
+- **WIC** — employee + WIC location (dropdown from `/api/roster/locations`, opening days shown read-only) + date range → WIC duty on the centre's open days (times from the location's opening hours), `BO` on the other working days. `WorkingDays`/`AgentTask` are ignored in this mode. The permanent MAIN `WicAgentAssignments` row is never written silently: an agent who is MAIN at another centre keeps it (`MAIN_UNCHANGED: agent already has main centre X`), and an agent with no MAIN gets one only after the explicit confirmation dialog (`confirmCreateMain=true`); without it the response says `MAIN_NOT_CREATED` and only shifts are written.
 
 Weekends and public holidays are always skipped; range capped at 366 days.
 

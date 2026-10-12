@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSearchParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { CalendarPlus, Trash2, Eye, Play, CheckCircle2, AlertCircle } from "lucide-react"
 import { useAuth } from "../auth/AuthContext"
 
@@ -30,6 +31,13 @@ interface PreviewResult {
     date: string; existingShiftType: string; existingSourceModule: string | null
     kind: string; shiftStart: string; shiftEnd: string
   }[]
+  // Permanent MAIN WIC decision of the previewed call (Backend/RosterService.cs):
+  // existingMain* = the agent's active MAIN right now, wouldCreateMain = the agent
+  // has no MAIN yet so generating would set this centre as the permanent one.
+  existingMainCode: string | null
+  existingMainName: string | null
+  wouldCreateMain: boolean
+  mainWarning: string | null
 }
 
 interface GenerateResult {
@@ -43,6 +51,10 @@ interface GenerateResult {
   boDays: number
   assignmentCreated: boolean
   replaced: number
+  // "created" | "unchanged" | "already_main" | "not_created" | null (plain roster)
+  mainAction: string | null
+  mainWarning: string | null
+  mainCentreName: string | null
 }
 
 interface DeleteResult {
@@ -165,6 +177,7 @@ function fmtErr(e: unknown): string {
 
 function RosterInner() {
   const qc = useQueryClient()
+  const { t } = useTranslation()
   const today = new Date().toISOString().slice(0, 10)
   // Deep-link support: /roster?employeeId=X preselects the employee (used by the
   // missing-roster warning on the Overview page).
@@ -183,6 +196,10 @@ function RosterInner() {
   const [busy, setBusy] = useState<"preview" | "generate" | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  // Permanent MAIN WIC outcome of the last generate, shown as its own banner so
+  // "a main centre was set" (or deliberately was NOT) can never hide inside the
+  // batch summary text.
+  const [mainNotice, setMainNotice] = useState<{ text: string; warn: boolean } | null>(null)
 
   const { data: employees = [] } = useQuery<Employee[]>({
     queryKey: ["employees-active"],
@@ -227,7 +244,7 @@ function RosterInner() {
     setWorkingDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
 
   const doPreview = async () => {
-    setError(null); setSuccess(null)
+    setError(null); setSuccess(null); setMainNotice(null)
     if (!employeeId) { setError("Please select an employee."); return }
     if (!locationCode && workingDays.length === 0) { setError("Select at least one working day."); return }
     setBusy("preview")
@@ -241,11 +258,42 @@ function RosterInner() {
     } finally { setBusy(null) }
   }
 
+  // Localised MAIN outcome banner. The server also returns the exact English
+  // warning ("MAIN_UNCHANGED: agent already has main centre X"); the UI renders
+  // its own EN/DE wording from the machine-readable mainAction instead, so one
+  // view never mixes languages.
+  const mainNoticeFor = (g: GenerateResult): { text: string; warn: boolean } | null => {
+    const centre = g.mainCentreName ?? ""
+    switch (g.mainAction) {
+      case "created":
+        return { text: t("roster.main.created", { centre }), warn: false }
+      case "unchanged":
+        return { text: t("roster.main.unchanged", { centre }), warn: true }
+      case "not_created":
+        return { text: t("roster.main.notCreated", { centre }), warn: true }
+      default:
+        return null // already_main, or a plain roster with no WIC location
+    }
+  }
+
   const doGenerate = async () => {
-    setError(null); setSuccess(null)
+    setError(null); setSuccess(null); setMainNotice(null)
+    // A permanent MAIN WIC is never written without an explicit confirmation.
+    // Only asked when the agent has NO MAIN yet (preview.wouldCreateMain); an
+    // agent who is MAIN at another centre is never transferred, so there is
+    // nothing to confirm for case 1.
+    let confirmCreateMain = false
+    if (preview?.wouldCreateMain) {
+      const centre = preview.locationName ?? preview.locationCode ?? ""
+      if (!window.confirm(t("roster.main.confirmBody", { centre }))) return
+      confirmCreateMain = true
+    }
     setBusy("generate")
     try {
-      const g = await postJson<GenerateResult>("/api/roster/generate", requestBody)
+      // confirmCreateMain travels ONLY in this call, never in requestBody: the
+      // preview's formKey must not go stale just because a dialog was confirmed.
+      const g = await postJson<GenerateResult>("/api/roster/generate",
+        { ...requestBody, confirmCreateMain })
       setSuccess(`Batch #${g.batchId} created: ${g.created} new rows for ${g.employeeId}` +
         ` (${g.firstDate} → ${g.lastDate})` +
         (g.replaced > 0
@@ -253,6 +301,7 @@ function RosterInner() {
           : "") +
         `, ${g.skippedExisting} existing day(s) skipped.` +
         (g.wicDays > 0 || g.boDays > 0 ? ` WIC days: ${g.wicDays}, BO days: ${g.boDays}.` : ""))
+      setMainNotice(mainNoticeFor(g))
       setPreview(null); setPreviewKey("")
       qc.invalidateQueries({ queryKey: ["roster-batches"] })
     } catch (e) { setError(fmtErr(e)) }
@@ -266,7 +315,7 @@ function RosterInner() {
           : `\n\nThis batch replaced ${b.replacedExisting} existing row(s), but no snapshot is stored — deleting it will NOT restore them.`)
       : ""
     if (!window.confirm(`Delete batch #${b.id} and all of its roster rows?${restoreNote}`)) return
-    setError(null); setSuccess(null)
+    setError(null); setSuccess(null); setMainNotice(null)
     try {
       const res = await fetch(`/api/roster/batches/${b.id}`, { method: "DELETE" })
       if (!res.ok) throw new Error(await errorMessage(res))
@@ -414,6 +463,18 @@ function RosterInner() {
           </div>
         </div>
       )}
+      {mainNotice && (
+        <div className={card}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {mainNotice.warn
+              ? <AlertCircle size={16} className="text-warn-fg" />
+              : <CheckCircle2 size={16} className="text-ok-fg" />}
+            <span className={"text-xs " + (mainNotice.warn ? "text-warn-fg" : "text-ink")}>
+              {mainNotice.text}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ── Preview result ── */}
       {preview && (
@@ -448,6 +509,22 @@ function RosterInner() {
             <span>First: <strong>{preview.firstDate ?? "—"}</strong></span>
             <span>Last: <strong>{preview.lastDate ?? "—"}</strong></span>
           </div>
+          {/* Permanent MAIN WIC status — never changed silently, so the preview
+              says up front what will (or will not) happen to the agent's home
+              centre before Generate is even clickable. */}
+          {preview.mainWarning?.startsWith("MAIN_UNCHANGED") ? (
+            <div className="text-[11px] text-warn-fg" style={{ marginTop: 6 }}>
+              {t("roster.main.unchanged", { centre: preview.existingMainName ?? preview.existingMainCode ?? "" })}
+            </div>
+          ) : preview.wouldCreateMain ? (
+            <div className="text-[11px] text-warn-fg" style={{ marginTop: 6 }}>
+              {t("roster.main.wouldCreate", { centre: preview.locationName ?? preview.locationCode ?? "" })}
+            </div>
+          ) : preview.existingMainCode ? (
+            <div className="text-[11px] text-ink-muted" style={{ marginTop: 6 }}>
+              {t("roster.main.existing", { centre: preview.existingMainName ?? preview.existingMainCode })}
+            </div>
+          ) : null}
           {preview.skippedHolidays.length > 0 && (
             <div className="text-[11px] text-ink-muted" style={{ marginTop: 8 }}>
               Holidays: {preview.skippedHolidays.map(h => `${h.date} (${h.name})`).join(", ")}

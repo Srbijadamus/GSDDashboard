@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text.Json;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
@@ -27,9 +27,13 @@ namespace GSDDashboard.API.Modules.Roster;
 //   the location's opening hours for that date, plus the WicShiftEntry upsert
 //   with IsOnSite=true / Task="WIC") — only SourceModule/SourceId differ so the
 //   batch stays deletable. BO rows match what BO looks like in ShiftEntries
-//   today (ShiftType=WORKING, RawValue="BO"). If the agent has no active
-//   WicAgentAssignments row for the location, one is created (MAIN) so the
-//   agent appears in the WIC coverage view — no screen can do that today.
+//   today (ShiftType=WORKING, RawValue="BO"). The generator NEVER silently
+//   writes a permanent MAIN WicAgentAssignments row (see ResolveMainAsync):
+//     * an active MAIN at another centre is left untouched and reported as
+//       MAIN_UNCHANGED — a roster run is not a transfer;
+//     * an agent with no MAIN at all gets one only when the caller explicitly
+//       confirmed it (confirmCreateMain=true, sent by the UI confirmation
+//       dialog "This will set <centre> as the agent's permanent main WIC").
 //
 // Collision rule: by default a date that already has ANY ShiftEntry for the
 // employee is skipped and reported; existing rows are never modified. With
@@ -51,7 +55,10 @@ public class RosterValidationException : Exception
 public record RosterRequest(
     string? EmployeeId, string? DateFrom, string? DateTo,
     string? ShiftStart, string? ShiftEnd, int[]? WorkingDays, string? AgentTask,
-    string? LocationCode = null, bool Overwrite = false);
+    string? LocationCode = null, bool Overwrite = false,
+    // Explicit opt-in for writing a permanent MAIN WIC assignment when the agent
+    // has none yet. Never implied by LocationCode alone — see ResolveMainAsync.
+    bool ConfirmCreateMain = false);
 
 public record RosterSkippedHoliday(string Date, string Name);
 // Protected=true means IsProtectedFromOverwrite refused the row (an absence,
@@ -79,12 +86,32 @@ public record RosterPreviewResult(
     List<RosterPlanRow> Rows,
     int WicDays, int BoDays,
     string? LocationCode, string? LocationName,
-    int ReplaceCount, List<RosterReplacement> Replacements);
+    int ReplaceCount, List<RosterReplacement> Replacements,
+    // ── Permanent MAIN WIC decision of this call ────────────────────────────
+    // ExistingMainCode/Name: the agent's active MAIN row right now (null = none).
+    // WouldCreateMain: a WIC location is selected and the agent has NO active
+    // MAIN, so confirming would set this centre as the permanent main WIC. The
+    // UI shows its confirmation dialog exactly when this is true.
+    // MainWarning: the same text the generate call would return (MAIN_UNCHANGED
+    // when the agent already has a MAIN elsewhere, MAIN_NOT_CREATED when one
+    // would have to be confirmed), so the RTM sees it before generating.
+    string? ExistingMainCode = null, string? ExistingMainName = null,
+    bool WouldCreateMain = false, string? MainWarning = null);
 
 public record RosterGenerateResult(
     int BatchId, string EmployeeId, int Created, int SkippedExisting,
     string? FirstDate, string? LastDate,
-    int WicDays, int BoDays, bool AssignmentCreated, int Replaced);
+    int WicDays, int BoDays, bool AssignmentCreated, int Replaced,
+    // Permanent MAIN WIC outcome of this call:
+    //   already_main — this centre already is the agent's MAIN (nothing done)
+    //   unchanged    — the agent kept a MAIN at ANOTHER centre (never replaced)
+    //   created      — no MAIN existed and confirmCreateMain=true wrote one
+    //   not_created  — no MAIN existed and the confirmation was missing
+    //   null         — plain roster, or the employee has no FullName to match on
+    // MainWarning is the API-level (English) text, e.g.
+    // "MAIN_UNCHANGED: agent already has main centre Centre A".
+    string? MainAction = null, string? MainWarning = null,
+    string? MainCentreName = null);
 
 public record RosterBatchDto(
     int Id, string EmployeeId, string? FullName,
@@ -193,6 +220,30 @@ public class RosterService
     private sealed record Plan(List<PlanRow> ToCreate, List<ReplacePlan> ToReplace,
         int SkippedWeekends,
         List<RosterSkippedHoliday> Holidays, List<RosterCollision> Collisions);
+
+    // ── Permanent MAIN WIC assignment decision ──────────────────────────────
+    // The generator must never silently make a centre an agent's permanent home
+    // (RosterService.cs:687-709 used to do exactly that whenever the agent had no
+    // active assignment for the generated centre).
+    private enum MainOutcome
+    {
+        /// <summary>Plain roster (no WIC location) or no FullName to match on.</summary>
+        NoLocation,
+        /// <summary>This centre already is the agent's active MAIN — nothing to do.</summary>
+        AlreadyMain,
+        /// <summary>The agent is MAIN at a different centre — never touched or duplicated.</summary>
+        ExistingOtherMain,
+        /// <summary>No MAIN existed and confirmCreateMain=true — write it.</summary>
+        Created,
+        /// <summary>No MAIN existed and the confirmation was missing — write nothing.</summary>
+        NotCreated,
+    }
+
+    private sealed record MainDecision(MainOutcome Outcome, string? ExistingMainCode, string? ExistingMainName)
+    {
+        /// <summary>True when this call is about to set (or would set, if confirmed) a MAIN row.</summary>
+        public bool WouldCreateMain => Outcome is MainOutcome.Created or MainOutcome.NotCreated;
+    }
 
     /// <summary>
     /// Absence types the generator never overwrites, even with Overwrite=true.
@@ -354,6 +405,82 @@ public class RosterService
         return t.ToString("HH:mm");
     }
 
+    // -- permanent MAIN WIC decision -----------------------------------------
+
+    /// <summary>
+    /// Read-only decision about the agent's permanent MAIN WIC row for this call.
+    /// Shared by preview and generate so the rule (and the warning the RTM sees)
+    /// can never differ between the two. The caller performs the write.
+    /// </summary>
+    private async Task<MainDecision> ResolveMainAsync(WicLocation? location, string? employeeName,
+        bool confirmCreateMain)
+    {
+        if (location == null || string.IsNullOrWhiteSpace(employeeName))
+            return new MainDecision(MainOutcome.NoLocation, null, null);
+
+        var mains = await _db.WicAgentAssignments
+            .Where(a => a.IsActive && a.AssignmentType == "MAIN" && a.EmployeeName == employeeName)
+            // OrderBy is not cosmetic: SQL without ORDER BY has no guaranteed row
+            // order, so an agent with several MAIN rows (live data has 7) must
+            // always be reported with the same one.
+            .OrderBy(a => a.Id)
+            .ToListAsync();
+
+        // MAIN already names the centre being generated (tilde code or legacy code).
+        if (mains.Any(a => WicLocationMatcher.MatchesAssignmentCode(a.LocationCode, location)))
+            return new MainDecision(MainOutcome.AlreadyMain, location.LocationCode, location.DisplayName);
+
+        var other = mains.FirstOrDefault();
+        if (other != null)
+        {
+            // The agent's home centre stays whatever it is; a roster run is not a
+            // transfer. Resolve the display name for the warning, falling back to
+            // the raw code when the location row is gone or inactive.
+            var otherLoc = await _db.WicLocations.FirstOrDefaultAsync(l =>
+                l.LocationCode == other.LocationCode || l.LocationCodeLegacy == other.LocationCode);
+            return new MainDecision(MainOutcome.ExistingOtherMain,
+                other.LocationCode, otherLoc?.DisplayName ?? other.LocationCode);
+        }
+
+        return new MainDecision(
+            confirmCreateMain ? MainOutcome.Created : MainOutcome.NotCreated, null, null);
+    }
+
+    /// <summary>
+    /// The API-level (English) warning text for a MAIN decision, or null when the
+    /// call is silent about MAIN. Exact wording is part of the contract with the
+    /// UI and with scripts: "MAIN_UNCHANGED: agent already has main centre X".
+    /// </summary>
+    private static string? MainWarningText(MainDecision d, WicLocation? location) => d.Outcome switch
+    {
+        MainOutcome.ExistingOtherMain =>
+            $"MAIN_UNCHANGED: agent already has main centre {d.ExistingMainName}",
+        MainOutcome.NotCreated =>
+            $"MAIN_NOT_CREATED: agent has no main centre; confirmCreateMain was not set, " +
+            $"so {location?.DisplayName} was NOT set as the permanent main WIC",
+        _ => null,
+    };
+
+    /// <summary>Machine-readable outcome for the UI (localised there), null for a plain roster.</summary>
+    private static string? MainActionCode(MainOutcome o) => o switch
+    {
+        MainOutcome.AlreadyMain       => "already_main",
+        MainOutcome.ExistingOtherMain => "unchanged",
+        MainOutcome.Created           => "created",
+        MainOutcome.NotCreated        => "not_created",
+        _                             => null,
+    };
+
+    /// <summary>The centre a MAIN outcome refers to — created/not-created: the generated one,
+    /// already-main: the same centre, unchanged: the agent's existing home centre.</summary>
+    private static string? MainCentreName(MainDecision d, WicLocation? location) => d.Outcome switch
+    {
+        MainOutcome.ExistingOtherMain => d.ExistingMainName,
+        MainOutcome.AlreadyMain       => d.ExistingMainName ?? location?.DisplayName,
+        MainOutcome.Created or MainOutcome.NotCreated => location?.DisplayName,
+        _                             => null,
+    };
+
     // -- planning ------------------------------------------------------------
 
     private async Task<Plan> BuildPlanAsync(PlanInput input, bool overwrite)
@@ -461,7 +588,7 @@ public class RosterService
         return new Plan(toCreate, toReplace, skippedWeekends, skippedHol, collisions);
     }
 
-    private static RosterPreviewResult ToPreview(PlanInput input, Plan plan)
+    private static RosterPreviewResult ToPreview(PlanInput input, Plan plan, MainDecision main)
     {
         // Created and replaced rows together are "what the agent's calendar will
         // show" — first/last date and the WIC/BO split count both.
@@ -483,7 +610,9 @@ public class RosterService
             plan.ToReplace.Count,
             plan.ToReplace.Select(r => new RosterReplacement(
                 r.Row.Date.ToString("yyyy-MM-dd"), r.ExistingType, r.ExistingSourceModule,
-                r.Row.Kind, r.Row.Start, r.Row.End)).ToList());
+                r.Row.Kind, r.Row.Start, r.Row.End)).ToList(),
+            main.ExistingMainCode, main.ExistingMainName,
+            main.WouldCreateMain, MainWarningText(main, input.Location));
     }
 
     // -- public operations ---------------------------------------------------
@@ -492,7 +621,8 @@ public class RosterService
     {
         var input = await ValidateAsync(req);
         var plan  = await BuildPlanAsync(input, req.Overwrite);
-        return ToPreview(input, plan);
+        var main  = await ResolveMainAsync(input.Location, input.Emp.FullName, req.ConfirmCreateMain);
+        return ToPreview(input, plan, main);
     }
 
     public async Task<RosterGenerateResult> GenerateAsync(RosterRequest req,
@@ -684,28 +814,30 @@ public class RosterService
                     ? JsonSerializer.Serialize(snapshots)
                     : null;
             }
-            // The coverage view only lists agents with an active WicAgentAssignments
-            // row and no screen can create one — add the MAIN row if it is missing.
+            // Permanent MAIN WIC assignment — NEVER created silently. This block
+            // used to add a MAIN row whenever the agent had no active assignment
+            // for the generated centre, so "Generate roster" quietly changed an
+            // agent's permanent home centre (the coverage view only lists agents
+            // with a WicAgentAssignments row, and no screen could create one).
+            // Now:
+            //   * an active MAIN at ANOTHER centre is never replaced, duplicated
+            //     or deactivated — the shifts for the selected period are still
+            //     generated and the caller gets MAIN_UNCHANGED (case 1);
+            //   * an agent with NO MAIN gets one only with confirmCreateMain=true
+            //     (the UI's confirmation dialog) (case 2).
+            var mainDecision = await ResolveMainAsync(
+                input.Location, input.Emp.FullName, req.ConfirmCreateMain);
             var assignmentCreated = false;
-            if (input.Location != null && input.Emp.FullName != null)
+            if (mainDecision.Outcome == MainOutcome.Created)
             {
-                var code   = input.Location.LocationCode;
-                var legacy = input.Location.LocationCodeLegacy;
-                var hasAssignment = await _db.WicAgentAssignments.AnyAsync(a =>
-                    a.IsActive &&
-                    a.EmployeeName == input.Emp.FullName &&
-                    (a.LocationCode == code || (legacy != null && a.LocationCode == legacy)));
-                if (!hasAssignment)
+                _db.WicAgentAssignments.Add(new WicAgentAssignment
                 {
-                    _db.WicAgentAssignments.Add(new WicAgentAssignment
-                    {
-                        LocationCode   = code,
-                        EmployeeName   = input.Emp.FullName,
-                        AssignmentType = "MAIN",
-                        IsActive       = true,
-                    });
-                    assignmentCreated = true;
-                }
+                    LocationCode   = input.Location!.LocationCode,
+                    EmployeeName   = input.Emp.FullName!,
+                    AssignmentType = "MAIN",
+                    IsActive       = true,
+                });
+                assignmentCreated = true;
             }
 
             await _db.SaveChangesAsync();
@@ -724,7 +856,10 @@ public class RosterService
                 allDates.Count > 0 ? allDates.Last().ToString("yyyy-MM-dd")  : null,
                 allKinds.Count(k => k == "WIC"),
                 allKinds.Count(k => k == "BO"),
-                assignmentCreated, replaced);
+                assignmentCreated, replaced,
+                MainActionCode(mainDecision.Outcome),
+                MainWarningText(mainDecision, input.Location),
+                MainCentreName(mainDecision, input.Location));
         });
     }
 

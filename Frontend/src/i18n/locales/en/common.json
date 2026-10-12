@@ -830,5 +830,16 @@
       "rowDeleted": "Row deleted.",
       "error": "Error"
     }
+  },
+  "roster": {
+    "main": {
+      "confirmBody": "This will set {{centre}} as the agent's permanent main WIC.",
+      "created": "MAIN_CREATED: {{centre}} is now the agent's permanent main WIC.",
+      "unchanged": "MAIN_UNCHANGED: the agent already has main centre {{centre}} — the permanent main WIC was not changed. Only the shifts for the selected period were generated.",
+      "notCreated": "MAIN_NOT_CREATED: the agent has no main centre yet, so no permanent main WIC was set. Generate again with the confirmation to set {{centre}} as the permanent main WIC.",
+      "existing": "Permanent main WIC: {{centre}}",
+      "wouldCreate": "The agent has no permanent main WIC yet. Generating will ask you to confirm {{centre}} as the permanent main WIC.",
+      "plain": "No WIC location selected — the permanent main WIC is not touched."
+    }
   }
 }

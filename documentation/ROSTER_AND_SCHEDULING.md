@@ -100,8 +100,13 @@ The centre's hours are resolved by a single resolver whose precedence is: **a da
 wins over the weekday pattern**, and among exceptions the most recently edited wins. A rollout day is
 implemented as exactly such an exception row, tagged with the ownership marker `ROLLOUT`.
 
-WIC mode also creates the employee's MAIN assignment row if none exists — the only code path that
-does.
+WIC mode does **not** silently write the employee's permanent MAIN assignment row. An agent who is
+MAIN at another centre keeps that centre (the response carries
+`MAIN_UNCHANGED: agent already has main centre X` and only the shifts for the selected period are
+generated); an agent with no MAIN at all gets one only when the caller explicitly confirms it
+(`confirmCreateMain=true`, sent by the UI's "This will set &lt;centre&gt; as the agent's permanent main
+WIC" dialog). A generate call without that confirmation reports `MAIN_NOT_CREATED` and writes shifts
+only. This used to be the one code path that created a MAIN row, and it did so silently.
 
 ### 4.2 Weekends and public holidays
 
