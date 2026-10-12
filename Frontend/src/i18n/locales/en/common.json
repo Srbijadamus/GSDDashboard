@@ -249,7 +249,12 @@
       "distance": "{{km}} km",
       "lastUsed": "{{n}}x last 30 days",
       "accept": "Accept",
-      "confirmed": "Confirmed — {{name}} assigned to {{wic}}"
+      "confirmed": "Confirmed — {{name}} assigned to {{wic}}",
+      "acceptErrors": {
+        "manualProtected": "{{name}} already has a duty today: {{duty}}. It is a protected manual entry — edit the cell directly instead.",
+        "alreadyHasWicDuty": "{{name}} already has a WIC duty today: {{duty}}.",
+        "failed": "Substitute accept failed: {{message}}"
+      }
     },
     "risk": {
       "atRiskDays": "{{n}} at-risk",

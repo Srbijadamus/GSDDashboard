@@ -11,6 +11,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaf
 import { AlertTriangle, Users } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { api, apiFetch } from "../api/client"
+import { postSubstituteAccept, substituteAcceptErrorText } from "../utils/substituteAccept"
 import { useAuth } from "../auth/AuthContext"
 import { statusColor } from "../lib/tokenColor"
 import { Sheet } from "../components/Sheet"
@@ -670,10 +671,13 @@ function SubstituteDrawer({ locationCode, date, displayName }: { locationCode: s
     setAccepting(s.employeeId)
     setAcceptError(null)
     try {
-      await apiFetch("/api/wic/substitutes/accept", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId: s.employeeId, locationCode, date, shiftStart: null, shiftEnd: null, sourceType: s.sourceType }),
+      await postSubstituteAccept({
+        employeeId: s.employeeId,
+        locationCode,
+        date,
+        shiftStart: null,
+        shiftEnd: null,
+        sourceType: s.sourceType,
       })
       setAcceptedId(s.employeeId)
       setAcceptedName(s.fullName ?? s.name)
@@ -681,7 +685,10 @@ function SubstituteDrawer({ locationCode, date, displayName }: { locationCode: s
       queryClient.invalidateQueries({ queryKey: ["subs-drawer", locationCode, date] })
     } catch (err) {
       console.error("Accept substitute failed:", err)
-      setAcceptError(String(err))
+      // Show the server's exact reason (localized where the code is known). Never
+      // replace it with a generic sentence — that is what hid the real cause on
+      // 2026-10-12.
+      setAcceptError(substituteAcceptErrorText(err, t))
     } finally {
       setAccepting(null)
     }
@@ -714,7 +721,7 @@ function SubstituteDrawer({ locationCode, date, displayName }: { locationCode: s
           borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "rgb(var(--st-crit-solid))",
           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
         }}>
-          <span>Failed to accept substitute — please refresh and try again.</span>
+          <span>{acceptError}</span>
           <button onClick={() => setAcceptError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 14, lineHeight: 1 }}>✕</button>
         </div>
       )}

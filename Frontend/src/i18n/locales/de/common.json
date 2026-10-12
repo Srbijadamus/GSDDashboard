@@ -249,7 +249,12 @@
       "distance": "{{km}} km",
       "lastUsed": "{{n}}x letzte 30 Tage",
       "accept": "Bestätigen",
-      "confirmed": "Bestätigt — {{name}} eingeplant für {{wic}}"
+      "confirmed": "Bestätigt — {{name}} eingeplant für {{wic}}",
+      "acceptErrors": {
+        "manualProtected": "{{name}} hat heute bereits einen Dienst: {{duty}}. Es ist ein geschützter manueller Eintrag — bearbeiten Sie die Zelle direkt.",
+        "alreadyHasWicDuty": "{{name}} hat heute bereits einen WIC-Dienst: {{duty}}.",
+        "failed": "Vertretung konnte nicht bestätigt werden: {{message}}"
+      }
     },
     "risk": {
       "atRiskDays": "{{n}} Risikotage",

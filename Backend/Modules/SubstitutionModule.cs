@@ -54,104 +54,172 @@ public static class SubstituteAcceptEndpointMapper
                 : location.DisplayName ?? req.LocationCode[..Math.Min(20, req.LocationCode.Length)];
 
             var logger = loggerFactory.CreateLogger("SubstituteAccept");
-            var existingShift = await db.ShiftEntries
-                .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+
+            // Every ShiftEntries row this agent holds on the date. Normally one; a second
+            // row with a different ShiftType is possible (UQ_ShiftEntries_EmpDateType allows
+            // WORKING + WIC_DUTY on the same day) and is exactly the shape that used to
+            // surface as the generic "concurrent change" message.
+            var dayShifts = await db.ShiftEntries
+                .Where(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date)
+                .ToListAsync();
+            var existingShift = dayShifts.FirstOrDefault();
+
+            // A human's manual cell (e.g. a deliberate "move to GSD") is never overwritten
+            // by this automatic writer. State exactly who is blocked and by which duty: the
+            // old "Manual shift is protected; edit the cell directly." did not, and the
+            // Overview drawer replaced it with a generic failure anyway (live 2026-10-12,
+            // ShiftEntries id 56515, employee 9074345, WORKING/GSD, ManualChangeBy S60028).
             if (db.PreserveManualShift(existingShift, "Substitute accept"))
-                return Results.Conflict(new { error = "Manual shift is protected; edit the cell directly." });
+            {
+                var duty = string.IsNullOrWhiteSpace(existingShift!.AgentTask)
+                    ? existingShift.ShiftType
+                    : existingShift.AgentTask!;
+                return Results.Conflict(new
+                {
+                    code = "MANUAL_ENTRY_PROTECTED",
+                    error = $"{employee.FullName ?? req.EmployeeId} already has a duty today: {duty}. It is a protected manual entry - edit the cell directly instead.",
+                    details = new { name = employee.FullName ?? req.EmployeeId, duty, date = date.ToString("yyyy-MM-dd") }
+                });
+            }
+
+            // A second WIC_DUTY row for the same agent and day would collide with the row
+            // about to be changed. Name it instead of letting SaveChanges throw.
+            var otherWicDuty = dayShifts.FirstOrDefault(s => !ReferenceEquals(s, existingShift)
+                && string.Equals(s.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase));
+            if (otherWicDuty != null)
+            {
+                var duty = string.IsNullOrWhiteSpace(otherWicDuty.AgentTask)
+                    ? otherWicDuty.ShiftType
+                    : otherWicDuty.AgentTask!;
+                return Results.Conflict(new
+                {
+                    code = "ALREADY_HAS_WIC_DUTY",
+                    error = $"{employee.FullName ?? req.EmployeeId} already has a WIC duty today: {duty}.",
+                    details = new { name = employee.FullName ?? req.EmployeeId, duty, date = date.ToString("yyyy-MM-dd") }
+                });
+            }
 
             IResult? errorResult = null;
             string? empName = employee.FullName ?? req.EmployeeId;
             string? locName = location.DisplayName;
 
-            var strategy = db.Database.CreateExecutionStrategy();
-            await strategy.ExecuteAsync(async () =>
+            async Task ApplyAsync()
             {
-                await using var tx = await db.Database.BeginTransactionAsync();
-                try
+                // Update existing ShiftEntry for the date, or create a new one
+                var shift = await db.ShiftEntries
+                    .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+
+                if (shift != null)
                 {
-                    // Update existing ShiftEntry for the date, or create a new one
-                    var shift = await db.ShiftEntries
-                        .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
-
-                    if (shift != null)
+                    shift.ShiftType    = ShiftTypes.WicDuty;
+                    shift.IsWicDuty    = true;
+                    shift.AgentTask    = agentTask;
+                    shift.SourceModule = "SUBSTITUTE";
+                    if (req.ShiftStart != null) shift.ShiftStart = req.ShiftStart;
+                    if (req.ShiftEnd   != null) shift.ShiftEnd   = req.ShiftEnd;
+                }
+                else
+                {
+                    db.ShiftEntries.Add(new ShiftEntry
                     {
-                        shift.ShiftType    = ShiftTypes.WicDuty;
-                        shift.IsWicDuty    = true;
-                        shift.AgentTask    = agentTask;
-                        shift.SourceModule = "SUBSTITUTE";
-                        if (req.ShiftStart != null) shift.ShiftStart = req.ShiftStart;
-                        if (req.ShiftEnd   != null) shift.ShiftEnd   = req.ShiftEnd;
-                    }
-                    else
-                    {
-                        db.ShiftEntries.Add(new ShiftEntry
-                        {
-                            EmployeeId    = req.EmployeeId,
-                            ShiftDate     = date,
-                            ShiftType     = ShiftTypes.WicDuty,
-                            IsWicDuty     = true,
-                            AgentTask     = agentTask,
-                            ShiftStart    = req.ShiftStart,
-                            ShiftEnd      = req.ShiftEnd,
-                            SourceSheet   = "SUBSTITUTE",
-                            SourceModule  = "SUBSTITUTE",
-                            AutoGenerated = true
-                        });
-                    }
-
-                    // Upsert WicShiftEntry — remove stale rows (NULL SupportLocation) then upsert the target row.
-                    var allWicRows = await db.WicShiftEntries
-                        .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date)
-                        .ToListAsync();
-                    var targetRow = allWicRows.FirstOrDefault(w =>
-                        string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase));
-                    var staleRows = allWicRows.Where(w => w != targetRow).ToList();
-                    db.WicShiftEntries.RemoveRange(staleRows);
-
-                    if (targetRow != null)
-                    {
-                        targetRow.IsOnSite     = true;
-                        targetRow.IsOffDay     = false;
-                        targetRow.IsGSDDay     = false;
-                        targetRow.WorkingShift = workingShift;
-                        targetRow.Task         = "WIC";
-                    }
-                    else
-                    {
-                        db.WicShiftEntries.Add(new WicShiftEntry
-                        {
-                            EmployeeId      = req.EmployeeId,
-                            ShiftDate       = date,
-                            DayOfWeek       = date.DayOfWeek.ToString(),
-                            SupportLocation = location.DisplayName,
-                            IsOnSite        = true,
-                            IsGSDDay        = false,
-                            IsOffDay        = false,
-                            WorkingShift    = workingShift,
-                            Task            = "WIC",
-                        });
-                    }
-
-                    db.SubstitutionHistory.Add(new SubstitutionHistory
-                    {
-                        EmployeeId   = req.EmployeeId,
-                        LocationCode = req.LocationCode,
-                        Date         = date,
-                        SourceType   = req.SourceType,
-                        AssignedAt   = DateTime.UtcNow
+                        EmployeeId    = req.EmployeeId,
+                        ShiftDate     = date,
+                        ShiftType     = ShiftTypes.WicDuty,
+                        IsWicDuty     = true,
+                        AgentTask     = agentTask,
+                        ShiftStart    = req.ShiftStart,
+                        ShiftEnd      = req.ShiftEnd,
+                        SourceSheet   = "SUBSTITUTE",
+                        SourceModule  = "SUBSTITUTE",
+                        AutoGenerated = true
                     });
+                }
 
-                    await db.SaveChangesAsync();
-                    await tx.CommitAsync();
-                }
-                catch (Exception ex)
+                // Upsert WicShiftEntry — remove stale rows (NULL SupportLocation) then upsert the target row.
+                var allWicRows = await db.WicShiftEntries
+                    .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date)
+                    .ToListAsync();
+                var targetRow = allWicRows.FirstOrDefault(w =>
+                    string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase));
+                var staleRows = allWicRows.Where(w => w != targetRow).ToList();
+                db.WicShiftEntries.RemoveRange(staleRows);
+
+                if (targetRow != null)
                 {
-                    await tx.RollbackAsync();
-                    logger.LogError(ex, "SubstituteAccept failed for {EmployeeId} at {LocationCode} on {Date}",
-                        req.EmployeeId, req.LocationCode, req.Date);
-                    errorResult = Results.Conflict(new { error = "Accept failed — a concurrent change may have occurred. Please refresh and retry." });
+                    targetRow.IsOnSite     = true;
+                    targetRow.IsOffDay     = false;
+                    targetRow.IsGSDDay     = false;
+                    targetRow.WorkingShift = workingShift;
+                    targetRow.Task         = "WIC";
                 }
-            });
+                else
+                {
+                    db.WicShiftEntries.Add(new WicShiftEntry
+                    {
+                        EmployeeId      = req.EmployeeId,
+                        ShiftDate       = date,
+                        DayOfWeek       = date.DayOfWeek.ToString(),
+                        SupportLocation = location.DisplayName,
+                        IsOnSite        = true,
+                        IsGSDDay        = false,
+                        IsOffDay        = false,
+                        WorkingShift    = workingShift,
+                        Task            = "WIC",
+                    });
+                }
+
+                db.SubstitutionHistory.Add(new SubstitutionHistory
+                {
+                    EmployeeId   = req.EmployeeId,
+                    LocationCode = req.LocationCode,
+                    Date         = date,
+                    SourceType   = req.SourceType,
+                    AssignedAt   = DateTime.UtcNow
+                });
+
+                await db.SaveChangesAsync();
+            }
+
+            void RecordFailure(Exception ex)
+            {
+                logger.LogError(ex, "SubstituteAccept failed for {EmployeeId} at {LocationCode} on {Date}",
+                    req.EmployeeId, req.LocationCode, req.Date);
+                // Name the real reason instead of a bare "a concurrent change may have
+                // occurred": the frontend shows this text, and a swallowed cause is exactly
+                // what made the live failure look like a mystery.
+                errorResult = Results.Conflict(new
+                {
+                    code = "ACCEPT_FAILED",
+                    error = $"Accept substitute failed: {ex.Message}",
+                    detail = ex.Message
+                });
+            }
+
+            // The in-memory test provider has no transactions; real SQL Server keeps the
+            // all-or-nothing guarantee this route always had (same split as MoveToGsdAsync).
+            if (db.Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
+            {
+                try { await ApplyAsync(); }
+                catch (Exception ex) { RecordFailure(ex); }
+            }
+            else
+            {
+                var strategy = db.Database.CreateExecutionStrategy();
+                await strategy.ExecuteAsync(async () =>
+                {
+                    await using var tx = await db.Database.BeginTransactionAsync();
+                    try
+                    {
+                        await ApplyAsync();
+                        await tx.CommitAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        await tx.RollbackAsync();
+                        RecordFailure(ex);
+                    }
+                });
+            }
 
             if (errorResult != null) return errorResult;
 

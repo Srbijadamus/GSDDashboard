@@ -31,6 +31,7 @@ import {
   type CheckinDisplayRow,
   type ZoneBRow,
 } from "./attendance/checkinStatus"
+import { postSubstituteAccept, substituteAcceptErrorText } from "../utils/substituteAccept"
 
 // ── API types ──────────────────────────────────────────────────────────────────
 
@@ -994,22 +995,14 @@ export default function WicAttendance() {
     if (!selectedLocationCode) return
     setAcceptingId(c.employeeId)
     try {
-      const res = await fetch("/api/wic/substitutes/accept", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employeeId: c.employeeId,
-          locationCode: selectedLocationCode,
-          date: sheetDate,
-          shiftStart: null,
-          shiftEnd: null,
-          sourceType: c.sourceType,
-        }),
+      await postSubstituteAccept({
+        employeeId: c.employeeId,
+        locationCode: selectedLocationCode,
+        date: sheetDate,
+        shiftStart: null,
+        shiftEnd: null,
+        sourceType: c.sourceType,
       })
-      if (!res.ok) {
-        const body = await res.text().catch(() => "")
-        throw new Error(`HTTP ${res.status}${body ? ": " + body : ""}`)
-      }
       setAcceptedSubId(c.employeeId)
       setAcceptedSubName(c.fullName)
       setAcceptError(null)
@@ -1018,7 +1011,9 @@ export default function WicAttendance() {
       queryClient.refetchQueries({ queryKey: ["wic-cards", selectedDate], exact: true })
     } catch (err) {
       console.error("Accept error:", err)
-      setAcceptError(String(err))
+      // The server's exact reason, localized where the code is known — never the raw
+      // "HTTP 409: {...}" this used to build from res.text().
+      setAcceptError(substituteAcceptErrorText(err, t))
     } finally {
       setAcceptingId(null)
     }
