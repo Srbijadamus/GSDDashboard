@@ -1,0 +1,264 @@
+WIC BACKFILL FROM MANUAL SHIFT PLAN  (dry-run by default)
+mode           : DRY RUN (no writes)
+server now     : 2026-10-12   scope: ShiftDate >= 2026-10-12
+connected to   : DB=GSDDashboard
+
+Source rule: SyncWicDutyFromShiftPlanAsync (Backend/ShiftService.cs:325-416),
+             call sites :221 (UpdateShiftAsync) and :290 (AssignShiftAsync).
+Definition  : manual WIC_DUTY ShiftEntries row (ManualChangeBy not empty) with no
+              WicShiftEntries row for the same EmployeeId+ShiftDate = GROUP 2.
+
+201 manual WIC_DUTY row(s) in scope; 26 are GROUP 2 and would be backfilled; 175 already linked.
+
+=== DRY-RUN RESULT: WicShiftEntries row that WOULD be written ===
+seId   emp      date       SupportLocation        WorkingShift  onSite Task action resolvedVia
+------ -------- ---------- ---------------------- ------------- ------ ---- ------ ------------------
+56526  9074431  2026-10-12 Berlin - Gaußstr.      07:30-16:30   1      WIC  INSERT AgentTask exact
+56586  9130650  2026-10-12 Rendsburg              07:00-16:00   1      WIC  INSERT AgentTask exact
+62162  9128157  2026-10-12 Bamberg                07:30-16:30   1      WIC  INSERT AgentTask exact
+62421  9128148  2026-10-12 München                08:00-17:00   1      WIC  INSERT AgentTask exact
+62517  9130649  2026-10-12 Regensburg             07:30-16:30   1      WIC  INSERT AgentTask exact
+56825  9117836  2026-10-15 Trier                  08:00-17:00   1      WIC  INSERT AgentTask exact
+56828  9120970  2026-10-15 Mülheim                08:00-17:00   1      WIC  INSERT AgentTask exact
+56842  9126882  2026-10-15 Landshut               08:00-17:00   1      WIC  INSERT AgentTask exact
+56929  9125519  2026-10-16 Stadland               07:30-16:30   1      WIC  INSERT AgentTask exact
+62370  9125517  2026-10-16 Emmerthal              07:00-16:00   1      WIC  INSERT AgentTask exact
+30050  9074431  2026-10-19 Berlin - Gaußstr.      07:30-16:30   1      WIC  INSERT AgentTask exact
+57094  9119463  2026-10-20 Arnsberg               08:00-17:00   1      WIC  INSERT AgentTask exact
+57188  9121951  2026-10-21 Recklinghausen         07:30-16:30   1      WIC  INSERT AgentTask exact
+57273  9117836  2026-10-22 Trier                  08:00-17:00   1      WIC  INSERT AgentTask exact
+57276  9120970  2026-10-22 Mülheim                08:00-17:00   1      WIC  INSERT AgentTask exact
+57290  9126882  2026-10-22 Landshut               08:00-17:00   1      WIC  INSERT AgentTask exact
+57378  9125519  2026-10-23 Stadland               07:30-16:30   1      WIC  INSERT AgentTask exact
+62269  9126874  2026-10-23 Brokdorf               07:00-16:00   1      WIC  INSERT AgentTask exact
+62375  9125517  2026-10-23 Emmerthal              07:00-16:00   1      WIC  INSERT AgentTask exact
+57421  9074431  2026-10-26 Berlin - Gaußstr.      07:30-16:30   1      WIC  INSERT AgentTask exact
+57646  9121951  2026-10-28 Recklinghausen         07:30-16:30   1      WIC  INSERT AgentTask exact
+57735  9117836  2026-10-29 Trier                  08:00-17:00   1      WIC  INSERT AgentTask exact
+57751  9126882  2026-10-29 Landshut               08:00-17:00   1      WIC  INSERT AgentTask exact
+57840  9125519  2026-10-30 Stadland               07:30-16:30   1      WIC  INSERT AgentTask exact
+62274  9126874  2026-10-30 Brokdorf               07:00-16:00   1      WIC  INSERT AgentTask exact
+62380  9125517  2026-10-30 Emmerthal              07:00-16:00   1      WIC  INSERT AgentTask exact
+
+=== FULL COLUMN SET THAT WOULD BE INSERTED (one block per row) ===
+-- ShiftEntries#56526  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9074431', '2026-10-12', 'Monday', 'Berlin - Gaußstr.', 'DE~10589~Berlin~Gaußstr. 11', 1, 0, 0, '07:30-16:30', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#56526 by=S60028 at=2026-10-12 09:16:16  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#56586  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9130650', '2026-10-12', 'Monday', 'Rendsburg', 'RENDSBURG', 1, 0, 0, '07:00-16:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#56586 by=S60028 at=2026-10-12 09:23:57  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#62162  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9128157', '2026-10-12', 'Monday', 'Bamberg', 'DE~96052~Bamberg~Doktor-Robert-Pfleger-Str. 20', 1, 0, 0, '07:30-16:30', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#62162 by=S60028 at=2026-10-12 09:15:22  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#62421  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9128148', '2026-10-12', 'Monday', 'München', 'DE~80634~München~Arnulfstr. 203', 1, 0, 0, '08:00-17:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#62421 by=S60028 at=2026-10-12 09:21:39  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#62517  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9130649', '2026-10-12', 'Monday', 'Regensburg', 'DE~93049~Regensburg~Lilienthalstraße 7', 1, 0, 0, '07:30-16:30', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#62517 by=S60028 at=2026-10-12 09:23:29  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#56825  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9117836', '2026-10-15', 'Thursday', 'Trier', 'DE~54294~Trier~Eurener Str. 33', 1, 0, 0, '08:00-17:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#56825 by=S60028 at=2026-10-05 13:40:24  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#56828  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9120970', '2026-10-15', 'Thursday', 'Mülheim', 'DE~45476~Mülheim~Moritzstr. 16-22', 1, 0, 0, '08:00-17:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#56828 by=S60028 at=2026-10-05 13:54:50  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#56842  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9126882', '2026-10-15', 'Thursday', 'Landshut', 'DE~84036~Landshut~Kiem-Pauli Str. 2', 1, 0, 0, '08:00-17:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#56842 by=S60028 at=2026-10-12 13:33:32  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#56929  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9125519', '2026-10-16', 'Friday', 'Stadland', 'DE~26935~Stadland~Dedesdorfer Straße 2', 1, 0, 0, '07:30-16:30', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#56929 by=S60028 at=2026-10-07 13:54:04  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#62370  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9125517', '2026-10-16', 'Friday', 'Emmerthal', 'DE~31860~Emmerthal~Kraftwerksgelände', 1, 0, 0, '07:00-16:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#62370 by=S60028 at=2026-10-07 12:24:17  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#30050  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9074431', '2026-10-19', 'Monday', 'Berlin - Gaußstr.', 'DE~10589~Berlin~Gaußstr. 11', 1, 0, 0, '07:30-16:30', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#30050 by=S60028 at=2026-10-12 09:17:41  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#57094  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9119463', '2026-10-20', 'Tuesday', 'Arnsberg', 'DE~59821~Arnsberg~Hellefelder Str. 8', 1, 0, 0, '08:00-17:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#57094 by=S60028 at=2026-10-05 13:44:16  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#57188  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9121951', '2026-10-21', 'Wednesday', 'Recklinghausen', 'DE~45661~Recklinghausen~Bochumer Str. 2', 1, 0, 0, '07:30-16:30', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#57188 by=S60028 at=2026-10-07 12:18:04  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#57273  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9117836', '2026-10-22', 'Thursday', 'Trier', 'DE~54294~Trier~Eurener Str. 33', 1, 0, 0, '08:00-17:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#57273 by=S60028 at=2026-10-05 13:40:39  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#57276  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9120970', '2026-10-22', 'Thursday', 'Mülheim', 'DE~45476~Mülheim~Moritzstr. 16-22', 1, 0, 0, '08:00-17:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#57276 by=S60028 at=2026-10-05 13:55:01  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#57290  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9126882', '2026-10-22', 'Thursday', 'Landshut', 'DE~84036~Landshut~Kiem-Pauli Str. 2', 1, 0, 0, '08:00-17:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#57290 by=S60028 at=2026-10-12 13:33:40  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#57378  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9125519', '2026-10-23', 'Friday', 'Stadland', 'DE~26935~Stadland~Dedesdorfer Straße 2', 1, 0, 0, '07:30-16:30', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#57378 by=S60028 at=2026-10-07 13:54:18  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#62269  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9126874', '2026-10-23', 'Friday', 'Brokdorf', 'DE~25576~Brokdorf~Osterende', 1, 0, 0, '07:00-16:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#62269 by=S60028 at=2026-10-12 12:44:49  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#62375  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9125517', '2026-10-23', 'Friday', 'Emmerthal', 'DE~31860~Emmerthal~Kraftwerksgelände', 1, 0, 0, '07:00-16:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#62375 by=S60028 at=2026-10-07 12:23:57  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#57421  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9074431', '2026-10-26', 'Monday', 'Berlin - Gaußstr.', 'DE~10589~Berlin~Gaußstr. 11', 1, 0, 0, '07:30-16:30', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#57421 by=S60028 at=2026-10-12 09:18:36  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#57646  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9121951', '2026-10-28', 'Wednesday', 'Recklinghausen', 'DE~45661~Recklinghausen~Bochumer Str. 2', 1, 0, 0, '07:30-16:30', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#57646 by=S60028 at=2026-10-07 12:19:11  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#57735  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9117836', '2026-10-29', 'Thursday', 'Trier', 'DE~54294~Trier~Eurener Str. 33', 1, 0, 0, '08:00-17:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#57735 by=S60028 at=2026-10-05 13:40:47  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#57751  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9126882', '2026-10-29', 'Thursday', 'Landshut', 'DE~84036~Landshut~Kiem-Pauli Str. 2', 1, 0, 0, '08:00-17:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#57751 by=S60028 at=2026-10-12 13:33:54  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#57840  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9125519', '2026-10-30', 'Friday', 'Stadland', 'DE~26935~Stadland~Dedesdorfer Straße 2', 1, 0, 0, '07:30-16:30', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#57840 by=S60028 at=2026-10-07 13:55:04  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#62274  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9126874', '2026-10-30', 'Friday', 'Brokdorf', 'DE~25576~Brokdorf~Osterende', 1, 0, 0, '07:00-16:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#62274 by=S60028 at=2026-10-12 12:44:55  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+-- ShiftEntries#62380  (INSERT)
+   INSERT INTO WicShiftEntries (EmployeeId, ShiftDate, DayOfWeek, SupportLocation, LocationCode,
+                                 IsOnSite, IsGSDDay, IsOffDay, WorkingShift, Task)
+   VALUES ('9125517', '2026-10-30', 'Friday', 'Emmerthal', 'DE~31860~Emmerthal~Kraftwerksgelände', 1, 0, 0, '07:00-16:00', 'WIC');
+   -- centre came from : AgentTask exact
+   -- time came from   : ShiftStart/ShiftEnd
+   -- MANUAL ORIGIN   : ShiftEntries#62380 by=S60028 at=2026-10-07 12:23:47  (NOT persistable: WicShiftEntries has no manual-origin column)
+
+=== ALREADY LINKED (not part of GROUP 2, no action) ===
+  175 row(s) already have a WicShiftEntries row for the same employee+day.
+    ids: 56563, 56565, 56572, 56577, 56579, 56582, 56583, 56590, 56592, 56593, 56595, 56596, 62208, 62230, 62250, 62326, 62406, 62500, 62537, 62748, 29641, 56604, 56651, 56652, 56654, 56666, 56668, 56672, 56682, 62209, 62231, 62251, 62501, 62538, 62749, 29642, 56693, 56696, 56723, 56731, 56741, 56743, 56755, 56757, 56761, 56771, 62210, 62232, 62252, 62502, 62539, 62750, 29643, 56782, 56797, 56829, 56831, 56838, 56843, 56846, 56850, 56861, 62191, 62211, 62233, 62253, 62503, 62540, 62751, 56872, 56927, 56936, 56940, 56951, 62192, 62212, 62234, 62254, 62390, 62541, 57008, 57016, 57017, 57022, 57029, 62193, 62213, 62235, 62504, 62542, 62752, 57097, 57111, 57112, 57118, 62194, 62214, 62236, 62505, 62543, 62753, 57177, 57187, 57201, 57208, 62195, 62215, 62237, 62506, 62544, 62754, 57230, 57277, 57286, 57291, 57298, 62196, 62216, 62238, 62507, 62545, 62755, 57389, 62197, 62217, 62239, 62395, 62546, 57460, 57469, 57474, 57481, 62198, 62218, 62240, 62508, 62547, 62756, 57550, 57552, 57566, 57573, 62199, 62219, 62241, 62509, 62548, 62757, 57636, 57645, 57659, 57666, 62200, 62220, 62242, 62510, 62549, 62758, 57738, 57747, 57752, 57759, 62201, 62221, 62243, 62511, 62550, 62759, 57851, 62202, 62222, 62244, 62400, 62551, 70691
+
+=== SUMMARY ===
+  GROUP 2 rows to backfill        : 26
+    of those: INSERT              : 26
+    of those: UPDATE existing row : 0
+    of those: WOULD WRITE NOTHING : 0
+  already linked (skipped)        : 175
+  centres that would be created   : Berlin - Gaußstr., Rendsburg, Bamberg, München, Regensburg, Trier, Mülheim, Landshut, Stadland, Emmerthal, Arnsberg, Recklinghausen, Brokdorf
+
+NO WRITES PERFORMED. Re-run with -Apply to insert (that is the only mode that writes).

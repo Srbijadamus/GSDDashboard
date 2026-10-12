@@ -1,0 +1,72 @@
+POST-WRITE COVERAGE EVIDENCE - 21 backfilled WicShiftEntries rows
+read only : yes
+new ids   : 21 rows, Id 67765..67785
+dates     : 2026-10-15, 2026-10-16, 2026-10-19, 2026-10-20, 2026-10-21, 2026-10-22, 2026-10-23, 2026-10-26, 2026-10-28, 2026-10-29, 2026-10-30
+
+=== 1. ROW-BY-ROW: new row, its Shift Plan partner, and the coverage API ===
+  newId  emp      date       SupportLocation       WorkingShift  seId    WIC?   onSite  covered   shift= agentCount
+  ------ -------- ---------- --------------------- ------------- ------- ------ ------- --------- ------ ----------
+  67765  9117836  2026-10-15 Trier                 08:00-17:00   56825   WIC_DUTY True    True      True   1
+  67766  9120970  2026-10-15 Mülheim               08:00-17:00   56828   WIC_DUTY True    True      True   1
+  67767  9126882  2026-10-15 Landshut              08:00-17:00   56842   WIC_DUTY True    True      True   1
+  67768  9125519  2026-10-16 Stadland              07:30-16:30   56929   WIC_DUTY True    True      True   1
+  67769  9125517  2026-10-16 Emmerthal             07:00-16:00   62370   WIC_DUTY True    True      True   1
+  67770  9074431  2026-10-19 Berlin - Gaußstr.     07:30-16:30   30050   WIC_DUTY True    True      True   1
+  67771  9119463  2026-10-20 Arnsberg              08:00-17:00   57094   WIC_DUTY True    True      True   1
+  67772  9121951  2026-10-21 Recklinghausen        07:30-16:30   57188   WIC_DUTY True    True      True   1
+  67773  9117836  2026-10-22 Trier                 08:00-17:00   57273   WIC_DUTY True    True      True   1
+  67774  9120970  2026-10-22 Mülheim               08:00-17:00   57276   WIC_DUTY True    True      True   1
+  67775  9126882  2026-10-22 Landshut              08:00-17:00   57290   WIC_DUTY True    True      True   1
+  67776  9125519  2026-10-23 Stadland              07:30-16:30   57378   WIC_DUTY True    True      True   1
+  67777  9126874  2026-10-23 Brokdorf              07:00-16:00   62269   WIC_DUTY True    True      True   1
+  67778  9125517  2026-10-23 Emmerthal             07:00-16:00   62375   WIC_DUTY True    True      True   1
+  67779  9074431  2026-10-26 Berlin - Gaußstr.     07:30-16:30   57421   WIC_DUTY True    True      True   1
+  67780  9121951  2026-10-28 Recklinghausen        07:30-16:30   57646   WIC_DUTY True    True      True   1
+  67781  9117836  2026-10-29 Trier                 08:00-17:00   57735   WIC_DUTY True    True      True   1
+  67782  9126882  2026-10-29 Landshut              08:00-17:00   57751   WIC_DUTY True    True      True   1
+  67783  9125519  2026-10-30 Stadland              07:30-16:30   57840   WIC_DUTY True    True      True   1
+  67784  9126874  2026-10-30 Brokdorf              07:00-16:00   62274   WIC_DUTY True    True      True   1
+  67785  9125517  2026-10-30 Emmerthal             07:00-16:00   62380   WIC_DUTY True    True      True   1
+
+  problems: 0   (must be 0: row on-site, partner still manual WIC_DUTY, agent exactly once in the API with the same shift)
+
+=== 2. PER DATE: centres now covered and the WIC rows behind them ===
+  2026-10-15  -  3 new row(s)
+      Trier                 agentCount=1 covered=True shift=08:00-17:00
+      Mülheim               agentCount=1 covered=True shift=08:00-17:00
+      Landshut              agentCount=1 covered=True shift=08:00-17:00
+  2026-10-16  -  2 new row(s)
+      Stadland              agentCount=1 covered=True shift=07:30-16:30
+      Emmerthal             agentCount=1 covered=True shift=07:00-16:00
+  2026-10-19  -  1 new row(s)
+      Berlin - Gaußstr.     agentCount=1 covered=True shift=07:30-16:30
+  2026-10-20  -  1 new row(s)
+      Arnsberg              agentCount=1 covered=True shift=08:00-17:00
+  2026-10-21  -  1 new row(s)
+      Recklinghausen        agentCount=1 covered=True shift=07:30-16:30
+  2026-10-22  -  3 new row(s)
+      Trier                 agentCount=1 covered=True shift=08:00-17:00
+      Mülheim               agentCount=1 covered=True shift=08:00-17:00
+      Landshut              agentCount=1 covered=True shift=08:00-17:00
+  2026-10-23  -  3 new row(s)
+      Stadland              agentCount=1 covered=True shift=07:30-16:30
+      Brokdorf              agentCount=1 covered=True shift=07:00-16:00
+      Emmerthal             agentCount=1 covered=True shift=07:00-16:00
+  2026-10-26  -  1 new row(s)
+      Berlin - Gaußstr.     agentCount=1 covered=True shift=07:30-16:30
+  2026-10-28  -  1 new row(s)
+      Recklinghausen        agentCount=1 covered=True shift=07:30-16:30
+  2026-10-29  -  2 new row(s)
+      Trier                 agentCount=1 covered=True shift=08:00-17:00
+      Landshut              agentCount=1 covered=True shift=08:00-17:00
+  2026-10-30  -  3 new row(s)
+      Stadland              agentCount=1 covered=True shift=07:30-16:30
+      Brokdorf              agentCount=1 covered=True shift=07:00-16:00
+      Emmerthal             agentCount=1 covered=True shift=07:00-16:00
+
+=== 3. TOTALS ===
+  new rows in WicShiftEntries                              : 21
+  rows with IsOnSite=1                                     : 21
+  rows whose partner ShiftEntries is a manual WIC_DUTY     : 21
+  distinct centres touched                                  : 9
+  distinct coverage dates                                   : 11

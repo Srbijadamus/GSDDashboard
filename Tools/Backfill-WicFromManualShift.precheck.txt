@@ -1,0 +1,81 @@
+PRE-WRITE GATE (step C) + WRITER AUDIT (step B)
+read only : yes
+server now: 2026-10-12 14:32:52 (SQL local = UTC on this instance)
+
+=== B. WRITERS THAT MUTATE AN EXISTING WicShiftEntries ROW ===
+
+  file                                           line   operation                                  paired ShiftEntries proof
+  ---------------------------------------------- ------ ------------------------------------------ ----------------------------------------
+  Backend\Modules\SubstitutionModule.cs          145    RemoveRange(stale)                         YES - updates/creates the same (emp,date) ShiftEntries row a few lines above (line 109-136); PreserveManualShift guard at line 72
+  Backend\Modules\SubstitutionModule.cs          149    UPDATE target row                          YES - same (emp,date) ShiftEntries row in the same transaction
+  Backend\RosterService.cs                       667    RemoveRange(WIC of replaced WIC_DUTY day)  YES - only for a ShiftEntries row being replaced in the same loop; PreserveManualShift at line 651 skips manual rows first
+  Backend\RosterService.cs                       1173   RemoveRange(WIC of batch)                  YES - dates come from the WIC_DUTY ShiftEntries rows of the batch being deleted (line 1162-1164)
+  Backend\RosterService.cs                       582    UPDATE (upsert by emp+date+centre)         YES - the ShiftEntries row was just created/replaced in the same unit of work
+  Backend\ShiftService.cs                        338    IsOnSite=false (cell left WIC_DUTY)        YES - that ShiftEntries row IS the caller (UpdateShiftAsync/AssignShiftAsync)
+  Backend\ShiftService.cs                        390    UPDATE (upsert by emp+date+centre)         YES - the same ShiftEntries cell is the source of the row
+  Backend\ShiftSyncService.cs                    210    RemoveRange(keySet)                        YES - keySet is exactly the set of ShiftEntries rows mutated in the same method (line 188-198); PreserveManualShift at line 185 skips manual rows
+  Backend\WicScheduleService.cs                  317    RemoveRange(toDelete)                      YES - deletes the matching WIC_DUTY ShiftEntries row (line 333-352) and removes manual days first (line 301-308, PreserveManualShift)
+  Backend\WicShiftService.cs                     142    IsOnSite=false / SupportLocation=null      PARTIAL - PATCH /api/wic/{id} is the interactive WIC Attendance cell edit by row Id; it does NOT touch the ShiftEntries row
+  Backend\WicShiftService.cs                     587    UPDATE (upsert by emp+date+centre)         YES - /api/wic/assignments + /api/wic/shifts build/update the ShiftEntries row in the same method (line 499-570 / 715-765)
+  Backend\WicShiftService.cs                     884    Remove(superseded)                         YES - the same method updates the paired ShiftEntries row (line 925-931) and it is the human Assign-Agent action
+  Backend\WicShiftService.cs                     1046   IsOnSite=false, IsGSDDay=true              YES - the paired ShiftEntries row is created/updated in the same loop (line 1012-1033)
+  Backend\RolloutService.cs                      526    Remove(row)                                YES - by the Id the rollout feature itself recorded in WicRolloutWorkers.WicShiftEntryId, and it drops its own ShiftEntries row in the same call (line 530-538)
+  Backend\Program.cs                             728    DELETE SupportLocation IS NULL rows        NO - POST /api/admin/cleanup-wic-orphans; it is matched by a non-NULL SIBLING WicShiftEntries row, never by ShiftEntries. Manual one-shot, not called at startup (line 657-658). It can only ever delete rows with SupportLocation IS NULL.
+
+  Reading of the two non-YES entries:
+   * WicShiftService.cs:142 (PATCH /api/wic/{id}) changes IsOnSite/Task/Location on ONE WicShiftEntries
+     row chosen by its own Id - it is the human WIC Attendance cell edit and it deliberately does not
+     rewrite the Shift Plan cell. It cannot delete a row and it can only flip a row the human picked,
+     so it is not a rogue writer; it is a second human surface.
+   * Program.cs:728 (cleanup-wic-orphans) deletes rows whose SupportLocation IS NULL and which have a
+     non-NULL sibling for the same (employee, date). It never runs at startup (Program.cs:657-658).
+     The 21 backfilled rows all have a non-NULL SupportLocation (Trier, Muelheim, Landshut, Stadland,
+     Emmerthal, Berlin - Gaussstr., Arnsberg, Recklinghausen, Brokdorf), so this endpoint can never
+     delete one of them. The query below proves no such NULL sibling exists for the 21 pairs.
+
+  NULL-SupportLocation rows on any of the 21 (employee, date) pairs: 0
+
+=== C. RE-VERIFICATION IMMEDIATELY BEFORE THE WRITE ===
+
+  C1 rows in plan (coverage dates)      : 21   (must be 21)
+  C1 rows whose action is not INSERT    : 0   (must be 0)
+  C1 date groups                        : 2026-10-15=3  2026-10-16=2  2026-10-19=1  2026-10-20=1  2026-10-21=1  2026-10-22=3  2026-10-23=3  2026-10-26=1  2026-10-28=1  2026-10-29=2  2026-10-30=3
+  C2 (employee, date) pairs with any WicShiftEntries row : 0   (must be 0)
+  C2b partner ShiftEntries rows still manual WIC_DUTY : 0 problems   (must be 0)
+  C2b plan WorkingShift == ShiftStart-ShiftEnd          : 0 mismatches   (must be 0)
+
+  C3 backup C:\ProgramData\PulseRollback\wic-backfill-20261012-162439\WicShiftEntries.csv
+      exists=True  bytes=2546616  lastWrite=12.10.2026 16:24:47
+      data rows=23981   (must be 23981)   max Id=67764
+
+  C4 live WicShiftEntries count = 23981   max Id = 67764
+     count + 21 will be 24002
+     rows with a paired ShiftEntries row: 20488 of 23981 (3493 have none - legacy)
+
+=== THE 21 ROWS TO BE WRITTEN (as re-verified now) ===
+  seId   emp      date       SupportLocation          WorkingShift  day      centre
+  ------ -------- ---------- ------------------------ ------------- -------- --------
+  56825  9117836  2026-10-15 Trier                    08:00-17:00   Thursday Trier
+  56828  9120970  2026-10-15 Mülheim                  08:00-17:00   Thursday Mülheim
+  56842  9126882  2026-10-15 Landshut                 08:00-17:00   Thursday Landshut
+  56929  9125519  2026-10-16 Stadland                 07:30-16:30   Friday   Stadland
+  62370  9125517  2026-10-16 Emmerthal                07:00-16:00   Friday   Emmerthal
+  30050  9074431  2026-10-19 Berlin - Gaußstr.        07:30-16:30   Monday   Berlin - Gaußstr.
+  57094  9119463  2026-10-20 Arnsberg                 08:00-17:00   Tuesday  Arnsberg
+  57188  9121951  2026-10-21 Recklinghausen           07:30-16:30   Wednesday Recklinghausen
+  57273  9117836  2026-10-22 Trier                    08:00-17:00   Thursday Trier
+  57276  9120970  2026-10-22 Mülheim                  08:00-17:00   Thursday Mülheim
+  57290  9126882  2026-10-22 Landshut                 08:00-17:00   Thursday Landshut
+  57378  9125519  2026-10-23 Stadland                 07:30-16:30   Friday   Stadland
+  62269  9126874  2026-10-23 Brokdorf                 07:00-16:00   Friday   Brokdorf
+  62375  9125517  2026-10-23 Emmerthal                07:00-16:00   Friday   Emmerthal
+  57421  9074431  2026-10-26 Berlin - Gaußstr.        07:30-16:30   Monday   Berlin - Gaußstr.
+  57646  9121951  2026-10-28 Recklinghausen           07:30-16:30   Wednesday Recklinghausen
+  57735  9117836  2026-10-29 Trier                    08:00-17:00   Thursday Trier
+  57751  9126882  2026-10-29 Landshut                 08:00-17:00   Thursday Landshut
+  57840  9125519  2026-10-30 Stadland                 07:30-16:30   Friday   Stadland
+  62274  9126874  2026-10-30 Brokdorf                 07:00-16:00   Friday   Brokdorf
+  62380  9125517  2026-10-30 Emmerthal                07:00-16:00   Friday   Emmerthal
+
+=== GATE RESULT ===
+  PASS - cleared for -Apply (21 INSERT, no collisions, backup present with 23981 rows).

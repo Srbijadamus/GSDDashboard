@@ -1,0 +1,92 @@
+STEP A - SCRIPT vs SERVER SYNC (SyncWicDutyFromShiftPlanAsync, ShiftService.cs:325-416)
+read only   : yes (no writes in this script)
+dry-run file: C:\GSDDashboard_secure\Tools\Backfill-WicFromManualShift.dryrun.txt
+target rows : 21 manual WIC_DUTY ShiftEntries rows on the coverage dates
+sync samples: WicShiftEntries Id 67764, 67760, 67763
+
+=== COLUMN-BY-COLUMN: server-synced row  vs  script rule ===
+
+WicShiftEntries Id=67760  (source ShiftEntries Id=57666, emp=9129441, 2026-10-28, centre=Salzgitter)
+  location case resolved by script : 2 AgentTask exact
+  time source per script           : ShiftStart/ShiftEnd (as the server does when the cell carries times)
+  column           server-synced row                              script rule                                    match
+  ---------------- ---------------------------------------------- ---------------------------------------------- -----
+  ShiftDate        [2026-10-28]                                   [2026-10-28]                                   OK
+  DayOfWeek        [Wednesday]                                    [Wednesday]                                    OK
+  SupportLocation  [Salzgitter]                                   [Salzgitter]                                   OK
+  LocationCode     [DE~38226~Salzgitter~Joachim-Campe-Straße 14]  [DE~38226~Salzgitter~Joachim-Campe-Straße 14]  OK
+  WicOpeningHours  []                                             []                                             OK
+  WorkingShift     [08:00-17:00]                                  [08:00-17:00]                                  OK
+  IsOnSite         [True]                                         [True]                                         OK
+  IsGSDDay         [False]                                        [False]                                        OK
+  IsOffDay         [False]                                        [False]                                        OK
+  Task             [WIC]                                          [WIC]                                          OK
+  VERDICT for Id=67760: MATCH on every WicShiftEntries column
+
+WicShiftEntries Id=67763  (source ShiftEntries Id=56668, emp=9128149, 2026-10-13, centre=Münster)
+  location case resolved by script : 2 AgentTask exact
+  time source per script           : ShiftStart/ShiftEnd (as the server does when the cell carries times)
+  column           server-synced row                              script rule                                    match
+  ---------------- ---------------------------------------------- ---------------------------------------------- -----
+  ShiftDate        [2026-10-13]                                   [2026-10-13]                                   OK
+  DayOfWeek        [Tuesday]                                      [Tuesday]                                      OK
+  SupportLocation  [Münster]                                      [Münster]                                      OK
+  LocationCode     [DE~48163~Münster~Weseler Str. 480]            [DE~48163~Münster~Weseler Str. 480]            OK
+  WicOpeningHours  []                                             []                                             OK
+  WorkingShift     [08:00-17:00]                                  [08:00-17:00]                                  OK
+  IsOnSite         [True]                                         [True]                                         OK
+  IsGSDDay         [False]                                        [False]                                        OK
+  IsOffDay         [False]                                        [False]                                        OK
+  Task             [WIC]                                          [WIC]                                          OK
+  VERDICT for Id=67763: MATCH on every WicShiftEntries column
+
+WicShiftEntries Id=67764  (source ShiftEntries Id=57112, emp=9126886, 2026-10-20, centre=Siegen)
+  location case resolved by script : 2 AgentTask exact
+  time source per script           : ShiftStart/ShiftEnd (as the server does when the cell carries times)
+  column           server-synced row                              script rule                                    match
+  ---------------- ---------------------------------------------- ---------------------------------------------- -----
+  ShiftDate        [2026-10-20]                                   [2026-10-20]                                   OK
+  DayOfWeek        [Tuesday]                                      [Tuesday]                                      OK
+  SupportLocation  [Siegen]                                       [Siegen]                                       OK
+  LocationCode     [DE~57072~Siegen~Friedrichstr. 60]             [DE~57072~Siegen~Friedrichstr. 60]             OK
+  WicOpeningHours  []                                             []                                             OK
+  WorkingShift     [08:00-17:00]                                  [08:00-17:00]                                  OK
+  IsOnSite         [True]                                         [True]                                         OK
+  IsGSDDay         [False]                                        [False]                                        OK
+  IsOffDay         [False]                                        [False]                                        OK
+  Task             [WIC]                                          [WIC]                                          OK
+  VERDICT for Id=67764: MATCH on every WicShiftEntries column
+
+=== plan-21.csv CHECK ===
+
+plan-21.csv rows: 21, header: SeId,EmpId,Date,Centre,Shift,Action,Via
+  MISALIGNED row 30050|2026-10-19: csv=[Emp=9074431 Centre=Berlin Shift=-] dry-run=[Emp=9074431 Centre=Berlin - Gaußstr. Shift=07:30-16:30]
+  MISALIGNED row 57421|2026-10-26: csv=[Emp=9074431 Centre=Berlin Shift=-] dry-run=[Emp=9074431 Centre=Berlin - Gaußstr. Shift=07:30-16:30]
+  plan-21.csv has 2 row(s) whose data columns are shifted/misaligned - the dry-run is the authority.
+
+=== THE 21 ROWS THE SCRIPT WOULD INSERT (authoritative, from the live dry-run) ===
+  seId   emp      date       SupportLocation          WorkingShift  locationResolved
+  ------ -------- ---------- ------------------------ ------------- ------------
+  56825  9117836  2026-10-15 Trier                    08:00-17:00   AgentTask exact
+  56828  9120970  2026-10-15 Mülheim                  08:00-17:00   AgentTask exact
+  56842  9126882  2026-10-15 Landshut                 08:00-17:00   AgentTask exact
+  56929  9125519  2026-10-16 Stadland                 07:30-16:30   AgentTask exact
+  62370  9125517  2026-10-16 Emmerthal                07:00-16:00   AgentTask exact
+  30050  9074431  2026-10-19 Berlin - Gaußstr.        07:30-16:30   AgentTask exact
+  57094  9119463  2026-10-20 Arnsberg                 08:00-17:00   AgentTask exact
+  57188  9121951  2026-10-21 Recklinghausen           07:30-16:30   AgentTask exact
+  57273  9117836  2026-10-22 Trier                    08:00-17:00   AgentTask exact
+  57276  9120970  2026-10-22 Mülheim                  08:00-17:00   AgentTask exact
+  57290  9126882  2026-10-22 Landshut                 08:00-17:00   AgentTask exact
+  57378  9125519  2026-10-23 Stadland                 07:30-16:30   AgentTask exact
+  62269  9126874  2026-10-23 Brokdorf                 07:00-16:00   AgentTask exact
+  62375  9125517  2026-10-23 Emmerthal                07:00-16:00   AgentTask exact
+  57421  9074431  2026-10-26 Berlin - Gaußstr.        07:30-16:30   AgentTask exact
+  57646  9121951  2026-10-28 Recklinghausen           07:30-16:30   AgentTask exact
+  57735  9117836  2026-10-29 Trier                    08:00-17:00   AgentTask exact
+  57751  9126882  2026-10-29 Landshut                 08:00-17:00   AgentTask exact
+  57840  9125519  2026-10-30 Stadland                 07:30-16:30   AgentTask exact
+  62274  9126874  2026-10-30 Brokdorf                 07:00-16:00   AgentTask exact
+  62380  9125517  2026-10-30 Emmerthal                07:00-16:00   AgentTask exact
+
+groups: 2026-10-15=3  2026-10-16=2  2026-10-19=1  2026-10-20=1  2026-10-21=1  2026-10-22=3  2026-10-23=3  2026-10-26=1  2026-10-28=1  2026-10-29=2  2026-10-30=3

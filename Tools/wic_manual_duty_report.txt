@@ -1,0 +1,478 @@
+WIC MANUAL DUTY REPORT (read-only)  generated 2026-10-12 16:08  today=2026-10-12
+Scope: ShiftEntries ShiftType=WIC_DUTY, ManualChangeBy not empty, ShiftDate >= today
+Total manual WIC_DUTY rows today or later: 201
+  175 have >=1 WicShiftEntries row for that employee+day, 26 have none
+
+Groups are mutually exclusive. G1/G2/G3 are the rows RTM must look at.
+
+=== GROUP 1 - WicShiftEntries exist but centre differs from AgentTask (2) ===
+  Id=56590  2026-10-12  AgentTask=[Zwolle]  WIC=[Dortmund ; Zwolle]  WicRows=3  by=S60028
+        raw: wicId=59085 loc=[] onSite=False ; wicId=64279 loc=[Dortmund] onSite=False ; wicId=64644 loc=[Zwolle] onSite=True
+  Id=56668  2026-10-13  AgentTask=[Münster]  WIC=[Essen - BP1 ; Münster]  WicRows=3  by=S60028
+        raw: wicId=53998 loc=[] onSite=False ; wicId=64761 loc=[Essen - BP1] onSite=False ; wicId=67763 loc=[Münster] onSite=True
+
+=== GROUP 2 - no WicShiftEntries row for the same employee+day (26) ===
+  Id=56526  2026-10-12  AgentTask=[Berlin - Gaußstr.]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=56586  2026-10-12  AgentTask=[Rendsburg]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=62162  2026-10-12  AgentTask=[Bamberg]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=62421  2026-10-12  AgentTask=[München]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=62517  2026-10-12  AgentTask=[Regensburg]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=56825  2026-10-15  AgentTask=[Trier]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=56828  2026-10-15  AgentTask=[Mülheim]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=56842  2026-10-15  AgentTask=[Landshut]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=56929  2026-10-16  AgentTask=[Stadland]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=62370  2026-10-16  AgentTask=[Emmerthal]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=30050  2026-10-19  AgentTask=[Berlin - Gaußstr.]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=57094  2026-10-20  AgentTask=[Arnsberg]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=57188  2026-10-21  AgentTask=[Recklinghausen]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=57273  2026-10-22  AgentTask=[Trier]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=57276  2026-10-22  AgentTask=[Mülheim]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=57290  2026-10-22  AgentTask=[Landshut]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=57378  2026-10-23  AgentTask=[Stadland]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=62269  2026-10-23  AgentTask=[Brokdorf]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=62375  2026-10-23  AgentTask=[Emmerthal]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=57421  2026-10-26  AgentTask=[Berlin - Gaußstr.]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=57646  2026-10-28  AgentTask=[Recklinghausen]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=57735  2026-10-29  AgentTask=[Trier]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=57751  2026-10-29  AgentTask=[Landshut]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=57840  2026-10-30  AgentTask=[Stadland]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=62274  2026-10-30  AgentTask=[Brokdorf]  WIC=[<none>]  WicRows=0  by=S60028
+  Id=62380  2026-10-30  AgentTask=[Emmerthal]  WIC=[<none>]  WicRows=0  by=S60028
+
+=== GROUP 3 - empty/NULL AgentTask (with WicShiftEntries present) (8) ===
+  Id=56595  2026-10-12  AgentTask=[]  WIC=[Pfaffenhofen]  WicRows=2  by=S60028
+        raw: wicId=60357 loc=[] onSite=False ; wicId=67728 loc=[Pfaffenhofen] onSite=True
+  Id=56604  2026-10-13  AgentTask=[]  WIC=[Arnsberg ; Grafenrheinfeld]  WicRows=2  by=S60028
+        raw: wicId=64971 loc=[Arnsberg] onSite=True ; wicId=67724 loc=[Grafenrheinfeld] onSite=True
+  Id=56651  2026-10-13  AgentTask=[]  WIC=[<none>]  WicRows=1  by=S60028
+        raw: wicId=47426 loc=[] onSite=False
+  Id=56696  2026-10-14  AgentTask=[]  WIC=[Siegen]  WicRows=2  by=S60028
+        raw: wicId=48911 loc=[] onSite=False ; wicId=67707 loc=[Siegen] onSite=True
+  Id=56757  2026-10-14  AgentTask=[]  WIC=[Essen - BP1 ; Recklinghausen]  WicRows=3  by=S60028
+        raw: wicId=53999 loc=[] onSite=False ; wicId=64762 loc=[Essen - BP1] onSite=False ; wicId=67727 loc=[Recklinghausen] onSite=True
+  Id=56782  2026-10-15  AgentTask=[]  WIC=[Grafenrheinfeld]  WicRows=1  by=S60028
+        raw: wicId=67725 loc=[Grafenrheinfeld] onSite=True
+  Id=56797  2026-10-15  AgentTask=[]  WIC=[<none>]  WicRows=1  by=S60028
+        raw: wicId=54212 loc=[] onSite=False
+  Id=57230  2026-10-22  AgentTask=[]  WIC=[Grafenrheinfeld]  WicRows=1  by=S60028
+        raw: wicId=67726 loc=[Grafenrheinfeld] onSite=True
+
+=== GROUP 4 - clean (AgentTask centre is the only WIC centre) (165) ===
+  Id=56563  2026-10-12  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67649 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=56565  2026-10-12  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=2  by=S60028
+        raw: wicId=51453 loc=[] onSite=False ; wicId=67670 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=56572  2026-10-12  AgentTask=[Stade]  WIC=[Stade]  WicRows=2  by=S60028
+        raw: wicId=53149 loc=[] onSite=False ; wicId=64831 loc=[Stade] onSite=True
+  Id=56577  2026-10-12  AgentTask=[Halle]  WIC=[Halle]  WicRows=2  by=S60028
+        raw: wicId=52513 loc=[] onSite=False ; wicId=66573 loc=[Halle] onSite=True
+  Id=56579  2026-10-12  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=53997 loc=[] onSite=False ; wicId=64760 loc=[Essen - BP1] onSite=True
+  Id=56582  2026-10-12  AgentTask=[Helmstedt]  WIC=[Helmstedt]  WicRows=2  by=S60028
+        raw: wicId=57601 loc=[] onSite=False ; wicId=64427 loc=[Helmstedt] onSite=True
+  Id=56583  2026-10-12  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67748 loc=[Salzgitter] onSite=True
+  Id=56592  2026-10-12  AgentTask=[Osnabrück]  WIC=[Osnabrück]  WicRows=1  by=S60028
+        raw: wicId=64528 loc=[Osnabrück] onSite=True
+  Id=56593  2026-10-12  AgentTask=[Hamburg]  WIC=[Hamburg]  WicRows=2  by=S60028
+        raw: wicId=60145 loc=[] onSite=False ; wicId=67731 loc=[Hamburg] onSite=True
+  Id=56596  2026-10-12  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=2  by=S60028
+        raw: wicId=60569 loc=[] onSite=False ; wicId=64650 loc=[Neu-Isenburg] onSite=True
+  Id=62208  2026-10-12  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50605 loc=[] onSite=False ; wicId=64143 loc=[Essen - BP1] onSite=True
+  Id=62230  2026-10-12  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55905 loc=[] onSite=False ; wicId=64165 loc=[Essen - BP1] onSite=True
+  Id=62250  2026-10-12  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=1  by=S60028
+        raw: wicId=67665 loc=[Essen - BP1] onSite=True
+  Id=62326  2026-10-12  AgentTask=[s-Hertogenbosch]  WIC=[s-Hertogenbosch]  WicRows=1  by=UI-MANUAL
+        raw: wicId=67729 loc=[s-Hertogenbosch] onSite=True
+  Id=62406  2026-10-12  AgentTask=[Essenbach]  WIC=[Essenbach]  WicRows=1  by=S60028
+        raw: wicId=67730 loc=[Essenbach] onSite=True
+  Id=62500  2026-10-12  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67542 loc=[Potsdam] onSite=True
+  Id=62537  2026-10-12  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67677 loc=[Hannover] onSite=True
+  Id=62748  2026-10-12  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67693 loc=[Dortmund] onSite=True
+  Id=29641  2026-10-13  AgentTask=[Quickborn]  WIC=[Quickborn]  WicRows=2  by=S60028
+        raw: wicId=54846 loc=[] onSite=False ; wicId=67732 loc=[Quickborn] onSite=True
+  Id=56652  2026-10-13  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67657 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=56654  2026-10-13  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=2  by=S60028
+        raw: wicId=51454 loc=[] onSite=False ; wicId=67671 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=56666  2026-10-13  AgentTask=[Halle]  WIC=[Halle]  WicRows=2  by=S60028
+        raw: wicId=52514 loc=[] onSite=False ; wicId=66574 loc=[Halle] onSite=True
+  Id=56672  2026-10-13  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67749 loc=[Salzgitter] onSite=True
+  Id=56682  2026-10-13  AgentTask=[Hamburg]  WIC=[Hamburg]  WicRows=2  by=S60028
+        raw: wicId=60146 loc=[] onSite=False ; wicId=67735 loc=[Hamburg] onSite=True
+  Id=62209  2026-10-13  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50606 loc=[] onSite=False ; wicId=64144 loc=[Essen - BP1] onSite=True
+  Id=62231  2026-10-13  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55906 loc=[] onSite=False ; wicId=64166 loc=[Essen - BP1] onSite=True
+  Id=62251  2026-10-13  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=1  by=S60028
+        raw: wicId=67666 loc=[Essen - BP1] onSite=True
+  Id=62501  2026-10-13  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67543 loc=[Potsdam] onSite=True
+  Id=62538  2026-10-13  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67678 loc=[Hannover] onSite=True
+  Id=62749  2026-10-13  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67694 loc=[Dortmund] onSite=True
+  Id=29642  2026-10-14  AgentTask=[Quickborn]  WIC=[Quickborn]  WicRows=2  by=S60028
+        raw: wicId=54847 loc=[] onSite=False ; wicId=67733 loc=[Quickborn] onSite=True
+  Id=56693  2026-10-14  AgentTask=[Grafenrheinfeld]  WIC=[Grafenrheinfeld]  WicRows=2  by=S60028
+        raw: wicId=47851 loc=[] onSite=False ; wicId=67714 loc=[Grafenrheinfeld] onSite=True
+  Id=56723  2026-10-14  AgentTask=[Neuss]  WIC=[Neuss]  WicRows=2  by=S60028
+        raw: wicId=49335 loc=[] onSite=False ; wicId=64966 loc=[Neuss] onSite=True
+  Id=56731  2026-10-14  AgentTask=[Neuss]  WIC=[Neuss]  WicRows=2  by=S60028
+        raw: wicId=58875 loc=[] onSite=False ; wicId=66842 loc=[Neuss] onSite=True
+  Id=56741  2026-10-14  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67650 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=56743  2026-10-14  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=2  by=S60028
+        raw: wicId=51455 loc=[] onSite=False ; wicId=67672 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=56755  2026-10-14  AgentTask=[Markkleeberg]  WIC=[Markkleeberg]  WicRows=2  by=S60028
+        raw: wicId=52515 loc=[] onSite=False ; wicId=66698 loc=[Markkleeberg] onSite=True
+  Id=56761  2026-10-14  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67750 loc=[Salzgitter] onSite=True
+  Id=56771  2026-10-14  AgentTask=[Hamburg]  WIC=[Hamburg]  WicRows=2  by=S60028
+        raw: wicId=60147 loc=[] onSite=False ; wicId=67498 loc=[Hamburg] onSite=True
+  Id=62210  2026-10-14  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50607 loc=[] onSite=False ; wicId=64145 loc=[Essen - BP1] onSite=True
+  Id=62232  2026-10-14  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55907 loc=[] onSite=False ; wicId=64167 loc=[Essen - BP1] onSite=True
+  Id=62252  2026-10-14  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=1  by=S60028
+        raw: wicId=67667 loc=[Essen - BP1] onSite=True
+  Id=62502  2026-10-14  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67544 loc=[Potsdam] onSite=True
+  Id=62539  2026-10-14  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67679 loc=[Hannover] onSite=True
+  Id=62750  2026-10-14  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67695 loc=[Dortmund] onSite=True
+  Id=29643  2026-10-15  AgentTask=[Quickborn]  WIC=[Quickborn]  WicRows=2  by=S60028
+        raw: wicId=54848 loc=[] onSite=False ; wicId=67734 loc=[Quickborn] onSite=True
+  Id=56829  2026-10-15  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67658 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=56831  2026-10-15  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=2  by=S60028
+        raw: wicId=51456 loc=[] onSite=False ; wicId=67673 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=56838  2026-10-15  AgentTask=[Stade]  WIC=[Stade]  WicRows=2  by=S60028
+        raw: wicId=53152 loc=[] onSite=False ; wicId=64832 loc=[Stade] onSite=True
+  Id=56843  2026-10-15  AgentTask=[Markkleeberg]  WIC=[Markkleeberg]  WicRows=2  by=S60028
+        raw: wicId=52516 loc=[] onSite=False ; wicId=66699 loc=[Markkleeberg] onSite=True
+  Id=56846  2026-10-15  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=54000 loc=[] onSite=False ; wicId=64763 loc=[Essen - BP1] onSite=True
+  Id=56850  2026-10-15  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67751 loc=[Salzgitter] onSite=True
+  Id=56861  2026-10-15  AgentTask=[Hamburg]  WIC=[Hamburg]  WicRows=2  by=S60028
+        raw: wicId=60148 loc=[] onSite=False ; wicId=67499 loc=[Hamburg] onSite=True
+  Id=62191  2026-10-15  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67736 loc=[Neu-Isenburg] onSite=True
+  Id=62211  2026-10-15  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50608 loc=[] onSite=False ; wicId=64146 loc=[Essen - BP1] onSite=True
+  Id=62233  2026-10-15  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55908 loc=[] onSite=False ; wicId=64168 loc=[Essen - BP1] onSite=True
+  Id=62253  2026-10-15  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=1  by=S60028
+        raw: wicId=67668 loc=[Essen - BP1] onSite=True
+  Id=62503  2026-10-15  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67545 loc=[Potsdam] onSite=True
+  Id=62540  2026-10-15  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67680 loc=[Hannover] onSite=True
+  Id=62751  2026-10-15  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67696 loc=[Dortmund] onSite=True
+  Id=56872  2026-10-16  AgentTask=[Grafenrheinfeld]  WIC=[Grafenrheinfeld]  WicRows=2  by=S60028
+        raw: wicId=47853 loc=[] onSite=False ; wicId=67715 loc=[Grafenrheinfeld] onSite=True
+  Id=56927  2026-10-16  AgentTask=[Helmstedt]  WIC=[Helmstedt]  WicRows=2  by=S60028
+        raw: wicId=56121 loc=[] onSite=False ; wicId=66645 loc=[Helmstedt] onSite=True
+  Id=56936  2026-10-16  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=54001 loc=[] onSite=False ; wicId=64764 loc=[Essen - BP1] onSite=True
+  Id=56940  2026-10-16  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67752 loc=[Salzgitter] onSite=True
+  Id=56951  2026-10-16  AgentTask=[Hamburg]  WIC=[Hamburg]  WicRows=2  by=S60028
+        raw: wicId=60149 loc=[] onSite=False ; wicId=67500 loc=[Hamburg] onSite=True
+  Id=62192  2026-10-16  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67737 loc=[Neu-Isenburg] onSite=True
+  Id=62212  2026-10-16  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50609 loc=[] onSite=False ; wicId=64147 loc=[Essen - BP1] onSite=True
+  Id=62234  2026-10-16  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55909 loc=[] onSite=False ; wicId=64169 loc=[Essen - BP1] onSite=True
+  Id=62254  2026-10-16  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=1  by=S60028
+        raw: wicId=67669 loc=[Essen - BP1] onSite=True
+  Id=62390  2026-10-16  AgentTask=[Essenbach]  WIC=[Essenbach]  WicRows=2  by=S60028
+        raw: wicId=47005 loc=[] onSite=False ; wicId=64385 loc=[Essenbach] onSite=True
+  Id=62541  2026-10-16  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67681 loc=[Hannover] onSite=True
+  Id=57008  2026-10-19  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67651 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=57016  2026-10-19  AgentTask=[Helmstedt]  WIC=[Helmstedt]  WicRows=2  by=S60028
+        raw: wicId=56124 loc=[] onSite=False ; wicId=66646 loc=[Helmstedt] onSite=True
+  Id=57017  2026-10-19  AgentTask=[Stade]  WIC=[Stade]  WicRows=2  by=S60028
+        raw: wicId=53156 loc=[] onSite=False ; wicId=64833 loc=[Stade] onSite=True
+  Id=57022  2026-10-19  AgentTask=[Halle]  WIC=[Halle]  WicRows=2  by=S60028
+        raw: wicId=52520 loc=[] onSite=False ; wicId=66575 loc=[Halle] onSite=True
+  Id=57029  2026-10-19  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67753 loc=[Salzgitter] onSite=True
+  Id=62193  2026-10-19  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67738 loc=[Neu-Isenburg] onSite=True
+  Id=62213  2026-10-19  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50612 loc=[] onSite=False ; wicId=64148 loc=[Essen - BP1] onSite=True
+  Id=62235  2026-10-19  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55912 loc=[] onSite=False ; wicId=64170 loc=[Essen - BP1] onSite=True
+  Id=62504  2026-10-19  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67546 loc=[Potsdam] onSite=True
+  Id=62542  2026-10-19  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67682 loc=[Hannover] onSite=True
+  Id=62752  2026-10-19  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67697 loc=[Dortmund] onSite=True
+  Id=57097  2026-10-20  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67659 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=57111  2026-10-20  AgentTask=[Halle]  WIC=[Halle]  WicRows=2  by=S60028
+        raw: wicId=52521 loc=[] onSite=False ; wicId=66576 loc=[Halle] onSite=True
+  Id=57112  2026-10-20  AgentTask=[Siegen]  WIC=[Siegen]  WicRows=2  by=S60028
+        raw: wicId=56761 loc=[] onSite=False ; wicId=67764 loc=[Siegen] onSite=True
+  Id=57118  2026-10-20  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67754 loc=[Salzgitter] onSite=True
+  Id=62194  2026-10-20  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67739 loc=[Neu-Isenburg] onSite=True
+  Id=62214  2026-10-20  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50613 loc=[] onSite=False ; wicId=64149 loc=[Essen - BP1] onSite=True
+  Id=62236  2026-10-20  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55913 loc=[] onSite=False ; wicId=64171 loc=[Essen - BP1] onSite=True
+  Id=62505  2026-10-20  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67547 loc=[Potsdam] onSite=True
+  Id=62543  2026-10-20  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67683 loc=[Hannover] onSite=True
+  Id=62753  2026-10-20  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67698 loc=[Dortmund] onSite=True
+  Id=57177  2026-10-21  AgentTask=[Neuss]  WIC=[Neuss]  WicRows=2  by=S60028
+        raw: wicId=58882 loc=[] onSite=False ; wicId=66843 loc=[Neuss] onSite=True
+  Id=57187  2026-10-21  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67652 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=57201  2026-10-21  AgentTask=[Markkleeberg]  WIC=[Markkleeberg]  WicRows=2  by=S60028
+        raw: wicId=52522 loc=[] onSite=False ; wicId=66700 loc=[Markkleeberg] onSite=True
+  Id=57208  2026-10-21  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67755 loc=[Salzgitter] onSite=True
+  Id=62195  2026-10-21  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67740 loc=[Neu-Isenburg] onSite=True
+  Id=62215  2026-10-21  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50614 loc=[] onSite=False ; wicId=64150 loc=[Essen - BP1] onSite=True
+  Id=62237  2026-10-21  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55914 loc=[] onSite=False ; wicId=64172 loc=[Essen - BP1] onSite=True
+  Id=62506  2026-10-21  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67548 loc=[Potsdam] onSite=True
+  Id=62544  2026-10-21  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67684 loc=[Hannover] onSite=True
+  Id=62754  2026-10-21  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67699 loc=[Dortmund] onSite=True
+  Id=57277  2026-10-22  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67660 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=57286  2026-10-22  AgentTask=[Stade]  WIC=[Stade]  WicRows=2  by=S60028
+        raw: wicId=53159 loc=[] onSite=False ; wicId=64834 loc=[Stade] onSite=True
+  Id=57291  2026-10-22  AgentTask=[Markkleeberg]  WIC=[Markkleeberg]  WicRows=2  by=S60028
+        raw: wicId=52523 loc=[] onSite=False ; wicId=66701 loc=[Markkleeberg] onSite=True
+  Id=57298  2026-10-22  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67756 loc=[Salzgitter] onSite=True
+  Id=62196  2026-10-22  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67747 loc=[Neu-Isenburg] onSite=True
+  Id=62216  2026-10-22  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50615 loc=[] onSite=False ; wicId=64151 loc=[Essen - BP1] onSite=True
+  Id=62238  2026-10-22  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55915 loc=[] onSite=False ; wicId=64173 loc=[Essen - BP1] onSite=True
+  Id=62507  2026-10-22  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67549 loc=[Potsdam] onSite=True
+  Id=62545  2026-10-22  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67685 loc=[Hannover] onSite=True
+  Id=62755  2026-10-22  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67700 loc=[Dortmund] onSite=True
+  Id=57389  2026-10-23  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67757 loc=[Salzgitter] onSite=True
+  Id=62197  2026-10-23  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67741 loc=[Neu-Isenburg] onSite=True
+  Id=62217  2026-10-23  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50616 loc=[] onSite=False ; wicId=64152 loc=[Essen - BP1] onSite=True
+  Id=62239  2026-10-23  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55916 loc=[] onSite=False ; wicId=64174 loc=[Essen - BP1] onSite=True
+  Id=62395  2026-10-23  AgentTask=[Essenbach]  WIC=[Essenbach]  WicRows=2  by=S60028
+        raw: wicId=47012 loc=[] onSite=False ; wicId=64390 loc=[Essenbach] onSite=True
+  Id=62546  2026-10-23  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67686 loc=[Hannover] onSite=True
+  Id=57460  2026-10-26  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67653 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=57469  2026-10-26  AgentTask=[Stade]  WIC=[Stade]  WicRows=2  by=S60028
+        raw: wicId=53163 loc=[] onSite=False ; wicId=64835 loc=[Stade] onSite=True
+  Id=57474  2026-10-26  AgentTask=[Halle]  WIC=[Halle]  WicRows=2  by=S60028
+        raw: wicId=52527 loc=[] onSite=False ; wicId=66577 loc=[Halle] onSite=True
+  Id=57481  2026-10-26  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67758 loc=[Salzgitter] onSite=True
+  Id=62198  2026-10-26  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67742 loc=[Neu-Isenburg] onSite=True
+  Id=62218  2026-10-26  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50619 loc=[] onSite=False ; wicId=64153 loc=[Essen - BP1] onSite=True
+  Id=62240  2026-10-26  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55919 loc=[] onSite=False ; wicId=64175 loc=[Essen - BP1] onSite=True
+  Id=62508  2026-10-26  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67550 loc=[Potsdam] onSite=True
+  Id=62547  2026-10-26  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67687 loc=[Hannover] onSite=True
+  Id=62756  2026-10-26  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67701 loc=[Dortmund] onSite=True
+  Id=57550  2026-10-27  AgentTask=[Arnsberg]  WIC=[Arnsberg]  WicRows=1  by=S60028
+        raw: wicId=66109 loc=[Arnsberg] onSite=True
+  Id=57552  2026-10-27  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67661 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=57566  2026-10-27  AgentTask=[Halle]  WIC=[Halle]  WicRows=2  by=S60028
+        raw: wicId=52528 loc=[] onSite=False ; wicId=66578 loc=[Halle] onSite=True
+  Id=57573  2026-10-27  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67759 loc=[Salzgitter] onSite=True
+  Id=62199  2026-10-27  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67743 loc=[Neu-Isenburg] onSite=True
+  Id=62219  2026-10-27  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50620 loc=[] onSite=False ; wicId=64154 loc=[Essen - BP1] onSite=True
+  Id=62241  2026-10-27  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55920 loc=[] onSite=False ; wicId=64176 loc=[Essen - BP1] onSite=True
+  Id=62509  2026-10-27  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67551 loc=[Potsdam] onSite=True
+  Id=62548  2026-10-27  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67688 loc=[Hannover] onSite=True
+  Id=62757  2026-10-27  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67702 loc=[Dortmund] onSite=True
+  Id=57636  2026-10-28  AgentTask=[Neuss]  WIC=[Neuss]  WicRows=2  by=S60028
+        raw: wicId=58889 loc=[] onSite=False ; wicId=66844 loc=[Neuss] onSite=True
+  Id=57645  2026-10-28  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67654 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=57659  2026-10-28  AgentTask=[Markkleeberg]  WIC=[Markkleeberg]  WicRows=2  by=S60028
+        raw: wicId=52529 loc=[] onSite=False ; wicId=66702 loc=[Markkleeberg] onSite=True
+  Id=57666  2026-10-28  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67760 loc=[Salzgitter] onSite=True
+  Id=62200  2026-10-28  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67744 loc=[Neu-Isenburg] onSite=True
+  Id=62220  2026-10-28  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50621 loc=[] onSite=False ; wicId=64155 loc=[Essen - BP1] onSite=True
+  Id=62242  2026-10-28  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55921 loc=[] onSite=False ; wicId=64177 loc=[Essen - BP1] onSite=True
+  Id=62510  2026-10-28  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67552 loc=[Potsdam] onSite=True
+  Id=62549  2026-10-28  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67689 loc=[Hannover] onSite=True
+  Id=62758  2026-10-28  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67703 loc=[Dortmund] onSite=True
+  Id=57738  2026-10-29  AgentTask=[Demmin - Am Hanseufe]  WIC=[Demmin - Am Hanseufer]  WicRows=1  by=S60028
+        raw: wicId=67662 loc=[Demmin - Am Hanseufer] onSite=True
+  Id=57747  2026-10-29  AgentTask=[Stade]  WIC=[Stade]  WicRows=2  by=S60028
+        raw: wicId=53166 loc=[] onSite=False ; wicId=64836 loc=[Stade] onSite=True
+  Id=57752  2026-10-29  AgentTask=[Markkleeberg]  WIC=[Markkleeberg]  WicRows=2  by=S60028
+        raw: wicId=52530 loc=[] onSite=False ; wicId=66703 loc=[Markkleeberg] onSite=True
+  Id=57759  2026-10-29  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67761 loc=[Salzgitter] onSite=True
+  Id=62201  2026-10-29  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67745 loc=[Neu-Isenburg] onSite=True
+  Id=62221  2026-10-29  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50622 loc=[] onSite=False ; wicId=64156 loc=[Essen - BP1] onSite=True
+  Id=62243  2026-10-29  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55922 loc=[] onSite=False ; wicId=64178 loc=[Essen - BP1] onSite=True
+  Id=62511  2026-10-29  AgentTask=[Potsdam]  WIC=[Potsdam]  WicRows=1  by=S60028
+        raw: wicId=67553 loc=[Potsdam] onSite=True
+  Id=62550  2026-10-29  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67690 loc=[Hannover] onSite=True
+  Id=62759  2026-10-29  AgentTask=[Dortmund]  WIC=[Dortmund]  WicRows=1  by=S60028
+        raw: wicId=67704 loc=[Dortmund] onSite=True
+  Id=57851  2026-10-30  AgentTask=[Salzgitter]  WIC=[Salzgitter]  WicRows=1  by=S60028
+        raw: wicId=67762 loc=[Salzgitter] onSite=True
+  Id=62202  2026-10-30  AgentTask=[Neu-Isenburg]  WIC=[Neu-Isenburg]  WicRows=1  by=S60028
+        raw: wicId=67746 loc=[Neu-Isenburg] onSite=True
+  Id=62222  2026-10-30  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=50623 loc=[] onSite=False ; wicId=64157 loc=[Essen - BP1] onSite=True
+  Id=62244  2026-10-30  AgentTask=[Essen - BP1]  WIC=[Essen - BP1]  WicRows=2  by=S60028
+        raw: wicId=55923 loc=[] onSite=False ; wicId=64179 loc=[Essen - BP1] onSite=True
+  Id=62400  2026-10-30  AgentTask=[Essenbach]  WIC=[Essenbach]  WicRows=2  by=S60028
+        raw: wicId=47019 loc=[] onSite=False ; wicId=64395 loc=[Essenbach] onSite=True
+  Id=62551  2026-10-30  AgentTask=[Hannover]  WIC=[Hannover]  WicRows=1  by=S60028
+        raw: wicId=67691 loc=[Hannover] onSite=True
+  Id=70691  2026-11-06  AgentTask=[Brokdorf]  WIC=[Brokdorf]  WicRows=2  by=S60028
+        raw: wicId=52962 loc=[] onSite=False ; wicId=66211 loc=[Brokdorf] onSite=True
+
+=== GROUP 2: does the WIC coverage endpoint show the centre that day? ===
+  endpoint: GET http://localhost:5000/api/wic/coverage?date=  (counts WicShiftEntries with IsOnSite=1 per centre)
+  Id=56526  2026-10-12  centre=[Berlin - Gaußstr.]  locCode=DE~10589~Berlin~Gaußstr. 11  -> LISTED isCovered=False agentCount=0
+  Id=56586  2026-10-12  centre=[Rendsburg]  locCode=RENDSBURG  -> LISTED isCovered=False agentCount=0
+  Id=62162  2026-10-12  centre=[Bamberg]  locCode=DE~96052~Bamberg~Doktor-Robert-Pfleger-Str. 20  -> LISTED isCovered=False agentCount=0
+  Id=62421  2026-10-12  centre=[München]  locCode=DE~80634~München~Arnulfstr. 203  -> LISTED isCovered=False agentCount=0
+  Id=62517  2026-10-12  centre=[Regensburg]  locCode=DE~93049~Regensburg~Lilienthalstraße 7  -> LISTED isCovered=False agentCount=0
+  Id=56825  2026-10-15  centre=[Trier]  locCode=DE~54294~Trier~Eurener Str. 33  -> LISTED isCovered=False agentCount=0
+  Id=56828  2026-10-15  centre=[Mülheim]  locCode=DE~45476~Mülheim~Moritzstr. 16-22  -> LISTED isCovered=False agentCount=0
+  Id=56842  2026-10-15  centre=[Landshut]  locCode=DE~84036~Landshut~Kiem-Pauli Str. 2  -> LISTED isCovered=False agentCount=0
+  Id=56929  2026-10-16  centre=[Stadland]  locCode=DE~26935~Stadland~Dedesdorfer Straße 2  -> LISTED isCovered=False agentCount=0
+  Id=62370  2026-10-16  centre=[Emmerthal]  locCode=DE~31860~Emmerthal~Kraftwerksgelände  -> LISTED isCovered=False agentCount=0
+  Id=30050  2026-10-19  centre=[Berlin - Gaußstr.]  locCode=DE~10589~Berlin~Gaußstr. 11  -> LISTED isCovered=False agentCount=0
+  Id=57094  2026-10-20  centre=[Arnsberg]  locCode=DE~59821~Arnsberg~Hellefelder Str. 8  -> LISTED isCovered=False agentCount=0
+  Id=57188  2026-10-21  centre=[Recklinghausen]  locCode=DE~45661~Recklinghausen~Bochumer Str. 2  -> LISTED isCovered=False agentCount=0
+  Id=57273  2026-10-22  centre=[Trier]  locCode=DE~54294~Trier~Eurener Str. 33  -> LISTED isCovered=False agentCount=0
+  Id=57276  2026-10-22  centre=[Mülheim]  locCode=DE~45476~Mülheim~Moritzstr. 16-22  -> LISTED isCovered=False agentCount=0
+  Id=57290  2026-10-22  centre=[Landshut]  locCode=DE~84036~Landshut~Kiem-Pauli Str. 2  -> LISTED isCovered=False agentCount=0
+  Id=57378  2026-10-23  centre=[Stadland]  locCode=DE~26935~Stadland~Dedesdorfer Straße 2  -> LISTED isCovered=False agentCount=0
+  Id=62269  2026-10-23  centre=[Brokdorf]  locCode=DE~25576~Brokdorf~Osterende  -> LISTED isCovered=False agentCount=0
+  Id=62375  2026-10-23  centre=[Emmerthal]  locCode=DE~31860~Emmerthal~Kraftwerksgelände  -> LISTED isCovered=False agentCount=0
+  Id=57421  2026-10-26  centre=[Berlin - Gaußstr.]  locCode=DE~10589~Berlin~Gaußstr. 11  -> LISTED isCovered=False agentCount=0
+  Id=57646  2026-10-28  centre=[Recklinghausen]  locCode=DE~45661~Recklinghausen~Bochumer Str. 2  -> LISTED isCovered=False agentCount=0
+  Id=57735  2026-10-29  centre=[Trier]  locCode=DE~54294~Trier~Eurener Str. 33  -> LISTED isCovered=False agentCount=0
+  Id=57751  2026-10-29  centre=[Landshut]  locCode=DE~84036~Landshut~Kiem-Pauli Str. 2  -> LISTED isCovered=False agentCount=0
+  Id=57840  2026-10-30  centre=[Stadland]  locCode=DE~26935~Stadland~Dedesdorfer Straße 2  -> LISTED isCovered=False agentCount=0
+  Id=62274  2026-10-30  centre=[Brokdorf]  locCode=DE~25576~Brokdorf~Osterende  -> LISTED isCovered=False agentCount=0
+  Id=62380  2026-10-30  centre=[Emmerthal]  locCode=DE~31860~Emmerthal~Kraftwerksgelände  -> LISTED isCovered=False agentCount=0
+
+=== GROUP 1: coverage endpoint view of both centres ===
+  Id=56590  2026-10-12  AgentTask=[Zwolle] -> resolved=[Zwolle]
+        Dortmund: LISTED agentCount=1 isCovered=True | Zwolle: LISTED agentCount=1 isCovered=True
+  Id=56668  2026-10-13  AgentTask=[Münster] -> resolved=[Münster]
+        Essen - BP1: LISTED agentCount=3 isCovered=True | Münster: LISTED agentCount=2 isCovered=True
+
+=== GROUP 3: coverage endpoint view of the centre named by the WIC rows ===
+  Id=56595  2026-10-12  WIC centre=[Pfaffenhofen] -> LISTED agentCount=1
+  Id=56604  2026-10-13  WIC centre=[Arnsberg] -> LISTED agentCount=1
+  Id=56604  2026-10-13  WIC centre=[Grafenrheinfeld] -> LISTED agentCount=1
+  Id=56651  2026-10-13  WIC rows carry no SupportLocation
+  Id=56696  2026-10-14  WIC centre=[Siegen] -> LISTED agentCount=1
+  Id=56757  2026-10-14  WIC centre=[Essen - BP1] -> LISTED agentCount=3
+  Id=56757  2026-10-14  WIC centre=[Recklinghausen] -> LISTED agentCount=2
+  Id=56782  2026-10-15  WIC centre=[Grafenrheinfeld] -> LISTED agentCount=1
+  Id=56797  2026-10-15  WIC rows carry no SupportLocation
+  Id=57230  2026-10-22  WIC centre=[Grafenrheinfeld] -> LISTED agentCount=1
+
+=== Q4: AUDIT / HISTORY SURFACES ===
+  Tables/columns whose NAME suggests history or last-modified:
+    __EFMigrationsHistory.MigrationId (nvarchar)
+    __EFMigrationsHistory.ProductVersion (nvarchar)
+    SubstitutionHistory.Id (int)
+    SubstitutionHistory.EmployeeId (nvarchar)
+    SubstitutionHistory.LocationCode (nvarchar)
+    SubstitutionHistory.Date (date)
+    SubstitutionHistory.SourceType (nvarchar)
+    SubstitutionHistory.AssignedAt (datetime2)
+  SubstitutionHistory (49 rows): Id, EmployeeId, LocationCode, Date, SourceType, AssignedAt
+  RtmEntries (3 rows)          : Id, EntryDate, EmployeeId, FullName, ShiftStart, ShiftEnd, Tag, SourceLine, CreatedAt
+  ShiftEntries history fields  : ManualChangeBy / ManualChangeAt / ManualChangeNote (ONE value, last write only)
+
+  Manual WIC_DUTY today+ rows whose ManualChangeBy is NOT S60028:
+    Id=62326  2026-10-12  AgentTask=[s-Hertogenbosch]  by=UI-MANUAL  at=12.10.2026 09:10:27
+    -> 1 row(s)
+
+  Manual-WIC today+ rows touched by another writer AFTER ManualChangeAt
+  (evidence available: SubstitutionHistory.AssignedAt, RtmEntries.CreatedAt):
+    (none)
+    (none)
+
+  Also: distinct ManualChangeNote values among the manual WIC_DUTY today+ rows
+    Manual shift cell edit (/shifts); automatic writers must preserve this row. 201
+
+=== SUMMARY COUNTS (mutually exclusive) ===
+  manual WIC_DUTY rows, ShiftDate >= today : 201
+  GROUP 1 centre mismatch                  : 2
+  GROUP 2 no WicShiftEntries               : 26
+  GROUP 3 empty AgentTask (has WIC rows)   : 8
+  GROUP 4 clean                            : 165
+  TOTAL G1+G2+G3+G4                        : 201
+
+  GROUP 1 ids: 56590, 56668
+  GROUP 2 ids: 56526, 56586, 62162, 62421, 62517, 56825, 56828, 56842, 56929, 62370, 30050, 57094, 57188, 57273, 57276, 57290, 57378, 62269, 62375, 57421, 57646, 57735, 57751, 57840, 62274, 62380
+  GROUP 3 ids: 56595, 56604, 56651, 56696, 56757, 56782, 56797, 57230
+
+=== RTM MANUAL CHECK LIST (G1 + G2 + G3, no duplicates) ===
+  ids: 30050, 56526, 56586, 56590, 56595, 56604, 56651, 56668, 56696, 56757, 56782, 56797, 56825, 56828, 56842, 56929, 57094, 57188, 57230, 57273, 57276, 57290, 57378, 57421, 57646, 57735, 57751, 57840, 62162, 62269, 62274, 62370, 62375, 62380, 62421, 62517
