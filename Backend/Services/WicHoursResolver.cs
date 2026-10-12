@@ -63,6 +63,35 @@ public static class WicHoursResolver
     }
 
     /// <summary>
+    /// THE shared "is this centre open on this date" answer, used by both the roster
+    /// generator's MAIN auto-detection (RosterService) and the Shift Plan's MAIN
+    /// fallback (ShiftService.SyncWicDutyFromShiftPlanAsync), so the two can never
+    /// disagree about which MAIN centre is open on a date. A centre is open only when
+    /// WicHoursResolver resolves a non-closed row that actually carries a usable
+    /// interval, never on a bare weekday match.
+    /// </summary>
+    public static bool IsOpenOn(IEnumerable<WicOpeningHour> all, WicLocation loc, DateOnly date)
+    {
+        var h = Resolve(all, loc.LocationCode, loc.LocationCodeLegacy, (int)date.DayOfWeek, date);
+        return h is { IsClosed: false } && Intervals(h).Count > 0;
+    }
+
+    /// <summary>
+    /// The open intervals of one resolved hours row: OpenTime-CloseTime and, when the
+    /// centre has a second block either side of a break, OpenTime2-CloseTime2. Shared
+    /// by the roster generator and the Shift Plan's MAIN fallback so "open" and
+    /// "overlapping" mean the same thing everywhere.
+    /// </summary>
+    public static List<(TimeOnly s, TimeOnly e)> Intervals(WicOpeningHour? h)
+    {
+        var list = new List<(TimeOnly, TimeOnly)>();
+        if (h == null || h.IsClosed) return list;
+        if (TimeOnly.TryParse(h.OpenTime, out var s1) && TimeOnly.TryParse(h.CloseTime, out var e1)) list.Add((s1, e1));
+        if (TimeOnly.TryParse(h.OpenTime2, out var s2) && TimeOnly.TryParse(h.CloseTime2, out var e2)) list.Add((s2, e2));
+        return list;
+    }
+
+    /// <summary>
     /// Overload that also checks the legacy location code.
     /// </summary>
     public static WicOpeningHour? Resolve(

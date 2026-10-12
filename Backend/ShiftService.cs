@@ -356,11 +356,35 @@ public class ShiftService
             var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == shift.EmployeeId);
             if (emp?.FullName != null)
             {
-                var main = await _db.WicAgentAssignments.FirstOrDefaultAsync(a =>
-                    a.IsActive && a.AssignmentType == "MAIN" && a.EmployeeName == emp.FullName);
-                if (main != null)
-                    location = await _db.WicLocations.FirstOrDefaultAsync(l => l.IsActive &&
-                        (l.LocationCode == main.LocationCode || l.LocationCodeLegacy == main.LocationCode));
+                // Same rule (and the same resolver) the roster generator's MAIN
+                // auto-detection uses: pick the agent's MAIN centre that is OPEN on
+                // THIS date, in assignment order — never simply the first MAIN row,
+                // which put an agent in a centre that is shut that weekday. Several
+                // open centres resolve to the first, exactly as the generator's
+                // first-open choice did before the dual-centre rule.
+                var mains = await _db.WicAgentAssignments
+                    .Where(a => a.IsActive && a.AssignmentType == "MAIN" && a.EmployeeName == emp.FullName)
+                    .OrderBy(a => a.Id)
+                    .ToListAsync();
+                if (mains.Count > 0)
+                {
+                    var allHours = await _db.WicOpeningHours.ToListAsync();
+                    foreach (var m in mains)
+                    {
+                        var candidate = await _db.WicLocations.FirstOrDefaultAsync(l => l.IsActive &&
+                            (l.LocationCode == m.LocationCode || l.LocationCodeLegacy == m.LocationCode));
+                        if (candidate == null) continue;
+                        if (WicHoursResolver.IsOpenOn(allHours, candidate, shift.ShiftDate))
+                        {
+                            location = candidate;
+                            break;
+                        }
+                    }
+                    // The agent HAS a main centre, but none of them is open today.
+                    // Write no WIC row and say exactly why, instead of resurrecting
+                    // the closed day or falling through to the generic message.
+                    if (location == null) return "NO_OPEN_MAIN";
+                }
             }
         }
         if (location == null)

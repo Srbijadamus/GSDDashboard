@@ -21,7 +21,7 @@ interface PreviewResult {
   skippedWeekends: number
   skippedHolidays: { date: string; name: string }[]
   collisions: { date: string; shiftType: string; sourceModule: string | null; protected: boolean }[]
-  rows: { date: string; shiftStart: string; shiftEnd: string; kind: string; locationCode: string | null }[]
+  rows: { date: string; shiftStart: string; shiftEnd: string; kind: string; locationCode: string | null; centres: { locationCode: string; displayName: string; start: string; end: string }[] | null }[]
   wicDays: number
   boDays: number
   locationCode: string | null
@@ -43,6 +43,10 @@ interface PreviewResult {
   // "Monday: Centre A 08:00-16:00 + Centre B 08:00-17:00". Empty when the MAIN
   // opening days are disjoint — the normal case, resolved day by day.
   mainOverlapDays: string[] | null
+  // The actual DATES left WITHOUT a WIC centre (MAIN_AMBIGUOUS): two or more MAIN
+  // centres overlap on that weekday and no earlier same-weekday decision exists to
+  // follow. Never guessed — the day stays a BO day.
+  mainAmbiguousDays: string[] | null
 }
 
 interface GenerateResult {
@@ -60,6 +64,7 @@ interface GenerateResult {
   mainAction: string | null
   mainWarning: string | null
   mainCentreName: string | null
+  mainAmbiguousDays: string[] | null
 }
 
 interface DeleteResult {
@@ -305,7 +310,10 @@ function RosterInner() {
           ? `, ${g.replaced} existing row(s) replaced — deleting the batch restores them`
           : "") +
         `, ${g.skippedExisting} existing day(s) skipped.` +
-        (g.wicDays > 0 || g.boDays > 0 ? ` WIC days: ${g.wicDays}, BO days: ${g.boDays}.` : ""))
+        (g.wicDays > 0 || g.boDays > 0 ? ` WIC days: ${g.wicDays}, BO days: ${g.boDays}.` : "") +
+        (g.mainAmbiguousDays?.length
+          ? ` ${t("roster.main.ambiguous", { days: g.mainAmbiguousDays.join("; ") })}`
+          : ""))
       setMainNotice(mainNoticeFor(g))
       setPreview(null); setPreviewKey("")
       qc.invalidateQueries({ queryKey: ["roster-batches"] })
@@ -538,6 +546,11 @@ function RosterInner() {
               {t("roster.main.overlap", { days: (preview.mainOverlapDays ?? []).join("; ") })}
             </div>
           )}
+          {(preview.mainAmbiguousDays?.length ?? 0) > 0 && (
+            <div className="text-[11px] text-crit-fg" style={{ marginTop: 4 }}>
+              {t("roster.main.ambiguous", { days: (preview.mainAmbiguousDays ?? []).join("; ") })}
+            </div>
+          )}
           {preview.skippedHolidays.length > 0 && (
             <div className="text-[11px] text-ink-muted" style={{ marginTop: 8 }}>
               Holidays: {preview.skippedHolidays.map(h => `${h.date} (${h.name})`).join(", ")}
@@ -583,7 +596,11 @@ function RosterInner() {
                       <td className={tdCls}>{r.date}</td>
                       <td className={tdCls}>{r.shiftStart}–{r.shiftEnd}</td>
                       <td className={tdCls}>{r.kind}</td>
-                      <td className={tdCls}>{r.locationCode ?? "—"}</td>
+                      <td className={tdCls}>
+                        {r.centres && r.centres.length > 0
+                          ? r.centres.map(c => `${c.displayName} ${c.start}–${c.end}`).join(" + ")
+                          : (r.locationCode ?? "—")}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

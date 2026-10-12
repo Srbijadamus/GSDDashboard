@@ -672,6 +672,10 @@ export default function Shifts() {
       return error
     }
   }
+  // Machine reason codes the server returns as wicWarning must read as EN/DE, never
+  // as the bare code. Anything else is already English prose and is shown verbatim.
+  const wicWarningText = (warning: string) =>
+    warning === "NO_OPEN_MAIN" ? t("shifts.wicNoOpenMain") : warning
   const doUpdateShift = async (id: number, type: string, start?: string, end?: string) => {
     try {
       const res = await apiFetch<{ wicWarning?: string }>(`/api/shifts/${id}/manual`, {
@@ -680,7 +684,7 @@ export default function Shifts() {
       })
       // A WIC_DUTY cell edit that could not resolve a centre is only partly saved:
       // say so instead of showing the cell as if everything worked.
-      if (res?.wicWarning) setAssignError(res.wicWarning)
+      if (res?.wicWarning) setAssignError(wicWarningText(res.wicWarning))
       await qc.invalidateQueries({ queryKey:["shifts-cal"] })
       return null
     } catch (e: unknown) {
@@ -699,7 +703,7 @@ export default function Shifts() {
       throw new Error(body?.error ?? `HTTP ${res.status}`)
     }
     const body = await res.json().catch(() => null)
-    if (body?.wicWarning) setAssignError(body.wicWarning)
+    if (body?.wicWarning) setAssignError(wicWarningText(body.wicWarning))
     qc.invalidateQueries({ queryKey: ["shifts-cal"] })
   }
 

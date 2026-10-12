@@ -192,11 +192,14 @@ public class RosterMultiMainPerDayTests
     //
     // Centre C is open Monday AND Wednesday, Centre D is open Monday 09:00-14:00 —
     // which overlaps C's Monday 08:00-12:00. Monday is therefore the only day the
-    // generator cannot resolve from WicOpeningHours and must say so. Wednesday is
-    // unambiguous (only C is open), Tuesday/Thursday/Friday are closed everywhere.
+    // generator cannot resolve from WicOpeningHours. Rule c (2026-10-12): it must
+    // NOT guess ("first MAIN wins" was the old behaviour) — with no earlier
+    // same-weekday WIC decision to follow, Monday is left WITHOUT a WIC centre (a BO
+    // day) and reported in MainAmbiguousDays. Wednesday is unambiguous (only C is
+    // open) and stays a WIC day.
 
     [Fact]
-    public async Task Generate_OverlappingMainDays_StillGenerates_AndReportsTheAmbiguousDays()
+    public async Task Generate_OverlappingMainDays_ReportsTheAmbiguousDay_AndPlacesNobodyThere()
     {
         using var db = NewDb();
         db.Employees.Add(new Employee { EmployeeId = Emp, FullName = Name, IsActive = true });
@@ -219,14 +222,29 @@ public class RosterMultiMainPerDayTests
         Assert.Contains("Centre D", ambiguous);
         Assert.DoesNotContain(p.MainOverlapDays!, d => d.Contains("Wednesday"));
 
+        // The ambiguous DAY itself is reported per date and carries no centre.
+        var day = Assert.Single(p.MainAmbiguousDays!);
+        Assert.StartsWith("2026-10-05 (Monday):", day);
+        Assert.Contains("Centre C", day);
+        Assert.Contains("Centre D", day);
+        Assert.Equal("BO", p.Rows.Single(r => r.Date == "2026-10-05").Kind);
+        Assert.Null(p.Rows.Single(r => r.Date == "2026-10-05").LocationCode);
+
         // The run still creates a row per day — the ambiguity is reported, not fatal.
         var g = await Svc(db).GenerateAsync(
             new RosterRequest(Emp, WeekFrom, WeekTo, null, null, null, null), "K1", "Tester");
         Assert.Equal(5, g.Created);   // Mon, Tue, Wed, Thu, Fri
-        Assert.Equal(2, g.WicDays);   // Monday (first MAIN in order wins) + Wednesday
-        Assert.Equal(3, g.BoDays);    // Tuesday, Thursday, Friday
+        Assert.Equal(1, g.WicDays);   // Wednesday only — Monday is NOT guessed
+        Assert.Equal(4, g.BoDays);    // Monday, Tuesday, Thursday, Friday
         var sameAmbiguity = Assert.Single(g.MainOverlapDays!);
         Assert.Contains("Monday", sameAmbiguity);
+        Assert.Single(g.MainAmbiguousDays!);
+
+        // Monday got a ShiftEntries row but no WicShiftEntries row at all.
+        var monday = DateOnly.Parse("2026-10-05");
+        Assert.False(await db.WicShiftEntries.AnyAsync(w => w.EmployeeId == Emp && w.ShiftDate == monday));
+        var wednesdayShift = await db.ShiftEntries.SingleAsync(s => s.EmployeeId == Emp && s.ShiftDate == DateOnly.Parse("2026-10-07"));
+        Assert.Equal("Centre C", wednesdayShift.AgentTask);
     }
 
     // ── 4. MAIN_UNCHANGED names EVERY MAIN centre, not only the first ────────
