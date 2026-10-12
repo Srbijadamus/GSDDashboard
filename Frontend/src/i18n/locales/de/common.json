@@ -839,7 +839,11 @@
       "notCreated": "MAIN_NOT_CREATED: Der Agent hat noch kein Haupt-Zentrum, daher wurde kein dauerhaftes Haupt-WIC gesetzt. Generieren Sie erneut mit Bestätigung, um {{centre}} als dauerhaftes Haupt-WIC festzulegen.",
       "existing": "Dauerhaftes Haupt-WIC: {{centre}}",
       "wouldCreate": "Der Agent hat noch kein dauerhaftes Haupt-WIC. Beim Generieren werden Sie gefragt, ob {{centre}} als dauerhaftes Haupt-WIC festgelegt werden soll.",
-      "plain": "Kein WIC-Standort gewählt — das dauerhafte Haupt-WIC bleibt unverändert."
+      "plain": "Kein WIC-Standort gewählt — das dauerhafte Haupt-WIC bleibt unverändert.",
+      "overlap": "Mehr als ein Haupt-WIC dieses Agenten ist gleichzeitig geöffnet: {{days}}. Jeder Tag wird dem ersten Zentrum der Liste zugeordnet; bitte die Rotation prüfen."
+    },
+    "preview": {
+      "centre": "Zentrum"
     }
   }
 }

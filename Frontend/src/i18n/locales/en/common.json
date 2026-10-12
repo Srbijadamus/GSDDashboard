@@ -839,7 +839,11 @@
       "notCreated": "MAIN_NOT_CREATED: the agent has no main centre yet, so no permanent main WIC was set. Generate again with the confirmation to set {{centre}} as the permanent main WIC.",
       "existing": "Permanent main WIC: {{centre}}",
       "wouldCreate": "The agent has no permanent main WIC yet. Generating will ask you to confirm {{centre}} as the permanent main WIC.",
-      "plain": "No WIC location selected — the permanent main WIC is not touched."
+      "plain": "No WIC location selected — the permanent main WIC is not touched.",
+      "overlap": "More than one main WIC of this agent is open at the same time: {{days}}. Each day is assigned to the first centre in the list; check the rotation."
+    },
+    "preview": {
+      "centre": "Centre"
     }
   }
 }

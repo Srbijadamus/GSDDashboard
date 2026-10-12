@@ -21,7 +21,7 @@ interface PreviewResult {
   skippedWeekends: number
   skippedHolidays: { date: string; name: string }[]
   collisions: { date: string; shiftType: string; sourceModule: string | null; protected: boolean }[]
-  rows: { date: string; shiftStart: string; shiftEnd: string; kind: string }[]
+  rows: { date: string; shiftStart: string; shiftEnd: string; kind: string; locationCode: string | null }[]
   wicDays: number
   boDays: number
   locationCode: string | null
@@ -38,6 +38,11 @@ interface PreviewResult {
   existingMainName: string | null
   wouldCreateMain: boolean
   mainWarning: string | null
+  // The ONLY real ambiguity of a multi-MAIN agent: a weekday on which two or more
+  // of the agent's MAIN centres are open at the same time, e.g.
+  // "Monday: Centre A 08:00-16:00 + Centre B 08:00-17:00". Empty when the MAIN
+  // opening days are disjoint — the normal case, resolved day by day.
+  mainOverlapDays: string[] | null
 }
 
 interface GenerateResult {
@@ -525,6 +530,14 @@ function RosterInner() {
               {t("roster.main.existing", { centre: preview.existingMainName ?? preview.existingMainCode })}
             </div>
           ) : null}
+          {/* Multi-MAIN ambiguity — the only case in which the day-by-day centre
+              cannot be derived from the opening hours. Reported, never guessed
+              silently. */}
+          {(preview.mainOverlapDays?.length ?? 0) > 0 && (
+            <div className="text-[11px] text-warn-fg" style={{ marginTop: 4 }}>
+              {t("roster.main.overlap", { days: (preview.mainOverlapDays ?? []).join("; ") })}
+            </div>
+          )}
           {preview.skippedHolidays.length > 0 && (
             <div className="text-[11px] text-ink-muted" style={{ marginTop: 8 }}>
               Holidays: {preview.skippedHolidays.map(h => `${h.date} (${h.name})`).join(", ")}
@@ -561,6 +574,7 @@ function RosterInner() {
                     <th className={thCls}>Date</th>
                     <th className={thCls}>Shift</th>
                     <th className={thCls}>Type</th>
+                    <th className={thCls}>{t("roster.preview.centre")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -569,6 +583,7 @@ function RosterInner() {
                       <td className={tdCls}>{r.date}</td>
                       <td className={tdCls}>{r.shiftStart}–{r.shiftEnd}</td>
                       <td className={tdCls}>{r.kind}</td>
+                      <td className={tdCls}>{r.locationCode ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>

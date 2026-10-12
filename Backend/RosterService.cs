@@ -22,6 +22,16 @@ namespace GSDDashboard.API.Modules.Roster;
 // Days the location is OPEN per WicOpeningHours (WicHoursResolver, EffectiveFrom-
 // and legacy-code aware) become WIC duty; every other weekday becomes BO.
 // WorkingDays/AgentTask from the request are ignored in this mode.
+//
+// WIC mode WITHOUT LocationCode: the centre comes from the agent's active MAIN
+// WicAgentAssignments rows. Several MAIN rows are NORMAL, not an error (live data
+// has 7 such agents — one is MAIN at three centres that open on different days):
+// each generated date is placed in the MAIN centre that is OPEN that day
+// (PickOpenMainLocation), so the generator follows the opening hours instead of
+// locking the whole period to one arbitrary MAIN. The only genuine ambiguity — a
+// weekday on which two or more MAIN centres are open at the same time — is
+// reported in RosterPreviewResult.MainOverlapDays / RosterGenerateResult
+// .MainOverlapDays and resolved deterministically (first MAIN by assignment Id).
 //   WIC rows match the shape WicShiftService.CreateAssignmentAsync writes
 //   (ShiftType=WIC_DUTY, IsWicDuty=true, AgentTask=location DisplayName, times =
 //   the location's opening hours for that date, plus the WicShiftEntry upsert
@@ -75,7 +85,12 @@ public record RosterReplacement(
 
 // Kind: "WORKING" (plain roster), "WIC" (location open that day -> WIC duty),
 // "BO" (location closed that weekday -> back office).
-public record RosterPlanRow(string Date, string ShiftStart, string ShiftEnd, string Kind);
+// LocationCode: the centre this specific row belongs to. With an explicitly
+// selected centre it is that centre on every row; for an agent with several MAIN
+// centres and no LocationCode it is the centre open on that date (null = plain
+// roster, or no MAIN centre is open that day).
+public record RosterPlanRow(string Date, string ShiftStart, string ShiftEnd, string Kind,
+    string? LocationCode = null);
 
 public record RosterPreviewResult(
     string EmployeeId, string? FullName,
@@ -96,7 +111,13 @@ public record RosterPreviewResult(
     // when the agent already has a MAIN elsewhere, MAIN_NOT_CREATED when one
     // would have to be confirmed), so the RTM sees it before generating.
     string? ExistingMainCode = null, string? ExistingMainName = null,
-    bool WouldCreateMain = false, string? MainWarning = null);
+    bool WouldCreateMain = false, string? MainWarning = null,
+    // The only genuine ambiguity when an agent has several MAIN centres: a day on
+    // which TWO OR MORE of them are open at the same time, so no centre can be
+    // derived from WicOpeningHours. One entry per ambiguous WEEKDAY ("Monday:
+    // Centre A + Centre B"). Empty when the MAIN opening days are disjoint — which
+    // is the normal, correct state for a multi-MAIN agent.
+    List<string>? MainOverlapDays = null);
 
 public record RosterGenerateResult(
     int BatchId, string EmployeeId, int Created, int SkippedExisting,
@@ -111,7 +132,10 @@ public record RosterGenerateResult(
     // MainWarning is the API-level (English) text, e.g.
     // "MAIN_UNCHANGED: agent already has main centre Centre A".
     string? MainAction = null, string? MainWarning = null,
-    string? MainCentreName = null);
+    string? MainCentreName = null,
+    // Same content as RosterPreviewResult.MainOverlapDays, carried on the generate
+    // result too so a caller that never previewed still sees the ambiguity.
+    List<string>? MainOverlapDays = null);
 
 public record RosterBatchDto(
     int Id, string EmployeeId, string? FullName,
@@ -207,11 +231,20 @@ public class RosterService
     // Start/End are nullable: WIC mode (Location != null) normally leaves them
     // null so BuildPlanAsync's per-day centre hours drive the actual times —
     // required only in plain mode, or as an explicit WIC-mode override.
+    // MainLocations: the agent's active MAIN centres (1..n) when the caller left
+    // LocationCode blank, resolved and ordered by assignment Id. With several MAIN
+    // centres BuildPlanAsync picks the one open on each date; Location still holds
+    // MainLocations[0] so every single-centre reader keeps working unchanged.
+    // Rotation: true when the centre was AUTO-DETECTED from MAIN (no LocationCode in
+    // the request) — then the centre is re-chosen for every date from WicOpeningHours
+    // instead of being fixed for the whole period.
+    // Main: the permanent-MAIN decision of this call (never a write by itself).
     private sealed record PlanInput(Employee Emp, DateOnly From, DateOnly To,
         string? Start, string? End, HashSet<int> WorkingDays, string? AgentTask,
-        WicLocation? Location);
+        WicLocation? Location, WicLocation[] MainLocations, bool Rotation, MainPlan Main);
 
-    private sealed record PlanRow(DateOnly Date, string Kind, string Start, string End);
+    private sealed record PlanRow(DateOnly Date, string Kind, string Start, string End,
+        WicLocation? Location = null);
 
     // Overwrite mode: the generated row plus the existing ShiftEntry it replaces.
     private sealed record ReplacePlan(PlanRow Row, int ExistingId,
@@ -239,10 +272,21 @@ public class RosterService
         NotCreated,
     }
 
-    private sealed record MainDecision(MainOutcome Outcome, string? ExistingMainCode, string? ExistingMainName)
+    // More than one active MAIN row is a CORRECT state (live data has 7 such agents):
+    // a MAIN per centre, each open on its own days. ExistingMain(s) therefore name
+    // EVERY active MAIN centre; the warning must never hide the second one.
+    private sealed record MainPlan(
+        MainOutcome Outcome,
+        WicLocation[] MainLocations,
+        string[] ExistingMainCodes,
+        string[] ExistingMainNames,
+        List<string> OverlapDays)
     {
         /// <summary>True when this call is about to set (or would set, if confirmed) a MAIN row.</summary>
         public bool WouldCreateMain => Outcome is MainOutcome.Created or MainOutcome.NotCreated;
+
+        public string? FirstExistingMainCode => ExistingMainCodes.Length > 0 ? ExistingMainCodes[0] : null;
+        public string? FirstExistingMainName => ExistingMainNames.Length > 0 ? ExistingMainNames[0] : null;
     }
 
     /// <summary>
@@ -352,15 +396,22 @@ public class RosterService
         // WIC mode: the location must be an active WicLocations row. Opening days
         // are resolved later from WicOpeningHours — never taken from the request.
         WicLocation? location = null;
-        if (!string.IsNullOrWhiteSpace(req.LocationCode))
+        var explicitLocation = !string.IsNullOrWhiteSpace(req.LocationCode);
+        if (explicitLocation)
         {
-            var code = req.LocationCode.Trim();
+            var code = req.LocationCode!.Trim();
             location = await _db.WicLocations
                 .FirstOrDefaultAsync(l => l.LocationCode == code && l.IsActive);
             if (location == null)
                 throw new RosterValidationException("Unknown or inactive WIC location: " + code);
         }
-        else if (emp.FullName != null)
+
+        // Permanent-MAIN decision of this call. It is read-only and independent of
+        // the selected location: it answers "do the agent's MAIN rows already name
+        // this centre / what are they", never "should the generator move them".
+        var mainPlan = await ResolveMainAsync(location, emp.FullName, req.ConfirmCreateMain, from, to);
+
+        if (!explicitLocation)
         {
             // WIC priority (permanent rule): an agent who is MAIN for an active WIC
             // location is scheduled there on that location's open days — GSD/BO is
@@ -369,14 +420,15 @@ public class RosterService
             // only when the caller left LocationCode blank; an explicit
             // LocationCode (e.g. a deliberate REGIONAL/BACKUP support day) is
             // always honoured as given.
-            var mainAssignment = await _db.WicAgentAssignments
-                .FirstOrDefaultAsync(a => a.IsActive && a.AssignmentType == "MAIN" && a.EmployeeName == emp.FullName);
-            if (mainAssignment != null)
-            {
-                var code = mainAssignment.LocationCode;
-                location = await _db.WicLocations
-                    .FirstOrDefaultAsync(l => l.IsActive && (l.LocationCode == code || l.LocationCodeLegacy == code));
-            }
+            //
+            // An agent may be MAIN at SEVERAL centres (live data: 7 agents, one of
+            // them with 3). They are carried as a set, ordered by assignment Id so
+            // the choice is deterministic; BuildPlanAsync then picks the centre
+            // that is OPEN on each generated date (Rotation = true). Locking the
+            // whole period to one arbitrary MAIN (the old FirstOrDefaultAsync with
+            // no ORDER BY) dumped the agent into a centre that is shut while an
+            // open MAIN existed.
+            location = mainPlan.MainLocations.FirstOrDefault();
         }
 
         // Plain mode always requires an explicit shift time. WIC mode (location
@@ -394,7 +446,13 @@ public class RosterService
             end   = NormalizeTime(req.ShiftEnd,   "shiftEnd");
         }
 
-        return new PlanInput(emp, from, to, start, end, days, task, location);
+        return new PlanInput(emp, from, to, start, end, days, task, location,
+            mainPlan.MainLocations,
+            // Rotation only when the centre came from the agent's MAIN rows: with no
+            // MAIN at all there is nothing to rotate and the working-day checkboxes
+            // (plain mode) still apply.
+            !explicitLocation && mainPlan.MainLocations.Length > 0,
+            mainPlan);
     }
 
     private static string NormalizeTime(string? v, string field)
@@ -408,56 +466,154 @@ public class RosterService
     // -- permanent MAIN WIC decision -----------------------------------------
 
     /// <summary>
-    /// Read-only decision about the agent's permanent MAIN WIC row for this call.
-    /// Shared by preview and generate so the rule (and the warning the RTM sees)
-    /// can never differ between the two. The caller performs the write.
+    /// Read-only decision about the agent's permanent MAIN WIC row(s) for this call,
+    /// including the day-by-day auto-detection input when the caller passed no
+    /// LocationCode. Shared by preview and generate so the rule (and the warning the
+    /// RTM sees) can never differ between the two. The caller performs the write.
+    ///
+    /// Several active MAIN rows are NORMAL: an agent may be MAIN at each centre that
+    /// opens on some days (live data has 7 such agents). This method therefore
+    /// returns ALL of them, ordered by assignment Id (SQL without ORDER BY has no
+    /// guaranteed row order), and reports the only real ambiguity: a weekday on
+    /// which two or more of them are open at the same time.
     /// </summary>
-    private async Task<MainDecision> ResolveMainAsync(WicLocation? location, string? employeeName,
-        bool confirmCreateMain)
+    private async Task<MainPlan> ResolveMainAsync(WicLocation? location, string? employeeName,
+        bool confirmCreateMain, DateOnly from, DateOnly to)
     {
-        if (location == null || string.IsNullOrWhiteSpace(employeeName))
-            return new MainDecision(MainOutcome.NoLocation, null, null);
+        if (string.IsNullOrWhiteSpace(employeeName))
+            return new MainPlan(MainOutcome.NoLocation, Array.Empty<WicLocation>(),
+                Array.Empty<string>(), Array.Empty<string>(), new List<string>());
 
         var mains = await _db.WicAgentAssignments
             .Where(a => a.IsActive && a.AssignmentType == "MAIN" && a.EmployeeName == employeeName)
-            // OrderBy is not cosmetic: SQL without ORDER BY has no guaranteed row
-            // order, so an agent with several MAIN rows (live data has 7) must
-            // always be reported with the same one.
+            // Deterministic order — the warning text and, for an overlapping day,
+            // the centre that wins must be stable across calls.
             .OrderBy(a => a.Id)
             .ToListAsync();
 
-        // MAIN already names the centre being generated (tilde code or legacy code).
-        if (mains.Any(a => WicLocationMatcher.MatchesAssignmentCode(a.LocationCode, location)))
-            return new MainDecision(MainOutcome.AlreadyMain, location.LocationCode, location.DisplayName);
-
-        var other = mains.FirstOrDefault();
-        if (other != null)
+        // Resolve every MAIN row to an active WIC location. A MAIN whose location
+        // row is gone or inactive cannot be scheduled in, so it is reported (code)
+        // but carries no opening hours.
+        var mainLocations = new List<WicLocation>();
+        var resolvedCodes  = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var existingCodes  = new List<string>();
+        var existingNames  = new List<string>();
+        foreach (var m in mains)
         {
-            // The agent's home centre stays whatever it is; a roster run is not a
-            // transfer. Resolve the display name for the warning, falling back to
-            // the raw code when the location row is gone or inactive.
-            var otherLoc = await _db.WicLocations.FirstOrDefaultAsync(l =>
-                l.LocationCode == other.LocationCode || l.LocationCodeLegacy == other.LocationCode);
-            return new MainDecision(MainOutcome.ExistingOtherMain,
-                other.LocationCode, otherLoc?.DisplayName ?? other.LocationCode);
+            existingCodes.Add(m.LocationCode);
+            var loc = await _db.WicLocations.FirstOrDefaultAsync(l => l.IsActive &&
+                (l.LocationCode == m.LocationCode || l.LocationCodeLegacy == m.LocationCode));
+            existingNames.Add(loc?.DisplayName ?? m.LocationCode);
+            if (loc == null) continue;
+            existingCodes[^1] = loc.LocationCode;   // canonical code when known
+            if (resolvedCodes.Add(loc.LocationCode)) mainLocations.Add(loc);
         }
 
-        return new MainDecision(
-            confirmCreateMain ? MainOutcome.Created : MainOutcome.NotCreated, null, null);
+        var overlapDays = await FindOverlappingMainDaysAsync(mainLocations, from, to);
+
+        // MAIN already names the centre being generated (tilde code or legacy code).
+        if (location != null &&
+            mains.Any(a => WicLocationMatcher.MatchesAssignmentCode(a.LocationCode, location)))
+            return new MainPlan(MainOutcome.AlreadyMain, mainLocations.ToArray(),
+                existingCodes.ToArray(), existingNames.ToArray(), overlapDays);
+
+        if (mains.Count > 0)
+            // The agent's home centre(s) stay whatever they are; a roster run is not a
+            // transfer. Display names are used for the warning, raw codes as fallback.
+            return new MainPlan(MainOutcome.ExistingOtherMain, mainLocations.ToArray(),
+                existingCodes.ToArray(), existingNames.ToArray(), overlapDays);
+
+        // No MAIN row at all: never auto-detected (nothing to detect from), only an
+        // explicit LocationCode + confirmCreateMain may create one.
+        if (location == null)
+            return new MainPlan(MainOutcome.NoLocation, Array.Empty<WicLocation>(),
+                Array.Empty<string>(), Array.Empty<string>(), new List<string>());
+
+        return new MainPlan(
+            confirmCreateMain ? MainOutcome.Created : MainOutcome.NotCreated,
+            Array.Empty<WicLocation>(), Array.Empty<string>(), Array.Empty<string>(),
+            new List<string>());
+    }
+
+    /// <summary>
+    /// The weekdays on which two or more MAIN centres of one agent are open at the
+    /// SAME TIME — the only case in which "which centre does this agent belong to
+    /// today?" cannot be answered from WicOpeningHours. One entry per weekday:
+    /// "Monday: Centre A 08:00-16:00 + Centre B 08:00-17:00". Empty (the normal
+    /// case) when the MAIN opening days/windows are disjoint.
+    /// </summary>
+    private async Task<List<string>> FindOverlappingMainDaysAsync(
+        List<WicLocation> mainLocations, DateOnly from, DateOnly to)
+    {
+        var result = new List<string>();
+        if (mainLocations.Count < 2) return result;
+
+        var allHours = await _db.WicOpeningHours.ToListAsync();
+        // One representative week inside the requested range (fall back to the
+        // following Monday when a same-day range lands on a weekend) — the weekday
+        // pattern is what the ambiguity is about, so one week suffices.
+        var anchor = from;
+        while (anchor.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) anchor = anchor.AddDays(1);
+
+        var seenDays = new HashSet<int>();
+        for (var i = 0; i < 7; i++)
+        {
+            var date = anchor.AddDays(i);
+            if (date < from) continue;
+            if (to > from && date > to) break;
+            var dow = (int)date.DayOfWeek;
+            if (dow is (int)DayOfWeek.Saturday or (int)DayOfWeek.Sunday) continue;
+            if (!seenDays.Add(dow)) continue;
+
+            var open = new List<(WicLocation Loc, string Window)>();
+            foreach (var loc in mainLocations)
+            {
+                var h = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, dow, date);
+                var intervals = HoursIntervals(h);
+                if (intervals.Count == 0) continue;
+                var first = intervals[0];
+                var last  = intervals[^1];
+                open.Add((loc, $"{first.s:HH\\:mm}-{last.e:HH\\:mm}"));
+            }
+            if (open.Count < 2) continue;
+
+            // Two centres clash only when some pair of their intervals overlaps.
+            var clash = false;
+            for (var a = 0; a < open.Count && !clash; a++)
+            {
+                var ha = WicHoursResolver.Resolve(allHours, open[a].Loc.LocationCode,
+                    open[a].Loc.LocationCodeLegacy, dow, date);
+                for (var b = a + 1; b < open.Count && !clash; b++)
+                {
+                    var hb = WicHoursResolver.Resolve(allHours, open[b].Loc.LocationCode,
+                        open[b].Loc.LocationCodeLegacy, dow, date);
+                    clash = HoursIntervals(ha).Any(x => HoursIntervals(hb).Any(y => x.s < y.e && y.s < x.e));
+                }
+            }
+            if (!clash) continue;
+
+            result.Add($"{date.DayOfWeek}: " +
+                string.Join(" + ", open.Select(o => $"{o.Loc.DisplayName} {o.Window}")));
+        }
+        return result;
     }
 
     /// <summary>
     /// The API-level (English) warning text for a MAIN decision, or null when the
     /// call is silent about MAIN. Exact wording is part of the contract with the
-    /// UI and with scripts: "MAIN_UNCHANGED: agent already has main centre X".
+    /// UI and with scripts: "MAIN_UNCHANGED: agent already has main centre X". For
+    /// an agent with several MAIN centres every one is named — reporting only the
+    /// first would hide the others from the RTM.
     /// </summary>
-    private static string? MainWarningText(MainDecision d, WicLocation? location) => d.Outcome switch
+    private static string? MainWarningText(MainPlan d) => d.Outcome switch
     {
         MainOutcome.ExistingOtherMain =>
-            $"MAIN_UNCHANGED: agent already has main centre {d.ExistingMainName}",
+            d.ExistingMainNames.Length > 0
+                ? $"MAIN_UNCHANGED: agent already has main centre {string.Join(" + ", d.ExistingMainNames)}"
+                : "MAIN_UNCHANGED: agent already has a main centre",
         MainOutcome.NotCreated =>
             $"MAIN_NOT_CREATED: agent has no main centre; confirmCreateMain was not set, " +
-            $"so {location?.DisplayName} was NOT set as the permanent main WIC",
+            $"so {d.MainLocations.FirstOrDefault()?.DisplayName} was NOT set as the permanent main WIC",
         _ => null,
     };
 
@@ -473,10 +629,10 @@ public class RosterService
 
     /// <summary>The centre a MAIN outcome refers to — created/not-created: the generated one,
     /// already-main: the same centre, unchanged: the agent's existing home centre.</summary>
-    private static string? MainCentreName(MainDecision d, WicLocation? location) => d.Outcome switch
+    private static string? MainCentreName(MainPlan d, WicLocation? location) => d.Outcome switch
     {
-        MainOutcome.ExistingOtherMain => d.ExistingMainName,
-        MainOutcome.AlreadyMain       => d.ExistingMainName ?? location?.DisplayName,
+        MainOutcome.ExistingOtherMain => d.FirstExistingMainName,
+        MainOutcome.AlreadyMain       => location?.DisplayName ?? d.FirstExistingMainName,
         MainOutcome.Created or MainOutcome.NotCreated => location?.DisplayName,
         _                             => null,
     };
@@ -511,11 +667,11 @@ public class RosterService
         var collisions = new List<RosterCollision>();
         var skippedWeekends = 0;
 
-        // WIC mode: opening hours for the chosen location, resolved per date the
+        // WIC mode: opening hours for the chosen location(s), resolved per date the
         // same way the rest of the system does it (latest EffectiveFrom <= date,
         // legacy location code included). Read from the system, never typed in.
         List<WicOpeningHour>? wicHours = null;
-        if (input.Location != null)
+        if (input.Location != null || input.MainLocations.Length > 0)
             wicHours = await _db.WicOpeningHours.ToListAsync();
 
         for (var d = input.From; d <= input.To; d = d.AddDays(1))
@@ -526,9 +682,19 @@ public class RosterService
                 skippedWeekends++;
                 continue;
             }
-            // In WIC mode every weekday is a working day; the location's opening
-            // days decide WIC vs BO, not the WorkingDays checkboxes.
-            if (input.Location == null && !input.WorkingDays.Contains((int)d.DayOfWeek))
+            // The centre open on THIS date. An explicitly selected centre wins for the
+            // whole period; an AUTO-DETECTED one (no LocationCode in the request) is
+            // re-chosen per date, so an agent with several MAIN centres follows their
+            // opening days. Null = no WIC centre today (plain roster, or every MAIN
+            // centre shut — then BO).
+            WicLocation? dayLocation = input.Rotation
+                ? PickOpenMainLocation(input, wicHours!, d)
+                : input.Location;
+            // Plain mode (no WIC centre at all, explicit or MAIN) still honours the
+            // working-day checkboxes. WIC mode never does: the centre's opening days
+            // decide WIC vs BO.
+            var plainMode = !input.Rotation && input.Location == null && input.MainLocations.Length == 0;
+            if (plainMode && !input.WorkingDays.Contains((int)d.DayOfWeek))
                 continue;
             if (holidays.TryGetValue(d, out var holidayName))
             {
@@ -537,14 +703,17 @@ public class RosterService
             }
             // Decide what the generated row for this date would be.
             PlanRow generated;
-            if (input.Location == null)
+            if (dayLocation == null)
             {
-                generated = new PlanRow(d, "WORKING", input.Start ?? "08:00", input.End ?? "17:00");
+                // Plain roster (never had a WIC centre) or a WIC agent whose MAIN
+                // centres are all closed today: a BO day, not a gap.
+                var kind = input.MainLocations.Length > 0 ? "BO" : "WORKING";
+                generated = new PlanRow(d, kind, input.Start ?? "08:00", input.End ?? "17:00");
             }
             else
             {
                 var hours = WicHoursResolver.Resolve(wicHours!,
-                    input.Location.LocationCode, input.Location.LocationCodeLegacy,
+                    dayLocation.LocationCode, dayLocation.LocationCodeLegacy,
                     (int)d.DayOfWeek, d);
                 // Two-interval centres: duty spans the break (WicHoursResolver.DutyWindow).
                 // Taking hours.CloseTime alone used to end duty at the first close, leaving
@@ -559,7 +728,8 @@ public class RosterService
                     // day would be wrong for a location with different hours on
                     // different weekdays.
                     ? new PlanRow(d, "WIC",
-                        dutyStart ?? input.Start ?? "08:00", dutyEnd ?? input.End ?? "17:00")
+                        dutyStart ?? input.Start ?? "08:00", dutyEnd ?? input.End ?? "17:00",
+                        dayLocation)
                     : new PlanRow(d, "BO", input.Start ?? "08:00", input.End ?? "17:00");
             }
 
@@ -569,7 +739,7 @@ public class RosterService
                 // everything EXCEPT protected rows (IsProtectedFromOverwrite —
                 // absences, training/VWIC, WIC duty elsewhere) — those stay
                 // skipped and are reported as collisions either way.
-                var isProtected = IsProtectedFromOverwrite(existing.ShiftType, existing.AgentTask, input.Location,
+                var isProtected = IsProtectedFromOverwrite(existing.ShiftType, existing.AgentTask, dayLocation,
                         isManualChange: !string.IsNullOrWhiteSpace(existing.ManualChangeBy));
                 if (!overwrite || isProtected)
                 {
@@ -588,7 +758,27 @@ public class RosterService
         return new Plan(toCreate, toReplace, skippedWeekends, skippedHol, collisions);
     }
 
-    private static RosterPreviewResult ToPreview(PlanInput input, Plan plan, MainDecision main)
+    /// <summary>
+    /// The MAIN centre of this agent that is OPEN on <paramref name="date"/> — the
+    /// day-by-day answer WicOpeningHours gives when the caller passed no
+    /// LocationCode. Two or more open centres (genuine ambiguity, already reported
+    /// once by ResolveMainAsync) fall back to the first in the agent's MAIN order,
+    /// so the choice stays deterministic; none open returns null (a BO day).
+    /// </summary>
+    private static WicLocation? PickOpenMainLocation(PlanInput input,
+        List<WicOpeningHour> allHours, DateOnly date)
+    {
+        if (input.MainLocations.Length == 0) return null;
+        var dow = (int)date.DayOfWeek;
+        foreach (var loc in input.MainLocations)
+        {
+            var h = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, dow, date);
+            if (h is { IsClosed: false } && HoursIntervals(h).Count > 0) return loc;
+        }
+        return null;
+    }
+
+    private static RosterPreviewResult ToPreview(PlanInput input, Plan plan, MainPlan main)
     {
         // Created and replaced rows together are "what the agent's calendar will
         // show" — first/last date and the WIC/BO split count both.
@@ -597,13 +787,26 @@ public class RosterService
             .OrderBy(d => d).ToList();
         var allKinds = plan.ToCreate.Select(r => r.Kind)
             .Concat(plan.ToReplace.Select(r => r.Row.Kind)).ToList();
+        // With an explicitly selected centre every WIC row is that centre; with several
+        // MAIN centres and no LocationCode each row carries the one open that day.
+        // BO/plain rows carry no centre — input.Location is only the FIRST MAIN and
+        // must never be attributed to a day it is closed.
+        var fixedLocation = input.Rotation ? null : input.Location;
+        var rows = plan.ToCreate
+            .Select(r => (r.Date, r.Start, r.End, r.Kind, Loc: r.Location))
+            .Concat(plan.ToReplace.Select(r => (r.Row.Date, r.Row.Start, r.Row.End, r.Row.Kind,
+                Loc: r.Row.Location)))
+            .OrderBy(r => r.Date)
+            .Select(r => new RosterPlanRow(
+                r.Date.ToString("yyyy-MM-dd"), r.Start, r.End, r.Kind,
+                r.Loc?.LocationCode ?? (r.Kind == "WIC" ? fixedLocation?.LocationCode : null)))
+            .ToList();
         return new(input.Emp.EmployeeId, input.Emp.FullName,
             plan.ToCreate.Count,
             allRows.Count > 0 ? allRows.First().ToString("yyyy-MM-dd") : null,
             allRows.Count > 0 ? allRows.Last().ToString("yyyy-MM-dd")  : null,
             plan.SkippedWeekends, plan.Holidays, plan.Collisions,
-            plan.ToCreate.Select(r => new RosterPlanRow(
-                r.Date.ToString("yyyy-MM-dd"), r.Start, r.End, r.Kind)).ToList(),
+            rows,
             allKinds.Count(k => k == "WIC"),
             allKinds.Count(k => k == "BO"),
             input.Location?.LocationCode, input.Location?.DisplayName,
@@ -611,8 +814,9 @@ public class RosterService
             plan.ToReplace.Select(r => new RosterReplacement(
                 r.Row.Date.ToString("yyyy-MM-dd"), r.ExistingType, r.ExistingSourceModule,
                 r.Row.Kind, r.Row.Start, r.Row.End)).ToList(),
-            main.ExistingMainCode, main.ExistingMainName,
-            main.WouldCreateMain, MainWarningText(main, input.Location));
+            input.Main.FirstExistingMainCode, input.Main.FirstExistingMainName,
+            input.Main.WouldCreateMain, MainWarningText(input.Main),
+            new List<string>(input.Main.OverlapDays));
     }
 
     // -- public operations ---------------------------------------------------
@@ -621,8 +825,7 @@ public class RosterService
     {
         var input = await ValidateAsync(req);
         var plan  = await BuildPlanAsync(input, req.Overwrite);
-        var main  = await ResolveMainAsync(input.Location, input.Emp.FullName, req.ConfirmCreateMain);
-        return ToPreview(input, plan, main);
+        return ToPreview(input, plan, input.Main);
     }
 
     public async Task<RosterGenerateResult> GenerateAsync(RosterRequest req,
@@ -651,6 +854,8 @@ public class RosterService
                 ShiftEnd        = input.End ?? "17:00",
                 WorkingDays     = string.Join(",", input.WorkingDays.OrderBy(d => d)),
                 AgentTask       = input.AgentTask,
+                // Informational only: with several MAIN centres and no explicit
+                // LocationCode the rows themselves carry the centre of each day.
                 LocationCode    = input.Location?.LocationCode,
                 RowCount        = plan.ToCreate.Count,
                 SkippedExisting = plan.Collisions.Count,
@@ -665,10 +870,10 @@ public class RosterService
 
             // AgentTask on WIC_DUTY rows is the location DisplayName truncated to the
             // 20-char column — same convention WicShiftService.CreateAssignmentAsync uses.
-            var wicAgentTask = input.Location == null ? null
-                : (input.Location.DisplayName.Length > 20
-                    ? input.Location.DisplayName[..20]
-                    : input.Location.DisplayName);
+            // The centre is taken from the ROW, not from input.Location: an agent who
+            // is MAIN at several centres gets a different one on each open day.
+            static string? AgentTaskFor(WicLocation? loc) => loc == null ? null
+                : (loc.DisplayName.Length > 20 ? loc.DisplayName[..20] : loc.DisplayName);
 
             // Shape a ShiftEntry into exactly what this batch generates for the
             // given plan row. Used for new rows and for rows replaced in
@@ -690,7 +895,7 @@ public class RosterService
                 e.ShiftEnd         = row.End;
                 e.IsWicDuty        = row.Kind == "WIC";
                 e.SourceSheet      = SourceSheetName;
-                e.AgentTask        = row.Kind == "WIC" ? wicAgentTask
+                e.AgentTask        = row.Kind == "WIC" ? AgentTaskFor(row.Location ?? input.Location)
                                    : row.Kind == "BO"  ? null : input.AgentTask;
                 e.LocationId       = null;
                 e.AssignmentStatus = null;
@@ -703,14 +908,15 @@ public class RosterService
             // WicShiftEntry upsert — unique on (EmployeeId, ShiftDate, SupportLocation).
             async Task UpsertWicEntryAsync(PlanRow row)
             {
+                var loc = row.Location ?? input.Location!;
                 var wic = await _db.WicShiftEntries.FirstOrDefaultAsync(w =>
                     w.EmployeeId == input.Emp.EmployeeId &&
                     w.ShiftDate == row.Date &&
-                    w.SupportLocation == input.Location!.DisplayName);
+                    w.SupportLocation == loc.DisplayName);
                 if (wic != null)
                 {
                     wic.WorkingShift = $"{row.Start}-{row.End}";
-                    wic.LocationCode = input.Location!.LocationCode;
+                    wic.LocationCode = loc.LocationCode;
                     wic.IsOnSite     = true;
                     wic.IsGSDDay     = false;
                     wic.Task         = "WIC";
@@ -722,8 +928,8 @@ public class RosterService
                         EmployeeId      = input.Emp.EmployeeId,
                         ShiftDate       = row.Date,
                         DayOfWeek       = row.Date.DayOfWeek.ToString(),
-                        SupportLocation = input.Location!.DisplayName,
-                        LocationCode    = input.Location!.LocationCode,
+                        SupportLocation = loc.DisplayName,
+                        LocationCode    = loc.LocationCode,
                         IsOnSite        = true,
                         IsGSDDay        = false,
                         IsOffDay        = false,
@@ -825,8 +1031,9 @@ public class RosterService
             //     generated and the caller gets MAIN_UNCHANGED (case 1);
             //   * an agent with NO MAIN gets one only with confirmCreateMain=true
             //     (the UI's confirmation dialog) (case 2).
-            var mainDecision = await ResolveMainAsync(
-                input.Location, input.Emp.FullName, req.ConfirmCreateMain);
+            // Permanent MAIN decision — already resolved in ValidateAsync (same rule
+            // the preview used), so the two can never disagree.
+            var mainDecision = input.Main;
             var assignmentCreated = false;
             if (mainDecision.Outcome == MainOutcome.Created)
             {
@@ -858,8 +1065,9 @@ public class RosterService
                 allKinds.Count(k => k == "BO"),
                 assignmentCreated, replaced,
                 MainActionCode(mainDecision.Outcome),
-                MainWarningText(mainDecision, input.Location),
-                MainCentreName(mainDecision, input.Location));
+                MainWarningText(mainDecision),
+                MainCentreName(mainDecision, input.Location),
+                new List<string>(mainDecision.OverlapDays));
         });
     }
 
