@@ -1,11 +1,11 @@
 # PS1_18_BuildAndDeploy.ps1
-# Build frontend, copy dist to Backend/wwwroot, restart backend, smoke-test.
+# Build frontend (vite writes directly into Backend/wwwroot, see
+# Frontend/vite.config.ts outDir), restart backend, smoke-test.
 # No here-strings. No Unicode.
 
 $frontendDir = "C:\GSDDashboard\Frontend"
 $backendDir  = "C:\GSDDashboard\Backend"
 $wwwroot     = "C:\GSDDashboard\Backend\wwwroot"
-$distDir     = "C:\GSDDashboard\Frontend\dist"
 $baseUrl     = "http://localhost:5000"
 
 Write-Host ""
@@ -26,22 +26,32 @@ if ($buildExit -ne 0) {
 }
 Write-Host "Frontend build: SUCCESS" -ForegroundColor Green
 
-# ── 2. Verify dist ─────────────────────────────────────────────────────────────
+# ── 2. Verify wwwroot (vite already wrote the build here directly) ───────────
 
 Write-Host ""
-Write-Host "--- 2. Verify dist directory ---" -ForegroundColor Cyan
-if (-not (Test-Path $distDir)) {
-    Write-Host "ERROR: dist directory not found at $distDir" -ForegroundColor Red
+Write-Host "--- 2. Verify wwwroot output ---" -ForegroundColor Cyan
+$indexHtml = Join-Path $wwwroot "index.html"
+if (-not (Test-Path $indexHtml)) {
+    Write-Host "ERROR: index.html not found in $wwwroot" -ForegroundColor Red
     exit 1
 }
-$distFiles = Get-ChildItem $distDir -Recurse | Measure-Object
-Write-Host "dist: $($distFiles.Count) files" -ForegroundColor Green
-$indexHtml = Join-Path $distDir "index.html"
-if (Test-Path $indexHtml) {
-    Write-Host "index.html: present" -ForegroundColor Green
-} else {
-    Write-Host "WARNING: index.html not found in dist" -ForegroundColor Yellow
+$wwwFiles = Get-ChildItem $wwwroot -Recurse | Measure-Object
+Write-Host "wwwroot: $($wwwFiles.Count) files" -ForegroundColor Green
+
+# CARTO key sanity check (defense in depth -- vite.config.ts already aborts
+# the build itself if VITE_CARTO_KEY is missing, see 2026-10 watermark incident).
+$bundle = Get-ChildItem (Join-Path $wwwroot "assets\index-*.js") -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $bundle) {
+    Write-Host "ERROR: no built JS bundle found in $wwwroot\assets" -ForegroundColor Red
+    exit 1
 }
+$bundleText = Get-Content $bundle.FullName -Raw
+if ($bundleText -notmatch 'cartocdn\.com/[^"'']*key=[^"''&]+') {
+    Write-Host "ERROR: built bundle '$($bundle.Name)' has no non-empty CARTO key -- stopping before touching the running backend." -ForegroundColor Red
+    exit 1
+}
+Write-Host "CARTO key check: OK ($($bundle.Name))" -ForegroundColor Green
 
 # ── 3. Stop backend ────────────────────────────────────────────────────────────
 
@@ -56,21 +66,13 @@ if ($proc) {
     Write-Host "No running process." -ForegroundColor DarkGreen
 }
 
-# ── 4. Copy dist to wwwroot ────────────────────────────────────────────────────
-
-Write-Host ""
-Write-Host "--- 4. Copy dist to $wwwroot ---" -ForegroundColor Cyan
-
-if (Test-Path $wwwroot) {
-    Remove-Item -Path $wwwroot -Recurse -Force
-    Write-Host "Removed old wwwroot." -ForegroundColor DarkGreen
-}
-
-Copy-Item -Path $distDir -Destination $wwwroot -Recurse
-Write-Host "Copied $distDir => $wwwroot" -ForegroundColor Green
-
-$wwwCount = (Get-ChildItem $wwwroot -Recurse | Measure-Object).Count
-Write-Host "wwwroot: $wwwCount files" -ForegroundColor Green
+# ── 4. (removed) ───────────────────────────────────────────────────────────────
+# No copy step needed: vite.config.ts's build.outDir points directly at
+# Backend\wwwroot (emptyOutDir: true), so step 1's `npm run build` already put
+# the verified bundle there. A previous version of this script deleted
+# Backend\wwwroot and copied from Frontend\dist, which no longer exists since
+# the outDir change -- that would have wiped the live site's static files on
+# every run. Do not reintroduce a dist-based copy here.
 
 # ── 5. Build backend (Release) ─────────────────────────────────────────────────
 
