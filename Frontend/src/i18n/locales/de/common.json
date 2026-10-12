@@ -469,7 +469,8 @@
     "horizon28": "28-Tage-Zeitraum"
   },
   "common": {
-    "notAvailable": "Nicht verfügbar"
+    "notAvailable": "Nicht verfügbar",
+    "credit": "Entwickelt von Nebojsa Stojnic — mit der selbstlosen Unterstützung von Ion Ciuceanu — gesponsert von Sankar."
   },
   "vacations": {
     "fullDay": "Ganzer Tag",

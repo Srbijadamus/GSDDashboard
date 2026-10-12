@@ -469,7 +469,8 @@
     "horizon28": "28-day horizon"
   },
   "common": {
-    "notAvailable": "Not available"
+    "notAvailable": "Not available",
+    "credit": "Developed by Nebojsa Stojnic — with the selfless support of Ion Ciuceanu — sponsored by Sankar."
   },
   "vacations": {
     "fullDay": "Full day",

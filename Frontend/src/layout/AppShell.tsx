@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { CommandPalette } from '../components/CommandPalette'
@@ -8,6 +9,31 @@ import { useSidebarCollapse } from './useSidebarCollapse'
 import { useAuth } from '../auth/AuthContext'
 
 const FULL_BLEED = new Set(['/wic-attendance'])
+
+// The credit sentence itself lives in i18n (common.credit, EN + DE). These proper
+// names are identical in both languages and are split out only so they keep the
+// existing bold styling inside the translated sentence.
+const CREDIT_NAMES = ['Nebojsa Stojnic', 'Ion Ciuceanu', 'Sankar']
+const CREDIT_SPLIT = new RegExp(
+  `(${CREDIT_NAMES.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+)
+
+function CreditLine() {
+  const { t } = useTranslation()
+  return (
+    <>
+      {t('common.credit')
+        .split(CREDIT_SPLIT)
+        .map((part, i) =>
+          CREDIT_NAMES.includes(part) ? (
+            <span key={i} className="text-ink-muted font-medium">{part}</span>
+          ) : (
+            <span key={i}>{part}</span>
+          ),
+        )}
+    </>
+  )
+}
 
 export function AppShell() {
   const location = useLocation()
@@ -35,11 +61,9 @@ export function AppShell() {
       <Sidebar collapsed={collapsed} onToggle={toggle} />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar onOpenCmd={() => setCmdOpen(true)} />
-        {/* i18n exception (approved): fixed attribution, identical in EN and DE. */}
+        {/* Fixed attribution line. Text comes from i18n (EN/DE), names stay bold. */}
         <div className="h-7 shrink-0 flex items-center px-6 border-b border-line-subtle bg-sunken text-2xs text-ink-soft tracking-[0.01em] truncate">
-          Developed by <span className="text-ink-muted font-medium mx-1">Nebojsa Stojnic</span>
-          — with the selfless support of{' '}
-          <span className="text-ink-muted font-medium ml-1">Ion Ciuceanu</span>.
+          <CreditLine />
         </div>
         <main className="flex-1 overflow-y-auto">
           <div className={isFullBleed ? '' : 'mx-auto max-w-[1600px] px-6 py-6'}>
