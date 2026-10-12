@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Auth;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Modules.Shifts;
@@ -99,8 +100,8 @@ public record ShiftUpdateDto(
     string? AssignmentStatus
 );
 public record AssignShiftDto(string EmployeeId, string ShiftDate, string ShiftType, string? ShiftStart, string? ShiftEnd);
-public record AssignShiftResult(ShiftRowDto? Row, string? DuplicateError);
-public record ShiftUpdateResult(ShiftRowDto? Row, string? Error);
+public record AssignShiftResult(ShiftRowDto? Row, string? DuplicateError, string? Warning = null);
+public record ShiftUpdateResult(ShiftRowDto? Row, string? Error, string? Warning = null);
 public record SwapShiftDto(string NewEmployeeId);
 
 public class ShiftService
@@ -211,8 +212,13 @@ public class ShiftService
         if (dto.LocationId       != null) shift.LocationId       = dto.LocationId;
         if (dto.AssignmentStatus != null) shift.AssignmentStatus = dto.AssignmentStatus;
 
+        string? wicWarning = null;
         if (manualActor != null)
         {
+            // A human Shift Plan edit must land in the WIC tables too, or WIC
+            // Attendance and the Overview coverage gaps keep reading the old state
+            // (live 2026-10-12: a WIC_DUTY cell edit changed only ShiftEntries).
+            wicWarning = await SyncWicDutyFromShiftPlanAsync(shift, dto.LocationId, explicitTypeChange: dto.ShiftType != null);
             shift.IsWicDuty = shift.ShiftType == ShiftTypes.WicDuty;
             _db.RecordManualShiftEdit(shift, manualActor);
         }
@@ -228,7 +234,7 @@ public class ShiftService
             shift.IsWicDuty, shift.RawValue,
             shift.AgentTask, shift.LocationId, shift.AssignmentStatus,
             AgentTasks.Resolve(shift.AgentTask, emp?.PrimaryRole)
-        ), null);
+        ), null, wicWarning);
     }
 
     // Assigns a shift type for employee+date. Rejects with a DuplicateError when the
@@ -276,8 +282,12 @@ public class ShiftService
             };
             _db.ShiftEntries.Add(shift);
         }
+        string? wicWarning = null;
         if (manualActor != null)
         {
+            // Same rule as UpdateShiftAsync: a human WIC_DUTY assignment from the
+            // Shift Plan must be visible in WIC Attendance and on the Overview.
+            wicWarning = await SyncWicDutyFromShiftPlanAsync(shift, null, explicitTypeChange: true);
             shift.IsWicDuty = shift.ShiftType == ShiftTypes.WicDuty;
             _db.RecordManualShiftEdit(shift, manualActor);
         }
@@ -289,8 +299,122 @@ public class ShiftService
             shift.ShiftDate, shift.ShiftType, shift.ShiftStart, shift.ShiftEnd,
             shift.IsWicDuty, shift.RawValue, shift.AgentTask, shift.LocationId, shift.AssignmentStatus,
             AgentTasks.Resolve(shift.AgentTask, emp.PrimaryRole)
-        ), null);
+        ), null, wicWarning);
     }
+
+    /// <summary>
+    /// Keeps WicShiftEntries in step with a HUMAN Shift Plan edit, so WIC Attendance
+    /// and the Overview coverage gaps read the same commitment the Shift Plan shows.
+    /// Before this, a WIC_DUTY cell edit changed only ShiftEntries and the WIC views
+    /// never saw it — the live 2026-10-12 S60028 report ("the change in the Shift Plan
+    /// was not enough and did not show up").
+    ///
+    ///   * cell becomes WIC_DUTY: the centre is resolved from (in order) the explicit
+    ///     LocationId the Shift Plan sent, the row's own AgentTask, an already-on-site
+    ///     WIC row for that employee+date, then the employee's active MAIN WIC
+    ///     assignment — the same precedence the roster generator's WIC-priority rule
+    ///     uses. The WIC row is created/updated on-site with the cell's times (centre
+    ///     hours when the cell carries none).
+    ///   * cell leaves WIC_DUTY: the day's on-site WIC rows are stood down
+    ///     (IsOnSite=false) so attendance and coverage stop counting them.
+    ///
+    /// Returns an English warning when the cell is WIC_DUTY but no centre can be
+    /// resolved, so the Shift Plan shows the exact reason instead of silently diverging.
+    /// Only ever called for a human edit (manualActor != null).
+    /// </summary>
+    private async Task<string?> SyncWicDutyFromShiftPlanAsync(ShiftEntry shift, string? locationHint, bool explicitTypeChange)
+    {
+        var isWicDuty = string.Equals(shift.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase);
+        // A pure task-badge change (no explicit type change) must not stand down WIC
+        // rows: "WIC" as a task badge on a WORKING row is not WIC on-site duty.
+        if (!isWicDuty && (!explicitTypeChange || shift.ShiftType == null)) return null;
+
+        var rows = await _db.WicShiftEntries
+            .Where(w => w.EmployeeId == shift.EmployeeId && w.ShiftDate == shift.ShiftDate)
+            .ToListAsync();
+
+        if (!isWicDuty)
+        {
+            foreach (var w in rows.Where(w => w.IsOnSite)) w.IsOnSite = false;
+            return null;
+        }
+
+        WicLocation? location = null;
+        if (!string.IsNullOrWhiteSpace(locationHint))
+            location = await _db.WicLocations.FirstOrDefaultAsync(l => l.IsActive && l.LocationCode == locationHint);
+        if (location == null && !string.IsNullOrWhiteSpace(shift.AgentTask) && !AgentTasks.IsNonLocationValue(shift.AgentTask))
+            location = await _db.WicLocations.FirstOrDefaultAsync(l => l.IsActive &&
+                (l.DisplayName == shift.AgentTask || l.LocationCode == shift.AgentTask));
+        if (location == null)
+        {
+            var onSite = rows.FirstOrDefault(w => w.IsOnSite && !string.IsNullOrWhiteSpace(w.SupportLocation));
+            if (onSite != null)
+                location = await _db.WicLocations.FirstOrDefaultAsync(l => l.IsActive && l.DisplayName == onSite.SupportLocation);
+        }
+        if (location == null)
+        {
+            var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == shift.EmployeeId);
+            if (emp?.FullName != null)
+            {
+                var main = await _db.WicAgentAssignments.FirstOrDefaultAsync(a =>
+                    a.IsActive && a.AssignmentType == "MAIN" && a.EmployeeName == emp.FullName);
+                if (main != null)
+                    location = await _db.WicLocations.FirstOrDefaultAsync(l => l.IsActive &&
+                        (l.LocationCode == main.LocationCode || l.LocationCodeLegacy == main.LocationCode));
+            }
+        }
+        if (location == null)
+            return "WIC duty was saved, but no WIC centre could be resolved for this day. " +
+                   "Open WIC Attendance and use \"Assign Agent\" to set the centre.";
+
+        var start = shift.ShiftStart;
+        var end   = shift.ShiftEnd;
+        if (string.IsNullOrWhiteSpace(start) || string.IsNullOrWhiteSpace(end))
+        {
+            var allHours = await _db.WicOpeningHours.ToListAsync();
+            var hours = WicHoursResolver.Resolve(allHours, location.LocationCode, location.LocationCodeLegacy,
+                (int)shift.ShiftDate.DayOfWeek, shift.ShiftDate);
+            var (dutyStart, dutyEnd) = WicHoursResolver.DutyWindow(hours);
+            if (string.IsNullOrWhiteSpace(start)) start = dutyStart ?? "08:00";
+            if (string.IsNullOrWhiteSpace(end))   end   = dutyEnd   ?? "17:00";
+            shift.ShiftStart = start;
+            shift.ShiftEnd   = end;
+        }
+
+        // AgentTask carries the (truncated) centre name, the convention every WIC reader uses.
+        shift.AgentTask = location.DisplayName.Length > 20 ? location.DisplayName[..20] : location.DisplayName;
+        shift.IsWicDuty = true;
+
+        var target = rows.FirstOrDefault(w =>
+            string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase));
+        if (target != null)
+        {
+            target.WorkingShift = $"{start}-{end}";
+            target.LocationCode = location.LocationCode;
+            target.IsOnSite     = true;
+            target.IsGSDDay     = false;
+            target.IsOffDay     = false;
+            target.Task         = "WIC";
+        }
+        else
+        {
+            _db.WicShiftEntries.Add(new WicShiftEntry
+            {
+                EmployeeId      = shift.EmployeeId,
+                ShiftDate       = shift.ShiftDate,
+                DayOfWeek       = shift.ShiftDate.DayOfWeek.ToString(),
+                SupportLocation = location.DisplayName,
+                LocationCode    = location.LocationCode,
+                IsOnSite        = true,
+                IsGSDDay        = false,
+                IsOffDay        = false,
+                WorkingShift    = $"{start}-{end}",
+                Task            = "WIC",
+            });
+        }
+        return null;
+    }
+
 
     // Per-hour headcount for the Coverage-per-Hour chart on the Shift Plan page.
     // "Voice" only counts agents whose effective Task (see AgentTasks.Resolve) is "Voice" —
@@ -505,7 +629,9 @@ public static class ShiftEndpointMapper
             var result = await svc.UpdateShiftAsync(id, dto, ctx.User.FindFirst(AuthClaims.Kid)!.Value);
             if (result.Error == "not_found") return Results.NotFound();
             if (result.Error != null) return Results.BadRequest(new { error = result.Error });
-            return Results.Ok(result.Row);
+            return result.Warning == null
+                ? Results.Ok(result.Row)
+                : Results.Ok(new { row = result.Row, wicWarning = result.Warning });
         });
 
         grp.MapPatch("/{id:int}/manual", async (int id, ShiftUpdateDto dto, ShiftService svc, HttpContext ctx) =>
@@ -515,7 +641,9 @@ public static class ShiftEndpointMapper
             var result = await svc.UpdateShiftAsync(id, dto, ctx.User.FindFirst(AuthClaims.Kid)!.Value);
             if (result.Error == "not_found") return Results.NotFound();
             if (result.Error != null) return Results.BadRequest(new { error = result.Error });
-            return Results.Ok(result.Row);
+            return result.Warning == null
+                ? Results.Ok(result.Row)
+                : Results.Ok(new { row = result.Row, wicWarning = result.Warning });
         });
 
         grp.MapPost("/assign", async (AssignShiftDto dto, ShiftService svc, HttpContext ctx) =>
@@ -525,7 +653,9 @@ public static class ShiftEndpointMapper
             var result = await svc.AssignShiftAsync(dto, ctx.User.FindFirst(AuthClaims.Kid)!.Value, allowSameTypeEdit: false);
             if (result.DuplicateError != null) return Results.Conflict(new { error = result.DuplicateError });
             if (result.Row == null) return Results.BadRequest(new { error = "Invalid date, unknown employee, or date beyond the planning horizon" });
-            return Results.Ok(result.Row);
+            return result.Warning == null
+                ? Results.Ok(result.Row)
+                : Results.Ok(new { row = result.Row, wicWarning = result.Warning });
         });
 
         grp.MapPost("/assign/bulk", async (AssignShiftDto dto, ShiftService svc, HttpContext ctx) =>
@@ -535,7 +665,9 @@ public static class ShiftEndpointMapper
             var result = await svc.AssignShiftAsync(WithTodayWhenMissing(dto));
             if (result.DuplicateError != null) return Results.Conflict(new { error = result.DuplicateError });
             if (result.Row == null) return Results.BadRequest(new { error = "Invalid date, unknown employee, or date beyond the planning horizon" });
-            return Results.Ok(result.Row);
+            return result.Warning == null
+                ? Results.Ok(result.Row)
+                : Results.Ok(new { row = result.Row, wicWarning = result.Warning });
         });
 
         grp.MapPost("/assign/manual", async (AssignShiftDto dto, ShiftService svc, HttpContext ctx) =>
@@ -545,7 +677,9 @@ public static class ShiftEndpointMapper
             var result = await svc.AssignShiftAsync(WithTodayWhenMissing(dto), ctx.User.FindFirst(AuthClaims.Kid)!.Value);
             if (result.DuplicateError != null) return Results.Conflict(new { error = result.DuplicateError });
             if (result.Row == null) return Results.BadRequest(new { error = "Invalid date, unknown employee, or date beyond the planning horizon" });
-            return Results.Ok(result.Row);
+            return result.Warning == null
+                ? Results.Ok(result.Row)
+                : Results.Ok(new { row = result.Row, wicWarning = result.Warning });
         });
 
         grp.MapGet("/coverage", async (string? date, ShiftService svc) =>

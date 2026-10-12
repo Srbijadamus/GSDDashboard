@@ -20,8 +20,14 @@ const CREDIT_SPLIT = new RegExp(
 
 function CreditLine() {
   const { t } = useTranslation()
+  // The translation already carries the spaces ("Developed by Nebojsa Stojnic — …").
+  // The outer div is a flex container, so each child span would become a flex item and
+  // the browser collapses the leading/trailing space of every item — which is exactly
+  // why the names lost their surrounding spaces ("Developed byNebojsa Stojnic—").
+  // One inline wrapper keeps the sentence in a single inline formatting context, and
+  // whitespace-pre guarantees the EN and DE strings render exactly as written.
   return (
-    <>
+    <span style={{ whiteSpace: "pre" }}>
       {t('common.credit')
         .split(CREDIT_SPLIT)
         .map((part, i) =>
@@ -31,7 +37,7 @@ function CreditLine() {
             <span key={i}>{part}</span>
           ),
         )}
-    </>
+    </span>
   )
 }
 

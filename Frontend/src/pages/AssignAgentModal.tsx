@@ -46,16 +46,50 @@ function buildDateRange(from: string, to: string, skipWeekends: boolean): string
   return dates
 }
 
-type SkipReasonKind = "closedDay" | "blockingShift" | "timeConflict" | "other"
+// One day's answer from POST /api/wic/assignments. `saved` is the authoritative
+// "a row was actually written" flag the server now always returns; `skipped` is
+// kept only for older callers. requiresConfirmation means the existing row for
+// that day is a human's decision and the RTM must confirm the replacement.
+interface ManualConflict {
+  location: string
+  workingShift?: string | null
+  actor?: string | null
+  atBerlin?: string | null
+}
 
-// Classifies the `reason` string returned by POST /api/wic/assignments —
-// see BLUEPRINT_LOGIC.md §7.2 for the three skip reasons this endpoint returns.
-function classifySkipReason(reason: string | undefined): SkipReasonKind {
-  if (!reason) return "other"
-  if (reason.startsWith("WIC location is closed")) return "closedDay"
-  if (reason.startsWith("Agent has shift type")) return "blockingShift"
-  if (reason.startsWith("Time conflict")) return "timeConflict"
-  return "other"
+interface DayOutcome {
+  date: string
+  saved: boolean
+  reasonCode?: string
+  reason?: string | null
+  displayName?: string | null
+  shiftType?: string | null
+  requiresConfirmation?: boolean
+  conflicts?: ManualConflict[]
+  nppWarning?: string | null
+  httpStatus?: number
+}
+
+type TFn = (key: string, opts?: Record<string, unknown>) => string
+
+// Localizes the server's machine-readable reasonCode from its STRUCTURED fields.
+// The server's own English `reason` is only the last-resort fallback, so the EN
+// view never shows German and the DE view never shows English.
+function reasonText(p: TFn, o: DayOutcome): string {
+  switch (o.reasonCode) {
+    case "CLOSED":          return p("reasons.closed")
+    case "BLOCKING_SHIFT":  return p("reasons.blockingShift", { date: o.date, shiftType: o.shiftType ?? "" })
+    case "TIME_CONFLICT": {
+      const c = o.conflicts?.[0]
+      return c
+        ? p("reasons.timeConflict", { loc: c.location, shift: c.workingShift ?? "—", date: o.date })
+        : p("reasons.other", { reason: o.reason ?? "" })
+    }
+    case "MANUAL_CONFLICT": return p("reasons.manualConflict")
+    case "PROTECTED_MANUAL":return p("reasons.protectedManual")
+    case "HTTP":            return p("reasons.http", { status: o.httpStatus ?? "" })
+    default:                return o.reason ? String(o.reason) : p("reasons.other")
+  }
 }
 
 export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, defaultDate }: AssignAgentModalProps) {
@@ -79,6 +113,8 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
   const [nppWarn, setNppWarn]             = useState<string | null>(null)
   const [error, setError]                 = useState<string | null>(null)
   const [closedDay, setClosedDay]         = useState(false)
+  const [outcome, setOutcome]             = useState<DayOutcome[] | null>(null)
+  const [confirmDays, setConfirmDays]     = useState<DayOutcome[] | null>(null)
   const [uncoveredWarn, setUncoveredWarn] = useState<{ agent: string; location: string; date: string } | null>(null)
   const pendingProceed                    = useRef<(() => Promise<void>) | null>(null)
 
@@ -96,6 +132,8 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
       setError(null)
       setProgress(null)
       setClosedDay(false)
+      setOutcome(null)
+      setConfirmDays(null)
       setUncoveredWarn(null)
     }
   }, [isOpen, defaultLocationCode, defaultDate])
@@ -155,16 +193,14 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
     marginTop: 4,
   }
 
-  const proceedWithAssignment = async () => {
-    let lastDisplayName = ""
-    let failed = 0
-    let skipped = 0
-    let firstNppWarning: string | null = null
-    const skipCounts: Record<SkipReasonKind, number> = { closedDay: 0, blockingShift: 0, timeConflict: 0, other: 0 }
-
-    for (let i = 0; i < dates.length; i++) {
-      const d = dates[i]
-      setProgress(`Assigning ${i + 1} / ${dates.length} (${d})…`)
+  // Runs the whole date list (or a confirm re-run of the days that asked for one).
+  // EVERY day's answer is kept, saved or not, so the summary can never call a
+  // nothing-saved run a success.
+  const runDays = async (runDates: string[], confirmManualReplace: boolean): Promise<DayOutcome[]> => {
+    const results: DayOutcome[] = []
+    for (let i = 0; i < runDates.length; i++) {
+      const d = runDates[i]
+      setProgress(p("progress", { current: i + 1, total: runDates.length, date: d }))
       try {
         const res = await fetch("/api/wic/assignments", {
           method: "POST",
@@ -175,43 +211,84 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
             date: d,
             shiftStart: shiftStart || null,
             shiftEnd: shiftEnd || null,
+            confirmManualReplace,
           }),
         })
         if (!res.ok) {
           const body = await res.text().catch(() => "")
-          throw new Error(`HTTP ${res.status}${body ? ": " + body : ""}`)
+          results.push({ date: d, saved: false, reasonCode: "HTTP", httpStatus: res.status, reason: `HTTP ${res.status}${body ? ": " + body : ""}` })
+          continue
         }
         const data = await res.json()
-        if (data.skipped) { skipped++; skipCounts[classifySkipReason(data.reason)]++; continue }
-        lastDisplayName = data.displayName ?? lastDisplayName
-        if (data.nppWarning && !firstNppWarning) firstNppWarning = data.nppWarning
+        results.push({
+          date: d,
+          saved: data.saved === true,
+          reasonCode: data.reasonCode,
+          reason: data.reason ?? null,
+          displayName: data.displayName ?? null,
+          shiftType: data.shiftType ?? null,
+          requiresConfirmation: data.requiresConfirmation === true,
+          conflicts: data.conflicts ?? undefined,
+          nppWarning: data.nppWarning ?? null,
+        })
       } catch (err) {
-        failed++
-        setError(`Failed on ${d}: ${String(err)}`)
-        break
+        results.push({ date: d, saved: false, reasonCode: "HTTP", reason: String(err) })
       }
     }
+    return results
+  }
 
+  const finish = (results: DayOutcome[]) => {
     setSubmitting(false)
     setProgress(null)
+    setConfirmDays(null)
+    setOutcome(results)
 
-    if (failed === 0) {
-      const assigned = dates.length - skipped
-      const skipSummary = (Object.keys(skipCounts) as SkipReasonKind[])
-        .filter(kind => skipCounts[kind] > 0)
-        .map(kind => p(`skipReasons.${kind}`, { count: skipCounts[kind] }))
-        .join(", ")
-      const msg = isRange
-        ? skipped > 0
-          ? p("summaryRangeWithSkips", { count: assigned, loc: lastDisplayName, skipSummary })
-          : p("summaryRange", { count: assigned, loc: lastDisplayName })
-        : p("success", { loc: lastDisplayName })
-      setSuccess(msg)
-      if (firstNppWarning) setNppWarn(firstNppWarning)
-      queryClient.refetchQueries({ queryKey: ["wic-forecast"] })
-      queryClient.refetchQueries({ queryKey: ["wic-cards", dateFrom], exact: true })
-      setTimeout(() => { setSuccess(null); setNppWarn(null); onClose() }, firstNppWarning ? 5000 : 1800)
+    const saved = results.filter(r => r.saved)
+    const notSaved = results.filter(r => !r.saved)
+    const firstNpp = results.find(r => r.nppWarning)?.nppWarning ?? null
+    if (firstNpp) setNppWarn(firstNpp)
+
+    if (notSaved.length === 0) {
+      const loc = saved[saved.length - 1]?.displayName ?? ""
+      setSuccess(isRange
+        ? p("summaryRange", { count: saved.length, loc })
+        : p("success", { loc }))
+      setTimeout(() => { setSuccess(null); setNppWarn(null); onClose() }, firstNpp ? 5000 : 1800)
+    } else {
+      // Success is only for "everything was saved". Anything else stays visible
+      // with the exact reason per day.
+      setSuccess(null)
     }
+
+    queryClient.refetchQueries({ queryKey: ["wic-forecast"] })
+    queryClient.refetchQueries({ queryKey: ["wic-cards", dateFrom], exact: true })
+    queryClient.refetchQueries({ queryKey: ["wic-coverage-gaps"] })
+  }
+
+  const proceedWithAssignment = async () => {
+    setError(null)
+    setOutcome(null)
+    setSubmitting(true)
+    const results = await runDays(dates, false)
+    const needConfirm = results.filter(r => r.requiresConfirmation)
+    if (needConfirm.length > 0) {
+      setSubmitting(false)
+      setProgress(null)
+      setConfirmDays(needConfirm)
+      setOutcome(results)
+      return
+    }
+    finish(results)
+  }
+
+  const confirmReplace = async () => {
+    const pending = confirmDays ?? []
+    setConfirmDays(null)
+    setSubmitting(true)
+    const before = (outcome ?? []).filter(r => !r.requiresConfirmation)
+    const rerun = await runDays(pending.map(r => r.date), true)
+    finish([...before, ...rerun].sort((a, b) => a.date.localeCompare(b.date)))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -221,6 +298,8 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
     setError(null)
     setSuccess(null)
     setNppWarn(null)
+    setOutcome(null)
+    setConfirmDays(null)
 
     // Check if moving leaves source location uncovered
     const agentsRes = await fetch(`/api/wic/cards?date=${dateFrom}`)
@@ -254,6 +333,9 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
 
   if (!isOpen) return null
 
+  const savedCount = outcome?.filter(r => r.saved).length ?? 0
+  const notSavedCount = outcome ? outcome.length - savedCount : 0
+
   return (
     <>
     <div
@@ -267,7 +349,8 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
       <div
         className="bg-raised border border-line-subtle"
         style={{
-          borderRadius: 12, padding: 24, width: 420, maxWidth: "90vw",
+          borderRadius: 12, padding: 24, width: 460, maxWidth: "90vw",
+          maxHeight: "90vh", overflowY: "auto",
           boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
         }}
         onClick={e => e.stopPropagation()}
@@ -284,6 +367,28 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
             borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14,
           }} className="text-good-fg">
             {success}
+          </div>
+        )}
+        {outcome && notSavedCount > 0 && (
+          <div
+            className="bg-warn-bg border border-warn-bd text-warn-fg"
+            style={{ borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14 }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>{p("resultTitle")}</div>
+            <div style={{ marginBottom: 6 }}>
+              {savedCount === 0
+                ? p("nothingSaved")
+                : p("partialSummary", { saved: savedCount, total: outcome.length, notSaved: notSavedCount })}
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 16, lineHeight: 1.6 }}>
+              {outcome.map(o => (
+                <li key={o.date} className={o.saved ? "text-good-fg" : "text-warn-fg"}>
+                  {o.saved
+                    ? p("daySaved", { date: o.date, loc: o.displayName ?? locationCode })
+                    : p("dayNotSaved", { date: o.date, reason: reasonText(p, o) })}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
         {nppWarn && (
@@ -360,15 +465,14 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
               style={{ borderRadius: 6, padding: "7px 11px", fontSize: 11, display: "flex", alignItems: "flex-start", gap: 6 }}
             >
               <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-              <span>WIC centre is closed on this weekday — assignment will be skipped.
-              / Standort an diesem Wochentag geschlossen — Einsatz wird übersprungen.</span>
+              <span>{p("closedDay")}</span>
             </div>
           )}
 
           {/* Date range */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
-              Von / From
+              {p("from")}
               <input
                 type="date"
                 value={dateFrom}
@@ -382,7 +486,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
               />
             </label>
             <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
-              Bis / To
+              {p("to")}
               <input
                 type="date"
                 value={dateTo}
@@ -399,8 +503,8 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span className="text-ink-soft" style={{ fontSize: 11 }}>
               {dates.length === 0
-                ? <span className="text-crit-fg">Keine Arbeitstage / No working days in range</span>
-                : <span><span className="text-info-fg" style={{ fontWeight: 600 }}>{dates.length}</span> Tag{dates.length !== 1 ? "e" : ""} / day{dates.length !== 1 ? "s" : ""} ausgewählt / selected</span>}
+                ? <span className="text-crit-fg">{p("noWorkingDays")}</span>
+                : <span><span className="text-info-fg" style={{ fontWeight: 600 }}>{dates.length}</span> {p("daysSelected", { count: dates.length })}</span>}
             </span>
             <label className="text-ink-soft" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, cursor: "pointer" }}>
               <input
@@ -409,7 +513,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
                 onChange={e => setSkipWeekends(e.target.checked)}
                 className="accent-info-solid"
               />
-              Wochenenden überspringen / Skip weekends
+              {p("skipWeekends")}
             </label>
           </div>
 
@@ -417,16 +521,16 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
-                Beginn / {p("startTime")}
+                {p("startTime")}
                 <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} className={inputCls} style={inputStyle} />
               </label>
               <label className="text-ink-soft" style={{ fontSize: 11, display: "block" }}>
-                Ende / {p("endTime")}
+                {p("endTime")}
                 <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} className={inputCls} style={inputStyle} />
               </label>
             </div>
             <div className="text-ink-soft" style={{ fontSize: 9, marginTop: 4 }}>
-              Aus Öffnungszeiten vorausgefüllt / Pre-filled from opening hours — änderbar / editable
+              {p("timesFromHours")}
             </div>
           </div>
 
@@ -453,7 +557,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
               {submitting
                 ? p("saving")
                 : isRange
-                  ? `${dates.length} Tage zuweisen / Assign ${dates.length} days`
+                  ? p("assignDays", { count: dates.length })
                   : p("save")}
             </button>
           </div>
@@ -464,7 +568,7 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 0" }}>
               <div style={{ flex: 1, height: 1, background: "rgb(var(--line-subtle))" }} />
-              <span className="text-ink-soft" style={{ fontSize: 11 }}>or</span>
+              <span className="text-ink-soft" style={{ fontSize: 11 }}>{p("or")}</span>
               <div style={{ flex: 1, height: 1, background: "rgb(var(--line-subtle))" }} />
             </div>
             <MoveToGsdBacklogAction
@@ -501,23 +605,57 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
         )}
       </div>
     </div>
+    {confirmDays && confirmDays.length > 0 && (
+      <div style={{ position: "fixed", inset: 0, zIndex: 2500, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="bg-raised border border-warn-bd" style={{ borderRadius: 12, padding: 24, width: 460, maxWidth: "90vw" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            <AlertTriangle size={16} className="text-warn-fg" />
+            <span className="text-ink" style={{ fontWeight: 600, fontSize: 14 }}>{p("confirmTitle")}</span>
+          </div>
+          <ul className="text-ink-muted" style={{ fontSize: 12, lineHeight: 1.6, marginBottom: 18, paddingLeft: 16 }}>
+            {confirmDays.flatMap(d => (d.conflicts ?? []).map((c, i) => (
+              <li key={`${d.date}-${i}`}>
+                {p("confirmBody", {
+                  date: d.date,
+                  loc: c.location,
+                  shift: c.workingShift ?? "—",
+                  actor: c.actor ?? p("confirmUnknownActor"),
+                  at: c.atBerlin ?? "—",
+                  target: locations.find(l => l.locationCode === locationCode)?.displayName ?? locationCode,
+                })}
+              </li>
+            )))}
+          </ul>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={() => { setConfirmDays(null); setOutcome(null) }}
+              className="bg-info-solid"
+              style={{ flex: 2, border: "none", color: "#fff", borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+            >
+              {p("confirmCancel")}
+            </button>
+            <button
+              onClick={confirmReplace}
+              className="bg-transparent border border-warn-bd text-warn-fg"
+              style={{ flex: 1, borderRadius: 6, padding: "8px 0", fontSize: 12, cursor: "pointer" }}
+            >
+              {p("confirmReplace")}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     {uncoveredWarn && (
       <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div className="bg-raised border border-warn-bd" style={{ borderRadius: 12, padding: 24, width: 400, maxWidth: "90vw" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
             <AlertTriangle size={16} className="text-warn-fg" />
             <span className="text-ink" style={{ fontWeight: 600, fontSize: 14 }}>
-              Location will be uncovered / Standort bleibt unbesetzt
+              {p("uncoveredTitle")}
             </span>
           </div>
           <p className="text-ink-muted" style={{ fontSize: 13, marginBottom: 20 }}>
-            Moving <strong className="text-ink">{uncoveredWarn.agent}</strong> leaves{" "}
-            <strong className="text-ink">{uncoveredWarn.location}</strong> uncovered on{" "}
-            <strong className="text-ink font-mono">{uncoveredWarn.date}</strong>.
-            <br />
-            Das Verschieben von <strong className="text-ink">{uncoveredWarn.agent}</strong> lässt{" "}
-            <strong className="text-ink">{uncoveredWarn.location}</strong> am{" "}
-            <strong className="text-ink font-mono">{uncoveredWarn.date}</strong> unbesetzt.
+            {p("uncoveredBody", { agent: uncoveredWarn.agent, location: uncoveredWarn.location, date: uncoveredWarn.date })}
           </p>
           <div style={{ display: "flex", gap: 10 }}>
             <button
@@ -525,14 +663,14 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
               className="bg-info-solid"
               style={{ flex: 2, border: "none", color: "#fff", borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
             >
-              Cancel / Abbrechen
+              {p("cancel")}
             </button>
             <button
               onClick={() => { setUncoveredWarn(null); pendingProceed.current?.() }}
               className="bg-transparent border border-warn-bd text-warn-fg"
               style={{ flex: 1, borderRadius: 6, padding: "8px 0", fontSize: 12, cursor: "pointer" }}
             >
-              Move anyway / Trotzdem verschieben
+              {p("moveAnyway")}
             </button>
           </div>
         </div>

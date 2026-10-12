@@ -41,12 +41,18 @@ public record CreateShiftRequest(
     string? LocationCode
 );
 
+// ConfirmManualReplace is the explicit second step of the "the existing row for this
+// day is a human's decision" case: the first call returns requiresConfirmation=true with
+// who set it and when; the UI asks the RTM and re-sends the same day with this flag, which
+// is the human's confirmation to replace that row. It never bypasses anything else and an
+// automatic caller (manualActor == null) is unaffected by it.
 public record CreateAssignmentRequest(
     string EmployeeId,
     string LocationCode,
     string Date,
     string? ShiftStart,
-    string? ShiftEnd
+    string? ShiftEnd,
+    bool ConfirmManualReplace = false
 );
 
 // DateTo/SkipWeekends optional (default: DateTo=Date, SkipWeekends=true) so single-day callers
@@ -491,7 +497,7 @@ public class WicShiftService
         // earlier manual decision. Only an automatic writer (manualActor == null: imports,
         // sync, generator) is refused by PreserveManualShift.
         if (manualActor == null && db.PreserveManualShift(shift, "WIC create shift"))
-            return Results.Conflict(new { success = false, skipped = true, reason = "Manual shift is protected." });
+            return Results.Conflict(new { success = false, saved = false, skipped = true, reasonCode = "PROTECTED_MANUAL", reason = "Manual shift is protected." });
         if (shift != null)
         {
             shift.ShiftType    = req.ShiftType;
@@ -526,8 +532,10 @@ public class WicShiftService
         {
             return Results.Ok(new
             {
-                success = false,
-                blocked = true,
+                success    = false,
+                saved      = false,
+                blocked    = true,
+                reasonCode = "VALIDATION_BLOCKED",
                 violations = validation.Violations,
             });
         }
@@ -605,6 +613,8 @@ public class WicShiftService
         return Results.Ok(new
         {
             success      = true,
+            saved        = true,
+            reasonCode   = "SAVED",
             employeeName = employee.FullName ?? req.EmployeeId,
             shiftDate    = date.ToString("yyyy-MM-dd"),
             shiftType    = req.ShiftType,
@@ -645,10 +655,12 @@ public class WicShiftService
         if (hours?.IsClosed == true)
             return Results.Ok(new
             {
-                success = true,
-                skipped = true,
-                reason  = $"WIC location is closed on {date:yyyy-MM-dd}",
-                date    = date.ToString("yyyy-MM-dd"),
+                success    = true,
+                saved      = false,
+                skipped    = true,
+                reasonCode = "CLOSED",
+                reason     = $"WIC location is closed on {date:yyyy-MM-dd}",
+                date       = date.ToString("yyyy-MM-dd"),
             });
 
         // Time source priority for NEW assignments (fixes the Helmstedt/Rendsburg pattern
@@ -701,7 +713,15 @@ public class WicShiftService
         // (manualActor == null: RosterService's MAIN/BACKUP walk, imports, sync) is
         // refused by PreserveManualShift so it can never clobber a human's cell.
         if (manualActor == null && db.PreserveManualShift(shift, "WIC assignment"))
-            return Results.Ok(new { success = false, skipped = true, reason = "Manual shift is protected.", date = date.ToString("yyyy-MM-dd") });
+            return Results.Ok(new
+            {
+                success    = false,
+                saved      = false,
+                skipped    = true,
+                reasonCode = "PROTECTED_MANUAL",
+                reason     = "Manual shift is protected.",
+                date       = date.ToString("yyyy-MM-dd"),
+            });
 
         // Skip dates where the agent is on a non-working shift; never overwrite AL/SL/OFF/PH
         // etc. (AvailabilityResolver.BlockingAbsenceTypes, shared with WicCardsService), nor
@@ -716,10 +736,13 @@ public class WicShiftService
             if (isBlocked)
                 return Results.Ok(new
                 {
-                    success = true,
-                    skipped = true,
-                    reason  = $"Agent has shift type '{shift.ShiftType}' on {date:yyyy-MM-dd}",
-                    date    = date.ToString("yyyy-MM-dd"),
+                    success    = true,
+                    saved      = false,
+                    skipped    = true,
+                    reasonCode = "BLOCKING_SHIFT",
+                    reason     = $"Agent has shift type '{shift.ShiftType}' on {date:yyyy-MM-dd}",
+                    shiftType  = shift.ShiftType,
+                    date       = date.ToString("yyyy-MM-dd"),
                 });
         }
 
@@ -779,6 +802,19 @@ public class WicShiftService
         // rows — none of them a live time conflict. See BLUEPRINT_LOGIC.md §7.2.
         var conflictCandidates = existingWicShifts.Where(w => w.IsOnSite).ToList();
 
+        // Human decision (manualActor != null): an overlapping AUTOMATIC commitment at
+        // another centre is REPLACED in the same SaveChanges — one manual action must win
+        // over an automatic row and be visible everywhere at once. A commitment that
+        // carries a human owner (ManualChangeBy, or a rollout-owned row) is never replaced
+        // silently: the caller gets requiresConfirmation with who set it and when, and the
+        // UI asks the RTM before re-sending with ConfirmManualReplace=true.
+        //
+        // An automatic writer (manualActor == null) keeps the historical, conservative
+        // behaviour exactly: block, save nothing, and return the exact reason. It never
+        // replaces or deletes anything.
+        var toReplace      = new List<WicShiftEntry>();
+        var manualConflict = new List<object>();
+        var replacedHuman  = false;
         foreach (var existing in conflictCandidates)
         {
             // Same location → update in-place (no conflict)
@@ -790,15 +826,62 @@ public class WicShiftService
             if (newStart == null || newEnd == null || exStart == null || exEnd == null)
                 continue;
             // Overlap: [newStart, newEnd) intersects [exStart, exEnd)
-            if (newStart < exEnd && exStart < newEnd)
+            if (!(newStart < exEnd && exStart < newEnd))
+                continue;
+
+            var conflictLocation = existing.SupportLocation ?? existing.LocationCode ?? "(unknown)";
+
+            // No ShiftEntries row proves an automatic owner (synthetic/legacy data), or this
+            // is an automatic writer: the historical skip, with the exact day reason.
+            if (manualActor == null || shift == null)
                 return Results.Ok(new
                 {
-                    success = true,
-                    skipped = true,
-                    reason  = $"Time conflict: agent already assigned to {existing.SupportLocation} ({existing.WorkingShift}) on {date:yyyy-MM-dd}",
-                    date    = date.ToString("yyyy-MM-dd"),
+                    success    = true,
+                    saved      = false,
+                    skipped    = true,
+                    reasonCode = "TIME_CONFLICT",
+                    reason     = $"Time conflict: agent already assigned to {conflictLocation} ({existing.WorkingShift}) on {date:yyyy-MM-dd}",
+                    date       = date.ToString("yyyy-MM-dd"),
+                    // Structured so the UI can render the sentence in EN or DE without
+                    // embedding this English text in the German view.
+                    conflicts  = new[] { new { location = conflictLocation, workingShift = existing.WorkingShift } },
                 });
+
+            var isHumanOwned = !string.IsNullOrWhiteSpace(shift.ManualChangeBy)
+                || string.Equals(shift.SourceModule, RolloutSource.Module, StringComparison.Ordinal);
+            if (isHumanOwned && !req.ConfirmManualReplace)
+            {
+                manualConflict.Add(new
+                {
+                    location     = conflictLocation,
+                    workingShift = existing.WorkingShift,
+                    actor        = shift.ManualChangeBy,
+                    atUtc        = shift.ManualChangeAt,
+                    atBerlin     = BerlinTime.FromUtc(shift.ManualChangeAt)?.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+                });
+                continue;
+            }
+
+            if (isHumanOwned && req.ConfirmManualReplace) replacedHuman = true;
+            toReplace.Add(existing);
         }
+
+        if (manualConflict.Count > 0)
+            return Results.Ok(new
+            {
+                success              = true,
+                saved                = false,
+                requiresConfirmation = true,
+                reasonCode           = "MANUAL_CONFLICT",
+                reason               = $"The existing assignment on {date:yyyy-MM-dd} was set by a human and must be confirmed before it can be replaced.",
+                date                 = date.ToString("yyyy-MM-dd"),
+                conflicts            = manualConflict,
+            });
+
+        // Replace = remove the superseded automatic/human-confirmed commitment so the
+        // target centre is the agent's commitment for that day. Same SaveChanges below.
+        foreach (var superseded in toReplace)
+            db.WicShiftEntries.Remove(superseded);
 
         // Upsert the WicShiftEntry for this specific location (others stay intact)
         var existingForLoc = existingWicShifts
@@ -828,10 +911,12 @@ public class WicShiftService
             });
         }
 
-        // Update ShiftEntry time to span all WIC assignments for the day (earliest start → latest end)
+        // Update ShiftEntry time to span all REMAINING WIC assignments for the day
+        // (earliest start → latest end). Superseded rows are excluded: they are gone.
         if (existingWicShifts.Count > 0)
         {
             var allShifts = existingWicShifts
+                .Where(w => !toReplace.Contains(w))
                 .Where(w => !string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase))
                 .Select(w => ParseShift(w.WorkingShift))
                 .Append((newStart, newEnd))
@@ -852,10 +937,19 @@ public class WicShiftService
         await db.SaveChangesAsync();
         return Results.Ok(new
         {
-            success      = true,
-            employeeName = employee.FullName ?? req.EmployeeId,
-            displayName  = location.DisplayName,
-            date         = date.ToString("yyyy-MM-dd"),
+            success           = true,
+            saved             = true,
+            reasonCode        = replacedHuman
+                ? "REPLACED_CONFIRMED"
+                : toReplace.Count > 0 ? "REPLACED_AUTOMATIC" : "SAVED",
+            reason            = toReplace.Count > 0
+                ? $"Replaced the previous assignment at {string.Join(", ", toReplace.Select(r => $"{r.SupportLocation} ({r.WorkingShift})"))}."
+                : null,
+            replacedAutomatic = toReplace.Count > 0 && !replacedHuman,
+            replaced          = toReplace.Select(r => new { location = r.SupportLocation, workingShift = r.WorkingShift }).ToList(),
+            employeeName      = employee.FullName ?? req.EmployeeId,
+            displayName       = location.DisplayName,
+            date              = date.ToString("yyyy-MM-dd"),
             nppWarning,
         });
     }

@@ -674,10 +674,13 @@ export default function Shifts() {
   }
   const doUpdateShift = async (id: number, type: string, start?: string, end?: string) => {
     try {
-      await apiFetch(`/api/shifts/${id}/manual`, {
+      const res = await apiFetch<{ wicWarning?: string }>(`/api/shifts/${id}/manual`, {
         method:"PATCH", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ shiftType:type, shiftStart:start ?? null, shiftEnd:end ?? null })
       })
+      // A WIC_DUTY cell edit that could not resolve a centre is only partly saved:
+      // say so instead of showing the cell as if everything worked.
+      if (res?.wicWarning) setAssignError(res.wicWarning)
       await qc.invalidateQueries({ queryKey:["shifts-cal"] })
       return null
     } catch (e: unknown) {
@@ -695,6 +698,8 @@ export default function Shifts() {
       const body = await res.json().catch(() => ({}))
       throw new Error(body?.error ?? `HTTP ${res.status}`)
     }
+    const body = await res.json().catch(() => null)
+    if (body?.wicWarning) setAssignError(body.wicWarning)
     qc.invalidateQueries({ queryKey: ["shifts-cal"] })
   }
 
