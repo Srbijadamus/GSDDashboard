@@ -1,6 +1,7 @@
 using GSDDashboard.API.Data;
 using ALBalanceModel = GSDDashboard.API.Data.Models.ALBalance;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Modules.Employees;
@@ -113,7 +114,7 @@ public class EmployeeService
 
     public async Task<EmployeeDto?> UpdateALBalanceAsync(string employeeId, int alUsed)
     {
-        var year = DateTime.UtcNow.Year;
+        var year = BerlinTime.Today.Year;
         ALBalanceModel? bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == employeeId && b.Year == year);
         if (bal == null)
         {
@@ -136,7 +137,7 @@ public class EmployeeService
 
     public async Task<EmployeeDto?> UpdateALEligibleDaysAsync(string employeeId, decimal eligibleDays)
     {
-        var year = DateTime.UtcNow.Year;
+        var year = BerlinTime.Today.Year;
         ALBalanceModel? bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == employeeId && b.Year == year);
         if (bal == null)
         {

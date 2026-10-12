@@ -148,7 +148,9 @@ public class ALPlanningService
 
         return new ALPlanningResponse(
             req.EmployeeId, employee.FullName,
-            DateTime.UtcNow.ToString("o"), rangeResults, note);
+            // "Generated at" is shown to the user: Berlin wall clock, like every other
+            // displayed instant (BerlinTime). The stored data is unaffected.
+            BerlinTime.StampNow("o"), rangeResults, note);
     }
 
     private async Task<List<ALConflict>> GetConflictsAsync(

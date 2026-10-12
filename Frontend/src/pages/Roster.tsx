@@ -557,7 +557,10 @@ function RosterInner() {
                   </td>
                   <td className={tdCls}>
                     {b.createdByName ?? b.createdByKid ?? "—"},{" "}
-                    {new Date(b.createdAt).toLocaleString()}
+                    {/* The server already sends Berlin wall clock ("yyyy-MM-dd HH:mm",
+                        see RosterService/BerlinTime); formatting it again with the
+                        browser's zone was what made it differ per viewer. */}
+                    {b.createdAt}
                   </td>
                   <td className={tdCls}>
                     <button className={btnSecondary} onClick={() => doDelete(b)}

@@ -172,6 +172,9 @@ public class WicManualChangeTests
         Assert.True(agent.IsManualChange);
         Assert.Equal("S60028", agent.ManualChangeBy);
         Assert.False(agent.CheckInNotRecorded);
+        // ZADATAK 2 (Pulse part): the row stores UTC (07:05), the RTM sees Berlin (09:05,
+        // CEST). Showing the raw column made "who and when" two hours early.
+        Assert.Equal("2026-10-01 09:05", agent.ManualChangeAt);
     }
 
     // ── 4. Protection: the generator must never overwrite a manual row ───────────

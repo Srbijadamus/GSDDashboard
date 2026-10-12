@@ -8,6 +8,7 @@ import { DownloadButtons } from "../components/DownloadButtons"
 import CoverageBar from "./CoverageBar"
 import { MoreVertical, Pencil, Trash2, UserMinus, ChevronUp, ChevronDown, AlertTriangle } from "lucide-react"
 import { maxFutureDateStr } from "../constants"
+import { berlinStamp } from "../utils/berlinTime"
 import { AddVacationModal } from "./Vacations"
 
 const OVERRIDE_CONFIRM_TYPES = ["OFF_WEEKEND", "PH"]
@@ -753,7 +754,8 @@ export default function Shifts() {
 
   const handlePdfExport = () => {
     const orientation = days <= 7 ? "portrait" : "landscape"
-    const now = new Date().toLocaleString()
+    // Printed in the plan's footer: Europe/Berlin, never the viewer's own zone.
+    const now = berlinStamp()
 
     const cellLabel = (s: any): string => {
       if (!s || s.shiftType === "EMPTY") return ""

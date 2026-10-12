@@ -28,4 +28,5 @@ write_*.py
 count_lines.py
 Backend/wwwroot/
 Frontend/.attendance-test-out/
+Frontend/.berlin-time-test-out/
 .pulse-build-receipt.json

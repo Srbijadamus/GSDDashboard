@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using GSDDashboard.API.Services;
 
 namespace GSDDashboard.API.Data.Models;
 
@@ -97,7 +98,7 @@ public class ALBalance
     [Key] public int Id { get; set; }
     [MaxLength(20)]  public string? EmployeeId { get; set; }
     [MaxLength(200)] public string? EmployeeName { get; set; }
-    public int Year { get; set; } = DateTime.UtcNow.Year;
+    public int Year { get; set; } = BerlinTime.Today.Year;
     // DECIMAL(10,2) (not the (10,1) used by PlannedTakenAL/RemainingAL) so eligible
     // days can be entered with up to 2 decimal places (e.g. 26.5, 22.75) per employee/year.
     public decimal EligibleDays { get; set; } = 28;

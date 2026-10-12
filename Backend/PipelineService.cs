@@ -1,5 +1,7 @@
+using System.Globalization;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Modules.Pipeline;
@@ -39,7 +41,8 @@ public class PipelineService
             p.Title, p.Description, p.PrimaryAgent, p.BackupAgent,
             p.AdditionalAgentsNeeded, p.HandledBy, p.CreatedBy,
             p.Status, p.StartTime, p.EndTime, p.AgentsRequired,
-            p.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss"));
+            // CreatedAt is stored UTC; the API exposes it as Berlin wall clock (BerlinTime).
+            BerlinTime.FromUtc(p.CreatedAt).ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture));
 
     public async Task<List<PipelineDto>> GetAllAsync(string? from, string? to, string? locationCode)
     {

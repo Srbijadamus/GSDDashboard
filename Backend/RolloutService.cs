@@ -666,8 +666,10 @@ public sealed class RolloutService(GSDContext db)
             stdClosed || !string.Equals(stdStart, day.StartTime, StringComparison.Ordinal) ||
                          !string.Equals(stdEnd, day.EndTime, StringComparison.Ordinal),
             day.IsManual,
-            day.ManualChangeBy, day.ManualChangeAt?.ToString("yyyy-MM-ddTHH:mm:ss"),
-            day.ManualChangeBy, day.ManualChangeAt?.ToString("yyyy-MM-ddTHH:mm:ss"),
+            // ManualChangeAt/CreatedAt are stored UTC; the provenance line is shown in
+            // Berlin wall clock (BerlinTime), the stored value is untouched.
+            day.ManualChangeBy, BerlinTime.Stamp(day.ManualChangeAt, "yyyy-MM-ddTHH:mm:ss"),
+            day.ManualChangeBy, BerlinTime.Stamp(day.ManualChangeAt, "yyyy-MM-ddTHH:mm:ss"),
             day.ManualChangeNote,
             workers, warnings);
     }

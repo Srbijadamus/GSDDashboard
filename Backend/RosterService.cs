@@ -93,7 +93,9 @@ public record RosterBatchDto(
     string? LocationCode, string? LocationName,
     int RowCount, int SkippedExisting, int SkippedHolidays,
     int ReplacedExisting, bool HasSnapshot,
-    string? CreatedByKid, string? CreatedByName, DateTime CreatedAt);
+    // Shown in the batch table as "Created". Stored UTC, exposed as Berlin wall clock
+    // (BerlinTime) so the text is the same for every viewer, not the browser's zone.
+    string? CreatedByKid, string? CreatedByName, string CreatedAt);
 
 public record RosterDeleteResult(
     int BatchId, int DeletedRows, int DetachedRows, int WicRowsRemoved,
@@ -996,7 +998,8 @@ public class RosterService
             b.LocationCode != null && locNames.TryGetValue(b.LocationCode, out var n) ? n : null,
             b.RowCount, b.SkippedExisting, b.SkippedHolidays,
             b.ReplacedExisting, b.ReplacedRowsJson != null,
-            b.CreatedByKid, b.CreatedByName, b.CreatedAt)).ToList();
+            b.CreatedByKid, b.CreatedByName,
+            BerlinTime.FromUtc(b.CreatedAt).ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture))).ToList();
     }
 
     /// <summary>

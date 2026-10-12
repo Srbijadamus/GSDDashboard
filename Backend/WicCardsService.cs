@@ -234,7 +234,9 @@ public class WicCardsService
                     CheckInNotRecorded: false,
                     IsManualChange: shiftEntry?.IsManualChange ?? false,
                     ManualChangeBy: shiftEntry?.ManualChangeBy,
-                    ManualChangeAt: shiftEntry?.ManualChangeAt?.ToString("yyyy-MM-dd HH:mm")
+                    // Stored UTC, shown as the Berlin wall clock the RTM actually worked in
+                    // (see BerlinTime; the DB value is not changed).
+                    ManualChangeAt: BerlinTime.Stamp(shiftEntry?.ManualChangeAt, "yyyy-MM-dd HH:mm")
                 );
                 agentList.Add(dto);
                 // Absent agents stay on the card (marked absent) but are excluded from the
@@ -276,7 +278,7 @@ public class WicCardsService
                     CheckInNotRecorded: !(sh?.IsManualChange ?? false),
                     IsManualChange: sh?.IsManualChange ?? false,
                     ManualChangeBy: sh?.ManualChangeBy,
-                    ManualChangeAt: sh?.ManualChangeAt?.ToString("yyyy-MM-dd HH:mm")));
+                    ManualChangeAt: BerlinTime.Stamp(sh?.ManualChangeAt, "yyyy-MM-dd HH:mm")));
                 coveringInputs.Add((emp.EmployeeId, emp.FullName ?? emp.EmployeeId, start, end, isMainAgent));
             }
 

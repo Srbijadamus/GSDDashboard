@@ -155,7 +155,7 @@ public class VacationService
 
         if (workDays > 0)
         {
-            var year = DateTime.UtcNow.Year;
+            var year = BerlinTime.Today.Year;
             var bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == dto.EmployeeId && b.Year == year);
             if (bal == null)
             {
@@ -191,7 +191,7 @@ public class VacationService
         // Restore AL balance
         if (vac.EmployeeId != null && vac.WorkDaysNet.HasValue && vac.WorkDaysNet.Value > 0)
         {
-            var year = DateTime.UtcNow.Year;
+            var year = BerlinTime.Today.Year;
             var bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == vac.EmployeeId && b.Year == year);
             if (bal != null)
             {

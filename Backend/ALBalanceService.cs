@@ -1,4 +1,5 @@
 using GSDDashboard.API.Data;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Modules.ALBalance;
@@ -16,7 +17,7 @@ public class ALBalanceService
 
     public async Task<List<ALBalanceDto>> GetAllAsync(int? year = null)
     {
-        var y = year ?? DateTime.UtcNow.Year;
+        var y = year ?? BerlinTime.Today.Year;
         var rows = await _db.ALBalances.Where(a => a.Year == y).OrderBy(a => a.EmployeeName).ToListAsync();
         return rows.Select(a => new ALBalanceDto(
             a.Id, a.EmployeeId, a.EmployeeName, a.Year,
@@ -27,7 +28,7 @@ public class ALBalanceService
 
     public async Task<ALBalanceDto?> GetByEmployeeAsync(string employeeId, int? year = null)
     {
-        var y = year ?? DateTime.UtcNow.Year;
+        var y = year ?? BerlinTime.Today.Year;
         var a = await _db.ALBalances.FirstOrDefaultAsync(x => x.EmployeeId == employeeId && x.Year == y);
         if (a == null) return null;
         return new ALBalanceDto(
