@@ -841,8 +841,8 @@
       "existing": "Dauerhaftes Haupt-WIC: {{centre}}",
       "wouldCreate": "Der Agent hat noch kein dauerhaftes Haupt-WIC. Beim Generieren werden Sie gefragt, ob {{centre}} als dauerhaftes Haupt-WIC festgelegt werden soll.",
       "plain": "Kein WIC-Standort gewählt — das dauerhafte Haupt-WIC bleibt unverändert.",
-      "overlap": "Mehr als ein Haupt-WIC dieses Agenten ist gleichzeitig geöffnet: {{days}}. Es wird die jüngste Entscheidung für diesen Wochentag übernommen; ein Tag ohne eine solche Entscheidung bleibt ohne WIC-Zentrum (MAIN_AMBIGUOUS).",
-      "ambiguous": "MAIN_AMBIGUOUS: Für {{days}} konnte kein Zentrum gewählt werden — mehr als ein Haupt-WIC ist gleichzeitig geöffnet und es gibt keine frühere Entscheidung für diesen Wochentag. Diese Tage bleiben ohne WIC-Zentrum; bitte manuell zuweisen oder eine spätere Woche entscheiden lassen.",
+      "overlap": "Mehr als ein Haupt-WIC dieses Agenten ist am selben Tag geöffnet: {{days}}. Es wird die jüngste Entscheidung für diesen Wochentag exakt wiederholt; ein Tag ohne eine solche Entscheidung bleibt ohne WIC-Zentrum (MAIN_AMBIGUOUS).",
+      "ambiguous": "MAIN_AMBIGUOUS: Für {{days}} konnte kein Zentrum gewählt werden — mehr als ein Haupt-WIC ist am selben Tag geöffnet und es gibt keine frühere Entscheidung für diesen Wochentag, die wiederholt werden könnte. Diese Tage bleiben ohne WIC-Zentrum; bitte manuell zuweisen oder eine spätere Woche entscheiden lassen.",
       "multiCentre": "Dieser Tag wird von mehr als einem Haupt-WIC abgedeckt: {{centres}}."
     },
     "preview": {

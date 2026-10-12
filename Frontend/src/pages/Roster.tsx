@@ -38,14 +38,15 @@ interface PreviewResult {
   existingMainName: string | null
   wouldCreateMain: boolean
   mainWarning: string | null
-  // The ONLY real ambiguity of a multi-MAIN agent: a weekday on which two or more
-  // of the agent's MAIN centres are open at the same time, e.g.
+  // The weekdays on which TWO OR MORE of the agent's MAIN centres are open, so the
+  // opening hours cannot say which one the agent belongs to, e.g.
   // "Monday: Centre A 08:00-16:00 + Centre B 08:00-17:00". Empty when the MAIN
-  // opening days are disjoint — the normal case, resolved day by day.
+  // opening days are disjoint — the normal case, resolved day by day. (DTO name
+  // kept; the times are informational only.)
   mainOverlapDays: string[] | null
   // The actual DATES left WITHOUT a WIC centre (MAIN_AMBIGUOUS): two or more MAIN
-  // centres overlap on that weekday and no earlier same-weekday decision exists to
-  // follow. Never guessed — the day stays a BO day.
+  // centres are open on that weekday and there is no earlier same-weekday decision
+  // to repeat. Never guessed — the day stays a BO day.
   mainAmbiguousDays: string[] | null
 }
 

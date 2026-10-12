@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Auth;
@@ -8,6 +8,7 @@ using GSDDashboard.API.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Xunit;
 
 namespace GSDDashboard.Tests;
@@ -25,6 +26,10 @@ public class RosterServiceTests
     {
         var options = new DbContextOptionsBuilder<GSDContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            // RosterService.GenerateAsync runs inside a transaction; the in-memory
+            // store has none and warns. Same suppression the other roster test files
+            // use (RosterMultiMainSameDayTests / RosterMultiMainPerDayTests).
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
         return new GSDContext(options);
     }

@@ -188,14 +188,14 @@ public class RosterMultiMainPerDayTests
         Assert.Equal(2, await db.WicAgentAssignments.CountAsync(a => a.IsActive && a.AssignmentType == "MAIN"));
     }
 
-    // ── 3. Overlapping MAIN opening days are the only genuine ambiguity ──────
+    // ── 3. Two open MAIN centres on one date are the only genuine ambiguity ──
     //
     // Centre C is open Monday AND Wednesday, Centre D is open Monday 09:00-14:00 —
-    // which overlaps C's Monday 08:00-12:00. Monday is therefore the only day the
-    // generator cannot resolve from WicOpeningHours. Rule c (2026-10-12): it must
-    // NOT guess ("first MAIN wins" was the old behaviour) — with no earlier
-    // same-weekday WIC decision to follow, Monday is left WITHOUT a WIC centre (a BO
-    // day) and reported in MainAmbiguousDays. Wednesday is unambiguous (only C is
+    // so Monday has TWO open MAIN centres. Rule (2026-10-12): the centre's hours
+    // never pick between them; the generator repeats the last decision for that
+    // weekday, and with none it must NOT guess ("first MAIN wins" was the old
+    // behaviour). Monday is therefore left WITHOUT a WIC centre (a BO day) and
+    // reported in MainAmbiguousDays. Wednesday is unambiguous (only C is
     // open) and stays a WIC day.
 
     [Fact]

@@ -19,8 +19,20 @@ public static class Mojibake
     // but to unprintable control characters in plain Latin-1, so only genuine
     // Windows-1252 decoding reverses every corrupted sequence, not just the
     // ones that happen to sit above 0xA0.
-    static Mojibake() =>
+    //
+    // The registration MUST run before the Encoding fields below are created. With an
+    // explicit static constructor the field initializers run FIRST, so a
+    // RegisterProvider call in the constructor BODY is too late: GetEncoding(1252)
+    // throws, the type initializer fails and stays failed for the whole process
+    // (found by RosterServiceTests.Preview_RegionalHoliday_OnlySkippedForThatBundesland,
+    // 2026-10-12).
+    private static readonly bool CodePagesRegistered = RegisterCodePages();
+
+    private static bool RegisterCodePages()
+    {
         Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+        return true;
+    }
 
     private static readonly Encoding Windows1252 = Encoding.GetEncoding(
         1252, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);

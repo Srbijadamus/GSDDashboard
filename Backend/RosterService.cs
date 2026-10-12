@@ -26,19 +26,24 @@ namespace GSDDashboard.API.Modules.Roster;
 // WIC mode WITHOUT LocationCode: the centre comes from the agent's active MAIN
 // WicAgentAssignments rows. Several MAIN rows are NORMAL, not an error (live data
 // has 7 such agents — one is MAIN at three centres that open on different days):
-// each generated date is placed in the MAIN centre that is OPEN that day
-// (PickOpenMainLocation), so the generator follows the opening hours instead of
-// locking the whole period to one arbitrary MAIN. The only genuine ambiguity — a
-// weekday on which two or more MAIN centres are open at the same time — is
-// reported in RosterPreviewResult.MainOverlapDays / RosterGenerateResult
-// .MainOverlapDays and resolved deterministically (first MAIN by assignment Id).
+// each generated date is placed in the MAIN centre that is OPEN that day, so the
+// generator follows the opening days instead of locking the whole period to one
+// arbitrary MAIN. When TWO OR MORE MAIN centres are open on the same date the
+// opening hours can no longer answer "which centre", and are never used to derive
+// the agent's shift either: the last decision for that weekday (the earlier
+// on-site WicShiftEntries rows, or an earlier date of the same run) is repeated
+// EXACTLY — same centre or centres, same time. A date without such a decision is
+// left without a WIC centre (a BO day) and reported in
+// RosterPreviewResult.MainAmbiguousDays / RosterGenerateResult.MainAmbiguousDays
+// ("MAIN_AMBIGUOUS"); it is never guessed. The weekdays on which that can happen
+// are listed in MainOverlapDays (name kept for the existing readers).
 //   WIC rows match the shape WicShiftService.CreateAssignmentAsync writes
-//   (ShiftType=WIC_DUTY, IsWicDuty=true, AgentTask=location DisplayName, times =
-//   the location's opening hours for that date, plus the WicShiftEntry upsert
-//   with IsOnSite=true / Task="WIC") — only SourceModule/SourceId differ so the
-//   batch stays deletable. BO rows match what BO looks like in ShiftEntries
-//   today (ShiftType=WORKING, RawValue="BO"). The generator NEVER silently
-//   writes a permanent MAIN WicAgentAssignments row (see ResolveMainAsync):
+//   (ShiftType=WIC_DUTY, IsWicDuty=true, AgentTask=location DisplayName, plus the
+//   WicShiftEntry upsert with IsOnSite=true / Task="WIC") — only
+//   SourceModule/SourceId differ so the batch stays deletable. BO rows match what
+//   BO looks like in ShiftEntries today (ShiftType=WORKING, RawValue="BO"). The
+//   generator NEVER silently writes a permanent MAIN WicAgentAssignments row
+//   (see ResolveMainAsync):
 //     * an active MAIN at another centre is left untouched and reported as
 //       MAIN_UNCHANGED — a roster run is not a transfer;
 //     * an agent with no MAIN at all gets one only when the caller explicitly
@@ -89,12 +94,13 @@ public record RosterReplacement(
 // selected centre it is that centre on every row; for an agent with several MAIN
 // centres and no LocationCode it is the centre open on that date (null = plain
 // roster, or no MAIN centre is open that day).
-// One centre the generator would place this agent in on that date, with the part of
-// the AGENT's shift that falls inside the centre's own window. A day can carry more
-// than one when the agent's MAIN centres are open at NON-overlapping times (the
-// Demmin 10:00-12:00 + 13:00-15:00 case): the agent covers both, and each centre
-// needs its own WicShiftEntries row. Centres is null for a single-centre day so the
-// existing single-centre shape is byte-identical.
+// One centre the generator would place this agent in on that date, with the time the
+// decision recorded for it (the AGENT's shift where the request carries one, the
+// centre's own window only for the single-open-centre fallback). A day carries more
+// than one when the repeated decision held more than one centre (the Demmin
+// 10:00-12:00 + 13:00-15:00 decision): each centre needs its own WicShiftEntries row.
+// Centres is null for a single-centre day so the existing single-centre shape is
+// byte-identical.
 public record RosterPlanCentre(string LocationCode, string DisplayName, string Start, string End);
 
 public record RosterPlanRow(string Date, string ShiftStart, string ShiftEnd, string Kind,
@@ -120,15 +126,15 @@ public record RosterPreviewResult(
     // would have to be confirmed), so the RTM sees it before generating.
     string? ExistingMainCode = null, string? ExistingMainName = null,
     bool WouldCreateMain = false, string? MainWarning = null,
-    // The only genuine ambiguity when an agent has several MAIN centres: a day on
-    // which TWO OR MORE of them are open at the same time, so no centre can be
-    // derived from WicOpeningHours. One entry per ambiguous WEEKDAY ("Monday:
-    // Centre A + Centre B"). Empty when the MAIN opening days are disjoint — which
-    // is the normal, correct state for a multi-MAIN agent.
+    // The weekdays on which TWO OR MORE of the agent's MAIN centres are OPEN, so no
+    // centre can be derived from WicOpeningHours. One entry per such WEEKDAY
+    // ("Monday: Centre A 08:00-16:00 + Centre B 08:00-17:00"). Empty when the MAIN
+    // opening days are disjoint — the normal, correct state for a multi-MAIN agent.
+    // (Name kept for the existing UI/API readers.)
     List<string>? MainOverlapDays = null,
     // The DATES of this call that were left WITHOUT a WIC centre because two or more
-    // of the agent's MAIN centres overlap on that weekday AND no earlier same-weekday
-    // decision exists to follow. The day stays a BO day (never guessed); the UI shows
+    // of the agent's MAIN centres are open that weekday AND no earlier same-weekday
+    // decision exists to repeat. The day stays a BO day (never guessed); the UI shows
     // these as "MAIN_AMBIGUOUS". Populated only for MAIN auto-detected calls.
     List<string>? MainAmbiguousDays = null);
 
@@ -249,7 +255,8 @@ public class RosterService
     // required only in plain mode, or as an explicit WIC-mode override.
     // MainLocations: the agent's active MAIN centres (1..n) when the caller left
     // LocationCode blank, resolved and ordered by assignment Id. With several MAIN
-    // centres BuildPlanAsync picks the one open on each date; Location still holds
+    // centres BuildPlanAsync decides per date: the single open one, or — when 2+ are
+    // open — the last decision for that weekday; Location still holds
     // MainLocations[0] so every single-centre reader keeps working unchanged.
     // Rotation: true when the centre was AUTO-DETECTED from MAIN (no LocationCode in
     // the request) — then the centre is re-chosen for every date from WicOpeningHours
@@ -262,9 +269,11 @@ public class RosterService
     private sealed record PlanRow(DateOnly Date, string Kind, string Start, string End,
         WicLocation? Location = null, IReadOnlyList<WicSegment>? Segments = null);
 
-    // One centre's slice of the day: the location plus the part of the AGENT's shift
-    // that falls inside that centre's opening window (never the centre's hours used
-    // as if they were the agent's shift — see DecideWicDay).
+    // One centre of a generated WIC day: the location plus the Start/End the row must
+    // carry. For a single open MAIN centre that is the AGENT's shift when the request
+    // has one, the centre's window only as the historical WIC-mode fallback; for a
+    // two-or-more-open-centre day it is the time the repeated decision recorded — see
+    // DecideWicDayAsync.
     private sealed record WicSegment(WicLocation Location, string Start, string End);
 
     // Overwrite mode: the generated row plus the existing ShiftEntry it replaces.
@@ -297,12 +306,14 @@ public class RosterService
     // More than one active MAIN row is a CORRECT state (live data has 7 such agents):
     // a MAIN per centre, each open on its own days. ExistingMain(s) therefore name
     // EVERY active MAIN centre; the warning must never hide the second one.
+    // MultiOpenDays lists the weekdays on which 2+ of them are open (the days the
+    // last-decision rule below decides, or MAIN_AMBIGUOUS when there is none).
     private sealed record MainPlan(
         MainOutcome Outcome,
         WicLocation[] MainLocations,
         string[] ExistingMainCodes,
         string[] ExistingMainNames,
-        List<string> OverlapDays)
+        List<string> MultiOpenDays)
     {
         /// <summary>True when this call is about to set (or would set, if confirmed) a MAIN row.</summary>
         public bool WouldCreateMain => Outcome is MainOutcome.Created or MainOutcome.NotCreated;
@@ -451,8 +462,9 @@ public class RosterService
             //
             // An agent may be MAIN at SEVERAL centres (live data: 7 agents, one of
             // them with 3). They are carried as a set, ordered by assignment Id so
-            // the choice is deterministic; BuildPlanAsync then picks the centre
-            // that is OPEN on each generated date (Rotation = true). Locking the
+            // the choice is deterministic; BuildPlanAsync then decides each
+            // generated date (Rotation = true): the single open MAIN centre, or —
+            // when 2+ are open — the last decision for that weekday. Locking the
             // whole period to one arbitrary MAIN (the old FirstOrDefaultAsync with
             // no ORDER BY) dumped the agent into a centre that is shut while an
             // open MAIN existed.
@@ -502,8 +514,8 @@ public class RosterService
     /// Several active MAIN rows are NORMAL: an agent may be MAIN at each centre that
     /// opens on some days (live data has 7 such agents). This method therefore
     /// returns ALL of them, ordered by assignment Id (SQL without ORDER BY has no
-    /// guaranteed row order), and reports the only real ambiguity: a weekday on
-    /// which two or more of them are open at the same time.
+    /// guaranteed row order), and reports the real ambiguity: a weekday on which two
+    /// or more of them are open, where only the last decision (or nothing) can decide.
     /// </summary>
     private async Task<MainPlan> ResolveMainAsync(WicLocation? location, string? employeeName,
         bool confirmCreateMain, DateOnly from, DateOnly to)
@@ -537,7 +549,7 @@ public class RosterService
             if (resolvedCodes.Add(loc.LocationCode)) mainLocations.Add(loc);
         }
 
-        var overlapDays = await FindOverlappingMainDaysAsync(mainLocations, from, to);
+        var overlapDays = await FindMultiOpenMainDaysAsync(mainLocations, from, to);
 
         // MAIN already names the centre being generated (tilde code or legacy code).
         if (location != null &&
@@ -564,13 +576,15 @@ public class RosterService
     }
 
     /// <summary>
-    /// The weekdays on which two or more MAIN centres of one agent are open at the
-    /// SAME TIME — the only case in which "which centre does this agent belong to
-    /// today?" cannot be answered from WicOpeningHours. One entry per weekday:
-    /// "Monday: Centre A 08:00-16:00 + Centre B 08:00-17:00". Empty (the normal
-    /// case) when the MAIN opening days/windows are disjoint.
+    /// The weekdays on which TWO OR MORE MAIN centres of one agent are open — the only
+    /// case in which "which centre does this agent belong to today?" cannot be answered
+    /// from WicOpeningHours, whatever their times are. One entry per weekday:
+    /// "Monday: Centre A 08:00-16:00 + Centre B 08:00-17:00". Empty (the normal case)
+    /// when the MAIN opening days are disjoint. Kept under the existing
+    /// MainOverlapDays DTO member so no reader breaks; the times are reported for the
+    /// RTM only and are never used to pick or time the generated rows.
     /// </summary>
-    private async Task<List<string>> FindOverlappingMainDaysAsync(
+    private async Task<List<string>> FindMultiOpenMainDaysAsync(
         List<WicLocation> mainLocations, DateOnly from, DateOnly to)
     {
         var result = new List<string>();
@@ -604,21 +618,6 @@ public class RosterService
                 open.Add((loc, $"{first.s:HH\\:mm}-{last.e:HH\\:mm}"));
             }
             if (open.Count < 2) continue;
-
-            // Two centres clash only when some pair of their intervals overlaps.
-            var clash = false;
-            for (var a = 0; a < open.Count && !clash; a++)
-            {
-                var ha = WicHoursResolver.Resolve(allHours, open[a].Loc.LocationCode,
-                    open[a].Loc.LocationCodeLegacy, dow, date);
-                for (var b = a + 1; b < open.Count && !clash; b++)
-                {
-                    var hb = WicHoursResolver.Resolve(allHours, open[b].Loc.LocationCode,
-                        open[b].Loc.LocationCodeLegacy, dow, date);
-                    clash = HoursIntervals(ha).Any(x => HoursIntervals(hb).Any(y => x.s < y.e && y.s < x.e));
-                }
-            }
-            if (!clash) continue;
 
             result.Add($"{date.DayOfWeek}: " +
                 string.Join(" + ", open.Select(o => $"{o.Loc.DisplayName} {o.Window}")));
@@ -695,11 +694,11 @@ public class RosterService
         var collisions = new List<RosterCollision>();
         var skippedWeekends = 0;
         var ambiguousDays  = new List<string>();
-        // Per weekday, the centres this run has already decided for the most recent
-        // earlier date of that weekday. A multi-week preview writes nothing, so
-        // without this the second Tuesday could not follow the first Tuesday's
-        // decision (rule c: "the last week that HAS a WIC row for that day").
-        var runDecisions = new Dictionary<DayOfWeek, List<WicLocation>>();
+        // Per weekday, the decision THIS RUN already made for the most recent earlier
+        // date of that weekday — centre or centres, with that date's times. A multi-week
+        // preview writes nothing, so without this the second Tuesday could not repeat
+        // the first Tuesday's decision.
+        var runDecisions = new Dictionary<DayOfWeek, List<WicSegment>>();
 
         // WIC mode: opening hours for the chosen location(s), resolved per date the
         // same way the rest of the system does it (latest EffectiveFrom <= date,
@@ -728,12 +727,11 @@ public class RosterService
                 continue;
             }
 
-            // The centre(s) open on THIS date. An explicitly selected centre wins for
+            // The WIC placement(s) of THIS date. An explicitly selected centre wins for
             // the whole period; an AUTO-DETECTED one (no LocationCode in the request)
-            // is re-chosen per date, so an agent with several MAIN centres follows their
-            // opening days and may cover two of them when their windows do not overlap.
-            // Empty = no WIC centre today (plain roster, every MAIN centre shut, or an
-            // overlapping MAIN day with no earlier decision — then BO).
+            // is decided per date: the single open MAIN centre, or the repeated last
+            // decision when 2+ are open. Empty = no WIC centre today (plain roster,
+            // every MAIN centre shut, or a 2+-open day with no earlier decision — BO).
             List<WicSegment> segments;
             if (input.Rotation)
                 segments = await DecideWicDayAsync(input, wicHours!, d, runDecisions, ambiguousDays);
@@ -743,25 +741,25 @@ public class RosterService
                 segments = new List<WicSegment>();
 
             // Remember this date's decision as the latest one for its weekday, so a
-            // later week of the same run follows it instead of guessing.
+            // later week of the same run repeats it instead of guessing.
             if (segments.Count > 0)
-                runDecisions[d.DayOfWeek] = segments.Select(s => s.Location).ToList();
+                runDecisions[d.DayOfWeek] = segments;
 
             PlanRow generated;
             if (segments.Count == 0)
             {
                 // Plain roster (never had a WIC centre), a WIC agent whose MAIN
-                // centres are all closed today, or an unresolved overlap: a BO day,
-                // not a gap.
+                // centres are all closed today, or a 2+-open day whose last
+                // decision cannot be repeated: a BO day, not a gap.
                 var kind = input.MainLocations.Length > 0 ? "BO" : "WORKING";
                 generated = new PlanRow(d, kind, input.Start ?? "08:00", input.End ?? "17:00");
             }
             else
             {
-                // The ShiftEntries row carries the AGENT's day, never a centre's
-                // hours dressed up as one: the caller's explicit shift when given,
-                // otherwise the span the agent actually covers across the centres
-                // (the historical centre-hours fallback for a single centre).
+                // The ShiftEntries row carries the AGENT's day: the caller's explicit
+                // shift when given, otherwise the span of the decision that was
+                // repeated (for a single open centre, the historical centre-hours
+                // fallback).
                 var rowStart = input.Start ?? segments[0].Start;
                 var rowEnd   = input.End   ?? segments[^1].End;
                 generated = new PlanRow(d, "WIC", rowStart, rowEnd,
@@ -796,25 +794,24 @@ public class RosterService
     }
 
     /// <summary>
-    /// The WIC placement(s) of one MAIN auto-detected date: every open MAIN centre
-    /// together with the part of the AGENT's shift that falls inside it. Centre hours
-    /// never become the agent's shift — when the request carries the agent's shift
-    /// (input.Start/End) both the day row and each centre's WorkingShift are derived
-    /// from it; when it does not (WIC mode's normal shape), the centre's own window is
-    /// the only time the system has and stays the historical fallback.
+    /// The WIC placement(s) of one MAIN auto-detected date.
     ///
-    ///   * one open centre            → that centre;
-    ///   * several, windows DISJOINT  → the agent covers ALL of them (Demmin:
-    ///     10:00-12:00 + 13:00-15:00), each with its own WicShiftEntries row. A centre
-    ///     the agent's shift does not touch is not assigned that day;
-    ///   * several, windows OVERLAP   → today cannot be derived from the hours, so the
-    ///     centre the agent actually held on the same weekday in the most recent
-    ///     earlier week that has a WIC row wins (the RTM's latest decision — see
-    ///     ResolveLastWeekdayDecisionAsync). With no such decision the day is left
-    ///     WITHOUT a centre and reported (MAIN_AMBIGUOUS); it is never guessed.
+    ///   * no MAIN centre open today  → no WIC row (a BO day);
+    ///   * exactly one open centre    → that centre. Centre hours never become the
+    ///     agent's shift: when the request carries the agent's shift (input.Start/End)
+    ///     the row carries it, and only when it does not (WIC mode's normal shape) is
+    ///     the centre's own window the historical fallback;
+    ///   * TWO OR MORE open centres   → WicOpeningHours can no longer say which one
+    ///     the agent belongs to, and must never be used to derive the agent's shift
+    ///     either. The last decision for the same weekday is repeated EXACTLY as it
+    ///     was: same centre or centres, same time (ResolveLastWeekdayDecisionAsync).
+    ///     With no such decision the day is left WITHOUT a centre and reported
+    ///     (MAIN_AMBIGUOUS); it is never guessed. The old "windows disjoint → cover
+    ///     both, sliced by the intersection of shift and centre hours" rule (2b) is
+    ///     gone with it.
     /// </summary>
     private async Task<List<WicSegment>> DecideWicDayAsync(PlanInput input, List<WicOpeningHour> allHours,
-        DateOnly date, Dictionary<DayOfWeek, List<WicLocation>> runDecisions, List<string> ambiguousDays)
+        DateOnly date, Dictionary<DayOfWeek, List<WicSegment>> runDecisions, List<string> ambiguousDays)
     {
         var open = new List<(WicLocation Loc, string Start, string End)>();
         foreach (var loc in OpenMainLocations(input, allHours, date))
@@ -834,33 +831,9 @@ public class RosterService
             return only == null ? new List<WicSegment>() : new List<WicSegment> { only };
         }
 
-        if (!AnyOverlap(allHours, open, date))
-        {
-            // Non-overlapping centres: the agent may hold every one of them, but only
-            // the ones his shift actually covers. Sorted by start time so the day row
-            // spans first-start..last-end even when the MAIN assignment order is not
-            // chronological (live data: Woldeforster has the lower assignment Id but
-            // the LATER window).
-            var segs = new List<WicSegment>();
-            foreach (var o in open)
-            {
-                var seg = SegmentFor(input, o.Loc, o.Start, o.End);
-                if (seg != null) segs.Add(seg);
-            }
-            return segs
-                .OrderBy(s => TimeOnly.TryParse(s.Start, out var t) ? t : TimeOnly.MaxValue)
-                .ToList();
-        }
-
-        // Overlapping centres: follow the most recent same-weekday decision, or report
-        // the day as ambiguous and place nobody.
-        var decided = await ResolveLastWeekdayDecisionAsync(input.Emp.EmployeeId, date, runDecisions, open);
-        if (decided != null)
-        {
-            var match = open.First(o => o.Loc.LocationCode == decided.LocationCode);
-            var seg = SegmentFor(input, match.Loc, match.Start, match.End);
-            if (seg != null) return new List<WicSegment> { seg };
-        }
+        var decided = await ResolveLastWeekdayDecisionAsync(input.Emp.EmployeeId, date, runDecisions,
+            open.Select(o => o.Loc).ToList());
+        if (decided is { Count: > 0 }) return decided;
 
         ambiguousDays.Add($"{date:yyyy-MM-dd} ({date.DayOfWeek}): " +
             string.Join(" + ", open.Select(o => $"{o.Loc.DisplayName} {o.Start}-{o.End}")));
@@ -868,57 +841,79 @@ public class RosterService
     }
 
     /// <summary>
-    /// The centre the agent actually held on the same weekday in the most recent
-    /// EARLIER week that has a WIC row for that weekday — the RTM's latest decision.
-    /// Earlier dates of the same run count too (a preview writes nothing), and the
-    /// persisted WicShiftEntries rows cover the weeks before it. Null when there is
-    /// no such week, or when that week names more than one centre: there is then no
-    /// single decision to follow and the caller must not guess.
+    /// The commitment(s) the agent actually held on the most recent EARLIER date with
+    /// the same weekday — the last decision for that weekday — returned verbatim: the
+    /// same centre or centres, with the same times. Earlier dates of the same run count
+    /// too (a preview writes nothing), and the persisted on-site WicShiftEntries rows
+    /// cover the weeks before it. The decision is replayed exactly; centre hours are
+    /// never consulted to re-time it.
+    ///
+    /// Null when there is no such earlier date, or when the latest one cannot be
+    /// repeated verbatim (none of its centres is an open MAIN centre today, or it
+    /// carries no usable time): the caller must then report MAIN_AMBIGUOUS and place
+    /// nobody. An older decision is deliberately NOT resurrected — that would be a
+    /// guess, not the last decision.
     /// </summary>
-    private async Task<WicLocation?> ResolveLastWeekdayDecisionAsync(string employeeId, DateOnly date,
-        Dictionary<DayOfWeek, List<WicLocation>> runDecisions, List<(WicLocation Loc, string Start, string End)> openToday)
+    private async Task<List<WicSegment>?> ResolveLastWeekdayDecisionAsync(string employeeId, DateOnly date,
+        Dictionary<DayOfWeek, List<WicSegment>> runDecisions, List<WicLocation> openToday)
     {
-        List<WicLocation>? candidates = null;
-        if (runDecisions.TryGetValue(date.DayOfWeek, out var runPick))
-            candidates = runPick;
-
-        if (candidates == null)
+        if (runDecisions.TryGetValue(date.DayOfWeek, out var runPick) && runPick.Count > 0)
         {
-            var rows = await _db.WicShiftEntries
-                .Where(w => w.EmployeeId == employeeId && w.ShiftDate < date && w.IsOnSite)
-                .Select(w => new { w.ShiftDate, w.SupportLocation })
-                .ToListAsync();
-            var latest = rows
-                .Where(r => r.ShiftDate.DayOfWeek == date.DayOfWeek)
-                .GroupBy(r => r.ShiftDate)
-                .OrderByDescending(g => g.Key)
-                .FirstOrDefault();
-            if (latest == null) return null;
-
-            var names = latest
-                .Select(r => r.SupportLocation)
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+            var replay = runPick
+                .Where(s => openToday.Any(o => o.LocationCode == s.Location.LocationCode))
                 .ToList();
-            candidates = openToday
-                .Where(o => names.Any(n => string.Equals(n, o.Loc.DisplayName, StringComparison.OrdinalIgnoreCase)))
-                .Select(o => o.Loc)
-                .ToList();
+            return replay.Count > 0 ? replay : null;
         }
 
-        var today = candidates
-            .Where(c => openToday.Any(o => o.Loc.LocationCode == c.LocationCode))
-            .Distinct()
+        var rows = await _db.WicShiftEntries
+            .Where(w => w.EmployeeId == employeeId && w.ShiftDate < date && w.IsOnSite)
+            .Select(w => new { w.ShiftDate, w.SupportLocation, w.WorkingShift })
+            .ToListAsync();
+        var latest = rows
+            .Where(r => r.ShiftDate.DayOfWeek == date.DayOfWeek)
+            .GroupBy(r => r.ShiftDate)
+            .OrderByDescending(g => g.Key)
+            .FirstOrDefault();
+        if (latest == null) return null;
+
+        var decision = new List<WicSegment>();
+        foreach (var row in latest)
+        {
+            if (string.IsNullOrWhiteSpace(row.SupportLocation)) continue;
+            var loc = openToday.FirstOrDefault(o =>
+                string.Equals(o.DisplayName, row.SupportLocation, StringComparison.OrdinalIgnoreCase));
+            if (loc == null) continue;
+            if (ParseDecisionWindow(row.WorkingShift) is not { } span) continue;
+            decision.Add(new WicSegment(loc, span.s.ToString("HH:mm"), span.e.ToString("HH:mm")));
+        }
+        // Chronological, so the day row spans first-start..last-end even when the
+        // decision's rows were written in another order.
+        var ordered = decision
+            .OrderBy(s => TimeOnly.TryParse(s.Start, out var t) ? t : TimeOnly.MaxValue)
+            .ThenBy(s => s.Location.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        return today.Count == 1 ? today[0] : null;
+        return ordered.Count > 0 ? ordered : null;
     }
 
     /// <summary>
-    /// The slice of the AGENT's shift that falls inside this centre's window.
-    /// Null when the agent's shift does not touch the window at all — the centre is
-    /// then not assigned that day (rule b). With no agent shift known the centre's
-    /// own window is the fallback and is used unchanged (WIC mode historically has
-    /// no agent shift to intersect with).
+    /// First HH:mm .. last HH:mm of a stored WicShiftEntries.WorkingShift. Tolerant of
+    /// the two-block shape ("07:00-12:00 / 12:30-13:30") the centre-hours writers use,
+    /// which is a break inside one spanning duty, not two duties.
+    /// </summary>
+    private static (TimeOnly s, TimeOnly e)? ParseDecisionWindow(string? ws)
+    {
+        if (string.IsNullOrWhiteSpace(ws)) return null;
+        var times = System.Text.RegularExpressions.Regex.Matches(ws, @"\d{1,2}:\d{2}");
+        if (times.Count < 2) return null;
+        return TimeOnly.TryParse(times[0].Value, out var s) && TimeOnly.TryParse(times[^1].Value, out var e)
+            ? (s, e) : null;
+    }
+
+    /// <summary>
+    /// The slice of the AGENT's shift that falls inside this centre's window, for the
+    /// single-open-centre case. Null when the agent's shift does not touch the window
+    /// at all. With no agent shift known the centre's own window is the fallback and is
+    /// used unchanged (WIC mode historically has no agent shift to intersect with).
     /// </summary>
     private static WicSegment? SegmentFor(PlanInput input, WicLocation loc, string centreStart, string centreEnd)
     {
@@ -951,24 +946,6 @@ public class RosterService
             return new List<WicSegment> { new(loc, input.Start ?? "08:00", input.End ?? "17:00") };
         var seg = SegmentFor(input, loc, s, e);
         return seg == null ? new List<WicSegment>() : new List<WicSegment> { seg };
-    }
-
-    /// <summary>True when any pair of the open centres' intervals overlaps in time.</summary>
-    private static bool AnyOverlap(List<WicOpeningHour> allHours,
-        List<(WicLocation Loc, string Start, string End)> open, DateOnly date)
-    {
-        var windows = new List<List<(TimeOnly s, TimeOnly e)>>();
-        foreach (var o in open)
-        {
-            var h = WicHoursResolver.Resolve(allHours, o.Loc.LocationCode, o.Loc.LocationCodeLegacy,
-                (int)date.DayOfWeek, date);
-            windows.Add(HoursIntervals(h));
-        }
-        for (var a = 0; a < windows.Count; a++)
-            for (var b = a + 1; b < windows.Count; b++)
-                if (windows[a].Any(x => windows[b].Any(y => x.s < y.e && y.s < x.e)))
-                    return true;
-        return false;
     }
 
     /// <summary>
@@ -1035,7 +1012,7 @@ public class RosterService
                 r.Row.Kind, r.Row.Start, r.Row.End)).ToList(),
             input.Main.FirstExistingMainCode, input.Main.FirstExistingMainName,
             input.Main.WouldCreateMain, MainWarningText(input.Main),
-            new List<string>(input.Main.OverlapDays),
+            new List<string>(input.Main.MultiOpenDays),
             new List<string>(plan.AmbiguousDays));
     }
 
@@ -1302,7 +1279,7 @@ public class RosterService
                 MainActionCode(mainDecision.Outcome),
                 MainWarningText(mainDecision),
                 MainCentreName(mainDecision, input.Location),
-                new List<string>(mainDecision.OverlapDays),
+                new List<string>(mainDecision.MultiOpenDays),
                 new List<string>(plan.AmbiguousDays));
         });
     }

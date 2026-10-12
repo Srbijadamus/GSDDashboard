@@ -841,8 +841,8 @@
       "existing": "Permanent main WIC: {{centre}}",
       "wouldCreate": "The agent has no permanent main WIC yet. Generating will ask you to confirm {{centre}} as the permanent main WIC.",
       "plain": "No WIC location selected — the permanent main WIC is not touched.",
-      "overlap": "More than one main WIC of this agent is open at the same time: {{days}}. The most recent decision for that weekday is followed; a day without one is left without a WIC centre (MAIN_AMBIGUOUS).",
-      "ambiguous": "MAIN_AMBIGUOUS: no centre could be chosen for {{days}} — more than one main WIC is open at the same time and there is no earlier decision for that weekday. These days are left without a WIC centre; assign one manually or let a later week decide.",
+      "overlap": "More than one main WIC of this agent is open on the same day: {{days}}. The most recent decision for that weekday is repeated exactly; a day without one is left without a WIC centre (MAIN_AMBIGUOUS).",
+      "ambiguous": "MAIN_AMBIGUOUS: no centre could be chosen for {{days}} — more than one main WIC is open on the same day and there is no earlier decision for that weekday to repeat. These days are left without a WIC centre; assign one manually or let a later week decide.",
       "multiCentre": "This day is covered by more than one main WIC: {{centres}}."
     },
     "preview": {
