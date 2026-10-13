@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { CalendarPlus, Trash2, Eye, Play, CheckCircle2, AlertCircle } from "lucide-react"
 import { useAuth } from "../auth/AuthContext"
+import { RosterApiError, parseRosterError, rosterErrorText } from "../utils/rosterErrors"
 
 // ── Types (mirror the records in Backend/RosterService.cs) ────────────────────
 
@@ -123,10 +124,12 @@ function daysLabel(csv: string): string {
   return csv.split(",").map(s => DAY_SHORT[Number(s)] ?? s).join(" ")
 }
 
-async function errorMessage(res: Response): Promise<string> {
-  let msg = `API ${res.status}`
-  try { const b = await res.json(); if (b?.error) msg = b.error } catch { /* keep default */ }
-  return msg
+// The server's rejection body ({ error, code }) is kept, not collapsed to a status:
+// a known code is rendered through i18n (EN/DE) by rosterErrorText, an unknown one
+// shows the server's own sentence.
+async function throwApiError(res: Response): Promise<never> {
+  const text = await res.text().catch(() => "")
+  throw new RosterApiError(res.status, parseRosterError(res.status, text))
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -135,7 +138,7 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(await errorMessage(res))
+  if (!res.ok) await throwApiError(res)
   return res.json()
 }
 
@@ -174,16 +177,8 @@ export default function Roster() {
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url)
-  if (!res.ok) throw new Error(await errorMessage(res))
+  if (!res.ok) await throwApiError(res)
   return res.json()
-}
-
-function fmtErr(e: unknown): string {
-  const m = e instanceof Error ? e.message : String(e)
-  if (m === "Forbidden" || m.includes("403"))
-    return "Forbidden (403): your role is not allowed to use the roster generator."
-  if (m.includes("401")) return "Authentication required (401): please sign in again."
-  return m
 }
 
 function RosterInner() {
@@ -265,7 +260,7 @@ function RosterInner() {
       setPreviewKey(formKey)
     } catch (e) {
       setPreview(null); setPreviewKey("")
-      setError(fmtErr(e))
+      setError(rosterErrorText(e, t))
     } finally { setBusy(null) }
   }
 
@@ -318,7 +313,7 @@ function RosterInner() {
       setMainNotice(mainNoticeFor(g))
       setPreview(null); setPreviewKey("")
       qc.invalidateQueries({ queryKey: ["roster-batches"] })
-    } catch (e) { setError(fmtErr(e)) }
+    } catch (e) { setError(rosterErrorText(e, t)) }
     finally { setBusy(null) }
   }
 
@@ -332,7 +327,7 @@ function RosterInner() {
     setError(null); setSuccess(null); setMainNotice(null)
     try {
       const res = await fetch(`/api/roster/batches/${b.id}`, { method: "DELETE" })
-      if (!res.ok) throw new Error(await errorMessage(res))
+      if (!res.ok) await throwApiError(res)
       const d: DeleteResult = await res.json()
       setSuccess(`Batch #${d.batchId} deleted: ${d.deletedRows} row(s) removed.` +
         (d.restoredRows > 0 ? ` Restored ${d.restoredRows} replaced row(s).` : "") +
@@ -340,7 +335,7 @@ function RosterInner() {
           ? ` ${d.restoreSkipped} replaced row(s) could NOT be restored — another entry exists on that date now.`
           : ""))
       qc.invalidateQueries({ queryKey: ["roster-batches"] })
-    } catch (e) { setError(fmtErr(e)) }
+    } catch (e) { setError(rosterErrorText(e, t)) }
   }
 
   return (
@@ -617,7 +612,7 @@ function RosterInner() {
         {batchesError && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <AlertCircle size={14} className="text-crit-fg" />
-            <span className="text-xs text-crit-fg">{fmtErr(batchesError)}</span>
+            <span className="text-xs text-crit-fg">{rosterErrorText(batchesError, t)}</span>
           </div>
         )}
         <div style={{ overflowX: "auto" }}>

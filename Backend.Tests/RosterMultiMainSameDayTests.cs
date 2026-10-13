@@ -82,7 +82,7 @@ public class RosterMultiMainSameDayTests
         await db.SaveChangesAsync();
 
         var p = await Svc(db).PreviewAsync(
-            new RosterRequest(Emp, "2026-10-08", "2026-10-08", null, null, null, null));
+            new RosterRequest(Emp, "2026-10-08", "2026-10-08", "08:00", "16:00", null, null));
 
         var overlap = Assert.Single(p.MainOverlapDays!);
         Assert.Contains("Thursday", overlap);
@@ -96,7 +96,7 @@ public class RosterMultiMainSameDayTests
         Assert.Equal("BO", Assert.Single(p.Rows).Kind);
 
         var g = await Svc(db).GenerateAsync(
-            new RosterRequest(Emp, "2026-10-08", "2026-10-08", null, null, null, null), "K1", "Tester");
+            new RosterRequest(Emp, "2026-10-08", "2026-10-08", "08:00", "16:00", null, null), "K1", "Tester");
 
         Assert.Equal(1, g.Created);
         Assert.Equal(0, g.WicDays);
@@ -118,7 +118,7 @@ public class RosterMultiMainSameDayTests
         await db.SaveChangesAsync();
 
         var g = await Svc(db).GenerateAsync(
-            new RosterRequest(Emp, "2026-10-08", "2026-10-08", null, null, null, null), "K1", "Tester");
+            new RosterRequest(Emp, "2026-10-08", "2026-10-08", "09:00", "14:00", null, null), "K1", "Tester");
 
         Assert.Equal(1, g.WicDays);
         Assert.Empty(g.MainAmbiguousDays!);
@@ -145,7 +145,7 @@ public class RosterMultiMainSameDayTests
         await db.SaveChangesAsync();
 
         var p = await Svc(db).PreviewAsync(
-            new RosterRequest(Emp, "2026-10-08", "2026-10-08", null, null, null, null));
+            new RosterRequest(Emp, "2026-10-08", "2026-10-08", "09:00", "14:00", null, null));
 
         var row = Assert.Single(p.Rows);
         Assert.Equal("WIC", row.Kind);
@@ -173,7 +173,7 @@ public class RosterMultiMainSameDayTests
         await db.SaveChangesAsync();
 
         var g = await Svc(db).GenerateAsync(
-            new RosterRequest(Emp, "2026-10-05", "2026-10-05", null, null, null, null), "K1", "Tester");
+            new RosterRequest(Emp, "2026-10-05", "2026-10-05", "07:00", "13:00", null, null), "K1", "Tester");
 
         Assert.Empty(g.MainAmbiguousDays!);
         Assert.Equal(1, g.WicDays);
@@ -203,7 +203,7 @@ public class RosterMultiMainSameDayTests
         await db.SaveChangesAsync();
 
         var g = await Svc(db).GenerateAsync(
-            new RosterRequest(Emp, "2026-10-05", "2026-10-05", null, null, null, null), "K1", "Tester");
+            new RosterRequest(Emp, "2026-10-05", "2026-10-05", "09:00", "14:00", null, null), "K1", "Tester");
 
         Assert.Equal(1, g.WicDays);
         var monday = await db.ShiftEntries.SingleAsync(s => s.EmployeeId == Emp && s.ShiftDate == Monday);
@@ -228,7 +228,7 @@ public class RosterMultiMainSameDayTests
         await db.SaveChangesAsync();
 
         var g = await Svc(db).GenerateAsync(
-            new RosterRequest(Emp, "2026-10-05", "2026-10-05", null, null, null, null), "K1", "Tester");
+            new RosterRequest(Emp, "2026-10-05", "2026-10-05", "09:00", "14:00", null, null), "K1", "Tester");
 
         Assert.Equal(0, g.WicDays);
         Assert.Equal(1, g.BoDays);
@@ -253,7 +253,7 @@ public class RosterMultiMainSameDayTests
         await db.SaveChangesAsync();
 
         var p = await Svc(db).PreviewAsync(
-            new RosterRequest(Emp, "2026-10-06", "2026-10-13", null, null, null, null));
+            new RosterRequest(Emp, "2026-10-06", "2026-10-13", "08:00", "12:00", null, null));
 
         // 2026-10-06: only A open -> A with A's own window.
         var first = p.Rows.Single(r => r.Date == "2026-10-06");

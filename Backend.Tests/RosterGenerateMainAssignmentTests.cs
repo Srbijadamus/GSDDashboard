@@ -43,8 +43,11 @@ public class RosterGenerateMainAssignmentTests
     private static RosterService Svc(GSDContext db) =>
         new(db, new WicShiftService(db, new AvailabilityResolver(db)), new WicCoverageGapService(db));
 
+    // WIC mode requires the agent's own shift (RosterService.ValidateAsync): the
+    // centre's opening hours are never substituted for it. Both centres here are
+    // open 08:00-17:00, so this is the agent's shift, cut to that window per centre.
     private static RosterRequest Req(string emp, string locationCode, bool confirmCreateMain) =>
-        new(emp, Mon, Fri, null, null, null, null, locationCode, false, confirmCreateMain);
+        new(emp, Mon, Fri, "08:00", "17:00", null, null, locationCode, false, confirmCreateMain);
 
     private static void Seed(GSDContext db)
     {

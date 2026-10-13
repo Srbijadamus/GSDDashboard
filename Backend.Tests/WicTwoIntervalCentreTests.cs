@@ -94,7 +94,7 @@ public class WicTwoIntervalCentreTests
 
         // 2026-10-01 is a Thursday — the only day this centre is seeded open.
         var preview = await NewSvc(db).PreviewAsync(new RosterRequest(
-            "E1", "2026-10-01", "2026-10-01", null, null, null, null, Code));
+            "E1", "2026-10-01", "2026-10-01", "07:30", "16:00", null, null, Code));
 
         var row = Assert.Single(preview.Rows);
         Assert.Equal("WIC", row.Kind);
@@ -119,7 +119,7 @@ public class WicTwoIntervalCentreTests
         await db.SaveChangesAsync();
 
         var preview = await NewSvc(db).PreviewAsync(new RosterRequest(
-            "E1", "2026-10-01", "2026-10-01", null, null, null, null, "DE~X~Single"));
+            "E1", "2026-10-01", "2026-10-01", "09:00", "17:00", null, null, "DE~X~Single"));
 
         var row = Assert.Single(preview.Rows);
         Assert.Equal("09:00", row.ShiftStart);

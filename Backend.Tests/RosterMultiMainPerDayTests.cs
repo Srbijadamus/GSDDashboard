@@ -77,7 +77,7 @@ public class RosterMultiMainPerDayTests
         await db.SaveChangesAsync();
 
         var g = await Svc(db).GenerateAsync(
-            new RosterRequest(Emp, WeekFrom, WeekTo, null, null, null, null), "K1", "Tester");
+            new RosterRequest(Emp, WeekFrom, WeekTo, "07:00", "20:00", null, null), "K1", "Tester");
 
         Assert.Equal(5, g.Created);      // Mon, Tue, Wed, Thu, Fri
         Assert.Equal(4, g.WicDays);
@@ -122,7 +122,7 @@ public class RosterMultiMainPerDayTests
         await db.SaveChangesAsync();
 
         var p = await Svc(db).PreviewAsync(
-            new RosterRequest(Emp, WeekFrom, WeekTo, null, null, null, null));
+            new RosterRequest(Emp, WeekFrom, WeekTo, "07:00", "20:00", null, null));
 
         Assert.Equal(5, p.RowCount);
         Assert.Equal(4, p.WicDays);
@@ -160,7 +160,7 @@ public class RosterMultiMainPerDayTests
         // Next week: the generator (no LocationCode, no Overwrite) puts the agent back
         // into the MAIN centre that is open on each day — the rotation is unchanged.
         var g = await Svc(db).GenerateAsync(
-            new RosterRequest(Emp, "2026-10-12", "2026-10-18", null, null, null, null), "K1", "Tester");
+            new RosterRequest(Emp, "2026-10-12", "2026-10-18", "07:00", "20:00", null, null), "K1", "Tester");
 
         Assert.Equal(5, g.Created);
         Assert.Equal(4, g.WicDays);
@@ -212,7 +212,7 @@ public class RosterMultiMainPerDayTests
         db.WicAgentAssignments.Add(new WicAgentAssignment { Id = 21, LocationCode = "D", EmployeeName = Name, AssignmentType = "MAIN", IsActive = true });
         await db.SaveChangesAsync();
 
-        var p = await Svc(db).PreviewAsync(new RosterRequest(Emp, WeekFrom, WeekTo, null, null, null, null));
+        var p = await Svc(db).PreviewAsync(new RosterRequest(Emp, WeekFrom, WeekTo, "07:00", "20:00", null, null));
 
         // A day where two MAIN centres are open at the SAME TIME is reported; a day
         // where only one of them (or none) is open is not.
@@ -232,7 +232,7 @@ public class RosterMultiMainPerDayTests
 
         // The run still creates a row per day — the ambiguity is reported, not fatal.
         var g = await Svc(db).GenerateAsync(
-            new RosterRequest(Emp, WeekFrom, WeekTo, null, null, null, null), "K1", "Tester");
+            new RosterRequest(Emp, WeekFrom, WeekTo, "07:00", "20:00", null, null), "K1", "Tester");
         Assert.Equal(5, g.Created);   // Mon, Tue, Wed, Thu, Fri
         Assert.Equal(1, g.WicDays);   // Wednesday only — Monday is NOT guessed
         Assert.Equal(4, g.BoDays);    // Monday, Tuesday, Thursday, Friday
@@ -260,7 +260,7 @@ public class RosterMultiMainPerDayTests
         await db.SaveChangesAsync();
 
         var g = await Svc(db).GenerateAsync(
-            new RosterRequest(Emp, WeekFrom, WeekTo, null, null, null, "Z"), "K1", "Tester");
+            new RosterRequest(Emp, WeekFrom, WeekTo, "08:00", "17:00", null, "Z"), "K1", "Tester");
 
         Assert.Equal("unchanged", g.MainAction);
         Assert.NotNull(g.MainWarning);
@@ -291,7 +291,7 @@ public class RosterMultiMainPerDayTests
         await db.SaveChangesAsync();
 
         var g = await Svc(db).GenerateAsync(
-            new RosterRequest(Emp, WeekFrom, WeekTo, null, null, null, "B"), "K1", "Tester");
+            new RosterRequest(Emp, WeekFrom, WeekTo, "08:00", "17:00", null, "B"), "K1", "Tester");
 
         Assert.Equal("MAIN_UNCHANGED: agent already has main centre Centre A", g.MainWarning);
     }

@@ -845,6 +845,11 @@
       "ambiguous": "MAIN_AMBIGUOUS: Für {{days}} konnte kein Zentrum gewählt werden — mehr als ein Haupt-WIC ist am selben Tag geöffnet und es gibt keine frühere Entscheidung für diesen Wochentag, die wiederholt werden könnte. Diese Tage bleiben ohne WIC-Zentrum; bitte manuell zuweisen oder eine spätere Woche entscheiden lassen.",
       "multiCentre": "Dieser Tag wird von mehr als einem Haupt-WIC abgedeckt: {{centres}}."
     },
+    "errors": {
+      "wicShiftTimeRequired": "Ein WIC-Batch benötigt die Schicht des Agenten selbst: Schichtbeginn und Schichtende eingeben. Die Öffnungszeiten des Zentrums werden niemals als Schicht des Agenten gespeichert.",
+      "forbidden": "Verboten (403): Ihre Rolle darf den Dienstplan-Generator nicht verwenden.",
+      "unauthenticated": "Anmeldung erforderlich (401): bitte erneut anmelden."
+    },
     "preview": {
       "centre": "Zentrum"
     }

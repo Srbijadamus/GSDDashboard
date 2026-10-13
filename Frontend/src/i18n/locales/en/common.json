@@ -845,6 +845,11 @@
       "ambiguous": "MAIN_AMBIGUOUS: no centre could be chosen for {{days}} — more than one main WIC is open on the same day and there is no earlier decision for that weekday to repeat. These days are left without a WIC centre; assign one manually or let a later week decide.",
       "multiCentre": "This day is covered by more than one main WIC: {{centres}}."
     },
+    "errors": {
+      "wicShiftTimeRequired": "A WIC batch needs the agent's own shift: enter shift start and shift end. The centre's opening hours are never stored as the agent's shift.",
+      "forbidden": "Forbidden (403): your role is not allowed to use the roster generator.",
+      "unauthenticated": "Authentication required (401): please sign in again."
+    },
     "preview": {
       "centre": "Centre"
     }

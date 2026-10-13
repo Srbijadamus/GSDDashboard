@@ -90,10 +90,14 @@ weekday becomes a `WORKING` row. Weekends are always skipped regardless of the s
 **WIC mode** — employee plus a WIC centre, or a centre that is discovered automatically: if the
 request leaves the centre blank but the employee has an active MAIN assignment in the WIC assignment
 directory, the service **silently switches to WIC mode**. In WIC mode the requested working days and
-task are ignored; instead, for every weekday in the range:
+task are ignored, but the shift start/end are required: the centre's opening hours are never stored as
+the agent's shift. A request without both times is refused with `400` and the machine code
+`WIC_SHIFT_TIME_REQUIRED` (the UI renders its own EN/DE text). For every weekday in the range:
 
-- if the centre is **open** that date → a `WIC_DUTY` row whose times come from the centre's own
-  opening hours (a two-interval centre spans its break), plus a `WicShiftEntries` row marked on-site;
+- if the centre is **open** that date → a `WIC_DUTY` row carrying the **agent's own shift**
+  (`ShiftStart`/`ShiftEnd` from the request), plus a `WicShiftEntries` row marked on-site whose
+  `WorkingShift` is that shift **cut to the centre's opening hours** (a two-interval centre spans its
+  break, so the slice runs from the first interval's start to the last interval's end);
 - if the centre is **closed** → a `WORKING` row with `RawValue = "BO"`.
 
 The centre's hours are resolved by a single resolver whose precedence is: **a dated exception row

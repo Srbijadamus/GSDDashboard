@@ -18,10 +18,14 @@ namespace GSDDashboard.API.Modules.Roster;
 // employee's own Bundesland). Every generated row carries SourceModule="Roster"
 // and SourceId=<batch id> so a batch can be found and deleted again.
 //
-// WIC mode (LocationCode set): RTM picks only agent + WIC location + range.
-// Days the location is OPEN per WicOpeningHours (WicHoursResolver, EffectiveFrom-
+// WIC mode (LocationCode set): RTM picks agent + WIC location + range + the agent's
+// shift. Days the location is OPEN per WicOpeningHours (WicHoursResolver, EffectiveFrom-
 // and legacy-code aware) become WIC duty; every other weekday becomes BO.
 // WorkingDays/AgentTask from the request are ignored in this mode.
+// shiftStart/shiftEnd are REQUIRED in WIC mode (ValidateAsync): the centre's opening
+// hours decide WHICH days and WHICH slice of the shift belong to the centre, never the
+// agent's ShiftEntries.ShiftStart/ShiftEnd. A batch without an explicit time is refused
+// (WIC_SHIFT_TIME_REQUIRED) instead of silently storing the centre window as the shift.
 //
 // WIC mode WITHOUT LocationCode: the centre comes from the agent's active MAIN
 // WicAgentAssignments rows. Several MAIN rows are NORMAL, not an error (live data
@@ -64,7 +68,20 @@ namespace GSDDashboard.API.Modules.Roster;
 
 public class RosterValidationException : Exception
 {
-    public RosterValidationException(string message) : base(message) { }
+    /// <summary>
+    /// Machine-readable reason so the UI can render its own EN/DE wording instead of
+    /// showing the (English) message verbatim. Null for the pre-existing plain errors.
+    /// </summary>
+    public string? Code { get; }
+
+    public RosterValidationException(string message, string? code = null) : base(message) { Code = code; }
+}
+
+/// <summary>Stable machine codes for <see cref="RosterValidationException"/>.</summary>
+public static class RosterErrorCodes
+{
+    /// <summary>A WIC batch carried no explicit shift time (see ValidateAsync).</summary>
+    public const string WicShiftTimeRequired = "WIC_SHIFT_TIME_REQUIRED";
 }
 
 public record RosterRequest(
@@ -95,8 +112,8 @@ public record RosterReplacement(
 // centres and no LocationCode it is the centre open on that date (null = plain
 // roster, or no MAIN centre is open that day).
 // One centre the generator would place this agent in on that date, with the time the
-// decision recorded for it (the AGENT's shift where the request carries one, the
-// centre's own window only for the single-open-centre fallback). A day carries more
+// decision recorded for it (the slice of the AGENT's shift that falls inside the
+// centre's window — the centre's own hours are never the agent's shift). A day carries more
 // than one when the repeated decision held more than one centre (the Demmin
 // 10:00-12:00 + 13:00-15:00 decision): each centre needs its own WicShiftEntries row.
 // Centres is null for a single-centre day so the existing single-centre shape is
@@ -250,9 +267,11 @@ public class RosterService
         _gapService = gapService;
     }
 
-    // Start/End are nullable: WIC mode (Location != null) normally leaves them
-    // null so BuildPlanAsync's per-day centre hours drive the actual times —
-    // required only in plain mode, or as an explicit WIC-mode override.
+    // Start/End: the AGENT's shift. Required in BOTH modes — plain mode always did,
+    // and WIC mode does since the centre's opening hours must never be written as the
+    // agent's ShiftStart/ShiftEnd (ValidateAsync throws WIC_SHIFT_TIME_REQUIRED when
+    // either is missing). BuildPlanAsync uses them for the ShiftEntries row and only
+    // cuts them to the centre window for the WicShiftEntries row.
     // MainLocations: the agent's active MAIN centres (1..n) when the caller left
     // LocationCode blank, resolved and ordered by assignment Id. With several MAIN
     // centres BuildPlanAsync decides per date: the single open one, or — when 2+ are
@@ -471,19 +490,26 @@ public class RosterService
             location = mainPlan.MainLocations.FirstOrDefault();
         }
 
-        // Plain mode always requires an explicit shift time. WIC mode (location
-        // resolved, explicit or auto-detected) leaves start/end null unless the
-        // caller explicitly overrides both — BuildPlanAsync then prioritises the
-        // centre's OWN per-day opening hours over any fallback, so a location
-        // with different hours on different weekdays (e.g. Fürstenwalde: Mon/Wed
-        // 08:00-15:00, Tue 08:00-12:00, Thu 08:30-12:00) gets each day's actual
-        // hours instead of one fixed time smeared across every day.
+        // Plain mode always requires an explicit shift time. WIC mode now does too:
+        // the ShiftEntries row is the AGENT's day, and the centre's own opening
+        // hours must never stand in for a shift the caller never gave. A batch with
+        // no time used to reach BuildPlanAsync, which silently copied the centre
+        // window into ShiftEntries.ShiftStart/ShiftEnd (writer #1): 925 of the 1138
+        // open live WIC_DUTY rows carry exactly the centre window because of it.
+        // Such a request is refused here instead, with a code the UI localises.
+        bool hasExplicitTime = !string.IsNullOrWhiteSpace(req.ShiftStart) && !string.IsNullOrWhiteSpace(req.ShiftEnd);
         string? start = null, end = null;
-        bool hasExplicitTime = !string.IsNullOrWhiteSpace(req.ShiftStart) || !string.IsNullOrWhiteSpace(req.ShiftEnd);
         if (location == null || hasExplicitTime)
         {
             start = NormalizeTime(req.ShiftStart, "shiftStart");
             end   = NormalizeTime(req.ShiftEnd,   "shiftEnd");
+        }
+        else
+        {
+            throw new RosterValidationException(
+                "WIC mode requires the agent's own shift: send shiftStart and shiftEnd (HH:mm). " +
+                "The centre's opening hours are never written as the agent's shift.",
+                RosterErrorCodes.WicShiftTimeRequired);
         }
 
         return new PlanInput(emp, from, to, start, end, days, task, location,
@@ -756,12 +782,14 @@ public class RosterService
             }
             else
             {
-                // The ShiftEntries row carries the AGENT's day: the caller's explicit
-                // shift when given, otherwise the span of the decision that was
-                // repeated (for a single open centre, the historical centre-hours
-                // fallback).
-                var rowStart = input.Start ?? segments[0].Start;
-                var rowEnd   = input.End   ?? segments[^1].End;
+                // The ShiftEntries row carries the AGENT's own shift. ValidateAsync
+                // refuses a WIC request without one, so the centre window can never
+                // become the agent's ShiftStart/ShiftEnd here (the old
+                // `input.Start ?? segments[0].Start` fallback is gone). The WIC
+                // placement(s) below still decide WHICH centre and which slice of
+                // that shift belongs to it.
+                var rowStart = input.Start!;
+                var rowEnd   = input.End!;
                 generated = new PlanRow(d, "WIC", rowStart, rowEnd,
                     segments[0].Location, segments);
             }
@@ -798,9 +826,9 @@ public class RosterService
     ///
     ///   * no MAIN centre open today  → no WIC row (a BO day);
     ///   * exactly one open centre    → that centre. Centre hours never become the
-    ///     agent's shift: when the request carries the agent's shift (input.Start/End)
-    ///     the row carries it, and only when it does not (WIC mode's normal shape) is
-    ///     the centre's own window the historical fallback;
+    ///     agent's shift: the request always carries the agent's shift
+    ///     (input.Start/End — ValidateAsync refuses a WIC request without one) and
+    ///     the centre only decides which slice of it is placed there;
     ///   * TWO OR MORE open centres   → WicOpeningHours can no longer say which one
     ///     the agent belongs to, and must never be used to derive the agent's shift
     ///     either. The last decision for the same weekday is repeated EXACTLY as it
@@ -911,14 +939,14 @@ public class RosterService
 
     /// <summary>
     /// The slice of the AGENT's shift that falls inside this centre's window, for the
-    /// single-open-centre case. Null when the agent's shift does not touch the window
-    /// at all. With no agent shift known the centre's own window is the fallback and is
-    /// used unchanged (WIC mode historically has no agent shift to intersect with).
+    /// single-open-centre case. Null when there is no agent shift (ValidateAsync
+    /// refuses such a WIC request) or when the agent's shift does not touch the
+    /// window at all. The centre's own hours are NEVER used as the agent's shift.
     /// </summary>
     private static WicSegment? SegmentFor(PlanInput input, WicLocation loc, string centreStart, string centreEnd)
     {
         if (input.Start == null || input.End == null)
-            return new WicSegment(loc, centreStart, centreEnd);
+            return null;
         if (!TimeOnly.TryParse(input.Start, out var agentStart) ||
             !TimeOnly.TryParse(input.End, out var agentEnd)) return null;
         if (!TimeOnly.TryParse(centreStart, out var cs) || !TimeOnly.TryParse(centreEnd, out var ce)) return null;
@@ -940,10 +968,11 @@ public class RosterService
             (int)date.DayOfWeek, date);
         if (h is not { IsClosed: false }) return new List<WicSegment>();
         var (s, e) = WicHoursResolver.DutyWindow(h);
-        // No usable window on the row: keep the old last-resort fallback instead of
-        // inventing hours or dropping a deliberately chosen day.
+        // No usable window on the row: keep the agent's own shift instead of
+        // inventing hours or dropping a deliberately chosen day. ValidateAsync
+        // guarantees input.Start/End here (WIC mode without a time is refused).
         if (s == null || e == null)
-            return new List<WicSegment> { new(loc, input.Start ?? "08:00", input.End ?? "17:00") };
+            return new List<WicSegment> { new(loc, input.Start!, input.End!) };
         var seg = SegmentFor(input, loc, s, e);
         return seg == null ? new List<WicSegment>() : new List<WicSegment> { seg };
     }
@@ -1046,7 +1075,7 @@ public class RosterService
                 DateFrom        = input.From,
                 DateTo          = input.To,
                 // Informational only (RosterBatch.ShiftStart/End are non-nullable) —
-                // WIC-mode rows themselves carry each day's own centre hours.
+                // the WIC-mode rows carry the AGENT's own shift, not the centre hours.
                 ShiftStart      = input.Start ?? "08:00",
                 ShiftEnd        = input.End ?? "17:00",
                 WorkingDays     = string.Join(",", input.WorkingDays.OrderBy(d => d)),
@@ -1813,7 +1842,7 @@ public static class RosterEndpointMapper
             }
             catch (RosterValidationException ex)
             {
-                return Results.BadRequest(new { error = ex.Message });
+                return Results.BadRequest(new { error = ex.Message, code = ex.Code });
             }
         });
 
@@ -1828,7 +1857,7 @@ public static class RosterEndpointMapper
             }
             catch (RosterValidationException ex)
             {
-                return Results.BadRequest(new { error = ex.Message });
+                return Results.BadRequest(new { error = ex.Message, code = ex.Code });
             }
         });
 
@@ -1883,7 +1912,7 @@ public static class RosterEndpointMapper
             }
             catch (RosterValidationException ex)
             {
-                return Results.BadRequest(new { error = ex.Message });
+                return Results.BadRequest(new { error = ex.Message, code = ex.Code });
             }
         });
     }

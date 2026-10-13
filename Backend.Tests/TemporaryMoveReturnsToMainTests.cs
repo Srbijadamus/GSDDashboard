@@ -179,7 +179,7 @@ public class TemporaryMoveReturnsToMainTests
         //       (the RTM only picks agent + range): the permanent WIC-priority rule
         //       auto-detects MAIN = Centre A, so the agent is back at Centre A. ────
         var generated = await RosterSvc(db).GenerateAsync(
-            new RosterRequest(Emp, "2026-10-28", "2026-11-03", null, null, null, null),
+            new RosterRequest(Emp, "2026-10-28", "2026-11-03", "08:00", "17:00", null, null),
             "K1", "Tester");
 
         Assert.False(generated.AssignmentCreated);  // MAIN already existed -> nothing new created

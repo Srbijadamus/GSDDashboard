@@ -206,7 +206,7 @@ public class WicManualChangeTests
         var svc = new RosterService(db, new WicShiftService(db, new AvailabilityResolver(db)),
                                     new WicCoverageGapService(db));
         var preview = await svc.PreviewAsync(new RosterRequest(
-            "E1", "2026-10-01", "2026-10-01", null, null, null, null, "DE~X~Centre", Overwrite: true));
+            "E1", "2026-10-01", "2026-10-01", "09:00", "17:00", null, null, "DE~X~Centre", Overwrite: true));
 
         Assert.Empty(preview.Replacements);                 // nothing would be rewritten
         Assert.Empty(preview.Rows);
@@ -239,7 +239,7 @@ public class WicManualChangeTests
         var svc = new RosterService(db, new WicShiftService(db, new AvailabilityResolver(db)),
                                     new WicCoverageGapService(db));
         var preview = await svc.PreviewAsync(new RosterRequest(
-            "E1", "2026-10-01", "2026-10-01", null, null, null, null, "DE~X~Centre", Overwrite: true));
+            "E1", "2026-10-01", "2026-10-01", "09:00", "17:00", null, null, "DE~X~Centre", Overwrite: true));
 
         var replaced = Assert.Single(preview.Replacements);
         Assert.Equal("2026-10-01", replaced.Date);
