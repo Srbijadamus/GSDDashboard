@@ -57,6 +57,38 @@ public class CreateAssignmentTimePriorityTests
             IsOnSite = false,
         });
 
+    // The agent's own schedule row for the date, written before the WIC assignment.
+    private static void SeedAgentShiftEntry(GSDContext db, string employeeId,
+        string start, string end, string shiftType = ShiftTypes.Working) =>
+        db.ShiftEntries.Add(new ShiftEntry
+        {
+            EmployeeId = employeeId,
+            ShiftDate = Date,
+            ShiftType = shiftType,
+            ShiftStart = start,
+            ShiftEnd = end,
+        });
+
+    // A manual exception day for this exact date (overrides the Monday pattern).
+    private static void SeedExceptionHours(GSDContext db, string code,
+        string? open, string? close, bool closed) =>
+        db.WicOpeningHours.Add(new WicOpeningHour
+        {
+            LocationCode = code,
+            DayOfWeek = (int)Date.DayOfWeek,
+            OpenTime = open,
+            CloseTime = close,
+            IsClosed = closed,
+            ExceptionDate = Date,
+            ManualChangeAt = new DateTime(2026, 9, 20, 8, 0, 0, DateTimeKind.Utc),
+        });
+
+    private static string? ReasonCode(IResult result)
+    {
+        var value = ((IValueHttpResult)result).Value!;
+        return (string?)value.GetType().GetProperty("reasonCode")?.GetValue(value);
+    }
+
     private static async Task<IResult> Assign(GSDContext db, string empId, string locCode, string? start = null, string? end = null)
     {
         var svc = new WicShiftService(db, new AvailabilityResolver(db));
@@ -154,6 +186,117 @@ public class CreateAssignmentTimePriorityTests
         var shift = db.ShiftEntries.Single(s => s.EmployeeId == "E4");
         Assert.Equal("07:00", shift.ShiftStart);
         Assert.Equal("13:30", shift.ShiftEnd);
+    }
+
+    // 5. NEW (2026-10-13): RTM assigns without a time while the agent already has his own
+    //    ShiftEntries window. That window is KEPT on ShiftEntries, and the WIC row carries
+    //    the intersection with the centre's hours — the centre's hours never become the
+    //    agent's shift.
+    [Fact]
+    public async Task AgentShiftEntriesWindow_IsKept_AndWicRowGetsIntersection()
+    {
+        using var db = NewDb();
+        SeedEmployee(db, "E5");
+        SeedLocation(db, "LOC_E", "Loc E");
+        SeedHours(db, "LOC_E", "06:00", "18:00");
+        SeedAgentShiftEntry(db, "E5", "08:00", "17:00");
+        await db.SaveChangesAsync();
+
+        var result = await Assign(db, "E5", "LOC_E");
+
+        AssertSuccess(result);
+        var entry = db.WicShiftEntries.Single(w => w.SupportLocation == "Loc E");
+        Assert.Equal("08:00-17:00", entry.WorkingShift);
+        var shift = db.ShiftEntries.Single(s => s.EmployeeId == "E5");
+        Assert.Equal(ShiftTypes.WicDuty, shift.ShiftType);
+        Assert.Equal("08:00", shift.ShiftStart);
+        Assert.Equal("17:00", shift.ShiftEnd);
+    }
+
+    // 6. The agent's shift reaches beyond the centre: the WIC row is cut to the centre's
+    //    window (the intersection), while ShiftEntries keeps the full agent shift.
+    [Fact]
+    public async Task AgentShift_WiderThanCentre_WicRowIsCutToTheCentreWindow()
+    {
+        using var db = NewDb();
+        SeedEmployee(db, "E6");
+        SeedLocation(db, "LOC_F", "Loc F");
+        SeedHours(db, "LOC_F", "06:00", "14:00");
+        SeedAgentShiftEntry(db, "E6", "08:00", "17:00");
+        await db.SaveChangesAsync();
+
+        var result = await Assign(db, "E6", "LOC_F");
+
+        AssertSuccess(result);
+        var entry = db.WicShiftEntries.Single(w => w.SupportLocation == "Loc F");
+        Assert.Equal("08:00-14:00", entry.WorkingShift);
+        var shift = db.ShiftEntries.Single(s => s.EmployeeId == "E6");
+        Assert.Equal("08:00", shift.ShiftStart);
+        Assert.Equal("17:00", shift.ShiftEnd);
+    }
+
+    // 7. An explicit request time still wins over the agent's own ShiftEntries window.
+    [Fact]
+    public async Task ExplicitRequest_StillBeatsTheAgentShiftEntriesWindow()
+    {
+        using var db = NewDb();
+        SeedEmployee(db, "E7");
+        SeedLocation(db, "LOC_G", "Loc G");
+        SeedHours(db, "LOC_G", "06:00", "18:00");
+        SeedAgentShiftEntry(db, "E7", "08:00", "17:00");
+        await db.SaveChangesAsync();
+
+        var result = await Assign(db, "E7", "LOC_G", "10:00", "12:00");
+
+        AssertSuccess(result);
+        var entry = db.WicShiftEntries.Single(w => w.SupportLocation == "Loc G");
+        Assert.Equal("10:00-12:00", entry.WorkingShift);
+        var shift = db.ShiftEntries.Single(s => s.EmployeeId == "E7");
+        Assert.Equal("10:00", shift.ShiftStart);
+        Assert.Equal("12:00", shift.ShiftEnd);
+    }
+
+    // 8. An OPEN manual exception on a normally-closed weekday is honoured: the assignment
+    //    is saved with the exception's window (intersected with the agent's own shift).
+    [Fact]
+    public async Task OpenExceptionDay_IsSaved_WithTheExceptionHours()
+    {
+        using var db = NewDb();
+        SeedEmployee(db, "E8");
+        SeedLocation(db, "LOC_H", "Loc H");
+        db.WicOpeningHours.Add(new WicOpeningHour
+        {
+            LocationCode = "LOC_H", DayOfWeek = (int)Date.DayOfWeek, IsClosed = true,
+        });
+        SeedExceptionHours(db, "LOC_H", "10:00", "16:00", closed: false);
+        SeedAgentShiftEntry(db, "E8", "08:00", "20:00");
+        await db.SaveChangesAsync();
+
+        var result = await Assign(db, "E8", "LOC_H");
+
+        AssertSuccess(result);
+        var entry = db.WicShiftEntries.Single(w => w.SupportLocation == "Loc H");
+        Assert.Equal("10:00-16:00", entry.WorkingShift);
+    }
+
+    // 9. A CLOSED manual exception on a normally-open weekday is still refused: the
+    //    resolver puts the exception row before the pattern, then IsClosed.
+    [Fact]
+    public async Task ClosedExceptionDay_IsRefused_EvenWhenThePatternIsOpen()
+    {
+        using var db = NewDb();
+        SeedEmployee(db, "E9");
+        SeedLocation(db, "LOC_I", "Loc I");
+        SeedHours(db, "LOC_I", "09:00", "17:00");
+        SeedExceptionHours(db, "LOC_I", null, null, closed: true);
+        await db.SaveChangesAsync();
+
+        var result = await Assign(db, "E9", "LOC_I");
+
+        Assert.Equal("CLOSED", ReasonCode(result));
+        var value = ((IValueHttpResult)result).Value!;
+        Assert.False((bool)(value.GetType().GetProperty("saved")?.GetValue(value) ?? true));
+        Assert.Empty(db.WicShiftEntries.Where(w => w.EmployeeId == "E9"));
     }
 }
 

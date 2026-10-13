@@ -86,27 +86,21 @@ public class DashboardService
         var totalActive       = shifts.Count;
 
         var dow = (int)date.DayOfWeek;
-        // Open = the weekday pattern for this day, or a one-date exception for exactly this
-        // date (manual exception day / Rollout day). An exception row never counts as the
-        // pattern, so it must not make a normally-closed centre look open every week.
-        var openLocationCodes = await _db.WicOpeningHours
-            .Where(h => !h.IsClosed &&
-                        (h.ExceptionDate == date || (h.ExceptionDate == null && h.DayOfWeek == dow)))
-            .Select(h => h.LocationCode)
-            .Distinct()
-            .ToListAsync();
+        // Open = a manual exception row for exactly this DATE if one exists, otherwise the
+        // weekday pattern, and only then IsClosed — the same precedence CoverageEvaluator
+        // and every other surface get from WicHoursResolver. Resolving both row sets in one
+        // query (the previous shape) let a CLOSED exception day fall through to an OPEN
+        // pattern row and count the centre as open; an OPEN exception day is honoured the
+        // same way. An exception row never acts as the pattern.
+        var allHours = await _db.WicOpeningHours.ToListAsync();
+        var activeLocations = await _db.WicLocations.Where(l => l.IsActive).ToListAsync();
+        var openLocations = activeLocations
+            .Where(l => WicHoursResolver
+                .Resolve(allHours, l.LocationCode, l.LocationCodeLegacy, dow, date) is { IsClosed: false })
+            .ToList();
 
-        var openDisplayNames = await _db.WicLocations
-            .Where(l => l.IsActive && (openLocationCodes.Contains(l.LocationCode) ||
-                        (l.LocationCodeLegacy != null && openLocationCodes.Contains(l.LocationCodeLegacy))))
-            .Select(l => l.DisplayName)
-            .ToListAsync();
-
-        var openCities = await _db.WicLocations
-            .Where(l => l.IsActive && (openLocationCodes.Contains(l.LocationCode) ||
-                        (l.LocationCodeLegacy != null && openLocationCodes.Contains(l.LocationCodeLegacy))))
-            .Select(l => l.City)
-            .ToListAsync();
+        var openDisplayNames = openLocations.Select(l => l.DisplayName).ToList();
+        var openCities = openLocations.Select(l => l.City).ToList();
 
         var occupiedLocationsList = await _db.WicShiftEntries
             .Where(w => w.ShiftDate == date && w.IsOnSite)
@@ -117,7 +111,7 @@ public class DashboardService
         var coveredCount = openDisplayNames.Count(d =>
             occupiedLocationsList.Any(o => o == d || openCities.Contains(o)));
 
-        var wicUnoccupied = Math.Max(0, openLocationCodes.Count - coveredCount);
+        var wicUnoccupied = Math.Max(0, openLocations.Count - coveredCount);
 
         return new DashboardSummaryDto(
             date.ToString("yyyy-MM-dd"),

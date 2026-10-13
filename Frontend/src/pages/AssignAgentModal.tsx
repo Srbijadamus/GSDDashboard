@@ -6,6 +6,7 @@ import { NppBadge } from "../components/NppBadge"
 import { MoveToGsdBacklogAction } from "../components/MoveToGsdBacklogAction"
 import { SearchableSelect } from "../components/SearchableSelect"
 import { apiFetch } from "../api/client"
+import { resolveDayHours, type WicOpenDay } from "../utils/wicOpenHours"
 
 interface Employee {
   employeeId: string
@@ -154,30 +155,29 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
     enabled: isOpen,
   })
 
-  const { data: openingHours = [] } = useQuery<any[]>({
-    queryKey: ["wic-opening-hours"],
-    queryFn: () => apiFetch<any[]>("/api/wicschedule/opening-hours"),
+  // Hours for the SELECTED DATE, from the resolver that honours ExceptionDate (manual
+  // exception day / Rollout day) and public holidays: GET /api/wic/open?date=...&horizon=1
+  // returns exactly one day with per-location isOpen and the intervals of THAT date.
+  // Reading the weekly pattern here is what made an open exception show "closed" and a
+  // closed exception show the pattern's hours with no banner.
+  const { data: openDays = [] } = useQuery<WicOpenDay[]>({
+    queryKey: ["wic-open", dateFrom],
+    queryFn: () => apiFetch<WicOpenDay[]>(`/api/wic/open?date=${dateFrom}&horizon=1`),
     staleTime: 60 * 1000,
-    enabled: isOpen,
+    enabled: isOpen && !!dateFrom,
   })
 
-  // Auto-populate times and detect closed day whenever location or from-date changes
+  // Auto-populate times and detect closed day whenever location or from-date changes.
+  // Red banner only when the centre is really closed on that DATE; an open exception
+  // pre-fills the exception's hours.
   useEffect(() => {
-    if (!locationCode || !dateFrom || openingHours.length === 0) { setClosedDay(false); return }
-    const dow = new Date(dateFrom + "T00:00:00").getDay() // 0=Sun..6=Sat, same as .NET DayOfWeek
-    const locHours = openingHours.find((l: any) => l.locationCode === locationCode)
-    const dayHours = locHours?.weeklyHours?.find((d: any) => d.dayOfWeek === dow)
-    if (!dayHours || dayHours.isClosed) {
-      setClosedDay(true)
-      setShiftStart("")
-      setShiftEnd("")
-    } else {
-      setClosedDay(false)
-      setShiftStart(dayHours.openTime ?? "")
-      setShiftEnd(dayHours.closeTime ?? "")
-    }
+    if (!locationCode || !dateFrom || openDays.length === 0) { setClosedDay(false); return }
+    const hours = resolveDayHours(openDays, dateFrom, locationCode)
+    setClosedDay(hours.closed)
+    setShiftStart(hours.start)
+    setShiftEnd(hours.end)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationCode, dateFrom, openingHours])
+  }, [locationCode, dateFrom, openDays])
 
   const dates = buildDateRange(dateFrom, dateTo, skipWeekends)
   const isRange = dateFrom !== dateTo

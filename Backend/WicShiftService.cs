@@ -663,12 +663,33 @@ public class WicShiftService
                 date       = date.ToString("yyyy-MM-dd"),
             });
 
+        // The agent's own ShiftEntries row for this date (if any). Its ShiftStart/ShiftEnd
+        // is the agent's real working window and — when RTM leaves the time fields empty —
+        // must never be replaced by the centre's hours (the same rule RosterService applies
+        // to its WIC writer since 2026-10-13). The WIC row then gets the slice of that
+        // window which falls inside the centre's window.
+        var shift = await db.ShiftEntries
+            .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+
+        static (TimeOnly s, TimeOnly e)? ParseWindow(string? start, string? end) =>
+            TimeOnly.TryParse(start, out var s) && TimeOnly.TryParse(end, out var e) && e > s
+                ? (s, e) : null;
+        static (TimeOnly s, TimeOnly e)? Intersect((TimeOnly s, TimeOnly e) a, (TimeOnly s, TimeOnly e) b)
+        {
+            var s = a.s > b.s ? a.s : b.s;
+            var e = a.e < b.e ? a.e : b.e;
+            return e > s ? (s, e) : null;
+        }
+        var agentWindow = ParseWindow(shift?.ShiftStart, shift?.ShiftEnd);
+        bool keepAgentShift = req.ShiftStart == null && req.ShiftEnd == null && agentWindow != null;
+
         // Time source priority for NEW assignments (fixes the Helmstedt/Rendsburg pattern
         // where the ShiftEntry got the location opening hours instead of the agent's time):
         //   1. explicit request time (req.ShiftStart/ShiftEnd)
-        //   2. the agent's existing WorkingShift on WicShiftEntries for this date
+        //   2. the agent's own ShiftEntries window for this date, kept as-is (keepAgentShift)
+        //   3. the agent's existing WorkingShift on WicShiftEntries for this date
         //      (e.g. imported "09:00-17:00" for Helmstedt)
-        //   3. the resolved opening hours FOR THIS DATE (WicHoursResolver)
+        //   4. the resolved opening hours FOR THIS DATE (WicHoursResolver)
         // Handles single-block ("09:00-17:00") and two-block ("07:00-12:00 / 12:30-13:30")
         // values: the working window spans the first block's start through the last
         // block's end. Anything with fewer than two HH:MM tokens is "unknown".
@@ -694,19 +715,34 @@ public class WicShiftService
             .FirstOrDefaultAsync(ws => ws != null);
         var (priorStart, priorEnd) = SplitWorkingShift(priorWicShift);
 
-        // Priority order unchanged (request > the agent's own prior WorkingShift > centre
-        // hours); only the centre-hours fallback now spans a two-interval break, matching
-        // what SplitWorkingShift already does to a two-block WorkingShift string above.
+        // Priority order is request > the agent's own ShiftEntries window > the agent's
+        // prior WorkingShift > centre hours. The centre-hours fallback spans a two-interval
+        // break, matching what SplitWorkingShift already does to a two-block WorkingShift
+        // string above.
         var (dutyStart, dutyEnd) = WicHoursResolver.DutyWindow(hours);
-        string openTime  = req.ShiftStart ?? priorStart ?? dutyStart ?? "08:00";
-        string closeTime = req.ShiftEnd   ?? priorEnd   ?? dutyEnd   ?? "17:00";
+        var centreWindow = ParseWindow(dutyStart, dutyEnd);
+        string openTime;
+        string closeTime;
+        if (keepAgentShift)
+        {
+            // The WIC row is the intersection of the agent's shift and the centre's window.
+            // An empty intersection (or a centre row with no usable window) falls back to
+            // the agent's own shift — the centre's hours never become the agent's shift.
+            var wicWindow = (centreWindow is { } cw ? Intersect(agentWindow!.Value, cw) : null)
+                            ?? agentWindow!.Value;
+            openTime  = wicWindow.s.ToString("HH:mm");
+            closeTime = wicWindow.e.ToString("HH:mm");
+        }
+        else
+        {
+            openTime  = req.ShiftStart ?? priorStart ?? dutyStart ?? "08:00";
+            closeTime = req.ShiftEnd   ?? priorEnd   ?? dutyEnd   ?? "17:00";
+        }
 
         var agentTask = (location.DisplayName?.Length ?? 0) > 20
             ? location.DisplayName![..20]
             : location.DisplayName ?? req.LocationCode[..Math.Min(20, req.LocationCode.Length)];
 
-        var shift = await db.ShiftEntries
-            .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
         ShiftEntry? newShift = null;
         // manualActor != null means THIS call is itself the human's deliberate "Assign to
         // gap" / "Create Shift" click — never refuse it. Only an automatic writer
@@ -751,8 +787,13 @@ public class WicShiftService
             shift.ShiftType    = ShiftTypes.WicDuty;
             shift.IsWicDuty    = true;
             shift.AgentTask    = agentTask;
-            shift.ShiftStart   = req.ShiftStart ?? openTime;
-            shift.ShiftEnd     = req.ShiftEnd   ?? closeTime;
+            // keepAgentShift: the agent's own ShiftStart/ShiftEnd stays exactly as his
+            // schedule has it. The centre's window only shapes the WIC row above.
+            if (!keepAgentShift)
+            {
+                shift.ShiftStart = req.ShiftStart ?? openTime;
+                shift.ShiftEnd   = req.ShiftEnd   ?? closeTime;
+            }
             shift.SourceModule = sourceModule;
             if (sourceId != null) shift.SourceId = sourceId;
         }
@@ -922,7 +963,9 @@ public class WicShiftService
                 .Append((newStart, newEnd))
                 .Where(t => t.Item1 != null && t.Item2 != null)
                 .ToList();
-            if (allShifts.Count > 1 && shift != null)
+            // keepAgentShift: the agent's own shift is the truth, so the multi-centre span
+            // is not allowed to replace it either.
+            if (allShifts.Count > 1 && shift != null && !keepAgentShift)
             {
                 var minStart = allShifts.Select(t => t.Item1!.Value).Min();
                 var maxEnd   = allShifts.Select(t => t.Item2!.Value).Max();
