@@ -945,6 +945,10 @@
       "Hash": "5419AA2F3B330964CCB5CB6CF26EE472A16AB4674C97DC4F6C33FFFAC06F2DF0"
     },
     {
+      "Path": "Backend.Tests/WicCoverageGapRuleTests.cs",
+      "Hash": "3530FA29CF5A301683EFBB6BB3040DFECC02C5D91AD43F2A9DA8393E3F3CE714"
+    },
+    {
       "Path": "Backend.Tests/WicDutyRecognitionTests.cs",
       "Hash": "3EF407B794585A0C1463452F6E61400BBF72FB5F1D82ACA6F1E948DACB474E9A"
     },
@@ -962,7 +966,7 @@
     },
     {
       "Path": "Backend.Tests/WicPresenceUnificationTests.cs",
-      "Hash": "72CD01CB8BCD5BCB5C9336772072F089D78703E053CC4500F5FCDD43EED9D2EB"
+      "Hash": "F911210F68FD953624BADA808D91ECFD959256015E13448545791CDF534276BF"
     },
     {
       "Path": "Backend.Tests/WicTwoIntervalCentreTests.cs",
@@ -1330,7 +1334,7 @@
     },
     {
       "Path": "Backend/WicCoverageGapService.cs",
-      "Hash": "53C4A92648BB0679382B8C751BE23E18B8432C4CE549335B8AB2F1E2099FC797"
+      "Hash": "E3CF600F0A4C5C7D00A5BE6AE3AF88E10C790B9B84EA58DC71E5DF0EC5FA6A70"
     },
     {
       "Path": "Backend/WicModels.cs",
@@ -1354,7 +1358,7 @@
     },
     {
       "Path": "Frontend/package.json",
-      "Hash": "B12674990F0E8F604158C5369C46BBFA953325968C5A30D77A66CC2419D27145"
+      "Hash": "CB21D665F60BAF95BB31CCD29833E202736443EDA50705CD940954290893A3CC"
     },
     {
       "Path": "Frontend/postcss.config.js",
@@ -1478,11 +1482,11 @@
     },
     {
       "Path": "Frontend/src/i18n/locales/de/common.json",
-      "Hash": "A64B7A30DF5CEE874E21975BC17CFB30F22D61BA33A8FBB528C9D74153E20CD9"
+      "Hash": "773CE30DF440393827194508BFAE9B6C0CCAD1B00906E5F8CA9AA34A887EDC52"
     },
     {
       "Path": "Frontend/src/i18n/locales/en/common.json",
-      "Hash": "21CD65DC15DAC6BB2257CCEDECBC750F641C72A4CA914B27FD47FAEBB770A876"
+      "Hash": "D605D8302CCF5188F10FA7D3F2DA1B53A51DA6BABC7AEB1B87369C170A74FF6B"
     },
     {
       "Path": "Frontend/src/index.css",
@@ -1598,15 +1602,15 @@
     },
     {
       "Path": "Frontend/src/pages/Overview.tsx",
-      "Hash": "3D2C0FD1A20E57260FBC48336783DDD02587666A0D8E604EC15E695C41DC7C0B"
+      "Hash": "16B0D1ACDDA05A195EAB0D1C80B25717108073B2E17673BE1DFFB611EA7BCC2B"
     },
     {
       "Path": "Frontend/src/pages/overview/DayStrip.tsx",
-      "Hash": "B55840F9E9C42E3D50541525092F0AB2B5C1C06465CFE91A55D995CC60EE6E9C"
+      "Hash": "D1F896C09E55C6B92781F90901F039F786F9B47FF36C94F29EBB50DFED501536"
     },
     {
       "Path": "Frontend/src/pages/overview/ExceptionList.tsx",
-      "Hash": "B6075177BA75BB5ED75F2F6B93401C3AF4FF7969AACE873B144E3CAE8EE54DF5"
+      "Hash": "EBF580440E006DA42A8E93AF53F1C447A325DA21C2483313D5977CA2D883D5AD"
     },
     {
       "Path": "Frontend/src/pages/Pipeline.tsx",
@@ -1747,6 +1751,14 @@
     {
       "Path": "Frontend/src/utils/substituteAccept.ts",
       "Hash": "7CB40B3EFD23708FE2810D3E498EF36CE1699898555F795B189CEF426A1BF67D"
+    },
+    {
+      "Path": "Frontend/src/utils/wicCoverageState.test.ts",
+      "Hash": "8B387831F35FFC5CAC3C8312736A62928E9CB65BEA1F1378BADBF7E5FC2FD326"
+    },
+    {
+      "Path": "Frontend/src/utils/wicCoverageState.ts",
+      "Hash": "3113E5729163B3A6DD46AC82310FAD18744E09584E7FDC2AEA9F7AFA68809655"
     },
     {
       "Path": "Frontend/src/utils/wicOpenHours.test.ts",

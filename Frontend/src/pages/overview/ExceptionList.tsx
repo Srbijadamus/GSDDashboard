@@ -5,12 +5,14 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { Button } from '../../components/Button'
 import { EmptyState } from '../../components/EmptyState'
 import { DataTable, type DataColumn } from '../../components/DataTable'
+import type { WicCoverageBannerState } from '../../utils/wicCoverageState'
 
-interface DayForecast {
-  date: string; status: string; effectiveCoverage: number; minRequired: number
-}
-interface LocationForecast {
-  locationCode: string; displayName: string; city: string; forecast?: DayForecast[]
+// One gap day, exactly as GET /api/wic/coverage-gaps returns it. The Coverage Risk
+// list is driven by that same response as the banner above it, so the two can never
+// disagree about which day is short of agents.
+export interface CoverageGapRow {
+  date: string; locationCode: string; displayName: string; city: string
+  present: number; required: number
 }
 interface BriefingGap {
   locationCode: string; bestSubstituteName: string | null
@@ -24,7 +26,7 @@ interface ExceptionRow {
 }
 
 interface ExceptionListProps {
-  forecast: LocationForecast[]
+  gaps: CoverageGapRow[]
   dates: string[]
   briefingGaps: BriefingGap[]
   today: string
@@ -32,6 +34,7 @@ interface ExceptionListProps {
   onClearDayFilter: () => void
   onOpenSub: (args: { locationCode: string; date: string; displayName: string }) => void
   horizon: number
+  state: WicCoverageBannerState
 }
 
 const CAP = 8
@@ -47,28 +50,29 @@ function fmtDate(d: string, lang: string): string {
 }
 
 export function ExceptionList({
-  forecast, dates, briefingGaps, today, selectedDay,
-  onClearDayFilter, onOpenSub, horizon,
+  gaps, dates, briefingGaps, today, selectedDay,
+  onClearDayFilter, onOpenSub, horizon, state,
 }: ExceptionListProps) {
   const { t, i18n } = useTranslation()
   const [showAll, setShowAll] = useState(false)
   const lang = i18n.language === 'de' ? 'de-DE' : 'en-GB'
 
+  // Built from the coverage-gaps response, filtered to the visible day strip. The
+  // forecast is deliberately NOT a second source here: two readings of the same day
+  // is what put the banner and this list out of step on 2026-10-13.
+  const visibleDates = new Set(dates)
   const allExceptions: ExceptionRow[] = []
-  for (const date of dates) {
-    for (const lf of forecast) {
-      const df = lf.forecast?.find(d => d.date === date)
-      if (!df || (df.status !== 'UNCOVERED' && df.status !== 'PARTIAL')) continue
-      const gap = date === today
-        ? briefingGaps.find(g => g.locationCode === lf.locationCode)
-        : undefined
-      allExceptions.push({
-        date, locationCode: lf.locationCode, displayName: lf.displayName, city: lf.city,
-        effectiveCoverage: df.effectiveCoverage, minRequired: df.minRequired,
-        status: df.status as 'UNCOVERED' | 'PARTIAL',
-        bestSub: gap?.bestSubstituteName ?? null,
-      })
-    }
+  for (const g of gaps) {
+    if (!visibleDates.has(g.date)) continue
+    const briefingGap = g.date === today
+      ? briefingGaps.find(x => x.locationCode === g.locationCode)
+      : undefined
+    allExceptions.push({
+      date: g.date, locationCode: g.locationCode, displayName: g.displayName, city: g.city,
+      effectiveCoverage: g.present, minRequired: g.required,
+      status: g.present <= 0 ? 'UNCOVERED' : 'PARTIAL',
+      bestSub: briefingGap?.bestSubstituteName ?? null,
+    })
   }
 
   allExceptions.sort((a, b) => {
@@ -94,6 +98,31 @@ export function ExceptionList({
       </div>
     </div>
   ) : null
+
+  // A failed / 401 / 403 coverage query must never fall through to the green
+  // "All locations covered" empty state below.
+  if (state === 'disabled') return null
+  if (state === 'loading') {
+    return (
+      <div>
+        {filterChip}
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 24 }} />)}
+        </div>
+      </div>
+    )
+  }
+  if (state === 'error') {
+    return (
+      <div>
+        {filterChip}
+        <EmptyState
+          title={t('overview.coverageBanner.couldNotLoad')}
+          description={t('overview.coverageBanner.couldNotLoadDetail')}
+        />
+      </div>
+    )
+  }
 
   if (filtered.length === 0) {
     // "All covered" only holds when nothing is filtered — filtering to one day and

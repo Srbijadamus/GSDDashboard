@@ -1,7 +1,12 @@
 import { useTranslation } from 'react-i18next'
 
-interface DayForecast { date: string; status: string }
-interface LocationForecast { locationCode: string; forecast?: DayForecast[] }
+// One gap day from GET /api/wic/coverage-gaps (the same source as the banner and the
+// list below). `present` decides crit (0 agents) vs warn (fewer than required).
+interface CoverageGapRow {
+  date: string
+  present: number
+  required: number
+}
 
 interface DaySummary {
   date: string
@@ -11,7 +16,7 @@ interface DaySummary {
 }
 
 interface DayStripProps {
-  forecast: LocationForecast[]
+  gaps: CoverageGapRow[]
   dates: string[]
   today: string
   selectedDay: string | null
@@ -26,17 +31,16 @@ function dayMeta(d: string) {
   return { dow, day, isWe }
 }
 
-export function DayStrip({ forecast, dates, today, selectedDay, onSelectDay }: DayStripProps) {
+export function DayStrip({ gaps, dates, today, selectedDay, onSelectDay }: DayStripProps) {
   const { t, i18n } = useTranslation()
 
   const summaries: DaySummary[] = dates.map(date => {
     let uncoveredCount = 0
     let partialCount = 0
-    for (const lf of forecast) {
-      const df = lf.forecast?.find(d => d.date === date)
-      if (!df || df.status === 'CLOSED') continue
-      if (df.status === 'UNCOVERED') uncoveredCount++
-      else if (df.status === 'PARTIAL') partialCount++
+    for (const g of gaps) {
+      if (g.date !== date) continue
+      if (g.present <= 0) uncoveredCount++
+      else partialCount++
     }
     const worstTone: DaySummary['worstTone'] =
       uncoveredCount > 0 ? 'crit' : partialCount > 0 ? 'warn' : 'good'

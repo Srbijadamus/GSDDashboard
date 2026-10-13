@@ -160,6 +160,25 @@
     "coverageRisk": {
       "title": "Abdeckungsrisiko"
     },
+    "coverageBanner": {
+      "clear": "Keine WIC-Abdeckungslücken (nächste {{n}} Tage)",
+      "gaps_one": "{{count}} WIC-Abdeckungslücke ({{from}} → {{to}}) — {{critical}} kritisch, {{warning}} unbesetzt",
+      "gaps_other": "{{count}} WIC-Abdeckungslücken ({{from}} → {{to}}) — {{critical}} kritisch, {{warning}} unbesetzt",
+      "couldNotLoad": "WIC-Abdeckung konnte nicht geladen werden",
+      "couldNotLoadDetail": "Die Abdeckungsprüfung ist fehlgeschlagen oder nicht erlaubt. Es wird keine Entwarnung angezeigt, bis sie erfolgreich lädt.",
+      "retry": "Erneut versuchen",
+      "recordKeeping_one": "{{count}} Standort ohne erfassten WIC-Dienst jenseits der nächsten 14 Tage — Dokumentation, keine Personalunterdeckung",
+      "recordKeeping_other": "{{count}} Standorte ohne erfassten WIC-Dienst jenseits der nächsten 14 Tage — Dokumentation, keine Personalunterdeckung",
+      "recordKeepingNoAssignmentHint": "Keine aktive MAIN/BACKUP/REGIONAL-Zuweisung",
+      "recordKeepingNotRecordedHint": "Kein Dienst jenseits der nächsten 14 Tage erfasst",
+      "recordKeepingNoAssignment": "{{name}} (keine Zuweisung)",
+      "recordKeepingOpenDays": "{{name}} ({{count}} offene Tage)",
+      "absence": "ABWESENHEIT",
+      "unstaffed": "UNBESETZT",
+      "available": "Verfügbar: {{names}}",
+      "assign": "Zuweisen",
+      "fixAssignment": "Zuweisung korrigieren"
+    },
     "error": {
       "title": "Übersicht konnte nicht geladen werden",
       "detail": "Beim Rendern ist ein Fehler aufgetreten — bitte laden Sie die Seite neu."

@@ -8,11 +8,11 @@ using Microsoft.EntityFrameworkCore;
 namespace GSDDashboard.API.Modules.WicShifts;
 
 // ── WIC coverage gaps (GET /api/wic/coverage-gaps) ───────────────────────────
-// A day is a candidate gap for an ACTIVE WicLocation when the location is OPEN
-// that day (WicHoursResolver, EffectiveFrom + legacy-code aware), it is not a
-// national public holiday, the location has at least one active
-// WicAgentAssignment (MAIN, BACKUP or REGIONAL), and nobody is actually
-// rostered there that day. "Rostered there" (the cover signal) is either
+// A day is a gap for an ACTIVE WicLocation when the location is OPEN that day
+// (WicHoursResolver, manual exception + EffectiveFrom + legacy-code aware), it
+// is not a public holiday, and fewer agents are present than that day's
+// MinRequired. Presence is read once, through the shared WicPresenceResolver
+// (the same reading the forecast, the cards and the briefing use), from either
 // source the rest of the codebase already treats as authoritative:
 //   - a WicShiftEntries row for this location+date with IsOnSite=1, or
 //   - a ShiftEntries row (any employee) that AvailabilityResolver.IsWicDutyAt
@@ -26,6 +26,8 @@ namespace GSDDashboard.API.Modules.WicShifts;
 // not a raw WORKING row, though: AgentTask only ever holds a centre name on the
 // WIC_DUTY encoding, so that row is WIC duty with a flipped ShiftType and does
 // count. IsWicDutyAt owns that call for every reader — see its remarks.
+// Present/Required are returned on every row so the banner and the Coverage Risk
+// list can show the exact same number from this one computation.
 //
 // MAIN/BACKUP vs. REGIONAL: REGIONAL assignments are shared roaming backups
 // that can cover several locations at once (one agent has been seen covering
@@ -47,19 +49,17 @@ namespace GSDDashboard.API.Modules.WicShifts;
 //                        own agents are absent either — they're all working
 //                        elsewhere or on BO. Warning.
 //
-// A location with active assignments but ZERO cover evidence on any open day
-// MORE THAN 7 DAYS out never gets per-day rows. Today's and this week's rows
-// are an artifact of how the interactive board works (drag-and-drop happens
-// close to the date) — not evidence the location is planned that far out —
-// so they don't count toward keeping a location out of this bucket. Such a
-// location gets one NOT_RECORDED summary row instead: a centre whose duty is
-// simply never entered is a record-keeping problem, not a day-by-day gap
-// list, and mixing the two drowns the real gaps. A location with no active
-// assignments at all gets one NO_ASSIGNMENT summary row. Both summary rows
-// report how many days in the window the location was open.
+// A location gets ONE NOT_RECORDED summary row only for open days BEYOND the next
+// 14 days when it has no cover evidence at all out there — a centre whose duty is
+// simply never entered that far out is a record-keeping problem, not a day-by-day
+// gap list. The next 14 days are never summarised this way: an open centre with
+// fewer agents than MinRequired is a per-day gap, and the banner and the Coverage
+// Risk list both read that same number from this endpoint. A location with no
+// active assignments at all gets one NO_ASSIGNMENT summary row for those far days.
+// The summary reports how many of those far-out days the location was open.
 //
-// National public holidays are excluded; the window is capped at the last
-// ShiftDate present in ShiftEntries (the generated roster horizon) so dates
+// National and regional public holidays are excluded; the window is capped at the
+// last ShiftDate present in ShiftEntries (the generated roster horizon) so dates
 // past the end of the roster don't show up as false gaps. Default window is
 // 14 days — a gap 8 weeks out isn't actionable — with `days` to reach further.
 // Status: the raw ShiftType — drives classification (AbsenceTypes.Contains).
@@ -70,7 +70,8 @@ namespace GSDDashboard.API.Modules.WicShifts;
 public record WicGapAgent(string? EmployeeId, string FullName, string AssignmentType, string Status, string TaskLabel);
 
 public record WicCoverageGapEntry(
-    string Date, string Weekday, string LocationCode, string DisplayName, string Category,
+    string Date, string Weekday, string LocationCode, string DisplayName, string City, string Category,
+    int Present, int Required,
     string? OpenTime, string? CloseTime, string? OpenTime2, string? CloseTime2,
     List<WicGapAgent> AssignedAgents, List<WicGapAgent> AvailableFloaters);
 
@@ -88,7 +89,15 @@ public class WicCoverageGapService
     public WicCoverageGapService(GSDContext db) => _db = db;
 
     public const int DefaultDays = 14;
-    private const int NotRecordedLookaheadDays = 7;
+
+    // "Record-keeping" may only describe open days BEYOND this horizon. A day inside the
+    // next 14 days is always judged as a staffing gap: an open centre with fewer agents
+    // than MinRequired is a gap now, and the record-keeping bucket must never silence it.
+    // 2026-10-13 Demmin - Woldeforster Str and Wesel were open and uncovered on every open
+    // day of the window, yet the whole location was summarised as NOT_RECORDED (because its
+    // only cover evidence sat inside the old 7-day cutoff) and the banner stayed green while
+    // the Coverage Risk list showed the same locations as UNCOVERED.
+    internal const int RecordKeepingLookaheadDays = 14;
 
     // Shared with WicAssignCandidatesService so "why is this gap red" and "why is
     // this candidate greyed out" use the exact same absence definition.
@@ -234,7 +243,9 @@ public class WicCoverageGapService
         var days = Math.Clamp(daysParam ?? DefaultDays, 1, 180);
         var from = DateOnly.FromDateTime(DateTime.Today);
         var to   = from.AddDays(days - 1);
-        var notRecordedCutoff = from.AddDays(NotRecordedLookaheadDays);
+        // Everything after this date may be summarised as NOT_RECORDED when a location has
+        // no plan at all out there. The next 14 days are never record-keeping.
+        var recordKeepingCutoff = from.AddDays(RecordKeepingLookaheadDays - 1);
 
         // Roster horizon cap — dates past the last generated ShiftEntry aren't real
         // gaps, nobody has rostered that far yet.
@@ -246,15 +257,19 @@ public class WicCoverageGapService
 
         var locations = await _db.WicLocations.Where(l => l.IsActive).ToListAsync();
         var allHours  = await _db.WicOpeningHours.ToListAsync();
+        var holidays  = await _db.PublicHolidays
+            .Where(h => h.HolidayDate >= from && h.HolidayDate <= to)
+            .ToListAsync();
         var nationalHolidays = new HashSet<DateOnly>(
-            await _db.PublicHolidays
-                .Where(h => h.IsNational && h.HolidayDate >= from && h.HolidayDate <= to)
-                .Select(h => h.HolidayDate)
-                .ToListAsync());
+            holidays.Where(h => h.IsNational).Select(h => h.HolidayDate));
 
-        // Cover signal 1: WicShiftEntries.IsOnSite=1, matched by SupportLocation.
+        // Cover signals — the exact inputs WicPresenceResolver reads, bulk-loaded once.
+        // On-site rows are restricted to active employees, the same join ForecastService
+        // makes, so "who is present" cannot differ between the forecast and this list.
         var onSiteEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate >= from && w.ShiftDate <= to && w.IsOnSite)
+            .Join(_db.Employees.Where(e => e.IsActive),
+                  w => w.EmployeeId, e => e.EmployeeId, (w, _) => w)
             .ToListAsync();
         // Cover signal 2: ShiftEntries rows whose AgentTask could name a centre. The
         // ShiftType call belongs to AvailabilityResolver.IsWicDutyAt, not to this query —
@@ -265,10 +280,17 @@ public class WicCoverageGapService
                         s.AgentTask != null && s.AgentTask != "" &&
                         !NonLocationTasks.Contains(s.AgentTask))
             .ToListAsync();
-
-        var onSiteEmployeeShiftEntries = await GetShiftEntriesForOnSiteEmployeesAsync(_db, onSiteEntries, from, to);
-        var coveredDatesByLocation = locations.ToDictionary(
-            l => l.Id, l => ComputeCoveredDates(onSiteEntries, wicDutyEntries, l, onSiteEmployeeShiftEntries));
+        // Every ShiftEntries row in range: the resolver scores an on-site agent from their
+        // own (employee, date) row, so the dictionary must not be limited to assigned agents.
+        var shiftEntries = await _db.ShiftEntries
+            .Where(s => s.ShiftDate >= from && s.ShiftDate <= to)
+            .ToListAsync();
+        var shiftByEmpDate = shiftEntries
+            .GroupBy(s => (s.EmployeeId, s.ShiftDate))
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
+        var sickLeaves = await _db.SickLeaves
+            .Where(sl => sl.EmployeeId != null && sl.FirstDay <= to && sl.LastDay >= from)
+            .ToListAsync();
 
         var allAssignments = await _db.WicAgentAssignments.Where(a => a.IsActive).ToListAsync();
         var coreAssignmentsByLocation = locations.ToDictionary(
@@ -283,8 +305,6 @@ public class WicCoverageGapService
                 .Where(a => WicLocationMatcher.MatchesAssignmentCode(a.LocationCode, l) &&
                             a.AssignmentType == "REGIONAL")
                 .ToList());
-        int regionalOnlyLocationCount = locations.Count(l =>
-            coreAssignmentsByLocation[l.Id].Count == 0 && regionalAssignmentsByLocation[l.Id].Count > 0);
 
         var assignedNames = allAssignments
             .Select(a => a.EmployeeName)
@@ -298,83 +318,114 @@ public class WicCoverageGapService
             .GroupBy(e => e.FullName!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        var empIds = assignedEmployees.Select(e => e.EmployeeId).ToList();
-        var shiftEntries = await _db.ShiftEntries
-            .Where(s => s.ShiftDate >= from && s.ShiftDate <= to && empIds.Contains(s.EmployeeId))
-            .ToListAsync();
-        var shiftByEmpDate = shiftEntries
-            .GroupBy(s => (s.EmployeeId, s.ShiftDate))
-            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
+        // ONE presence reading per (location, date), through the same resolver as the
+        // forecast — never a second definition of "covered" living only in this file.
+        var presenceCache = new Dictionary<(int, DateOnly), double>();
+        double PresenceFor(WicLocation loc, DateOnly date)
+        {
+            if (presenceCache.TryGetValue((loc.Id, date), out var cached)) return cached;
+            var presence = WicPresenceResolver.Resolve(
+                loc, date, onSiteEntries, shiftByEmpDate, wicDutyEntries,
+                empId => sickLeaves.Any(sl =>
+                    sl.EmployeeId == empId && sl.FirstDay <= date && sl.LastDay >= date));
+            presenceCache[(loc.Id, date)] = presence.PresentDouble;
+            return presence.PresentDouble;
+        }
+
+        WicOpeningHour? HoursFor(WicLocation loc, DateOnly date) =>
+            WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, (int)date.DayOfWeek, date);
+
+        int MinRequiredFor(WicLocation loc, WicOpeningHour? hours) =>
+            hours?.MinRequired ?? loc.MinAgentsRequired ?? 1;
+
+        // Same "is the centre open that day" answer every other surface gets: the manual
+        // exception row wins, then the weekday pattern, then national/regional holidays.
+        bool IsOpenOn(WicLocation loc, DateOnly date)
+        {
+            var hours = HoursFor(loc, date);
+            if (hours == null || hours.IsClosed) return false;
+            if (nationalHolidays.Contains(date)) return false;
+            var bundesland = loc.Bundesland ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
+            return bundesland == null || !holidays.Any(h =>
+                h.HolidayDate == date && string.Equals(h.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
+        }
+
+        WicCoverageGapEntry BuildGap(
+            WicLocation loc, DateOnly date,
+            List<WicAgentAssignment> classifying, List<WicAgentAssignment> regional, bool regionalOnly)
+        {
+            var hours = HoursFor(loc, date);
+            var agents = classifying
+                .Select(a => ToGapAgent(a, date, empByFullName, shiftByEmpDate))
+                .OrderBy(a => a.FullName)
+                .ToList();
+            bool anyAbsent = agents.Any(a => AbsenceTypes.Contains(a.Status));
+            string category = anyAbsent ? "UNCOVERED_ABSENCE" : "UNCOVERED_ASSIGNED";
+
+            // Available-floater hint: REGIONAL agents shared with this location who are NOT
+            // absent today — never drives the category, only who to grab.
+            var floaters = regionalOnly
+                ? new List<WicGapAgent>()
+                : regional
+                    .Select(a => ToGapAgent(a, date, empByFullName, shiftByEmpDate))
+                    .Where(a => !AbsenceTypes.Contains(a.Status))
+                    .OrderBy(a => a.FullName)
+                    .ToList();
+
+            return new WicCoverageGapEntry(
+                date.ToString("yyyy-MM-dd"), date.DayOfWeek.ToString(),
+                loc.LocationCode, loc.DisplayName, loc.City ?? "", category,
+                (int)Math.Floor(PresenceFor(loc, date)), MinRequiredFor(loc, hours),
+                hours?.OpenTime, hours?.CloseTime, hours?.OpenTime2, hours?.CloseTime2,
+                agents, floaters);
+        }
 
         var gaps = new List<WicCoverageGapEntry>();
         var notRecorded = new List<WicCoverageSummaryEntry>();
 
         foreach (var loc in locations)
         {
-            // Open dates for this location in the window (national holidays excluded).
-            var openDates = GetOpenDates(loc, from, to, allHours, nationalHolidays);
+            var openDates = new List<DateOnly>();
+            for (var date = from; date <= to; date = date.AddDays(1))
+                if (IsOpenOn(loc, date)) openDates.Add(date);
             if (openDates.Count == 0) continue;
 
             var coreAgents     = coreAssignmentsByLocation[loc.Id];
             var regionalAgents = regionalAssignmentsByLocation[loc.Id];
             bool regionalOnly  = coreAgents.Count == 0 && regionalAgents.Count > 0;
-            var classifyingAssignments = regionalOnly ? regionalAgents : coreAgents;
+            var classifying    = regionalOnly ? regionalAgents : coreAgents;
 
-            if (classifyingAssignments.Count == 0)
+            // The next 14 days are judged per day. An open centre short of MinRequired is a
+            // gap here — never a record-keeping summary, whatever its other cover looks like.
+            foreach (var date in openDates.Where(d => d <= recordKeepingCutoff))
+            {
+                if (PresenceFor(loc, date) >= MinRequiredFor(loc, HoursFor(loc, date))) continue;
+                gaps.Add(BuildGap(loc, date, classifying, regionalAgents, regionalOnly));
+            }
+
+            var farDates = openDates.Where(d => d > recordKeepingCutoff).ToList();
+            if (farDates.Count == 0) continue;
+
+            if (classifying.Count == 0)
             {
                 notRecorded.Add(new WicCoverageSummaryEntry(
-                    loc.LocationCode, loc.DisplayName, "NO_ASSIGNMENT", openDates.Count));
+                    loc.LocationCode, loc.DisplayName, "NO_ASSIGNMENT", farDates.Count));
                 continue;
             }
 
-            var coveredDates = coveredDatesByLocation[loc.Id];
-            // (D) Judge "never recorded" only against open days that actually fall beyond
-            // the cutoff. A once-weekly centre can have ALL its open days inside the first
-            // 7 days of a 14-day window (Landshut/Mülheim/Trier/Wesel are Thursday-only:
-            // open 2026-10-01 and 2026-10-08, cutoff 2026-10-08, and the test is strictly
-            // greater) — which read as NOT_RECORDED even with duty recorded on every open
-            // day through 2026-10-29. Pure window arithmetic, not missing records: the same
-            // call at days=90 reported 0. When nothing is open past the cutoff, fall back to
-            // "is there any cover evidence in the window at all".
-            bool anyOpenDayBeyondCutoff = openDates.Any(d => d > notRecordedCutoff);
-            bool hasFutureCover = anyOpenDayBeyondCutoff
-                ? coveredDates.Any(d => d > notRecordedCutoff)
-                : coveredDates.Count > 0;
-            if (!hasFutureCover)
+            // Beyond the actionable horizon, a location with no plan at all is a
+            // record-keeping problem, not a day-by-day gap list.
+            if (!farDates.Any(d => PresenceFor(loc, d) > 0))
             {
                 notRecorded.Add(new WicCoverageSummaryEntry(
-                    loc.LocationCode, loc.DisplayName, "NOT_RECORDED", openDates.Count));
+                    loc.LocationCode, loc.DisplayName, "NOT_RECORDED", farDates.Count));
                 continue;
             }
 
-            foreach (var date in openDates)
+            foreach (var date in farDates)
             {
-                if (coveredDates.Contains(date)) continue; // covered
-
-                var agents = classifyingAssignments
-                    .Select(a => ToGapAgent(a, date, empByFullName, shiftByEmpDate))
-                    .OrderBy(a => a.FullName)
-                    .ToList();
-
-                bool anyAbsent = agents.Any(a => AbsenceTypes.Contains(a.Status));
-                string category = anyAbsent ? "UNCOVERED_ABSENCE" : "UNCOVERED_ASSIGNED";
-
-                // Available-floater hint: REGIONAL agents shared with this location who
-                // are NOT absent today — never drives the category, only who to grab.
-                var floaters = regionalOnly
-                    ? new List<WicGapAgent>()
-                    : regionalAgents
-                        .Select(a => ToGapAgent(a, date, empByFullName, shiftByEmpDate))
-                        .Where(a => !AbsenceTypes.Contains(a.Status))
-                        .OrderBy(a => a.FullName)
-                        .ToList();
-
-                var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, (int)date.DayOfWeek, date);
-                gaps.Add(new WicCoverageGapEntry(
-                    date.ToString("yyyy-MM-dd"), date.DayOfWeek.ToString(),
-                    loc.LocationCode, loc.DisplayName, category,
-                    hours?.OpenTime, hours?.CloseTime, hours?.OpenTime2, hours?.CloseTime2,
-                    agents, floaters));
+                if (PresenceFor(loc, date) >= MinRequiredFor(loc, HoursFor(loc, date))) continue;
+                gaps.Add(BuildGap(loc, date, classifying, regionalAgents, regionalOnly));
             }
         }
 

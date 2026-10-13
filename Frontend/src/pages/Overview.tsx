@@ -12,6 +12,7 @@ import { AlertTriangle, Users } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
 import { api, apiFetch } from "../api/client"
 import { postSubstituteAccept, substituteAcceptErrorText } from "../utils/substituteAccept"
+import { coverageBannerState, type WicCoverageBannerState } from "../utils/wicCoverageState"
 import { useAuth } from "../auth/AuthContext"
 import { statusColor } from "../lib/tokenColor"
 import { Sheet } from "../components/Sheet"
@@ -268,14 +269,15 @@ function MissingRosterBanner() {
   )
 }
 
-// ── WIC coverage-gaps warning ─────────────────────────────────────────────────
-// Mirrors MissingRosterBanner immediately above: same GET /api/wic/coverage-gaps
-// shape (see Backend/WicCoverageGapService.cs), same RTM/TEAM_LEAD/DEV-only gate,
-// same "render nothing if the list is empty" rule. A gap is a day an ACTIVE WIC
-// location is open, has an active MAIN/BACKUP assignment, and nobody is actually
-// rostered there (no on-site WicShiftEntries row, no matching WIC_DUTY
-// ShiftEntry) — the annual-leave-left-on-a-WIC-duty case: the coverage grid can
-// still show a name on the card, but nobody is actually covering it.
+// ── WIC coverage-gaps warning + Coverage Risk list ───────────────────────────
+// ONE source for both: GET /api/wic/coverage-gaps (see Backend/WicCoverageGapService.cs),
+// RTM/TEAM_LEAD/DEV-only gate. A gap is a day an ACTIVE WIC location is OPEN
+// (WicHoursResolver, manual exceptions included) and FEWER agents are present than that
+// day's MinRequired (see the backend's WicPresenceResolver reading). The banner count and
+// the Coverage Risk rows are therefore the same number by construction — the 2026-10-13
+// defect was the list reading the forecast while the banner read this endpoint, so a
+// location-level NOT_RECORDED summary silenced the banner while the list still showed
+// the days as UNCOVERED.
 // UNCOVERED_ABSENCE (critical): the location's own MAIN/BACKUP agent is on
 // AL/SL/etc. that day. UNCOVERED_ASSIGNED (warning): nobody's absent, they're
 // just not placed at this location. REGIONAL floaters never drive the category
@@ -285,8 +287,9 @@ interface WicGapAgent {
   employeeId: string | null; fullName: string; assignmentType: string; status: string; taskLabel: string
 }
 interface WicCoverageGapEntry {
-  date: string; weekday: string; locationCode: string; displayName: string
+  date: string; weekday: string; locationCode: string; displayName: string; city: string
   category: "UNCOVERED_ABSENCE" | "UNCOVERED_ASSIGNED"
+  present: number; required: number
   openTime: string | null; closeTime: string | null
   openTime2: string | null; closeTime2: string | null
   assignedAgents: WicGapAgent[]; availableFloaters: WicGapAgent[]
@@ -308,6 +311,7 @@ const hasSensibleCandidate = (g: WicCoverageGapEntry) =>
   g.availableFloaters.length > 0 || g.assignedAgents.some(a => !GAP_ABSENCE_SET.has(a.status))
 
 function GapRow({ g, onAssign }: { g: WicCoverageGapEntry; onAssign: (g: WicCoverageGapEntry) => void }) {
+  const { t } = useTranslation()
   const isCritical = g.category === "UNCOVERED_ABSENCE"
   const tone = isCritical ? "UNCOVERED" : "PARTIAL"
   const hours = g.openTime && g.closeTime
@@ -329,7 +333,7 @@ function GapRow({ g, onAssign }: { g: WicCoverageGapEntry; onAssign: (g: WicCove
         color: STATUS_TOKEN_FG[tone], background: STATUS_TOKEN_BG[tone],
         padding: "2px 6px", borderRadius: 4, minWidth: 64, textAlign: "center",
       }}>
-        {isCritical ? "ABSENCE" : "UNSTAFFED"}
+        {isCritical ? t("overview.coverageBanner.absence") : t("overview.coverageBanner.unstaffed")}
       </span>
       <Link to={`/wic-shifts?date=${g.date}`} style={{ fontFamily: "monospace", minWidth: 96, color: "rgb(var(--text-secondary))", textDecoration: "none" }}>
         {g.weekday.slice(0, 3)} {g.date}
@@ -337,7 +341,8 @@ function GapRow({ g, onAssign }: { g: WicCoverageGapEntry; onAssign: (g: WicCove
       <Link to={`/wic-shifts?date=${g.date}`} className="font-semibold text-ink" style={{ minWidth: 140, textDecoration: "none" }}>
         {g.displayName}
       </Link>
-      <span style={{ fontFamily: "monospace", color: "rgb(var(--text-tertiary))", minWidth: 110 }}>{hours}</span>
+      <span style={{ fontFamily: "monospace", color: "rgb(var(--text-tertiary))", minWidth: 74 }}>{g.present} / {g.required}</span>
+      <span style={{ fontFamily: "monospace", color: "rgb(var(--text-tertiary))", minWidth: 96 }}>{hours}</span>
       <span style={{ flex: 1, color: isCritical ? STATUS_TOKEN_FG[tone] : "rgb(var(--text-secondary))" }}>
         {g.assignedAgents.map((a, i) => (
           <span key={a.employeeId ?? a.fullName + i}>
@@ -348,7 +353,9 @@ function GapRow({ g, onAssign }: { g: WicCoverageGapEntry; onAssign: (g: WicCove
       </span>
       {g.availableFloaters.length > 0 && (
         <span style={{ color: STATUS_TOKEN_FG["COVERED"], fontSize: 11, whiteSpace: "nowrap" }}>
-          Available: {g.availableFloaters.map(a => `${a.fullName} (${a.taskLabel})`).join(", ")}
+          {t("overview.coverageBanner.available", {
+            names: g.availableFloaters.map(a => `${a.fullName} (${a.taskLabel})`).join(", "),
+          })}
         </span>
       )}
       {canAssign ? (
@@ -360,7 +367,7 @@ function GapRow({ g, onAssign }: { g: WicCoverageGapEntry; onAssign: (g: WicCove
             cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0,
           }}
         >
-          Assign
+          {t("overview.coverageBanner.assign")}
         </button>
       ) : (
         <Link
@@ -370,32 +377,37 @@ function GapRow({ g, onAssign }: { g: WicCoverageGapEntry; onAssign: (g: WicCove
             color: "rgb(var(--text-secondary))", textDecoration: "underline",
           }}
         >
-          Fix assignment
+          {t("overview.coverageBanner.fixAssignment")}
         </Link>
       )}
     </div>
   )
 }
 
-function WicCoverageGapsBanner() {
-  const { session } = useAuth()
-  const allowed = session != null && ["RTM", "TEAM_LEAD", "DEV"].includes(session.role)
-  const [horizon, setHorizon] = useState<14 | 90>(14)
+// Presentational banner. The query itself is hoisted into Overview so the banner and
+// the Coverage Risk list read the SAME /api/wic/coverage-gaps response for the same
+// window — one source, one number. `state` comes from coverageBannerState(), which is
+// what keeps a 401/error from ever rendering as a green "no gaps".
+function WicCoverageGapsBanner({
+  horizon, state, data, onAssigned, onRefresh,
+}: {
+  horizon: number
+  state: WicCoverageBannerState
+  data: WicCoverageGapResult | undefined
+  onAssigned: () => void
+  onRefresh: () => void
+}) {
+  const { t } = useTranslation()
   const [notRecordedOpen, setNotRecordedOpen] = useState(false)
   const [assignTarget, setAssignTarget] = useState<{ locationCode: string; displayName: string; date: string } | null>(null)
-  const queryClient = useQueryClient()
-  const { data, error } = useQuery({
-    queryKey: ["wic-coverage-gaps", horizon],
-    queryFn: () => apiFetch<WicCoverageGapResult>(`/api/wic/coverage-gaps?days=${horizon}`),
-    staleTime: 5 * 60 * 1000,
-    enabled: allowed,
-    retry: false,
-  })
-  if (error) console.warn("[Overview] wic-coverage-gaps check failed:", error)
-  if (!allowed || !data) return null
 
-  const noGaps = data.gaps.length === 0
-  const tone = noGaps ? "COVERED" : "UNCOVERED"
+  if (state === "disabled") return null
+
+  const gaps = data?.gaps ?? []
+  const notRecorded = data?.notRecorded ?? []
+  // Neutral (CLOSED) tone for loading/error: an all-clear colour must be backed by a
+  // successful response, never by a failure.
+  const tone = state === "gaps" ? "UNCOVERED" : state === "clear" ? "COVERED" : "CLOSED"
 
   return (
     <div className="bg-raised border border-line-subtle rounded-md overflow-hidden">
@@ -405,33 +417,44 @@ function WicCoverageGapsBanner() {
         background: STATUS_TOKEN_BG[tone], color: STATUS_TOKEN_FG[tone],
       }}>
         <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {noGaps
-            ? <>No WIC coverage gaps (next {horizon} days)</>
-            : <><AlertTriangle size={14} style={{ flexShrink: 0 }} />
-                WIC coverage gaps ({data.from} → {data.to}) — {data.criticalCount} critical, {data.warningCount} unstaffed</>}
+          {state === "gaps" && (
+            <><AlertTriangle size={14} style={{ flexShrink: 0 }} />
+              {t("overview.coverageBanner.gaps", {
+                count: gaps.length, from: data?.from, to: data?.to,
+                critical: data?.criticalCount, warning: data?.warningCount,
+              })}</>
+          )}
+          {state === "clear" && t("overview.coverageBanner.clear", { n: horizon })}
+          {state === "loading" && <span className="skeleton" style={{ height: 16, width: 240, borderRadius: 4 }} />}
+          {state === "error" && (
+            <><AlertTriangle size={14} style={{ flexShrink: 0 }} />
+              {t("overview.coverageBanner.couldNotLoad")}</>
+          )}
         </span>
-        <button
-          onClick={() => setHorizon(h => (h === 14 ? 90 : 14))}
-          style={{
-            background: "rgb(var(--surface-raised))", border: `1px solid ${noGaps ? "rgb(var(--st-good-bd))" : "rgb(var(--st-crit-bd))"}`,
-            color: STATUS_TOKEN_FG[tone], borderRadius: 6, padding: "3px 10px",
-            fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
-          }}
-        >
-          {horizon === 14 ? "View 90 days" : "View 14 days"}
-        </button>
+        {state === "error" && (
+          <button
+            onClick={onRefresh}
+            style={{
+              background: "rgb(var(--surface-raised))", border: "1px solid rgb(var(--border-subtle))",
+              color: STATUS_TOKEN_FG[tone], borderRadius: 6, padding: "3px 10px",
+              fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
+            }}
+          >
+            {t("overview.coverageBanner.retry")}
+          </button>
+        )}
       </div>
 
-      {!noGaps && (
+      {state === "gaps" && (
         <div>
-          {data.gaps.map(g => (
+          {gaps.map(g => (
             <GapRow key={`${g.locationCode}-${g.date}`} g={g}
               onAssign={gap => setAssignTarget({ locationCode: gap.locationCode, displayName: gap.displayName, date: gap.date })} />
           ))}
         </div>
       )}
 
-      {data.notRecorded.length > 0 && (
+      {state !== "error" && notRecorded.length > 0 && (
         <div className="border-t border-line-subtle">
           <button
             onClick={() => setNotRecordedOpen(v => !v)}
@@ -441,19 +464,23 @@ function WicCoverageGapsBanner() {
               cursor: "pointer", textAlign: "left", color: "rgb(var(--text-secondary))",
             }}
           >
-            {notRecordedOpen ? "▲" : "▼"} {data.notRecorded.length} location(s) with no WIC duty recorded this far out — record-keeping, not a staffing gap
+            {notRecordedOpen ? "▲" : "▼"} {t("overview.coverageBanner.recordKeeping", { count: notRecorded.length })}
           </button>
           {notRecordedOpen && (
             <div style={{ padding: "0 14px 10px", display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {data.notRecorded.map(n => (
+              {notRecorded.map(n => (
                 <span key={n.locationCode}
-                  title={n.reason === "NO_ASSIGNMENT" ? "No active MAIN/BACKUP/REGIONAL assignment at all" : "No on-site duty entered beyond the next 7 days"}
+                  title={n.reason === "NO_ASSIGNMENT"
+                    ? t("overview.coverageBanner.recordKeepingNoAssignmentHint")
+                    : t("overview.coverageBanner.recordKeepingNotRecordedHint")}
                   style={{
                     fontSize: 11, fontFamily: "monospace", padding: "3px 10px", borderRadius: 999,
                     background: "rgb(var(--surface-sunken))", border: "1px solid rgb(var(--border-subtle))",
                     color: "rgb(var(--text-secondary))",
                   }}>
-                  {n.displayName} {n.reason === "NO_ASSIGNMENT" ? "(no assignment)" : `(${n.openDaysInWindow} open days)`}
+                  {n.reason === "NO_ASSIGNMENT"
+                    ? t("overview.coverageBanner.recordKeepingNoAssignment", { name: n.displayName })
+                    : t("overview.coverageBanner.recordKeepingOpenDays", { name: n.displayName, count: n.openDaysInWindow })}
                 </span>
               ))}
             </div>
@@ -465,7 +492,7 @@ function WicCoverageGapsBanner() {
         isOpen={assignTarget != null}
         onClose={() => setAssignTarget(null)}
         prefill={assignTarget}
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["wic-coverage-gaps"] })}
+        onSuccess={onAssigned}
       />
     </div>
   )
@@ -884,10 +911,15 @@ function SectionHeader({ title, count, color }: { title: string; count?: number;
 
 export default function Overview() {
   const { t } = useTranslation()
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   // byte-identical to original line 400
   const horizon = Math.max(1, Math.min(30, Number(searchParams.get("horizon")) || 28))
   const today = new Date().toISOString().split("T")[0]
+  // The ONLY WIC coverage-gap source on this page: the banner and the Coverage Risk
+  // list below both read this one response, so their numbers cannot diverge.
+  const coverageAllowed = session != null && ["RTM", "TEAM_LEAD", "DEV"].includes(session.role)
 
   const [sheetOpen, setSheetOpen]   = useState(false)
   const [sheetCell, setSheetCell]   = useState<{ locationCode: string; date: string; displayName: string } | null>(null)
@@ -945,6 +977,30 @@ export default function Overview() {
     queryFn: () => apiFetch<WicConflict[]>(`/api/wic/conflicts?from=${today}&to=${conflictTo}`),
     staleTime: 10 * 60 * 1000,
   })
+
+  // RTM / TEAM_LEAD / DEV only — same gate as the server (RosterAccess → 401/403).
+  // The AGENT role never reaches the Overview page, so this is the page's only viewer set.
+  const {
+    data: coverage,
+    isLoading: coverageLoading,
+    isError: coverageError,
+    refetch: refetchCoverage,
+  } = useQuery({
+    queryKey: ["wic-coverage-gaps", horizon],
+    queryFn: () => apiFetch<WicCoverageGapResult>(`/api/wic/coverage-gaps?days=${horizon}`),
+    staleTime: 5 * 60 * 1000,
+    enabled: coverageAllowed,
+    retry: false,
+  })
+  if (coverageError) console.warn("[Overview] wic-coverage-gaps check failed — showing neutral state, never a green banner:", coverageError)
+  const coverageState = coverageBannerState({
+    enabled: coverageAllowed,
+    isLoading: coverageLoading,
+    isError: coverageError,
+    hasData: coverage != null,
+    gapCount: coverage?.gaps.length ?? 0,
+  })
+  const coverageGaps = coverage?.gaps ?? []
 
   // ── KPI derivations ───────────────────────────────────────────────────────────
   // null = data not yet loaded (render "—" + "Not available"); 0 = loaded, genuinely zero.
@@ -1029,13 +1085,19 @@ export default function Overview() {
       {/* ── Missing-roster warning (RTM / TEAM_LEAD / DEV only) ── */}
       <MissingRosterBanner />
 
-      {/* ── WIC coverage-gaps warning (RTM / TEAM_LEAD / DEV only) ── */}
-      <WicCoverageGapsBanner />
+      {/* ── WIC coverage-gaps warning + Coverage Risk (RTM / TEAM_LEAD / DEV only) ── */}
+      <WicCoverageGapsBanner
+        horizon={horizon}
+        state={coverageState}
+        data={coverage}
+        onAssigned={() => queryClient.invalidateQueries({ queryKey: ["wic-coverage-gaps"] })}
+        onRefresh={() => void refetchCoverage()}
+      />
 
       {/* ── Coverage Risk — §1.1 day strip + §1.2 exception list ── */}
       <Panel title={t("overview.coverageRisk.title")}>
         <DayStrip
-          forecast={forecast ?? []}
+          gaps={coverageGaps}
           dates={heatDates}
           today={today}
           selectedDay={selectedDay}
@@ -1043,7 +1105,7 @@ export default function Overview() {
         />
         <div className="border-t border-line-subtle">
           <ExceptionList
-            forecast={forecast ?? []}
+            gaps={coverageGaps}
             dates={heatDates}
             briefingGaps={briefing?.gaps ?? []}
             today={today}
@@ -1051,6 +1113,7 @@ export default function Overview() {
             onClearDayFilter={() => setSelectedDay(null)}
             onOpenSub={args => { setSheetCell(args); setSheetOpen(true) }}
             horizon={horizon}
+            state={coverageState}
           />
         </div>
         {(() => {

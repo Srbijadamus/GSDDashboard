@@ -160,6 +160,25 @@
     "coverageRisk": {
       "title": "Coverage Risk"
     },
+    "coverageBanner": {
+      "clear": "No WIC coverage gaps (next {{n}} days)",
+      "gaps_one": "{{count}} WIC coverage gap ({{from}} → {{to}}) — {{critical}} critical, {{warning}} unstaffed",
+      "gaps_other": "{{count}} WIC coverage gaps ({{from}} → {{to}}) — {{critical}} critical, {{warning}} unstaffed",
+      "couldNotLoad": "WIC coverage could not be loaded",
+      "couldNotLoadDetail": "The coverage check failed or was not permitted. No all-clear is shown until it loads successfully.",
+      "retry": "Retry",
+      "recordKeeping_one": "{{count}} location with no WIC duty recorded beyond the next 14 days — record-keeping, not a staffing gap",
+      "recordKeeping_other": "{{count}} locations with no WIC duty recorded beyond the next 14 days — record-keeping, not a staffing gap",
+      "recordKeepingNoAssignmentHint": "No active MAIN/BACKUP/REGIONAL assignment at all",
+      "recordKeepingNotRecordedHint": "No duty recorded beyond the next 14 days",
+      "recordKeepingNoAssignment": "{{name}} (no assignment)",
+      "recordKeepingOpenDays": "{{name}} ({{count}} open days)",
+      "absence": "ABSENCE",
+      "unstaffed": "UNSTAFFED",
+      "available": "Available: {{names}}",
+      "assign": "Assign",
+      "fixAssignment": "Fix assignment"
+    },
     "error": {
       "title": "Overview failed to load",
       "detail": "A rendering error occurred — please refresh the page to continue."

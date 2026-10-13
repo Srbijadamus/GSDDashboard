@@ -288,10 +288,12 @@ public class WicPresenceUnificationTests
     }
 
     [Fact]
-    public async Task Banner_CentreWithNoDutyRecordedAtAll_IsStillNotRecorded()
+    public async Task Banner_CentreWithNoDutyRecordedInWindow_IsAGapNotRecordKeeping()
     {
-        // The D fix must not disarm the bucket: a centre open weekly with NO duty
-        // anywhere in the window is still a record-keeping case.
+        // Updated 2026-10-13 (rule 2): a centre that is OPEN inside the next 14 days and
+        // has fewer agents than MinRequired is a day-by-day GAP. The record-keeping bucket
+        // may only describe open days beyond that horizon — it may never silence an
+        // actionable gap and leave the banner green (the Demmin/Wesel case).
         var today = DateOnly.FromDateTime(DateTime.Today);
         using var db = NewDb();
         SeedCentre(db, today);
@@ -304,9 +306,9 @@ public class WicPresenceUnificationTests
 
         var result = await new WicCoverageGapService(db).GetGapsAsync(14);
 
-        var summary = Assert.Single(result.NotRecorded);
-        Assert.Equal("NOT_RECORDED", summary.Reason);
-        Assert.Equal(Name, summary.DisplayName);
+        Assert.Empty(result.NotRecorded);
+        Assert.Equal(2, result.Gaps.Count);   // this weekday, today and today+7
+        Assert.All(result.Gaps, g => Assert.Equal(0, g.Present));
     }
 
     // ── Change E: hours stored under LocationCodeLegacy ──────────────────────────
