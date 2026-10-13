@@ -167,6 +167,8 @@
       "couldNotLoad": "WIC-Abdeckung konnte nicht geladen werden",
       "couldNotLoadDetail": "Die Abdeckungsprüfung ist fehlgeschlagen oder nicht erlaubt. Es wird keine Entwarnung angezeigt, bis sie erfolgreich lädt.",
       "retry": "Erneut versuchen",
+      "view90": "90 Tage anzeigen",
+      "view14": "14 Tage anzeigen",
       "recordKeeping_one": "{{count}} Standort ohne erfassten WIC-Dienst jenseits der nächsten 14 Tage — Dokumentation, keine Personalunterdeckung",
       "recordKeeping_other": "{{count}} Standorte ohne erfassten WIC-Dienst jenseits der nächsten 14 Tage — Dokumentation, keine Personalunterdeckung",
       "recordKeepingNoAssignmentHint": "Keine aktive MAIN/BACKUP/REGIONAL-Zuweisung",
@@ -196,7 +198,11 @@
       "title": "Vollständiges Abdeckungsraster"
     },
     "dayStrip": {
-      "clearFilter": "Tagesfilter zurücksetzen"
+      "clearFilter": "Tagesfilter zurücksetzen",
+      "window": "{{n}}-Tage-Fenster — für alle Tage scrollen",
+      "gapDayCount_one": "{{count}} Tag mit Lücke",
+      "gapDayCount_other": "{{count}} Tage mit Lücken",
+      "noGapDays": "Keine Lückentage in diesem Fenster"
     },
     "exceptionList": {
       "allCovered": "Alle Standorte für die nächsten {{n}} Tage abgedeckt",
@@ -507,9 +513,7 @@
     "themeToDark": "Zu dunklem Design wechseln",
     "switchLanguage": "Sprache wechseln",
     "search": "Suchen (Strg+K)",
-    "horizon7": "7-Tage-Zeitraum",
-    "horizon14": "14-Tage-Zeitraum",
-    "horizon28": "28-Tage-Zeitraum"
+    "horizonN": "{{n}}-Tage-Zeitraum"
   },
   "common": {
     "notAvailable": "Nicht verfügbar",

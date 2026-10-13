@@ -13,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { api, apiFetch } from "../api/client"
 import { postSubstituteAccept, substituteAcceptErrorText } from "../utils/substituteAccept"
 import { coverageBannerState, type WicCoverageBannerState } from "../utils/wicCoverageState"
+import { parseHorizon, nextHorizon, MAX_HORIZON } from "../utils/wicHorizon"
 import { useAuth } from "../auth/AuthContext"
 import { statusColor } from "../lib/tokenColor"
 import { Sheet } from "../components/Sheet"
@@ -310,6 +311,11 @@ const GAP_ABSENCE_SET = new Set(["AL", "HALF_AL", "SL", "UL", "OL", "PH", "LPH",
 const hasSensibleCandidate = (g: WicCoverageGapEntry) =>
   g.availableFloaters.length > 0 || g.assignedAgents.some(a => !GAP_ABSENCE_SET.has(a.status))
 
+// A 90-day window can list many gap rows; both the banner and the Coverage Risk list
+// below show the first few and offer the rest behind one click, so the page cannot be
+// pushed into an unreadable scroll by the wide horizon.
+const GAP_ROW_CAP = 8
+
 function GapRow({ g, onAssign }: { g: WicCoverageGapEntry; onAssign: (g: WicCoverageGapEntry) => void }) {
   const { t } = useTranslation()
   const isCritical = g.category === "UNCOVERED_ABSENCE"
@@ -389,16 +395,18 @@ function GapRow({ g, onAssign }: { g: WicCoverageGapEntry; onAssign: (g: WicCove
 // window — one source, one number. `state` comes from coverageBannerState(), which is
 // what keeps a 401/error from ever rendering as a green "no gaps".
 function WicCoverageGapsBanner({
-  horizon, state, data, onAssigned, onRefresh,
+  horizon, state, data, onAssigned, onRefresh, onHorizonChange,
 }: {
   horizon: number
   state: WicCoverageBannerState
   data: WicCoverageGapResult | undefined
   onAssigned: () => void
   onRefresh: () => void
+  onHorizonChange: (horizon: number) => void
 }) {
   const { t } = useTranslation()
   const [notRecordedOpen, setNotRecordedOpen] = useState(false)
+  const [gapsExpanded, setGapsExpanded] = useState(false)
   const [assignTarget, setAssignTarget] = useState<{ locationCode: string; displayName: string; date: string } | null>(null)
 
   if (state === "disabled") return null
@@ -413,6 +421,7 @@ function WicCoverageGapsBanner({
     <div className="bg-raised border border-line-subtle rounded-md overflow-hidden">
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        flexWrap: "wrap",
         padding: "10px 14px", fontSize: 12, fontWeight: 700,
         background: STATUS_TOKEN_BG[tone], color: STATUS_TOKEN_FG[tone],
       }}>
@@ -443,14 +452,47 @@ function WicCoverageGapsBanner({
             {t("overview.coverageBanner.retry")}
           </button>
         )}
+        {/* Horizon pair: this button does not own a horizon of its own — it moves the
+            same ?horizon= the topbar writes, so banner, day strip and list always
+            answer for ONE window. It stays available in every non-disabled state
+            (loading/clear/gaps/error) so the 90-day view is reachable and reversible
+            without a reload. */}
+        <button
+          onClick={() => onHorizonChange(nextHorizon(horizon))}
+          style={{
+            background: "rgb(var(--surface-raised))",
+            border: `1px solid ${state === "clear" ? "rgb(var(--st-good-bd))" : "rgb(var(--border-subtle))"}`,
+            color: STATUS_TOKEN_FG[tone], borderRadius: 6, padding: "3px 10px",
+            fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
+          }}
+        >
+          {horizon >= MAX_HORIZON
+            ? t("overview.coverageBanner.view14")
+            : t("overview.coverageBanner.view90")}
+        </button>
       </div>
 
       {state === "gaps" && (
         <div>
-          {gaps.map(g => (
+          {(gapsExpanded ? gaps : gaps.slice(0, GAP_ROW_CAP)).map(g => (
             <GapRow key={`${g.locationCode}-${g.date}`} g={g}
               onAssign={gap => setAssignTarget({ locationCode: gap.locationCode, displayName: gap.displayName, date: gap.date })} />
           ))}
+          {gaps.length > GAP_ROW_CAP && (
+            <button
+              onClick={() => setGapsExpanded(v => !v)}
+              className="border-t border-line-subtle"
+              style={{
+                display: "block", width: "100%", background: "none", border: "none",
+                padding: "7px 14px", fontSize: 11, cursor: "pointer", textAlign: "left",
+                color: "rgb(var(--text-secondary))",
+              }}
+            >
+              {gapsExpanded
+                ? t("overview.exceptionList.collapse")
+                : t("overview.exceptionList.showAll", { n: gaps.length })}
+            </button>
+          )}
         </div>
       )}
 
@@ -913,9 +955,11 @@ export default function Overview() {
   const { t } = useTranslation()
   const { session } = useAuth()
   const queryClient = useQueryClient()
-  const [searchParams] = useSearchParams()
-  // byte-identical to original line 400
-  const horizon = Math.max(1, Math.min(30, Number(searchParams.get("horizon")) || 28))
+  const [searchParams, setSearchParams] = useSearchParams()
+  // byte-identical to original line 400, except the ceiling: 90 is a first-class
+  // horizon (topbar "90d" and the banner's "View 90 days" both set it). The old
+  // Math.min(30, …) silently collapsed the restored 90-day view back to 30.
+  const horizon = parseHorizon(searchParams.get("horizon"))
   const today = new Date().toISOString().split("T")[0]
   // The ONLY WIC coverage-gap source on this page: the banner and the Coverage Risk
   // list below both read this one response, so their numbers cannot diverge.
@@ -925,6 +969,15 @@ export default function Overview() {
   const [sheetCell, setSheetCell]   = useState<{ locationCode: string; date: string; displayName: string } | null>(null)
   const [showClosed, setShowClosed] = useState(false)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  // Banner button -> same URL parameter the topbar writes, so banner, day strip and
+  // exception list re-read ONE coverage-gaps window. The day filter is dropped: a day
+  // selected in the 14-day strip may not exist in the 90-day window.
+  const setCoverageHorizon = (next: number) => {
+    const params = new URLSearchParams(searchParams)
+    params.set("horizon", String(next))
+    setSelectedDay(null)
+    setSearchParams(params, { replace: true })
+  }
   // localStorage-persisted (VI) — was useState(false)
   const [conflictsOpen, setConflictsOpen] = useState(false)
   const [showDetailGrid, setShowDetailGrid] = useState<boolean>(() => {
@@ -1092,6 +1145,7 @@ export default function Overview() {
         data={coverage}
         onAssigned={() => queryClient.invalidateQueries({ queryKey: ["wic-coverage-gaps"] })}
         onRefresh={() => void refetchCoverage()}
+        onHorizonChange={setCoverageHorizon}
       />
 
       {/* ── Coverage Risk — §1.1 day strip + §1.2 exception list ── */}

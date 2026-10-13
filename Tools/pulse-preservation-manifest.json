@@ -1,6 +1,6 @@
 {
   "LiveRoot": "C:\\GSDDashboard",
-  "CreatedAtUtc": "2026-10-05T11:28:05.2132041Z",
+  "CreatedAtUtc": "2026-10-13T12:04:07.8968759Z",
   "Live": [
     {
       "Path": "Backend.Tests/ALBalanceEligibleDaysTests.cs",
@@ -946,7 +946,7 @@
     },
     {
       "Path": "Backend.Tests/WicCoverageGapRuleTests.cs",
-      "Hash": "3530FA29CF5A301683EFBB6BB3040DFECC02C5D91AD43F2A9DA8393E3F3CE714"
+      "Hash": "CF7428BC00EEBBE8BEF1344251BB78E9657E2324948F37A8BD890DA7A1A0AE12"
     },
     {
       "Path": "Backend.Tests/WicDutyRecognitionTests.cs",
@@ -1214,7 +1214,7 @@
     },
     {
       "Path": "Backend/Services/ForecastService.cs",
-      "Hash": "2F49BAA4FB0D6F72FBB4FA005B524C9A70FBEF1208569E432F1265D76D4351CF"
+      "Hash": "0AAA355B6A29A45AB9D44D2DD424FFE6818BAC82831D8D126B7C129FB393DEC2"
     },
     {
       "Path": "Backend/Services/KioskProxyService.cs",
@@ -1334,7 +1334,7 @@
     },
     {
       "Path": "Backend/WicCoverageGapService.cs",
-      "Hash": "E3CF600F0A4C5C7D00A5BE6AE3AF88E10C790B9B84EA58DC71E5DF0EC5FA6A70"
+      "Hash": "77889509EC7731A389908DAFAC5C0EC4C8EF729A20967C9B9CEBCB69C32F1DA8"
     },
     {
       "Path": "Backend/WicModels.cs",
@@ -1358,7 +1358,7 @@
     },
     {
       "Path": "Frontend/package.json",
-      "Hash": "CB21D665F60BAF95BB31CCD29833E202736443EDA50705CD940954290893A3CC"
+      "Hash": "E59B06A3E9C4396DC9C8B1AFA9231E9C60ABEDA7CE8C27E04F6B9572C44C682C"
     },
     {
       "Path": "Frontend/postcss.config.js",
@@ -1482,11 +1482,11 @@
     },
     {
       "Path": "Frontend/src/i18n/locales/de/common.json",
-      "Hash": "773CE30DF440393827194508BFAE9B6C0CCAD1B00906E5F8CA9AA34A887EDC52"
+      "Hash": "47A8794E1DD6FD86425D9E5D34DC2E5754CABF5EC637EDBEB7126CBED7F6F300"
     },
     {
       "Path": "Frontend/src/i18n/locales/en/common.json",
-      "Hash": "D605D8302CCF5188F10FA7D3F2DA1B53A51DA6BABC7AEB1B87369C170A74FF6B"
+      "Hash": "D87D512943F858DE133FD126C60BE122D678C4D76831AA943A7A74E1AD3A4806"
     },
     {
       "Path": "Frontend/src/index.css",
@@ -1506,7 +1506,7 @@
     },
     {
       "Path": "Frontend/src/layout/Topbar.tsx",
-      "Hash": "9070A04E5657BEB57F37773B4288A0D98603987A42F861ECF633F97FA202983C"
+      "Hash": "F12C6C0007A0861F5F8BD58E68FC54A91EBA4F044A10742A8A417C316125D833"
     },
     {
       "Path": "Frontend/src/layout/useNavTheme.ts",
@@ -1602,11 +1602,11 @@
     },
     {
       "Path": "Frontend/src/pages/Overview.tsx",
-      "Hash": "16B0D1ACDDA05A195EAB0D1C80B25717108073B2E17673BE1DFFB611EA7BCC2B"
+      "Hash": "D14462ACEB4549E50ED9A9DEFD8CB841E2470375D3E08908E9D5019DB1023584"
     },
     {
       "Path": "Frontend/src/pages/overview/DayStrip.tsx",
-      "Hash": "D1F896C09E55C6B92781F90901F039F786F9B47FF36C94F29EBB50DFED501536"
+      "Hash": "DD899B0F2B6C337720DD2A24215CED4ED5535D696DA082481B97EBD593D2817A"
     },
     {
       "Path": "Frontend/src/pages/overview/ExceptionList.tsx",
@@ -1759,6 +1759,14 @@
     {
       "Path": "Frontend/src/utils/wicCoverageState.ts",
       "Hash": "3113E5729163B3A6DD46AC82310FAD18744E09584E7FDC2AEA9F7AFA68809655"
+    },
+    {
+      "Path": "Frontend/src/utils/wicHorizon.test.ts",
+      "Hash": "52FBD61DA1886744A4206223DF6ADEFEE7EA73C8C4263E0B186EF293BF34C4E1"
+    },
+    {
+      "Path": "Frontend/src/utils/wicHorizon.ts",
+      "Hash": "15B3ED6DDD598775E2254774B917C089CAA63619D93B33FA53F1AD6E81FFDE50"
     },
     {
       "Path": "Frontend/src/utils/wicOpenHours.test.ts",

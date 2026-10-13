@@ -180,4 +180,110 @@ public class WicCoverageGapRuleTests
         Assert.Empty(result.Gaps);
         Assert.Empty(result.NotRecorded);
     }
+
+    // ── 90-day horizon (restored Overview view, removed in ad4a854) ───────────────
+    // The 90-day window must obey the SAME 14-day rule as every other window: the first
+    // 14 days are always day-by-day gaps, and beyond them an open centre with no plan at
+    // all becomes ONE record-keeping row that is reported separately from the real gaps.
+    // Widening the window may never leak record-keeping into the next 14 days, and may
+    // never make the banner number disagree with the list: both are result.Gaps.
+
+    [Fact]
+    public async Task NinetyDayWindow_KeepsTheFourteenDayRuleAndSeparatesRecordKeeping()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        using var db = NewDb();
+        SeedCentre(db, today);
+        await db.SaveChangesAsync();
+
+        var result = await new WicCoverageGapService(db).GetGapsAsync(90);
+
+        // Window really is 90 days from today (the roster cap cannot shorten it: no
+        // ShiftEntries rows exist at all, and the endpoint only clamps when it has some).
+        Assert.Equal(today.ToString("yyyy-MM-dd"), result.From);
+        Assert.Equal(today.AddDays(89).ToString("yyyy-MM-dd"), result.To);
+
+        // Only the open days inside the next 14 days are gaps (day 0 and day 7 here) —
+        // never the far ones, and never the record-keeping summary.
+        Assert.Equal(2, result.Gaps.Count);
+        Assert.All(result.Gaps, g =>
+        {
+            Assert.Equal(0, g.Present);
+            Assert.Equal(1, g.Required);
+            Assert.True(DateOnly.Parse(g.Date) <= today.AddDays(13),
+                $"{g.Date} is outside the next-14-days gap window");
+        });
+        Assert.Equal(result.Gaps.Count, result.CriticalCount + result.WarningCount);
+
+        // The far open days with no plan at all are ONE separate record-keeping row.
+        var summary = Assert.Single(result.NotRecorded);
+        Assert.Equal("NOT_RECORDED", summary.Reason);
+        Assert.True(summary.OpenDaysInWindow >= 10, "the 90-day window reaches many open days");
+
+        // Record-keeping never doubles as a gap row.
+        Assert.DoesNotContain(result.Gaps, g => g.LocationCode == summary.LocationCode && g.Present > 0);
+    }
+
+    [Fact]
+    public async Task NinetyDayWindow_AnyCoverBeyondTheCutoff_StopsTheSummaryAndListsTheDays()
+    {
+        // The 2026-10-13 defect shape at 90 days: cover evidence exists far out, so the
+        // location must NOT be summarised as record-keeping — its uncovered days in the
+        // gap window belong in the same list the banner counts. The duty sits on
+        // today+14 (same weekday), i.e. OUTSIDE the next-14-days gap window, so it makes
+        // the far window "has a plan" without covering any of the days at issue.
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        using var db = NewDb();
+        SeedCentre(db, today);
+        db.ShiftEntries.Add(WicDuty(today.AddDays(14)));
+        await db.SaveChangesAsync();
+
+        var result = await new WicCoverageGapService(db).GetGapsAsync(90);
+
+        // Roster horizon cap: `to` is the last ShiftEntry date (today+14), not today+89.
+        Assert.Equal(today.AddDays(14).ToString("yyyy-MM-dd"), result.To);
+        Assert.Empty(result.NotRecorded);
+        // Every open day in the window except the covered today+14 is a gap: the two
+        // inside the current week (today, today+7) and the third week's today+21 is
+        // beyond the window, so 2 gap rows here — the count the banner shows.
+        Assert.Equal(2, result.Gaps.Count);
+        Assert.All(result.Gaps, g => Assert.Equal(0, g.Present));
+        Assert.Equal(result.Gaps.Count, result.CriticalCount + result.WarningCount);
+        Assert.Contains(result.Gaps, g => g.Date == today.AddDays(7).ToString("yyyy-MM-dd"));
+    }
+
+    [Fact]
+    public async Task NinetyDayWindow_WithinFourteenDays_IsNeverRecordKeeping()
+    {
+        // Direct regression for the rule the task restates: inside 14 days no open centre
+        // short of MinRequired may be summarised away, whatever the requested window.
+        // Here the far window has NO plan at all, so the location IS summarised — and the
+        // point is that the next 14 days still come out as real gap rows, separately.
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        using var db = NewDb();
+        SeedCentre(db, today);
+        db.ShiftEntries.Add(new ShiftEntry
+        {
+            EmployeeId = "R1", ShiftDate = today.AddDays(120),
+            ShiftType = ShiftTypes.Working, RawValue = "BO",
+        });
+        await db.SaveChangesAsync();
+
+        var result = await new WicCoverageGapService(db).GetGapsAsync(90);
+
+        Assert.Equal(today.AddDays(89).ToString("yyyy-MM-dd"), result.To);
+        foreach (var expected in new[] { today, today.AddDays(7) })
+        {
+            Assert.Contains(result.Gaps, g => g.Date == expected.ToString("yyyy-MM-dd"));
+        }
+        // Record-keeping is reported SEPARATELY from the real gaps: the far days beyond
+        // the 14-day window collapse into one summary row, while every gap row belongs to
+        // the next 14 days — that separation is the rule.
+        var summary = Assert.Single(result.NotRecorded);
+        Assert.Equal("NOT_RECORDED", summary.Reason);
+        Assert.True(summary.OpenDaysInWindow >= 10, "the far window is the rest of the 90 days");
+        Assert.All(result.Gaps, g => Assert.True(
+            DateOnly.Parse(g.Date) <= today.AddDays(13),
+            $"{g.Date} is record-keeping territory but was listed as a real gap"));
+    }
 }

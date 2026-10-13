@@ -4,6 +4,7 @@ import { Search, LogOut } from 'lucide-react'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { NAV_GROUPS, AGENT_NAV } from './navItems'
 import { useAuth } from '../auth/AuthContext'
+import { HORIZON_OPTIONS, DEFAULT_HORIZON } from '../utils/wicHorizon'
 
 function LangToggle() {
   const { i18n, t } = useTranslation()
@@ -30,7 +31,7 @@ export function Topbar({ onOpenCmd }: TopbarProps) {
   const isAgent = session?.role === 'AGENT'
 
   const isOverview = location.pathname === '/'
-  const horizonParam = params.get('horizon') ?? '28'
+  const horizonParam = params.get('horizon') ?? String(DEFAULT_HORIZON)
 
   const setHorizon = (h: string) => {
     const next = new URLSearchParams(params)
@@ -64,14 +65,12 @@ export function Topbar({ onOpenCmd }: TopbarProps) {
 
         {isOverview && (
           <div className="h-8 p-0.5 rounded-md bg-sunken border border-line-subtle flex">
-            {[
-              { h: '7',  ariaLabel: t('topbar.horizon7') },
-              { h: '14', ariaLabel: t('topbar.horizon14') },
-              { h: '28', ariaLabel: t('topbar.horizon28') },
-            ].map(({ h, ariaLabel }) => (
+            {HORIZON_OPTIONS.map(n => {
+              const h = String(n)
+              return (
               <button key={h}
                 onClick={() => setHorizon(h)}
-                aria-label={ariaLabel}
+                aria-label={t('topbar.horizonN', { n })}
                 className={[
                   'h-7 px-3 rounded-[5px] text-xs font-medium transition-colors duration-fast',
                   horizonParam === h
@@ -81,7 +80,8 @@ export function Topbar({ onOpenCmd }: TopbarProps) {
               >
                 {h}{t('nav.days')}
               </button>
-            ))}
+              )
+            })}
           </div>
         )}
 

@@ -58,7 +58,9 @@ public class ForecastService
 
     public async Task<ForecastResponse> GetForecastAsync(int horizon, string? locationCode, DateOnly? fromDate = null)
     {
-        horizon = Math.Clamp(horizon, 1, 62);
+        // Ceiling is the widest horizon the Overview topbar offers (90d). Beyond the
+        // generated roster horizon the response is simply sparse; it is never padded.
+        horizon = Math.Clamp(horizon, 1, 90);
         var today     = DateOnly.FromDateTime(DateTime.Today);
         var startDate = fromDate ?? today;
         var endDate   = startDate.AddDays(horizon - 1);

@@ -29,4 +29,10 @@ count_lines.py
 Backend/wwwroot/
 Frontend/.attendance-test-out/
 Frontend/.berlin-time-test-out/
+Frontend/.bulk-rtm-test-out/
+Frontend/.roster-errors-test-out/
+Frontend/.substitute-accept-test-out/
+Frontend/.wic-coverage-state-test-out/
+Frontend/.wic-horizon-test-out/
+Frontend/.wic-open-hours-test-out/
 .pulse-build-receipt.json

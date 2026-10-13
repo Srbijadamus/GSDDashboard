@@ -167,6 +167,8 @@
       "couldNotLoad": "WIC coverage could not be loaded",
       "couldNotLoadDetail": "The coverage check failed or was not permitted. No all-clear is shown until it loads successfully.",
       "retry": "Retry",
+      "view90": "View 90 days",
+      "view14": "View 14 days",
       "recordKeeping_one": "{{count}} location with no WIC duty recorded beyond the next 14 days — record-keeping, not a staffing gap",
       "recordKeeping_other": "{{count}} locations with no WIC duty recorded beyond the next 14 days — record-keeping, not a staffing gap",
       "recordKeepingNoAssignmentHint": "No active MAIN/BACKUP/REGIONAL assignment at all",
@@ -196,7 +198,11 @@
       "title": "Full coverage grid"
     },
     "dayStrip": {
-      "clearFilter": "Clear day filter"
+      "clearFilter": "Clear day filter",
+      "window": "{{n}}-day window — scroll for all days",
+      "gapDayCount_one": "{{count}} day with a gap",
+      "gapDayCount_other": "{{count}} days with a gap",
+      "noGapDays": "No gap days in this window"
     },
     "exceptionList": {
       "allCovered": "All locations covered for the next {{n}} days",
@@ -507,9 +513,7 @@
     "themeToDark": "Switch to dark mode",
     "switchLanguage": "Switch language",
     "search": "Search (Ctrl+K)",
-    "horizon7": "7-day horizon",
-    "horizon14": "14-day horizon",
-    "horizon28": "28-day horizon"
+    "horizonN": "{{n}}-day horizon"
   },
   "common": {
     "notAvailable": "Not available",

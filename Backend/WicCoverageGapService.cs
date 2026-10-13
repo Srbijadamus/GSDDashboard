@@ -61,7 +61,8 @@ namespace GSDDashboard.API.Modules.WicShifts;
 // National and regional public holidays are excluded; the window is capped at the
 // last ShiftDate present in ShiftEntries (the generated roster horizon) so dates
 // past the end of the roster don't show up as false gaps. Default window is
-// 14 days — a gap 8 weeks out isn't actionable — with `days` to reach further.
+// 14 days — a gap 8 weeks out isn't actionable — with `days` to reach further
+// (the Overview 90-day view asks for days=90; the endpoint clamps at 180).
 // Status: the raw ShiftType — drives classification (AbsenceTypes.Contains).
 // TaskLabel: what to actually show the user — WHERE they are / what they're
 // doing, not just "working" (which only says they have some shift, not
