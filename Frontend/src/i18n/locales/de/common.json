@@ -876,5 +876,9 @@
     "preview": {
       "centre": "Zentrum"
     }
+  },
+  "sickLeave": {
+    "shiftPlanOnly": "Schichtplan",
+    "shiftPlanOnlyHint": "Auf der Seite Schichten erfasst (SL-Zelle); dort ändern oder beenden."
   }
 }

@@ -97,9 +97,12 @@ public class BriefingService
 
         // ── Absences today ────────────────────────────────────────────────────
         var todayShifts = shiftEntries.Where(s => s.ShiftDate == date).ToList();
+        // "Absent today" is a people list, so it uses AbsenceFeedTypes rather than
+        // FullAbsenceTypes: RESIGNED is excluded on purpose (the agent has left, they are
+        // not absent), HALF_AL is included (half a day away is still an absence). Coverage
+        // logic stays on FullAbsenceTypes — see AvailabilityResolver.
         var absenceShifts = todayShifts
-            .Where(s => AvailabilityResolver.FullAbsenceTypes.Contains(s.ShiftType) ||
-                        string.Equals(s.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase))
+            .Where(s => AvailabilityResolver.AbsenceFeedTypes.Contains(s.ShiftType ?? ""))
             .ToList();
 
         var empById = allEmployees.ToDictionary(e => e.EmployeeId, StringComparer.OrdinalIgnoreCase);

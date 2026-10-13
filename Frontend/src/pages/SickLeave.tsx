@@ -260,12 +260,17 @@ function DeleteSickLeaveModal({ id, entry, onClose, onDeleted }: { id: number; e
 }
 
 function DrillDownModal({ title, entries, onClose, onEnd }: { title: string; entries: any[]; onClose: () => void; onEnd?: () => void }) {
+  const { t } = useTranslation()
   const today = new Date().toLocaleDateString("en-CA")
   const [endingEmpId, setEndingEmpId] = useState<string | null>(null)
   const [endConfirm, setEndConfirm] = useState<{ empId: string; count: number } | null>(null)
 
-  const activeCountForEmp = (empId: string) =>
-    entries.filter(e => String(e.employeeId) === String(empId)).length
+  // Only a real Krankmeldung can be ended here; an SL recorded in the /shifts cell is a
+  // protected manual row and may only be changed on the Shifts page.
+  const rowsForEmp = (empId: string) => entries.filter(e => String(e.employeeId) === String(empId))
+  const hasRecordForEmp = (empId: string) => rowsForEmp(empId).some((e: any) => !e.fromShift)
+
+  const activeCountForEmp = (empId: string) => rowsForEmp(empId).length
 
   const endAgent = (empId: string) => {
     const count = activeCountForEmp(empId)
@@ -341,13 +346,19 @@ function DrillDownModal({ title, entries, onClose, onEnd }: { title: string; ent
                       </span>
                     </td>
                     <td style={{ padding: "8px 8px" }}>
-                      <button
-                        onClick={e => { e.stopPropagation(); endAgent(empId) }}
-                        disabled={isEnding}
-                        className="bg-warn-bg border border-warn-bd text-warn-fg rounded font-semibold cursor-pointer whitespace-nowrap"
-                        style={{ padding: "3px 10px", fontSize: 11, opacity: isEnding ? .5 : 1 }}>
-                        {isEnding ? "…" : "End"}
-                      </button>
+                      {!hasRecordForEmp(empId)
+                        ? <span title={t("sickLeave.shiftPlanOnlyHint")}
+                            className="bg-sunken border border-line-subtle text-ink-soft rounded whitespace-nowrap"
+                            style={{ padding: "3px 10px", fontSize: 11, display: "inline-block" }}>
+                            {t("sickLeave.shiftPlanOnly")}
+                          </span>
+                        : <button
+                            onClick={e => { e.stopPropagation(); endAgent(empId) }}
+                            disabled={isEnding}
+                            className="bg-warn-bg border border-warn-bd text-warn-fg rounded font-semibold cursor-pointer whitespace-nowrap"
+                            style={{ padding: "3px 10px", fontSize: 11, opacity: isEnding ? .5 : 1 }}>
+                            {isEnding ? "…" : "End"}
+                          </button>}
                     </td>
                   </tr>
                 )
@@ -443,6 +454,7 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd, onEdit, 
   onEdit: (id: number, entry: any) => void;
   onDelete: (id: number, entry: any) => void;
 }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [endingEmpId, setEndingEmpId] = useState<string | null>(null)
   const [endConfirm, setEndConfirm] = useState<{ empId: string; count: number } | null>(null)
@@ -608,12 +620,14 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd, onEdit, 
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span>{lastSick}</span>
                         {(() => {
-                          const activeCount = groups[empId].filter((s: any) => s.lastDay >= todayStr).length
-                          if (activeCount === 0) return null
+                          // Only a real Krankmeldung can be ended here. An SL that exists
+                          // only as a /shifts cell is a protected manual row.
+                          const activeRows = groups[empId].filter((s: any) => s.lastDay >= todayStr && !s.fromShift)
+                          if (activeRows.length === 0) return null
                           const isEnding = endingEmpId === empId
                           return (
                             <button
-                              onClick={e => { e.stopPropagation(); endAgent(empId, activeCount) }}
+                              onClick={e => { e.stopPropagation(); endAgent(empId, activeRows.length) }}
                               disabled={isEnding}
                               className="bg-warn-bg border border-warn-bd text-warn-fg rounded font-semibold cursor-pointer"
                               style={{ padding: "2px 8px", fontSize: 10, opacity: isEnding ? .5 : 1, fontFamily: "sans-serif" }}>
@@ -626,29 +640,34 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd, onEdit, 
 
                     {/* Notes — only on summary row for single-period agents */}
                     <td style={{ padding: "6px 8px", minWidth: 160 }}>
-                      {!multi && (
+                      {!multi && !first.fromShift && (
                         <CommentCell id={first.id}
                           initial={commentCache[first.id] !== undefined ? commentCache[first.id] : first.comments}
                           onSaved={val => setCommentCache(prev => ({ ...prev, [first.id]: val }))} />
                       )}
                     </td>
 
-                    {/* Actions — Edit + Delete on summary row for single-period agents */}
+                    {/* Actions — Edit + Delete on summary row for single-period agents.
+                        A row that only exists as a /shifts SL cell has no record to edit. */}
                     <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
-                      {!multi && (
-                        <div style={{ display: "flex", gap: 4 }}>
-                          <button onClick={e => { e.stopPropagation(); onEdit(first.id, first) }}
-                            className="bg-sunken border border-line-subtle text-ink rounded cursor-pointer"
-                            style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
-                            Edit
-                          </button>
-                          <button onClick={e => { e.stopPropagation(); onDelete(first.id, first) }}
-                            className="bg-crit-bg border border-crit-bd text-crit-fg rounded cursor-pointer"
-                            style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
-                            Del
-                          </button>
-                        </div>
-                      )}
+                      {!multi && (first.fromShift
+                        ? <span title={t("sickLeave.shiftPlanOnlyHint")}
+                            className="bg-sunken border border-line-subtle text-ink-soft rounded whitespace-nowrap"
+                            style={{ padding: "2px 8px", fontSize: 10 }}>
+                            {t("sickLeave.shiftPlanOnly")}
+                          </span>
+                        : <div style={{ display: "flex", gap: 4 }}>
+                            <button onClick={e => { e.stopPropagation(); onEdit(first.id, first) }}
+                              className="bg-sunken border border-line-subtle text-ink rounded cursor-pointer"
+                              style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
+                              Edit
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); onDelete(first.id, first) }}
+                              className="bg-crit-bg border border-crit-bd text-crit-fg rounded cursor-pointer"
+                              style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
+                              Del
+                            </button>
+                          </div>)}
                     </td>
                   </tr>
 
@@ -674,23 +693,31 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd, onEdit, 
                       </td>
                       <td />
                       <td style={{ padding: "5px 8px", minWidth: 160 }}>
-                        <CommentCell id={p.id}
-                          initial={commentCache[p.id] !== undefined ? commentCache[p.id] : p.comments}
-                          onSaved={val => setCommentCache(prev => ({ ...prev, [p.id]: val }))} />
+                        {!p.fromShift && (
+                          <CommentCell id={p.id}
+                            initial={commentCache[p.id] !== undefined ? commentCache[p.id] : p.comments}
+                            onSaved={val => setCommentCache(prev => ({ ...prev, [p.id]: val }))} />
+                        )}
                       </td>
                       <td style={{ padding: "5px 8px", whiteSpace: "nowrap" }}>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          <button onClick={e => { e.stopPropagation(); onEdit(p.id, p) }}
-                            className="bg-sunken border border-line-subtle text-ink rounded cursor-pointer"
-                            style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
-                            Edit
-                          </button>
-                          <button onClick={e => { e.stopPropagation(); onDelete(p.id, p) }}
-                            className="bg-crit-bg border border-crit-bd text-crit-fg rounded cursor-pointer"
-                            style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
-                            Del
-                          </button>
-                        </div>
+                        {p.fromShift
+                          ? <span title={t("sickLeave.shiftPlanOnlyHint")}
+                              className="bg-sunken border border-line-subtle text-ink-soft rounded whitespace-nowrap"
+                              style={{ padding: "2px 8px", fontSize: 10 }}>
+                              {t("sickLeave.shiftPlanOnly")}
+                            </span>
+                          : <div style={{ display: "flex", gap: 4 }}>
+                              <button onClick={e => { e.stopPropagation(); onEdit(p.id, p) }}
+                                className="bg-sunken border border-line-subtle text-ink rounded cursor-pointer"
+                                style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
+                                Edit
+                              </button>
+                              <button onClick={e => { e.stopPropagation(); onDelete(p.id, p) }}
+                                className="bg-crit-bg border border-crit-bd text-crit-fg rounded cursor-pointer"
+                                style={{ padding: "2px 8px", fontSize: 10, fontWeight: 500 }}>
+                                Del
+                              </button>
+                            </div>}
                       </td>
                     </tr>
                   ))}

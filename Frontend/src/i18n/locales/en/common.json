@@ -876,5 +876,9 @@
     "preview": {
       "centre": "Centre"
     }
+  },
+  "sickLeave": {
+    "shiftPlanOnly": "Shift plan",
+    "shiftPlanOnlyHint": "Recorded on the Shifts page (SL cell); change or end it there."
   }
 }

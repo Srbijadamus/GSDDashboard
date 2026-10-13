@@ -36,6 +36,20 @@ public class AvailabilityResolver
     public static readonly HashSet<string> BlockingAbsenceTypes =
         new(StringComparer.OrdinalIgnoreCase) { "AL", "HALF_AL", "SL", "UL", "PH", "LPH", "OL", "OFF", "OFF_WEEKEND", "RESIGNED" };
 
+    // The leave types the Overview "Absent today" people list / KPI reports.
+    //
+    // Deliberately NOT FullAbsenceTypes. Coverage keeps RESIGNED there because a resigned
+    // agent contributes 0 cover, but a person who has left the company is not "absent
+    // today" and listing them as such is simply wrong (2 such rows were live on
+    // 2026-10-13). HALF_AL is the opposite case: half a day away is an absence the
+    // FullAbsenceTypes set does not contain.
+    public static readonly HashSet<string> AbsenceFeedTypes =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ShiftTypes.SickLeave, ShiftTypes.AnnualLeave, ShiftTypes.UnpaidLeave,
+            ShiftTypes.OtherLeave, ShiftTypes.PublicHol, ShiftTypes.LocalPH, ShiftTypes.HalfAL,
+        };
+
     // Reusable as a List<string> for EF Core IN-clause translation.
     private static readonly List<string> FullAbsenceTypesList = FullAbsenceTypes.ToList();
 

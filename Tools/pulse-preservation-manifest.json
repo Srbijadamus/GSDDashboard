@@ -1,6 +1,6 @@
 {
   "LiveRoot": "C:\\GSDDashboard",
-  "CreatedAtUtc": "2026-10-13T12:04:07.8968759Z",
+  "CreatedAtUtc": "2026-10-13T15:04:15.7029221Z",
   "Live": [
     {
       "Path": "Backend.Tests/ALBalanceEligibleDaysTests.cs",
@@ -917,6 +917,10 @@
       "Hash": "B4D70E1B87189BFECA907EC73F0070ED87CDE9CAC86F9F6704F3EADF683095F4"
     },
     {
+      "Path": "Backend.Tests/SickLeaveActiveUnionTests.cs",
+      "Hash": "642A75F8D0C0F75FD08FFAF5498826101DCE79A5B480119B3054A38F2BC40335"
+    },
+    {
       "Path": "Backend.Tests/SubstituteAcceptTests.cs",
       "Hash": "0A461BF18CDAA92D9B5066E4D8E3E47A59784BA8958578DD36FA7E000B494741"
     },
@@ -1198,7 +1202,7 @@
     },
     {
       "Path": "Backend/Services/AvailabilityResolver.cs",
-      "Hash": "BC783B1459B3A925BFE69E30ED8E7CF44FEED9C0E4F77FFC602018E0D1E98611"
+      "Hash": "998E418656382334FEFFC49FC11F9C84B4430F3EA7795CE28E417231B12456C7"
     },
     {
       "Path": "Backend/Services/BerlinTime.cs",
@@ -1206,7 +1210,7 @@
     },
     {
       "Path": "Backend/Services/BriefingService.cs",
-      "Hash": "84C053EF8E6254D46A0F033E804C731EC8137F0AA6FA589E318FFCFB0A8490CC"
+      "Hash": "5C8023AEA617ED0340EDF774C3425DD3B0B258F0CB627BCF24F7877A1F1D45A7"
     },
     {
       "Path": "Backend/Services/CoverageEvaluator.cs",
@@ -1302,7 +1306,7 @@
     },
     {
       "Path": "Backend/SickLeaveService.cs",
-      "Hash": "3E1B8C1F6E7A495639BAD31BDBBFE9D80A4BFC34D739CD92C4A88457FC06B6DC"
+      "Hash": "F06A70825E97D58BA2F98F1107B14CA1F873E4F5F6449984954ED4419CE1FF65"
     },
     {
       "Path": "Backend/TrainingModels.cs",
@@ -1482,11 +1486,11 @@
     },
     {
       "Path": "Frontend/src/i18n/locales/de/common.json",
-      "Hash": "47A8794E1DD6FD86425D9E5D34DC2E5754CABF5EC637EDBEB7126CBED7F6F300"
+      "Hash": "7A2B7FA8B25D716034827125C28E20099002BC988BA98FEF59750097C450CED2"
     },
     {
       "Path": "Frontend/src/i18n/locales/en/common.json",
-      "Hash": "D87D512943F858DE133FD126C60BE122D678C4D76831AA943A7A74E1AD3A4806"
+      "Hash": "3FE9BE86FAB829B3D64E74011011E4EC48B323541F0CD01E96149934E683D0C5"
     },
     {
       "Path": "Frontend/src/index.css",
@@ -1638,7 +1642,7 @@
     },
     {
       "Path": "Frontend/src/pages/SickLeave.tsx",
-      "Hash": "A299801AD4C438971A371C0B1F1203E53B8702D6D0BF5D1F2BA0C1F4C91E49A9"
+      "Hash": "788707AFF0CE61E0ECA9D0D09AB34597D9CE5BEBC2ED7974E6731B9596DDCF54"
     },
     {
       "Path": "Frontend/src/pages/Training.tsx",

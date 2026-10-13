@@ -21,7 +21,10 @@ public record SickLeaveDto(
     string? LeaveType,
     string? ChildName,
     string? Comments,
-    string? SourceSheet
+    string? SourceSheet,
+    // True when this row exists only as an SL ShiftEntries row (manual /shifts cell):
+    // there is no Krankmeldung record behind it to edit, end or delete.
+    bool FromShift = false
 );
 
 public record SickLeaveStatsDto(
@@ -64,6 +67,16 @@ public class SickLeaveService
     public SickLeaveService(GSDContext db, ShiftSyncService shiftSync, ILogger<SickLeaveService> logger)
     { _db = db; _shiftSync = shiftSync; _logger = logger; }
 
+    // "SL" is the legacy spelling of the same thing as "Self" (older synced rows carry it);
+    // "Child" is a child's sickness. All three are sick leave. The active queries used to
+    // keep only SL/Self, which is why the Child card could never show a number — and why a
+    // child's sickness never reached "Currently Sick" at all.
+    // List (not HashSet) so EF Core translates Contains into a SQL IN clause.
+    private static readonly List<string> SickLeaveTypes = new() { "SL", "Self", "Child" };
+
+    // SourceSheet marker for a row that came from the manual /shifts SL cell, not a record.
+    private const string ShiftSourcedSheet = "Shifts";
+
     public async Task<List<SickLeaveDto>> GetSickLeavesAsync(
         string? from, string? to, string? teamLead, string? type, bool? activeOnly)
     {
@@ -71,13 +84,22 @@ public class SickLeaveService
         var toDate   = to   != null && DateOnly.TryParse(to,   out var td) ? td : DateOnly.MaxValue;
         var today    = DateOnly.FromDateTime(DateTime.Today);
 
-        IQueryable<SickLeaveModel> query = _db.SickLeaves;
-
         if (activeOnly == true)
-            query = query.Where(s => s.FirstDay <= today && s.LastDay >= today
-                                  && (s.LeaveType == "SL" || s.LeaveType == "Self"));
-        else
-            query = query.Where(s => s.FirstDay <= toDate && s.LastDay >= fromDate);
+        {
+            // "Active only" must agree with the summary cards and with every other surface.
+            var activeRows = await GetActiveSickAsync(today);
+            if (!string.IsNullOrWhiteSpace(teamLead))
+                activeRows = activeRows.Where(r => r.TeamLeadName == teamLead).ToList();
+            if (!string.IsNullOrWhiteSpace(type))
+                activeRows = activeRows.Where(r => r.LeaveType == type).ToList();
+            return activeRows
+                .OrderBy(r => r.TeamLeadName)
+                .ThenBy(r => r.FullName)
+                .ToList();
+        }
+
+        IQueryable<SickLeaveModel> query = _db.SickLeaves;
+        query = query.Where(s => s.FirstDay <= toDate && s.LastDay >= fromDate);
 
         if (!string.IsNullOrWhiteSpace(teamLead))
             query = query.Where(s => s.TeamLeadName == teamLead);
@@ -92,40 +114,19 @@ public class SickLeaveService
     }
 
     public async Task<List<SickLeaveDto>> GetActiveOnDateAsync(DateOnly date)
-    {
-        var rows = await _db.SickLeaves
-            .Where(s => s.FirstDay <= date && s.LastDay >= date
-                     && (s.LeaveType == "SL" || s.LeaveType == "Self"))
-            .OrderBy(s => s.TeamLeadName)
-            .ThenBy(s => s.LastName)
-            .ToListAsync();
-        var empIds = rows.Select(r => r.EmployeeId).Where(x => x != null).Distinct().ToList();
-        var empMap = await _db.Employees.Where(e => empIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
-        return rows
-            .Where(s => s.EmployeeId != null && empMap.ContainsKey(s.EmployeeId))
-            .Select(s => MapSl(s, empMap[s.EmployeeId!]))
-            .ToList();
-    }
+        => await GetActiveSickAsync(date);
 
     public async Task<SickLeaveStatsDto> GetStatsAsync(string? from, string? to)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
-        var active = await _db.SickLeaves
-            .Where(s => s.FirstDay <= today && s.LastDay >= today
-                     && (s.LeaveType == "SL" || s.LeaveType == "Self"))
-            .ToListAsync();
-        var activeEmpIds = active.Select(s => s.EmployeeId).Where(x => x != null).Distinct().ToList();
-        var activeEmpMap = await _db.Employees.Where(e => activeEmpIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
-        active = active.Where(s => s.EmployeeId != null && activeEmpMap.ContainsKey(s.EmployeeId)).ToList();
+        var active = await GetActiveSickAsync(today);
+        // Every active row covers today by construction, so the time served is start→today.
         var avgDuration = active.Any()
-            ? active.Average(s => (double)((s.LastDay < today ? s.LastDay : today).DayNumber - s.FirstDay.DayNumber + 1))
+            ? active.Average(s => (double)(today.DayNumber - DateOnly.ParseExact(s.FirstDay, "yyyy-MM-dd").DayNumber + 1))
             : 0;
 
         var byTL = active
-            .GroupBy(s => {
-                activeEmpMap.TryGetValue(s.EmployeeId ?? "", out var emp);
-                return (emp?.TeamLeadName ?? s.TeamLeadName)?.Trim() ?? "Unknown";
-            })
+            .GroupBy(s => (s.TeamLeadName ?? "Unknown").Trim())
             .Select(g => new TLBreakdownDto(g.Key, g.Count()))
             .OrderByDescending(x => x.Count)
             .ToList();
@@ -133,10 +134,70 @@ public class SickLeaveService
         return new SickLeaveStatsDto(
             active.Count,
             Math.Round(avgDuration, 1),
-            active.Count(s => s.LeaveType == "Self"),
-            active.Count(s => s.LeaveType == "Child"),
+            // "Self" and its legacy spelling "SL" are both the agent's own sickness, so
+            // TotalActive stays Self + Child instead of silently dropping one of them.
+            active.Count(s => string.Equals(s.LeaveType, "Self", StringComparison.OrdinalIgnoreCase)
+                           || string.Equals(s.LeaveType, "SL",   StringComparison.OrdinalIgnoreCase)),
+            active.Count(s => string.Equals(s.LeaveType, "Child", StringComparison.OrdinalIgnoreCase)),
             byTL
         );
+    }
+
+    /// <summary>
+    /// Who is sick on <paramref name="date"/>: the union the rest of Pulse already uses
+    /// (<see cref="AvailabilityResolver.GetAbsentIdsAsync"/> — a SickLeaves record covering
+    /// the date OR an SL ShiftEntries row on it), one row per employee.
+    ///
+    /// This page may not read SickLeaves alone. RTMs record ongoing sickness with the manual
+    /// /shifts cell, which writes the SL ShiftEntry and (by design) no Krankmeldung row. On
+    /// 2026-10-13 that made this page report 0 currently sick while the Dashboard
+    /// ("onSL": 13), the Overview absence feed (SL: 13) and /shifts (13 rows) all reported
+    /// the same 13 agents.
+    ///
+    /// A row that exists only as an SL ShiftEntry gets Id 0 and FromShift=true: there is no
+    /// Krankmeldung to edit, end or delete, and the manual-shift rule means only a /shifts
+    /// cell edit may change it.
+    /// </summary>
+    private async Task<List<SickLeaveDto>> GetActiveSickAsync(DateOnly date)
+    {
+        var records = await _db.SickLeaves
+            .Where(s => s.FirstDay <= date && s.LastDay >= date
+                     && s.LeaveType != null && SickLeaveTypes.Contains(s.LeaveType))
+            .OrderBy(s => s.TeamLeadName).ThenBy(s => s.LastName)
+            .ToListAsync();
+        var empIds = records.Select(r => r.EmployeeId).Where(x => x != null).Distinct().ToList();
+        var empMap = await _db.Employees.Where(e => empIds.Contains(e.EmployeeId))
+            .ToDictionaryAsync(e => e.EmployeeId, e => e);
+        var rows = records
+            .Where(s => s.EmployeeId != null && empMap.ContainsKey(s.EmployeeId))
+            .Select(s => MapSl(s, empMap[s.EmployeeId!]))
+            .ToList();
+        var covered = rows.Select(r => r.EmployeeId!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var shiftSickIds = (await _db.ShiftEntries
+                .Where(s => s.ShiftDate == date && s.ShiftType == "SL" && s.EmployeeId != null)
+                .Select(s => s.EmployeeId!)
+                .Distinct()
+                .ToListAsync())
+            .Where(id => !TestAccounts.IsExcluded(id))
+            .ToList();
+        var shiftEmpMap = await _db.Employees
+            .Where(e => e.IsActive && shiftSickIds.Contains(e.EmployeeId))
+            .ToDictionaryAsync(e => e.EmployeeId, e => e);
+
+        foreach (var id in shiftSickIds.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!shiftEmpMap.TryGetValue(id, out var emp)) continue; // unknown or inactive: nobody to report
+            if (!covered.Add(id)) continue;                          // a Krankmeldung already describes them
+            rows.Add(new SickLeaveDto(
+                0, id, emp.FirstName, emp.LastName,
+                !string.IsNullOrWhiteSpace(emp.FullName) ? emp.FullName
+                    : $"{emp.FirstName} {emp.LastName}".Trim(),
+                emp.TeamLeadName,
+                date.ToString("yyyy-MM-dd"), date.ToString("yyyy-MM-dd"), 1,
+                "Self", null, null, ShiftSourcedSheet, FromShift: true));
+        }
+        return rows;
     }
 
     private static SickLeaveDto MapSl(SickLeaveModel s, Employee? emp = null)
