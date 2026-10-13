@@ -334,7 +334,7 @@
         "closed": "Das WIC-Zentrum ist an diesem Tag geschlossen.",
         "blockingShift": "Der Agent ist am {{date}} nicht verfügbar (Schichttyp {{shiftType}}).",
         "timeConflict": "Zeitkonflikt mit {{loc}} ({{shift}}) am {{date}}.",
-        "manualConflict": "Eine bestehende manuelle Zuweisung muss zuerst bestätigt werden.",
+        "manualConflict": "Die bestehende Zuweisung gehört zu einer aktiven dauerhaften WIC-Zuweisung und muss zuerst bestätigt werden.",
         "protectedManual": "An diesem Tag besteht eine geschützte manuelle Schicht; bearbeiten Sie die Zelle direkt.",
         "http": "Der Server hat die Anfrage abgelehnt ({{status}}).",
         "other": "{{reason}}"

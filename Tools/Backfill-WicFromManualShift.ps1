@@ -216,11 +216,32 @@ function Get-DutyWindow($loc, [datetime]$date) {
 
 function Get-DayName([datetime]$date) { return $date.DayOfWeek.ToString() }
 
+# Requirement 6 overlap guard.  The SAME rule the server uses
+# (WicShiftService.CreateAssignmentAsync and WicConflictDetector.WindowsOverlap):
+#   start1 < end2 AND start2 < end1
+# Unknown/unparseable windows never count as an overlap.
+function Test-WindowOverlap([string]$a, [string]$b) {
+    if ([string]::IsNullOrWhiteSpace($a) -or [string]::IsNullOrWhiteSpace($b)) { return $false }
+    $x = $a.Split('-'); $y = $b.Split('-')
+    if ($x.Count -ne 2 -or $y.Count -ne 2) { return $false }
+    try {
+        $x0 = [TimeSpan]::Parse($x[0]); $x1 = [TimeSpan]::Parse($x[1])
+        $y0 = [TimeSpan]::Parse($y[0]); $y1 = [TimeSpan]::Parse($y[1])
+    } catch { return $false }
+    return ($x0 -lt $y1) -and ($y0 -lt $x1)
+}
+
 # ---------------------------------------------------------------------------
 # Build the plan
 # ---------------------------------------------------------------------------
 $plan     = New-Object System.Collections.ArrayList
 $skipped  = New-Object System.Collections.ArrayList
+
+# Requirement 6: windows already planned in THIS run, per EmployeeId|ShiftDate.
+# GROUP 2 is defined as "no WicShiftEntries row for the employee+date", so the
+# existing set is normally empty; the planned set is what guards two manual
+# WIC_DUTY rows of the same employee+day that would otherwise both insert.
+$plannedWindowsByKey = @{}
 
 foreach ($m in $manual) {
     $key = "$($m.EmployeeId)|$($m.D)"
@@ -268,6 +289,48 @@ foreach ($m in $manual) {
         if ([string]::IsNullOrWhiteSpace($end))   { $end   = if ($dw.End)   { $dw.End }   else { "17:00" } }
         $timeSource = "WIC opening hours fallback (DutyWindow) + server defaults"
     }
+
+    # Requirement 6: before writing, apply the SAME overlap test for the same
+    # employee+day.  An existing (or already planned) IsOnSite=1 WicShiftEntries
+    # row whose working window overlaps the row about to be written makes this row
+    # be SKIPPED and reported.  Nothing is written for it and no existing row is
+    # ever modified (Apply only INSERTs; an UPDATE is refused by HARD GATE 1).
+    $candidateWin = "$start-$end"
+    $occKey       = "$($m.EmployeeId)|$($m.D)"
+    $blocking     = New-Object System.Collections.ArrayList
+    foreach ($w in $existingForDay) {
+        if ($w.IsOnSite -and (Test-WindowOverlap $candidateWin $w.WorkingShift)) {
+            [void]$blocking.Add("wicId=$($w.Id) $($w.SupportLocation) $($w.WorkingShift)")
+        }
+    }
+    if ($plannedWindowsByKey.ContainsKey($occKey)) {
+        foreach ($w in $plannedWindowsByKey[$occKey]) {
+            if (Test-WindowOverlap $candidateWin $w) { [void]$blocking.Add("planned $w") }
+        }
+    }
+    if ($blocking.Count -gt 0) {
+        [void]$plan.Add([pscustomobject]@{
+            Action            = "WOULD WRITE NOTHING"
+            ShiftEntryId      = $m.Id
+            EmployeeId        = $m.EmployeeId
+            ShiftDate         = $m.D
+            AgentTask         = $m.AgentTask
+            CentreDisplayName = $loc.DisplayName
+            LocationCode      = $loc.LocationCode
+            DayOfWeek         = $null
+            WorkingShift      = $candidateWin
+            IsOnSite          = $null
+            Task              = $null
+            ResolvedVia       = $res.Via
+            TimeSource        = $timeSource
+            ManualOrigin      = "ShiftEntries#$($m.Id) by=$($m.ManualChangeBy) at=$($m.ManualChangeAt)"
+            SkipReason        = "OVERLAP_EXISTING_ONSITE"
+            Note              = "overlap guard (requirement 6): an existing IsOnSite=1 WicShiftEntries row for the same employee+day overlaps the row that would be written ($candidateWin) -> " + ($blocking -join '; ')
+        })
+        continue
+    }
+    if (-not $plannedWindowsByKey.ContainsKey($occKey)) { $plannedWindowsByKey[$occKey] = New-Object System.Collections.ArrayList }
+    [void]$plannedWindowsByKey[$occKey].Add($candidateWin)
 
     # the server updates an existing row for employee+date+centre, otherwise inserts
     $target   = $existingForDay | Where-Object { $_.SupportLocation -eq $loc.DisplayName } | Select-Object -First 1
@@ -354,11 +417,21 @@ if ($ListSkipped) { foreach ($s in $skipped) { P ("    ShiftEntries#{0,-6} {1}" 
 else { P ("    ids: {0}" -f (($skipped | ForEach-Object { $_.Id }) -join ', ')) }
 P ""
 
+P "=== SKIPPED BY THE OVERLAP GUARD (requirement 6) ==="
+$overlapSkips = @($plan | Where-Object { $_.SkipReason -eq 'OVERLAP_EXISTING_ONSITE' })
+P ("  {0} row(s) would NOT be written: an IsOnSite=1 WicShiftEntries row for the same employee+day overlaps them." -f $overlapSkips.Count)
+foreach ($s in $overlapSkips) {
+    P ("    ShiftEntries#{0,-6} {1} {2,-10} {3,-24} {4,-13}  {5}" -f `
+        $s.ShiftEntryId, $s.EmployeeId, $s.ShiftDate, $s.CentreDisplayName, $s.WorkingShift, $s.Note)
+}
+P ""
+
 P "=== SUMMARY ==="
 P ("  GROUP 2 rows to backfill        : {0}" -f $plan.Count)
 P ("    of those: INSERT              : {0}" -f @($plan | Where-Object { $_.Action -eq 'INSERT' }).Count)
 P ("    of those: UPDATE existing row : {0}" -f @($plan | Where-Object { $_.Action -like 'UPDATE*' }).Count)
 P ("    of those: WOULD WRITE NOTHING : {0}" -f @($plan | Where-Object { $_.Action -eq 'WOULD WRITE NOTHING' }).Count)
+P ("    of those: SKIPPED (overlap)   : {0}" -f @($plan | Where-Object { $_.SkipReason -eq 'OVERLAP_EXISTING_ONSITE' }).Count)
 P ("  already linked (skipped)        : {0}" -f $skipped.Count)
 P ("  centres that would be created   : {0}" -f (@($plan | Where-Object { $_.CentreDisplayName } | Select-Object -ExpandProperty CentreDisplayName -Unique) -join ', '))
 P ""

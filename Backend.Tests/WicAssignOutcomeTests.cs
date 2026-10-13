@@ -114,6 +114,9 @@ public class WicAssignOutcomeTests
     }
 
     // ── 2. Overlap with a HUMAN commitment: confirmation, then replacement ───────
+    // Requirement 5: a human-owned day row is only protected when the conflicting
+    // centre ALSO carries an ACTIVE WicAgentAssignments row for this employee. The
+    // seed therefore carries the permanent Centre A assignment (name+location match).
     [Fact]
     public async Task Overlap_WithManualCommitment_RequiresConfirmation_ThenReplaces()
     {
@@ -121,6 +124,8 @@ public class WicAssignOutcomeTests
         SeedEmployeeAndCentres(db, "E2");
         SeedCentreBOpen(db);
         SeedExistingA(db, "E2", human: true);
+        db.WicAgentAssignments.Add(new WicAgentAssignment
+        { LocationCode = "A", EmployeeName = "Agent E2", AssignmentType = "MAIN", IsActive = true });
         await db.SaveChangesAsync();
 
         var first = await Svc(db).CreateAssignmentAsync(ReqB("E2"), db, manualActor: "S60028");

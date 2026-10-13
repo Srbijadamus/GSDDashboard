@@ -49,11 +49,15 @@
 #
 #   # the only writing mode (NOT part of the read-only investigation)
 #   pwsh -File Tools\Backfill-WicDutyCandidates.ps1 -Apply -ExpectedInsertCount <n>
+#
+#   # bounded scope (one phase only), e.g. FAZA 1: 2026-10-13 .. 2026-12-31
+#   pwsh -File Tools\Backfill-WicDutyCandidates.ps1 -AsOf 2026-10-13 -Until 2026-12-31
 
 [CmdletBinding()]
 param(
     [string] $ConnectionString = "Server=localhost\SQLEXPRESS;Database=GSDDashboard;Integrated Security=true;TrustServerCertificate=yes;",
     [string] $AsOf             = "",      # scope: ShiftDate >= AsOf (default: server today)
+    [string] $Until            = "",      # scope: ShiftDate <= Until (default: no upper bound)
     [string] $OutDir           = "C:\GSDDashboard_secure\.tmp-d94-select",
     [string] $ChecksCsv        = "",      # per-row verdicts
     [string] $ReportFile       = "",      # monthly summary + per-check failures
@@ -145,6 +149,25 @@ function Get-IntersectionWindow([string]$win, [string]$centreWin) {
     if ($e -le $s) { return $null }
     return ('{0:00}:{1:00}-{2:00}:{3:00}' -f [int]$s.TotalHours, $s.Minutes, [int]$e.TotalHours, $e.Minutes)
 }
+# Requirement 6 overlap guard.  The SAME rule the server uses
+# (WicShiftService.CreateAssignmentAsync and WicConflictDetector.WindowsOverlap):
+#   start1 < end2 AND start2 < end1
+# Unknown/unparseable windows never count as an overlap.
+function Test-WindowOverlap([string]$a, [string]$b) {
+    if ([string]::IsNullOrWhiteSpace($a) -or [string]::IsNullOrWhiteSpace($b)) { return $false }
+    $x = $a.Split('-'); $y = $b.Split('-')
+    if ($x.Count -ne 2 -or $y.Count -ne 2) { return $false }
+    try {
+        $x0 = [TimeSpan]::Parse($x[0]); $x1 = [TimeSpan]::Parse($x[1])
+        $y0 = [TimeSpan]::Parse($y[0]); $y1 = [TimeSpan]::Parse($y[1])
+    } catch { return $false }
+    return ($x0 -lt $y1) -and ($y0 -lt $x1)
+}
+function Test-OverlapsAny([string]$win, $windows) {
+    if ([string]::IsNullOrWhiteSpace($win)) { return $false }
+    foreach ($w in @($windows)) { if (Test-WindowOverlap $win $w) { return $true } }
+    return $false
+}
 function Get-DutyWindow($h) {
     if (-not $h -or $h.IsClosed) { return $null }
     $start = if (-not [string]::IsNullOrWhiteSpace($h.OpenTime))  { $h.OpenTime }  else { $h.OpenTime2 }
@@ -157,6 +180,9 @@ function Get-DutyWindow($h) {
 # ---------------------------------------------------------------------------
 $serverToday = [string](Invoke-Scalar "SELECT CONVERT(varchar(10), CAST(GETDATE() AS date), 23)")
 $scopeFrom   = if ([string]::IsNullOrWhiteSpace($AsOf)) { $serverToday } else { $AsOf }
+$scopeUntil  = if ([string]::IsNullOrWhiteSpace($Until)) { "" } else { $Until }
+$untilClause = if ($scopeUntil) { "  AND se.ShiftDate <= CONVERT(date, '$scopeUntil', 23)`r`n" } else { "" }
+$scopeText   = if ($scopeUntil) { "$scopeFrom .. $scopeUntil" } else { ">= $scopeFrom" }
 $baselineFrom = [string](Invoke-Scalar ("SELECT CONVERT(varchar(10), DATEADD(day, -{0}, CAST(GETDATE() AS date)), 23)" -f ($BaselineWeeks * 7 - 1)))
 
 $rows = Invoke-Rows @"
@@ -167,7 +193,7 @@ SELECT se.Id, se.EmployeeId, CONVERT(varchar(10), se.ShiftDate, 23) AS D,
 FROM ShiftEntries se
 WHERE se.ShiftType = 'WIC_DUTY'
   AND se.ShiftDate >= CONVERT(date, '$scopeFrom', 23)
-  AND NOT EXISTS (SELECT 1 FROM WicShiftEntries w
+$untilClause  AND NOT EXISTS (SELECT 1 FROM WicShiftEntries w
                   WHERE w.EmployeeId = se.EmployeeId AND w.ShiftDate = se.ShiftDate)
 ORDER BY se.ShiftDate, se.EmployeeId, se.Id
 "@
@@ -268,6 +294,23 @@ $absSet = New-Object 'System.Collections.Generic.HashSet[string]'
 foreach ($r in (Invoke-Rows "SELECT DISTINCT se.EmployeeId, CONVERT(varchar(10), se.ShiftDate, 23) D, se.ShiftType FROM ShiftEntries se WHERE se.ShiftType IN ('AL','SL','PH','OFF','OFF_WEEKEND','OL','HALF_AL','CD','UL','LPH','RESIGNED','SICK')")) {
     [void]$absSet.Add(($r.EmployeeId + '|' + $r.D + '|' + $r.ShiftType))
 }
+
+# ---------------------------------------------------------------------------
+# Requirement 6 overlap guard state
+# ---------------------------------------------------------------------------
+# Never write a second overlapping IsOnSite row for one employee+day.  The scope
+# query above already excludes any employee+date that has a WicShiftEntries row,
+# so the "existing" set is defensive; the planned set is the real guard when two
+# WIC_DUTY rows of the same employee+day are both candidates.
+$onSiteExistingByEmpDate = @{}
+foreach ($w in $wic) {
+    if (-not $w.IsOnSite) { continue }
+    if ([string]::IsNullOrWhiteSpace($w.WorkingShift)) { continue }
+    $wk = "$($w.EmployeeId)|$($w.D)"
+    if (-not $onSiteExistingByEmpDate.ContainsKey($wk)) { $onSiteExistingByEmpDate[$wk] = New-Object System.Collections.ArrayList }
+    [void]$onSiteExistingByEmpDate[$wk].Add([string]$w.WorkingShift)
+}
+$plannedWindowsByEmpDate = @{}
 
 # ---------------------------------------------------------------------------
 # Check (d'): the USUAL SHIFT of every employee in scope
@@ -454,6 +497,24 @@ foreach ($r in $rows) {
     if ($inPlan) {
         $planShift = Get-IntersectionWindow $rowWin $duty
         if (-not $planShift) { $planSkip = 'PLAN_NO_OVERLAP' }
+        else {
+            # Requirement 6: before writing, test the SAME overlap rule for the same
+            # employee+day.  An existing (or already planned) IsOnSite=1 row whose
+            # working window overlaps the row about to be written makes this row be
+            # skipped and reported; nothing is written for it and no existing row is
+            # ever modified (Apply only INSERTs).
+            $occKey = "$($r.EmployeeId)|$($r.D)"
+            $occ = @()
+            if ($onSiteExistingByEmpDate.ContainsKey($occKey)) { $occ += $onSiteExistingByEmpDate[$occKey] }
+            if ($plannedWindowsByEmpDate.ContainsKey($occKey)) { $occ += $plannedWindowsByEmpDate[$occKey] }
+            if (Test-OverlapsAny $planShift $occ) {
+                $planShift = $null
+                $planSkip  = 'OVERLAP_EXISTING_ONSITE'
+            } else {
+                if (-not $plannedWindowsByEmpDate.ContainsKey($occKey)) { $plannedWindowsByEmpDate[$occKey] = New-Object System.Collections.ArrayList }
+                [void]$plannedWindowsByEmpDate[$occKey].Add($planShift)
+            }
+        }
     }
 
     $firstFail = if (-not $passA) { ($failA -join ',') }
@@ -525,13 +586,14 @@ function P([string]$s = "") { [void]$out.Add($s) }
 
 P "WIC_DUTY -> WicShiftEntries BACKFILL CANDIDATE ANALYSIS (check d replaced by d')"
 P "mode            : $mode"
-P "server now      : $serverToday   scope: ShiftDate >= $scopeFrom"
+P "server now      : $serverToday   scope: ShiftDate $scopeText"
 P "baseline window : $baselineFrom .. $serverToday ($BaselineWeeks weeks, manual + WORKING rows)"
 P "NO_BASELINE when: fewer than $MinBaselineRows usable baseline rows"
 P "task3 rows      : $($rows.Count)  over $($scopeEmps.Count) employee(s)"
 P "backfill set    : $($planRows.Count)   (pass a+b+c and NOT DOUBLE; SHIFT_MISMATCH/NO_BASELINE INCLUDED)"
 P "  of those, plan has a usable WorkingShift : $($planWritable.Count)"
-P "  of those, PLAN_NO_OVERLAP (shift outside centre hours) : $(@($planRows | Where-Object { $_.PlanSkip }).Count)"
+P "  of those, PLAN_NO_OVERLAP (shift outside centre hours) : $(@($planRows | Where-Object { $_.PlanSkip -eq 'PLAN_NO_OVERLAP' }).Count)"
+P "  of those, OVERLAP_EXISTING_ONSITE (skipped: IsOnSite row for the same employee+day overlaps) : $(@($planRows | Where-Object { $_.PlanSkip -eq 'OVERLAP_EXISTING_ONSITE' }).Count)"
 P "SHIFT_MISMATCH  : $($mismatchRows.Count)"
 P "NO_BASELINE     : $($noBaseRows.Count)"
 P "DOUBLE          : $($doubleRows.Count)"
@@ -596,7 +658,8 @@ P ("{0,-9} {1,7}" -f "month","rows")
 $planMonths = $planWritable | Group-Object Month | Sort-Object Name
 foreach ($g in $planMonths) { P ("{0,-9} {1,7}" -f $g.Name, $g.Count) }
 P ("{0,-9} {1,7}" -f "TOTAL", $planWritable.Count)
-P ("  rows in the set without a usable WorkingShift (PLAN_NO_OVERLAP): {0}" -f @($planRows | Where-Object { $_.PlanSkip }).Count)
+P ("  rows in the set without a usable WorkingShift (PLAN_NO_OVERLAP): {0}" -f @($planRows | Where-Object { $_.PlanSkip -eq 'PLAN_NO_OVERLAP' }).Count)
+P ("  rows SKIPPED by the overlap guard (OVERLAP_EXISTING_ONSITE): {0}" -f @($planRows | Where-Object { $_.PlanSkip -eq 'OVERLAP_EXISTING_ONSITE' }).Count)
 P ""
 P " 5 examples:"
 P ("{0,-6} {1,-9} {2,-10} {3,-26} {4,-12} {5,-12} {6,-13} {7}" -f `
@@ -677,12 +740,12 @@ $reportText | Set-Content -Path $ReportFile -Encoding UTF8
 
 $dry = New-Object System.Collections.ArrayList
 [void]$dry.Add("WIC_DUTY backfill - DRY RUN (no writes). Generated $([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss'))")
-[void]$dry.Add("scope: ShiftType='WIC_DUTY', ShiftDate >= $scopeFrom, no WicShiftEntries for EmployeeId+ShiftDate")
+[void]$dry.Add("scope: ShiftType='WIC_DUTY', ShiftDate $scopeText, no WicShiftEntries for EmployeeId+ShiftDate")
 [void]$dry.Add("mode : $mode")
 [void]$dry.Add("set  : pass a+b+c and NOT DOUBLE (SHIFT_MISMATCH and NO_BASELINE are INCLUDED)")
 [void]$dry.Add("WorkingShift = ShiftEntries shift cut to the centre window. ShiftEntries is never changed.")
 [void]$dry.Add("")
-[void]$dry.Add("rows in the plan: $($planWritable.Count)   (PLAN_NO_OVERLAP skipped: $(@($planRows | Where-Object { $_.PlanSkip }).Count))")
+[void]$dry.Add("rows in the plan: $($planWritable.Count)   (PLAN_NO_OVERLAP skipped: $(@($planRows | Where-Object { $_.PlanSkip -eq 'PLAN_NO_OVERLAP' }).Count); OVERLAP_EXISTING_ONSITE skipped: $(@($planRows | Where-Object { $_.PlanSkip -eq 'OVERLAP_EXISTING_ONSITE' }).Count))")
 [void]$dry.Add("")
 [void]$dry.Add(("{0,-6} {1,-9} {2,-10} {3,-26} {4,-12} {5,-13} {6}" -f "seId","emp","date","SupportLocation","rowShift","WorkingShift","d'"))
 foreach ($c in ($planWritable | Sort-Object Date, EmployeeId)) {

@@ -334,7 +334,7 @@
         "closed": "The WIC centre is closed on this day.",
         "blockingShift": "The agent is unavailable on {{date}} (shift type {{shiftType}}).",
         "timeConflict": "Time conflict with {{loc}} ({{shift}}) on {{date}}.",
-        "manualConflict": "An existing manual assignment must be confirmed first.",
+        "manualConflict": "The existing assignment belongs to an active permanent WIC assignment and must be confirmed first.",
         "protectedManual": "A protected manual shift exists on this day; edit the cell directly.",
         "http": "The server rejected the request ({{status}}).",
         "other": "{{reason}}"

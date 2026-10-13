@@ -845,10 +845,20 @@ public class WicShiftService
 
         // Human decision (manualActor != null): an overlapping AUTOMATIC commitment at
         // another centre is REPLACED in the same SaveChanges — one manual action must win
-        // over an automatic row and be visible everywhere at once. A commitment that
-        // carries a human owner (ManualChangeBy, or a rollout-owned row) is never replaced
-        // silently: the caller gets requiresConfirmation with who set it and when, and the
-        // UI asks the RTM before re-sending with ConfirmManualReplace=true.
+        // over an automatic row and be visible everywhere at once.
+        //
+        // Requirement 5 (RTM / human assign, 2026-10-13): a centre A row is only protected
+        // when BOTH hold —
+        //   (a) WicAgentAssignments carries an ACTIVE row for A matching this employee
+        //       (LocationCode + FullName; the table has no EmployeeId column), and
+        //   (b) the row is human-owned, read from the day's ShiftEntries row exactly as
+        //       before (ManualChangeBy set, or SourceModule == RolloutSource.Module),
+        // because WicShiftEntries has no manual columns of its own.
+        // Without an active permanent assignment for A there is nothing to protect, so the
+        // human's new centre wins and the stale A row is removed — a human action must not
+        // be blocked by a leftover WicShiftEntries row. When both hold, the row is never
+        // deleted silently: the caller gets requiresConfirmation with who set it and when,
+        // and re-sends with ConfirmManualReplace=true to replace it.
         //
         // An automatic writer (manualActor == null) keeps the historical, conservative
         // behaviour exactly: block, save nothing, and return the exact reason. It never
@@ -856,6 +866,26 @@ public class WicShiftService
         var toReplace      = new List<WicShiftEntry>();
         var manualConflict = new List<object>();
         var replacedHuman  = false;
+
+        // WicAgentAssignments has no EmployeeId column: the active-owner lookup is by
+        // (LocationCode, EmployeeName == employee.FullName). Loaded once, and only when a
+        // human call actually has an overlapping on-site candidate to judge.
+        var activeAssignmentLocations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (manualActor != null && conflictCandidates.Count > 0 && !string.IsNullOrWhiteSpace(employee.FullName))
+        {
+            var ownedCodes = await db.WicAgentAssignments
+                .Where(a => a.IsActive && a.EmployeeName == employee.FullName)
+                .Select(a => a.LocationCode)
+                .ToListAsync();
+            foreach (var code in ownedCodes)
+                if (!string.IsNullOrWhiteSpace(code)) activeAssignmentLocations.Add(code);
+        }
+
+        // Human ownership of the day's row, exactly the check the previous implementation
+        // used (ShiftEntries.ManualChangeBy, or a rollout-owned row).
+        var isHumanOwned = shift != null && (!string.IsNullOrWhiteSpace(shift.ManualChangeBy)
+            || string.Equals(shift.SourceModule, RolloutSource.Module, StringComparison.Ordinal));
+
         foreach (var existing in conflictCandidates)
         {
             // Same location → update in-place (no conflict)
@@ -872,9 +902,8 @@ public class WicShiftService
 
             var conflictLocation = existing.SupportLocation ?? existing.LocationCode ?? "(unknown)";
 
-            // No ShiftEntries row proves an automatic owner (synthetic/legacy data), or this
-            // is an automatic writer: the historical skip, with the exact day reason.
-            if (manualActor == null || shift == null)
+            // Automatic writer: the historical skip, with the exact day reason.
+            if (manualActor == null)
                 return Results.Ok(new
                 {
                     success    = true,
@@ -888,22 +917,30 @@ public class WicShiftService
                     conflicts  = new[] { new { location = conflictLocation, workingShift = existing.WorkingShift } },
                 });
 
-            var isHumanOwned = !string.IsNullOrWhiteSpace(shift.ManualChangeBy)
-                || string.Equals(shift.SourceModule, RolloutSource.Module, StringComparison.Ordinal);
-            if (isHumanOwned && !req.ConfirmManualReplace)
+            // Requirement 5 step 1: an ACTIVE permanent assignment for centre A exists for
+            // this employee (name + the A row's own LocationCode).
+            var hasActiveAssignmentForA = !string.IsNullOrWhiteSpace(existing.LocationCode)
+                && activeAssignmentLocations.Contains(existing.LocationCode);
+
+            // Requirement 5 step 3: protected only when the active permanent assignment AND
+            // human ownership coincide. Anything else falls through to toReplace (step 4).
+            if (hasActiveAssignmentForA && isHumanOwned)
             {
-                manualConflict.Add(new
+                if (!req.ConfirmManualReplace)
                 {
-                    location     = conflictLocation,
-                    workingShift = existing.WorkingShift,
-                    actor        = shift.ManualChangeBy,
-                    atUtc        = shift.ManualChangeAt,
-                    atBerlin     = BerlinTime.FromUtc(shift.ManualChangeAt)?.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture),
-                });
-                continue;
+                    manualConflict.Add(new
+                    {
+                        location     = conflictLocation,
+                        workingShift = existing.WorkingShift,
+                        actor        = shift!.ManualChangeBy,
+                        atUtc        = shift.ManualChangeAt,
+                        atBerlin     = BerlinTime.FromUtc(shift.ManualChangeAt)?.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+                    });
+                    continue;
+                }
+                replacedHuman = true;
             }
 
-            if (isHumanOwned && req.ConfirmManualReplace) replacedHuman = true;
             toReplace.Add(existing);
         }
 
@@ -914,7 +951,7 @@ public class WicShiftService
                 saved                = false,
                 requiresConfirmation = true,
                 reasonCode           = "MANUAL_CONFLICT",
-                reason               = $"The existing assignment on {date:yyyy-MM-dd} was set by a human and must be confirmed before it can be replaced.",
+                reason               = $"The existing assignment on {date:yyyy-MM-dd} belongs to an active permanent WIC assignment and was set by a human; it must be confirmed before it can be replaced.",
                 date                 = date.ToString("yyyy-MM-dd"),
                 conflicts            = manualConflict,
             });

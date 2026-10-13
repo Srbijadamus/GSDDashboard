@@ -842,7 +842,11 @@
     },
     {
       "Path": "Backend.Tests/CreateAssignmentTimePriorityTests.cs",
-      "Hash": "65BFE3066EB60D489E4DB548E5E420D2ED57B0A2685304BE4AFC3AF812B767C9"
+      "Hash": "297000E342172645650D7504CE563BBC73AED896BE4CC36D01A4F1FFF259D09F"
+    },
+    {
+      "Path": "Backend.Tests/DashboardOpenCentreExceptionTests.cs",
+      "Hash": "DD367286F68B4EC58BE6CE90328EE00D00091D7C1BFD07642DDBD15E7E82A59C"
     },
     {
       "Path": "Backend.Tests/ForecastServiceTests.cs",
@@ -889,8 +893,24 @@
       "Hash": "CE9244F9D728EE5C4DC5AFDBA7948E926B61B187AC6E4308B5E2E607CBE77980"
     },
     {
+      "Path": "Backend.Tests/RosterGenerateMainAssignmentTests.cs",
+      "Hash": "A69CEB0D2C7156142FD45898F0D31E5E454E213198404C4097201E891A49BF26"
+    },
+    {
+      "Path": "Backend.Tests/RosterMultiMainPerDayTests.cs",
+      "Hash": "8B50446E94DB1A6F97AB3984EB9B89BFF95D1FCD3DA1DA03DFCCE5D39493E37B"
+    },
+    {
+      "Path": "Backend.Tests/RosterMultiMainSameDayTests.cs",
+      "Hash": "54F7BECE35E2CDA31FAD720A8A79A474FE5B831C0EAAEC374D2AD114846EE8D2"
+    },
+    {
       "Path": "Backend.Tests/RosterServiceTests.cs",
-      "Hash": "E5388E412360C3B5A494600E39FF469BC6310F74237B90171C2B62945F924932"
+      "Hash": "7AB2B9A4ACE88348185FF5EE5EA39DF15A62249F63DC3C9FC3E83317728B5A70"
+    },
+    {
+      "Path": "Backend.Tests/RosterWicShiftTimeRequiredTests.cs",
+      "Hash": "F9478ADDEFC858457E490F879849DCC20E49617EF6422D2B10C97FF4F752AE51"
     },
     {
       "Path": "Backend.Tests/ShiftTaskCoverageTests.cs",
@@ -901,12 +921,28 @@
       "Hash": "0A461BF18CDAA92D9B5066E4D8E3E47A59784BA8958578DD36FA7E000B494741"
     },
     {
+      "Path": "Backend.Tests/SyncWicDutyMainFallbackTests.cs",
+      "Hash": "5B4A9F5D126F51CE5C549259395E24EEBC259F68C89C7C76F76C24EA2A62F036"
+    },
+    {
+      "Path": "Backend.Tests/TemporaryMoveReturnsToMainTests.cs",
+      "Hash": "913A0CB3783101CAE5977ED84F1A89743B7DDB16C07E52FA4470551BE5931228"
+    },
+    {
       "Path": "Backend.Tests/VacationOtherLeaveTests.cs",
       "Hash": "2278CB5CAE0A61BBA7A9B8099371BD74EA44D5BA434F7ACDD8F6869B9E3175BF"
     },
     {
+      "Path": "Backend.Tests/WicAssignmentActiveOwnerGuardTests.cs",
+      "Hash": "6996D12EA249CA46DF4BC9E85D1DE4D9FF54BC40896472E6CF7B23485FB90532"
+    },
+    {
       "Path": "Backend.Tests/WicAssignOutcomeTests.cs",
-      "Hash": "270119A71B82767D65645406E06AFA054BD47E645EAB686BCF526B80E7D33311"
+      "Hash": "51BC9D2D5821E3E9C07A7421052BE6C43F08A699281E1EF651AECC429A7FAC7F"
+    },
+    {
+      "Path": "Backend.Tests/WicBackfillOverlapGuardTests.cs",
+      "Hash": "5419AA2F3B330964CCB5CB6CF26EE472A16AB4674C97DC4F6C33FFFAC06F2DF0"
     },
     {
       "Path": "Backend.Tests/WicDutyRecognitionTests.cs",
@@ -914,7 +950,7 @@
     },
     {
       "Path": "Backend.Tests/WicManualChangeTests.cs",
-      "Hash": "3FAD42E65AFEB9A78B41F73DE09FCF7878C4C40C2337BCFC763DAB451141004F"
+      "Hash": "1088D3EFB73206BA3F080E31FBD390754C39CD8A822D96190D0482BE31613F60"
     },
     {
       "Path": "Backend.Tests/WicManualUiAlwaysSucceedsTests.cs",
@@ -930,7 +966,7 @@
     },
     {
       "Path": "Backend.Tests/WicTwoIntervalCentreTests.cs",
-      "Hash": "AB1274E8098EF149446AD3C311B18D29EFF230876FDC635CFAD3846BA7487615"
+      "Hash": "034F19F21F3FD11ACF0F5497A399FF1869DF8E06E4B28CC227DB6118DF58F40C"
     },
     {
       "Path": "Backend/ALBalanceService.cs",
@@ -1058,7 +1094,7 @@
     },
     {
       "Path": "Backend/DashboardService.cs",
-      "Hash": "4860331A8BBD330011D7D451D33D3D09209C5A9C87CEE99FDD62029430D90A9C"
+      "Hash": "EEEDA488A2DA62C32CCF48D924DF85B4383795C8AAE2E9D10403A105C308C488"
     },
     {
       "Path": "Backend/DemoDataAdminService.cs",
@@ -1138,7 +1174,7 @@
     },
     {
       "Path": "Backend/RosterService.cs",
-      "Hash": "7AB76CD0739DC24147FD5242BB7349F098C4BAA955C0419A9B76ACD870BD67FA"
+      "Hash": "02E0A1C3B9E13BBB2BD379D36359BC4725C3A1E0EEA06180C1080760F76A7313"
     },
     {
       "Path": "Backend/RtmEntry.cs",
@@ -1182,7 +1218,7 @@
     },
     {
       "Path": "Backend/Services/Mojibake.cs",
-      "Hash": "8690533F179D501D098637B981BE44479587C0B5E335178AA4EEB4E2AD3A5F42"
+      "Hash": "46ACA2FD91FC29B06E5FCDB36769F747B89171C34681F998584627A8AC64469E"
     },
     {
       "Path": "Backend/Services/PublicHolidayResolver.cs",
@@ -1226,7 +1262,7 @@
     },
     {
       "Path": "Backend/Services/WicHoursResolver.cs",
-      "Hash": "B7D81222598FEE8007BBF9934DD8D9EF6C71DA8357DACBA7F0DB4DAA14B6CDF7"
+      "Hash": "051142326B56DA1B4EB399CC50A112190EBB1D6E5BF634742F6298793CF5EE2D"
     },
     {
       "Path": "Backend/Services/WicLocationMatcher.cs",
@@ -1250,7 +1286,7 @@
     },
     {
       "Path": "Backend/ShiftService.cs",
-      "Hash": "0E130BDB45B5795E768439FCB83B5223908021E72E273AE369C5BDBE18F46FB9"
+      "Hash": "C8849B494979C9F141F56C7092A0F05C38B40A165A340C5552C5D79B7F7CE40B"
     },
     {
       "Path": "Backend/ShiftSyncService.cs",
@@ -1306,7 +1342,7 @@
     },
     {
       "Path": "Backend/WicShiftService.cs",
-      "Hash": "D868278E86F42176EBBCC43CB7CC8C5047EECB4E2E17FAF065405A19F6B85B48"
+      "Hash": "8EC1862DC2EFE27136E4AD8C8DE6D7230B519F2DA3008F16EB2BA49BB5D76475"
     },
     {
       "Path": "Frontend/eslint.config.js",
@@ -1318,7 +1354,7 @@
     },
     {
       "Path": "Frontend/package.json",
-      "Hash": "31FEDA4CD7457FDD19D0B304C00759847FE91010D624182CB4849353714B4181"
+      "Hash": "B12674990F0E8F604158C5369C46BBFA953325968C5A30D77A66CC2419D27145"
     },
     {
       "Path": "Frontend/postcss.config.js",
@@ -1442,11 +1478,11 @@
     },
     {
       "Path": "Frontend/src/i18n/locales/de/common.json",
-      "Hash": "BEE9E619B265787EFAC718988F44E7DDB7AD2FAB5D6BFE2A75EFEB399F04CBE0"
+      "Hash": "A64B7A30DF5CEE874E21975BC17CFB30F22D61BA33A8FBB528C9D74153E20CD9"
     },
     {
       "Path": "Frontend/src/i18n/locales/en/common.json",
-      "Hash": "13C4F8E58D1298AE6FCF9A535E4A5FBF213E2CEA53AD14BE59C7C2C4EB08AE1D"
+      "Hash": "21CD65DC15DAC6BB2257CCEDECBC750F641C72A4CA914B27FD47FAEBB770A876"
     },
     {
       "Path": "Frontend/src/index.css",
@@ -1502,7 +1538,7 @@
     },
     {
       "Path": "Frontend/src/pages/AssignAgentModal.tsx",
-      "Hash": "5C86F6CEB2FD839CDFE0CE339DEED17199EF83DB505709D4457259CE5510D40F"
+      "Hash": "842495F29C73B62708AC34FF7E75B917AFC930A43936263220EE6798F1A6F394"
     },
     {
       "Path": "Frontend/src/pages/Attendance.tsx",
@@ -1586,7 +1622,7 @@
     },
     {
       "Path": "Frontend/src/pages/Roster.tsx",
-      "Hash": "F718D9F39171080E2D09DCC44AB75E7D863BA1FA2B7A34E78003A666D505364B"
+      "Hash": "01678809C29F055F90C19A942BEDBC64E7F4C757308A095B8182F24C95F829F6"
     },
     {
       "Path": "Frontend/src/pages/Roster.tsx.bak-wic",
@@ -1594,7 +1630,7 @@
     },
     {
       "Path": "Frontend/src/pages/Shifts.tsx",
-      "Hash": "51F7EAB7BB1C58CB94673471FB9BFFF1800D9010D6642CA9377C3392A4D33A42"
+      "Hash": "D63CAEE97FB1628C0395325D814E1AB48ED4F779E42ADC2E9A621F42F536D718"
     },
     {
       "Path": "Frontend/src/pages/SickLeave.tsx",
@@ -1697,12 +1733,28 @@
       "Hash": "7B0AAE5B98FC42515B250DE16BB82DBA8991D6EA3C24A94E7E730A4134C36ED7"
     },
     {
+      "Path": "Frontend/src/utils/rosterErrors.test.ts",
+      "Hash": "C99CCFA88D780CC8015500D90B8DAAA910D7CC813E2D204F8A6F9BE53933B028"
+    },
+    {
+      "Path": "Frontend/src/utils/rosterErrors.ts",
+      "Hash": "02D9F43423EB09CE62FAF85EED5BC6A8D40749DAFF1292F8F90EAF164D119146"
+    },
+    {
       "Path": "Frontend/src/utils/substituteAccept.test.ts",
       "Hash": "F3D7AA51F1CBAD2A80FF46612CCD2C24BC967289E3F04ADF2F4CE2B43EBAA82B"
     },
     {
       "Path": "Frontend/src/utils/substituteAccept.ts",
       "Hash": "7CB40B3EFD23708FE2810D3E498EF36CE1699898555F795B189CEF426A1BF67D"
+    },
+    {
+      "Path": "Frontend/src/utils/wicOpenHours.test.ts",
+      "Hash": "E93E156C2DFEEE1BC89B7E50C6E8B0CF4A24987FEA79CD8DA6D4ABCB5AC6C8E9"
+    },
+    {
+      "Path": "Frontend/src/utils/wicOpenHours.ts",
+      "Hash": "B251C036820630CAE5D2459F7A7FC53114810A374729033C16B4004216340214"
     },
     {
       "Path": "Frontend/tailwind.config.js",
