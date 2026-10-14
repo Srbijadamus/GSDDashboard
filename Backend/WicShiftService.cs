@@ -571,6 +571,10 @@ public class WicShiftService
                 // cut to the centre's window. The agent's ShiftEntries times above are only
                 // backfilled when empty; they are never replaced by the centre's hours here.
                 var workingShift = WicWorkingShift.Slice(shift.ShiftStart, shift.ShiftEnd, dutyStart, dutyEnd)
+                                   // No overlap: the row belongs to THIS centre, so it carries
+                                   // the centre's hours — not the agent's daily shift (RTM
+                                   // 2026-10-15 item 4).
+                                   ?? WicWorkingShift.FallbackWindow(dutyStart, dutyEnd)
                                    ?? $"{openTime}-{closeTime}";
 
                 // Keyed by LOCATION, not only by agent+day. WicShiftEntries is unique on
@@ -609,6 +613,23 @@ public class WicShiftService
                         WorkingShift    = workingShift,
                         Task            = "WIC",
                     });
+                }
+
+                // THE MULTI-CENTRE RULE (RTM 2026-10-15): 2+ on-site centres on this date
+                // means the daily ShiftEntries row must span them all. The OTHER centres'
+                // rows are read from the database (the current location's row is replaced
+                // by the freshly computed `workingShift` so the tracked, not-yet-saved value
+                // is never read back stale), and the row is only ever widened.
+                var otherParts = await db.WicShiftEntries
+                    .Where(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date && w.IsOnSite
+                             && w.SupportLocation != location.DisplayName)
+                    .Select(w => w.WorkingShift)
+                    .ToListAsync();
+                if (WicWorkingShift.WidenDaily(shift.ShiftStart, shift.ShiftEnd,
+                        otherParts.Append(workingShift)) is { } widened)
+                {
+                    shift.ShiftStart = widened.Start;
+                    shift.ShiftEnd   = widened.End;
                 }
             }
         }
@@ -833,6 +854,10 @@ public class WicShiftService
         var agentWicStart = (shift ?? newShift)!.ShiftStart;
         var agentWicEnd   = (shift ?? newShift)!.ShiftEnd;
         var workingShift  = WicWorkingShift.Slice(agentWicStart, agentWicEnd, dutyStart, dutyEnd)
+                            // No overlap: this row belongs to THIS centre, so it carries the
+                            // centre's own hours — never the agent's daily shift (RTM
+                            // 2026-10-15 item 4, the Demmin dual-centre case).
+                            ?? WicWorkingShift.FallbackWindow(dutyStart, dutyEnd)
                             ?? $"{openTime}-{closeTime}";
 
         // Check for time-range overlap with existing WicShiftEntries for this agent+date.
@@ -1004,25 +1029,30 @@ public class WicShiftService
             });
         }
 
-        // Update ShiftEntry time to span all REMAINING WIC assignments for the day
-        // (earliest start → latest end). Superseded rows are excluded: they are gone.
-        if (existingWicShifts.Count > 0)
+        // THE MULTI-CENTRE RULE (RTM 2026-10-15): when the day ends up with 2+ on-site WIC
+        // centres, the single daily ShiftEntries row must span all of them — earliest WIC
+        // part start .. latest WIC part end. The WicShiftEntries rows stay one per centre.
+        //
+        // The row is only ever WIDENED. A window that already covers the span (a wider
+        // roster shift, an earlier multi-centre span) is left exactly as it is, so a later
+        // edit of ONE centre can never push another centre out of the day.
+        //
+        // `keepAgentShift` is deliberately NOT excluded any more: the Demmin case is
+        // precisely an agent whose own 13:00-15:00 window had to grow to 10:00-15:00 once
+        // Am Hanseufer (10:00-12:00) was added next to Woldeforster (13:00-15:00).
+        var dayShiftRow = shift ?? newShift;
+        if (dayShiftRow != null)
         {
-            var allShifts = existingWicShifts
+            var partWindows = existingWicShifts
+                .Where(w => w.IsOnSite)          // only live commitments are WIC parts
                 .Where(w => !toReplace.Contains(w))
                 .Where(w => !string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase))
-                .Select(w => ParseShift(w.WorkingShift))
-                .Append((newStart, newEnd))
-                .Where(t => t.Item1 != null && t.Item2 != null)
-                .ToList();
-            // keepAgentShift: the agent's own shift is the truth, so the multi-centre span
-            // is not allowed to replace it either.
-            if (allShifts.Count > 1 && shift != null && !keepAgentShift)
+                .Select(w => w.WorkingShift)
+                .Append(workingShift);
+            if (WicWorkingShift.WidenDaily(dayShiftRow.ShiftStart, dayShiftRow.ShiftEnd, partWindows) is { } widened)
             {
-                var minStart = allShifts.Select(t => t.Item1!.Value).Min();
-                var maxEnd   = allShifts.Select(t => t.Item2!.Value).Max();
-                shift.ShiftStart = minStart.ToString(@"hh\:mm");
-                shift.ShiftEnd   = maxEnd.ToString(@"hh\:mm");
+                dayShiftRow.ShiftStart = widened.Start;
+                dayShiftRow.ShiftEnd   = widened.End;
             }
         }
 

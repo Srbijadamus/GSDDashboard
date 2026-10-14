@@ -406,7 +406,10 @@ public class ShiftService
         // THE RULE (RTM 2026-10-14): the on-site WorkingShift is the agent's Shift Plan cell
         // cut to the centre's resolved window (WicWorkingShift). The cell's own times are
         // never replaced by the centre's hours except when the cell carried none above.
+        // When the two do not touch, the CENTRE's window is written — never the cell's own
+        // window (RTM 2026-10-15 item 4).
         var workingShift = WicWorkingShift.Slice(shift.ShiftStart, shift.ShiftEnd, dutyStart, dutyEnd)
+                           ?? WicWorkingShift.FallbackWindow(dutyStart, dutyEnd)
                            ?? $"{start}-{end}";
 
         // AgentTask carries the (truncated) centre name, the convention every WIC reader uses.
@@ -439,6 +442,22 @@ public class ShiftService
                 WorkingShift    = workingShift,
                 Task            = "WIC",
             });
+        }
+
+        // THE MULTI-CENTRE RULE (RTM 2026-10-15): a cell edit for ONE centre must never
+        // narrow the day's ShiftEntries row so that the agent's OTHER centre falls out of
+        // it. When this date holds 2+ on-site WIC rows the row is widened to their span
+        // (earliest start .. latest end); a row that already covers the span is untouched,
+        // so the edit still wins for everything inside it.
+        var otherParts = rows
+            .Where(w => w.IsOnSite && !ReferenceEquals(w, target))
+            .Where(w => !string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase))
+            .Select(w => w.WorkingShift)
+            .Append(workingShift);
+        if (WicWorkingShift.WidenDaily(shift.ShiftStart, shift.ShiftEnd, otherParts) is { } widened)
+        {
+            shift.ShiftStart = widened.Start;
+            shift.ShiftEnd   = widened.End;
         }
         return null;
     }

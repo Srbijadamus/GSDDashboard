@@ -105,6 +105,81 @@ public static class WicWorkingShift
         return ix == null ? (null, null) : (ix.Value.Start.ToString("HH:mm"), ix.Value.End.ToString("HH:mm"));
     }
 
+    /// <summary>
+    /// The value to write for an on-site row when <see cref="Slice"/> finds NO overlap
+    /// between the agent's window and the centre's window: the CENTRE's own window, never
+    /// the agent's daily shift.
+    ///
+    /// RTM 2026-10-15 (item 4): on a day with two or more centres each WIC row belongs to
+    /// ONE centre and must be cut to THAT centre's working hours. Writing the day's span
+    /// into a row whose centre is outside it would make both rows claim the same hours and
+    /// destroy the per-centre split (the Demmin Am Hanseufer / Woldeforster case, where the
+    /// agent's own 13:00-15:00 window had to stay a 10:00-12:00 row for Am Hanseufer).
+    /// Null when the centre carries no usable window — the caller keeps its previous
+    /// fallback.
+    /// </summary>
+    public static string? FallbackWindow(string? centreStart, string? centreEnd) =>
+        Window(centreStart, centreEnd) is { } c ? Fmt(c) : null;
+
+    /// <summary>
+    /// The day's committed window across ALL of its WIC centres: earliest WIC part start ..
+    /// latest WIC part end. Null when the day is not a multi-centre day (fewer than two
+    /// usable parts) or nothing can be parsed.
+    ///
+    /// RTM fact 2026-10-15: an agent can work in two centres on the same day (10-12 centre A,
+    /// 13-15 centre B). <c>ShiftEntries</c> is unique per employee+date, so that single daily
+    /// row must cover every one of his WIC parts; <c>WicShiftEntries</c> stays one row per
+    /// centre.
+    /// </summary>
+    public static (TimeOnly Start, TimeOnly End)? MultiCentreSpan(IEnumerable<string?> workingShifts)
+    {
+        var valid = workingShifts
+            .Select(Parse)
+            .Where(w => w.HasValue)
+            .Select(w => w!.Value)
+            .ToList();
+        if (valid.Count < 2) return null;
+
+        var start = valid.Min(w => w.Start);
+        var end   = valid.Max(w => w.End);
+        return end > start ? (start, end) : null;
+    }
+
+    /// <summary>
+    /// Widens a day's own window so that it CONTAINS <paramref name="span"/>. A window that
+    /// already covers the span is returned unchanged — the daily shift is only ever widened,
+    /// never narrowed.
+    /// </summary>
+    public static (TimeOnly Start, TimeOnly End) Widen(
+        (TimeOnly Start, TimeOnly End)? current, (TimeOnly Start, TimeOnly End) span)
+    {
+        if (current is not { } c) return span;
+        var start = c.Start < span.Start ? c.Start : span.Start;
+        var end   = c.End   > span.End   ? c.End   : span.End;
+        return (start, end);
+    }
+
+    /// <summary>
+    /// THE MULTI-CENTRE RULE applied to the daily <c>ShiftEntries</c> row, as strings:
+    /// given the row's current ShiftStart/ShiftEnd and every on-site WIC row's WorkingShift
+    /// for that date, the window it must carry — or null when nothing has to change.
+    ///
+    /// Returns null when the day is not multi-centre, when no part parses, or when the
+    /// current window already covers the span. This is what stops a single centre's cell
+    /// edit (Shift Plan, Assign Agent, + New Shift) from narrowing the daily shift so that
+    /// the agent's other centre falls out of it.
+    /// </summary>
+    public static (string Start, string End)? WidenDaily(
+        string? currentStart, string? currentEnd, IEnumerable<string?> partWorkingShifts)
+    {
+        if (MultiCentreSpan(partWorkingShifts) is not { } span) return null;
+
+        var widened = Widen(Window(currentStart, currentEnd), span);
+        var start   = widened.Start.ToString("HH:mm");
+        var end     = widened.End.ToString("HH:mm");
+        return start == currentStart && end == currentEnd ? null : (start, end);
+    }
+
     private static (TimeOnly Start, TimeOnly End)? Window(string? start, string? end) =>
         TimeOnly.TryParse(start, out var s) && TimeOnly.TryParse(end, out var e) && e > s ? (s, e) : null;
 

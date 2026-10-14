@@ -973,6 +973,10 @@
       "Hash": "B860D9E233711690A11729EE92EDC24429C3F8E7D80A692E62D8D6359A6128AC"
     },
     {
+      "Path": "Backend.Tests/WicMultiCentreDayTests.cs",
+      "Hash": "4D57CC0374ED74DAD12F5FB53B23B053910984C4A6B54B00628315B8DFEA100D"
+    },
+    {
       "Path": "Backend.Tests/WicMultiLocationSameDayTests.cs",
       "Hash": "938B35F7D82E510084E49FE90476A58A78433DF1FD1BE3667D430323D6B83383"
     },
@@ -1298,7 +1302,7 @@
     },
     {
       "Path": "Backend/Services/WicWorkingShift.cs",
-      "Hash": "4661EDEFEB3366FB3AEDE2CE03E379DD0AC787A19C65977D6A11CE8DC670BAD0"
+      "Hash": "FB0E1F3F95EACEE6ECFDCD821ECF9D8F23589646EE44290F367CB2AB8887E8C8"
     },
     {
       "Path": "Backend/ShiftEntry.cs",
@@ -1310,7 +1314,7 @@
     },
     {
       "Path": "Backend/ShiftService.cs",
-      "Hash": "4C9513DF8A6D9D534C993E8D26DCE1DF4866B480A924B372B646FB072B57F0A7"
+      "Hash": "DBD99048E27E1F1064CE7CDD6470C9DDD441CF65D092264F89D68D7A39C68E25"
     },
     {
       "Path": "Backend/ShiftSyncService.cs",
@@ -1366,7 +1370,7 @@
     },
     {
       "Path": "Backend/WicShiftService.cs",
-      "Hash": "D374B2CB745E1F595F4676ECCFA4A0C76B8FCD744BAED11FEC423B2B6953F043"
+      "Hash": "18E5897CC02344ACED4185257374FC77BA46F6DBC4F6AC6E1DDD7E6E77E6AA9C"
     },
     {
       "Path": "Frontend/eslint.config.js",
