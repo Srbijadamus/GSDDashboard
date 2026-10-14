@@ -869,6 +869,10 @@
       "Hash": "95FC3827B98CF8C4EC7A153BA03502CA99710139C045A9FA0FAEF32291A50CA9"
     },
     {
+      "Path": "Backend.Tests/LiveShiftUnfixAcceptanceTests.cs",
+      "Hash": "02168519F984D5F8CC24CA0612EF5C1FD7CA997A8D55F78382F5932268E43331"
+    },
+    {
       "Path": "Backend.Tests/ManualShiftEditTests.cs",
       "Hash": "B08615CBB989BDC570F61ED26FDA79796DBF718BFAE61000F01F3282F97EEF5F"
     },
@@ -903,6 +907,10 @@
     {
       "Path": "Backend.Tests/RosterMultiMainSameDayTests.cs",
       "Hash": "54F7BECE35E2CDA31FAD720A8A79A474FE5B831C0EAAEC374D2AD114846EE8D2"
+    },
+    {
+      "Path": "Backend.Tests/RosterOverwriteScopeTests.cs",
+      "Hash": "CF4693498F768FC0F7054C2E4D0526DCE2E97517F33441B79B82BF61D5D64423"
     },
     {
       "Path": "Backend.Tests/RosterServiceTests.cs",
@@ -966,7 +974,7 @@
     },
     {
       "Path": "Backend.Tests/WicMultiLocationSameDayTests.cs",
-      "Hash": "62DEF4B44B75D7732B36B30F7B587DBBD5A7A72F94C55C8A57B2AF7D3BDABC19"
+      "Hash": "938B35F7D82E510084E49FE90476A58A78433DF1FD1BE3667D430323D6B83383"
     },
     {
       "Path": "Backend.Tests/WicPresenceUnificationTests.cs",
@@ -975,6 +983,10 @@
     {
       "Path": "Backend.Tests/WicTwoIntervalCentreTests.cs",
       "Hash": "034F19F21F3FD11ACF0F5497A399FF1869DF8E06E4B28CC227DB6118DF58F40C"
+    },
+    {
+      "Path": "Backend.Tests/WicWorkingShiftRuleTests.cs",
+      "Hash": "F739DFBAA3F6112305B8C246F358A65087B7124E4F67F2490B5DD0AE274A1C3C"
     },
     {
       "Path": "Backend/ALBalanceService.cs",
@@ -1134,7 +1146,7 @@
     },
     {
       "Path": "Backend/Modules/SubstitutionModule.cs",
-      "Hash": "8268CB2820771BC3AEEA1DFD33E07A9C408986E1F9C33CFE4E98454403B32D88"
+      "Hash": "A9FE88989979C361AA312828D1FD4F0C58BD81ABF41E07836704426973B1ACDA"
     },
     {
       "Path": "Backend/OtherModels.cs",
@@ -1174,7 +1186,7 @@
     },
     {
       "Path": "Backend/RolloutService.cs",
-      "Hash": "A4DAE6F5533391E5C4583004D479F7163D7FC15A0173B0AB7A3168307D4B2593"
+      "Hash": "D9C45DBFEA52CD6915370956B7E22A91C7DD0A81EB2CCFBAAB0BD38B92FDB776"
     },
     {
       "Path": "Backend/RosterBatch.cs",
@@ -1258,7 +1270,7 @@
     },
     {
       "Path": "Backend/Services/WicConflictDetector.cs",
-      "Hash": "B731EA38F20C9819B103EA008CDF1B346DB36CBFA45DAFA2AB288F6FDAED0AD5"
+      "Hash": "33B73E995097DB64F3B56E3955D2C844159E97A99DA26D07B3C6AEA0E770D38E"
     },
     {
       "Path": "Backend/Services/WicCoverageImport.cs",
@@ -1285,6 +1297,10 @@
       "Hash": "0A47168E6F2578A93C499FAC579553D170A114422FF4E6D838C5E6A9919A0AB2"
     },
     {
+      "Path": "Backend/Services/WicWorkingShift.cs",
+      "Hash": "4661EDEFEB3366FB3AEDE2CE03E379DD0AC787A19C65977D6A11CE8DC670BAD0"
+    },
+    {
       "Path": "Backend/ShiftEntry.cs",
       "Hash": "7EEA14ACA0DD81E808DBA0F3AC915439C4825BD03BE897B55CEFA6F5D5C6CD32"
     },
@@ -1294,7 +1310,7 @@
     },
     {
       "Path": "Backend/ShiftService.cs",
-      "Hash": "C8849B494979C9F141F56C7092A0F05C38B40A165A340C5552C5D79B7F7CE40B"
+      "Hash": "4C9513DF8A6D9D534C993E8D26DCE1DF4866B480A924B372B646FB072B57F0A7"
     },
     {
       "Path": "Backend/ShiftSyncService.cs",
@@ -1322,7 +1338,7 @@
     },
     {
       "Path": "Backend/VwicService.cs",
-      "Hash": "BFC23091FC8A07EE3EB7A9B0E95E4C4DA3583CACB12BBE384E4DC4F2D5BA5E90"
+      "Hash": "F7B4033420B68CAB322DA59CF6D1D76503C25A9BCEF900BE10B4468154563080"
     },
     {
       "Path": "Backend/WicAssignCandidatesService.cs",
@@ -1350,7 +1366,7 @@
     },
     {
       "Path": "Backend/WicShiftService.cs",
-      "Hash": "8EC1862DC2EFE27136E4AD8C8DE6D7230B519F2DA3008F16EB2BA49BB5D76475"
+      "Hash": "D374B2CB745E1F595F4676ECCFA4A0C76B8FCD744BAED11FEC423B2B6953F043"
     },
     {
       "Path": "Frontend/eslint.config.js",

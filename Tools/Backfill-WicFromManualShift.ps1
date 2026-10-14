@@ -214,6 +214,24 @@ function Get-DutyWindow($loc, [datetime]$date) {
     return @{ Start = $start; End = $end }
 }
 
+# THE RULE (RTM 2026-10-14): the on-site WorkingShift is the agent's shift CUT TO the
+# centre's resolved window. A nil intersection is reported, never written. Mirrors
+# WicWorkingShift.Slice in Backend/Services/WicWorkingShift.cs.
+function Get-IntersectionWindow([string]$agentWin, [string]$centreWin) {
+    if ([string]::IsNullOrWhiteSpace($agentWin)) { return $null }
+    if ([string]::IsNullOrWhiteSpace($centreWin)) { return $agentWin }
+    $a = $agentWin.Split('-'); $c = $centreWin.Split('-')
+    if ($a.Count -ne 2 -or $c.Count -ne 2) { return $agentWin }
+    try {
+        $as = [TimeSpan]::Parse($a[0].Trim()); $ae = [TimeSpan]::Parse($a[1].Trim())
+        $cs = [TimeSpan]::Parse($c[0].Trim()); $ce = [TimeSpan]::Parse($c[1].Trim())
+    } catch { return $agentWin }
+    $s = if ($as -gt $cs) { $as } else { $cs }
+    $e = if ($ae -lt $ce) { $ae } else { $ce }
+    if ($e -le $s) { return $null }
+    return ('{0:hh\:mm}-{1:hh\:mm}' -f $s, $e)
+}
+
 function Get-DayName([datetime]$date) { return $date.DayOfWeek.ToString() }
 
 # Requirement 6 overlap guard.  The SAME rule the server uses
@@ -280,22 +298,48 @@ foreach ($m in $manual) {
         continue
     }
 
+    $centreDw  = Get-DutyWindow $loc $shiftDay
+    $centreWin = if ($centreDw.Start -and $centreDw.End) { "$($centreDw.Start)-$($centreDw.End)" } else { $null }
+
     $start = $m.ShiftStart
     $end   = $m.ShiftEnd
     $timeSource = "ShiftStart/ShiftEnd"
     if ([string]::IsNullOrWhiteSpace($start) -or [string]::IsNullOrWhiteSpace($end)) {
-        $dw = Get-DutyWindow $loc $shiftDay
-        if ([string]::IsNullOrWhiteSpace($start)) { $start = if ($dw.Start) { $dw.Start } else { "08:00" } }
-        if ([string]::IsNullOrWhiteSpace($end))   { $end   = if ($dw.End)   { $dw.End }   else { "17:00" } }
+        if ([string]::IsNullOrWhiteSpace($start)) { $start = if ($centreDw.Start) { $centreDw.Start } else { "08:00" } }
+        if ([string]::IsNullOrWhiteSpace($end))   { $end   = if ($centreDw.End)   { $centreDw.End }   else { "17:00" } }
         $timeSource = "WIC opening hours fallback (DutyWindow) + server defaults"
     }
+
+    # THE RULE: cut the manual shift to the centre's window. ShiftEntries is never changed.
+    $candidateWin = Get-IntersectionWindow "$start-$end" $centreWin
+    if (-not $candidateWin) {
+        [void]$plan.Add([pscustomobject]@{
+            Action            = "WOULD WRITE NOTHING"
+            ShiftEntryId      = $m.Id
+            EmployeeId        = $m.EmployeeId
+            ShiftDate         = $m.D
+            AgentTask         = $m.AgentTask
+            CentreDisplayName = $loc.DisplayName
+            LocationCode      = $loc.LocationCode
+            DayOfWeek         = $null
+            WorkingShift      = $null
+            IsOnSite          = $null
+            Task              = $null
+            ResolvedVia       = $res.Via
+            TimeSource        = $timeSource
+            ManualOrigin      = "ShiftEntries#$($m.Id) by=$($m.ManualChangeBy) at=$($m.ManualChangeAt)"
+            SkipReason        = "PLAN_NO_OVERLAP"
+            Note              = "empty intersection: the ShiftEntries window $start-$end does not touch the centre window $centreWin"
+        })
+        continue
+    }
+    $timeSource = "$timeSource, cut to the centre window"
 
     # Requirement 6: before writing, apply the SAME overlap test for the same
     # employee+day.  An existing (or already planned) IsOnSite=1 WicShiftEntries
     # row whose working window overlaps the row about to be written makes this row
     # be SKIPPED and reported.  Nothing is written for it and no existing row is
     # ever modified (Apply only INSERTs; an UPDATE is refused by HARD GATE 1).
-    $candidateWin = "$start-$end"
     $occKey       = "$($m.EmployeeId)|$($m.D)"
     $blocking     = New-Object System.Collections.ArrayList
     foreach ($w in $existingForDay) {
@@ -345,7 +389,7 @@ foreach ($m in $manual) {
         CentreDisplayName = $loc.DisplayName
         LocationCode      = $loc.LocationCode
         DayOfWeek         = (Get-DayName $shiftDay)
-        WorkingShift      = "$start-$end"
+        WorkingShift      = $candidateWin
         IsOnSite          = 1
         Task              = "WIC"
         ResolvedVia       = $res.Via

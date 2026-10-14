@@ -456,7 +456,15 @@ public sealed class RolloutService(GSDContext db)
         row.SupportLocation = day.LocationName;
         row.LocationCode    = day.LocationCode;
         row.WicOpeningHours = $"{day.StartTime}-{day.EndTime}";
-        row.WorkingShift    = $"{day.StartTime} - {day.EndTime}";
+        // THE RULE (RTM 2026-10-14): cut the rollout's window to the worker's own shift.
+        // day.StartTime/EndTime ARE the centre's hours for this date (the service projects
+        // them as one ROLLOUT exception row, which WicHoursResolver prefers), so the other
+        // factor is the worker's ShiftEntries window. That row is never changed here.
+        var agentShift = await db.ShiftEntries.FirstOrDefaultAsync(x =>
+            x.EmployeeId == worker.EmployeeId && x.ShiftDate == day.RolloutDate);
+        row.WorkingShift    = WicWorkingShift.Slice(agentShift?.ShiftStart, agentShift?.ShiftEnd,
+                                  day.StartTime, day.EndTime)
+                              ?? $"{day.StartTime} - {day.EndTime}";
         row.IsOnSite        = true;
         row.IsGSDDay        = false;
         row.IsOffDay        = false;

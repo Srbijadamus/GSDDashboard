@@ -393,17 +393,21 @@ public class ShiftService
 
         var start = shift.ShiftStart;
         var end   = shift.ShiftEnd;
+        var centreHours = await _db.WicOpeningHours.ToListAsync();
+        var (dutyStart, dutyEnd) = WicWorkingShift.CentreWindow(centreHours, location, shift.ShiftDate);
         if (string.IsNullOrWhiteSpace(start) || string.IsNullOrWhiteSpace(end))
         {
-            var allHours = await _db.WicOpeningHours.ToListAsync();
-            var hours = WicHoursResolver.Resolve(allHours, location.LocationCode, location.LocationCodeLegacy,
-                (int)shift.ShiftDate.DayOfWeek, shift.ShiftDate);
-            var (dutyStart, dutyEnd) = WicHoursResolver.DutyWindow(hours);
             if (string.IsNullOrWhiteSpace(start)) start = dutyStart ?? "08:00";
             if (string.IsNullOrWhiteSpace(end))   end   = dutyEnd   ?? "17:00";
             shift.ShiftStart = start;
             shift.ShiftEnd   = end;
         }
+
+        // THE RULE (RTM 2026-10-14): the on-site WorkingShift is the agent's Shift Plan cell
+        // cut to the centre's resolved window (WicWorkingShift). The cell's own times are
+        // never replaced by the centre's hours except when the cell carried none above.
+        var workingShift = WicWorkingShift.Slice(shift.ShiftStart, shift.ShiftEnd, dutyStart, dutyEnd)
+                           ?? $"{start}-{end}";
 
         // AgentTask carries the (truncated) centre name, the convention every WIC reader uses.
         shift.AgentTask = location.DisplayName.Length > 20 ? location.DisplayName[..20] : location.DisplayName;
@@ -413,7 +417,7 @@ public class ShiftService
             string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase));
         if (target != null)
         {
-            target.WorkingShift = $"{start}-{end}";
+            target.WorkingShift = workingShift;
             target.LocationCode = location.LocationCode;
             target.IsOnSite     = true;
             target.IsGSDDay     = false;
@@ -432,7 +436,7 @@ public class ShiftService
                 IsOnSite        = true,
                 IsGSDDay        = false,
                 IsOffDay        = false,
-                WorkingShift    = $"{start}-{end}",
+                WorkingShift    = workingShift,
                 Task            = "WIC",
             });
         }

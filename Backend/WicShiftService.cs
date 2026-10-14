@@ -501,8 +501,11 @@ public class WicShiftService
         if (shift != null)
         {
             shift.ShiftType    = req.ShiftType;
-            shift.ShiftStart   = req.ShiftStart;
-            shift.ShiftEnd     = req.ShiftEnd;
+            // The agent's own times are never dropped by an edit that carries none. The WIC
+            // block below then fills a still-empty window from the centre's hours, but it
+            // must never turn the centre's hours into the agent's shift (RTM rule 2026-10-14).
+            shift.ShiftStart   = req.ShiftStart ?? shift.ShiftStart;
+            shift.ShiftEnd     = req.ShiftEnd   ?? shift.ShiftEnd;
             shift.AgentTask    = req.AgentTask;
             shift.SourceModule = "MANUAL";
         }
@@ -547,16 +550,11 @@ public class WicShiftService
             if (location != null)
             {
                 int dow = (int)date.DayOfWeek;
-                // This date's exception day (manual exception day / Rollout day) wins over
-                // the weekday pattern — same precedence as WicHoursResolver.
-                var hours = await db.WicOpeningHours
-                    .Where(h => h.LocationCode == req.LocationCode &&
-                                (h.ExceptionDate == date || (h.ExceptionDate == null && h.DayOfWeek == dow)))
-                    .OrderByDescending(h => h.ExceptionDate == date)
-                    .ThenByDescending(h => h.EffectiveFrom ?? DateOnly.MinValue)
-                    .FirstOrDefaultAsync();
-                // Spans a two-interval centre's break — WicHoursResolver.DutyWindow.
-                var (dutyStart, dutyEnd) = WicHoursResolver.DutyWindow(hours);
+                // THE single hours definition: this date's exception day (manual exception /
+                // Rollout day) wins over the weekday pattern and the legacy location code is
+                // honoured — WicHoursResolver, then DutyWindow for a two-interval break.
+                var allHours = await db.WicOpeningHours.ToListAsync();
+                var (dutyStart, dutyEnd) = WicWorkingShift.CentreWindow(allHours, location, date);
                 string openTime  = dutyStart ?? req.ShiftStart ?? "08:00";
                 string closeTime = dutyEnd   ?? req.ShiftEnd   ?? "17:00";
 
@@ -568,6 +566,12 @@ public class WicShiftService
                 shift.IsWicDuty = true;
                 if (string.IsNullOrEmpty(shift.ShiftStart)) shift.ShiftStart = openTime;
                 if (string.IsNullOrEmpty(shift.ShiftEnd))   shift.ShiftEnd   = closeTime;
+
+                // THE RULE (RTM 2026-10-14): the on-site WorkingShift is the agent's window
+                // cut to the centre's window. The agent's ShiftEntries times above are only
+                // backfilled when empty; they are never replaced by the centre's hours here.
+                var workingShift = WicWorkingShift.Slice(shift.ShiftStart, shift.ShiftEnd, dutyStart, dutyEnd)
+                                   ?? $"{openTime}-{closeTime}";
 
                 // Keyed by LOCATION, not only by agent+day. WicShiftEntries is unique on
                 // (EmployeeId, ShiftDate, SupportLocation) — UQ_WicShift_EmpDateLoc — so an
@@ -587,7 +591,7 @@ public class WicShiftService
                     wicShift.IsOnSite        = true;
                     wicShift.IsOffDay        = false;
                     wicShift.IsGSDDay        = false;
-                    wicShift.WorkingShift    = $"{openTime}-{closeTime}";
+                    wicShift.WorkingShift    = workingShift;
                     wicShift.Task            = "WIC";
                 }
                 else
@@ -602,7 +606,7 @@ public class WicShiftService
                         IsOnSite        = true,
                         IsGSDDay        = false,
                         IsOffDay        = false,
-                        WorkingShift    = $"{openTime}-{closeTime}",
+                        WorkingShift    = workingShift,
                         Task            = "WIC",
                     });
                 }
@@ -651,7 +655,8 @@ public class WicShiftService
 
         int dow = (int)date.DayOfWeek;
         var allHours = await db.WicOpeningHours.ToListAsync();
-        var hours    = WicHoursResolver.Resolve(allHours, req.LocationCode, dow, date);
+        // Legacy location code included, so a legacy-coded centre resolves its hours too.
+        var hours    = WicHoursResolver.Resolve(allHours, location.LocationCode, location.LocationCodeLegacy, dow, date);
         if (hours?.IsClosed == true)
             return Results.Ok(new
             {
@@ -820,6 +825,16 @@ public class WicShiftService
             db.ShiftEntries.Add(newShift);
         }
 
+        // THE RULE (RTM 2026-10-14): the on-site WorkingShift is the agent's own window
+        // cut to this centre's resolved window. The agent's ShiftEntries times above stay
+        // exactly as they are — only the WIC row's value is derived from them. This is the
+        // universal form of the intersection the keepAgentShift branch only applied when
+        // the request carried no times (see WicWorkingShift).
+        var agentWicStart = (shift ?? newShift)!.ShiftStart;
+        var agentWicEnd   = (shift ?? newShift)!.ShiftEnd;
+        var workingShift  = WicWorkingShift.Slice(agentWicStart, agentWicEnd, dutyStart, dutyEnd)
+                            ?? $"{openTime}-{closeTime}";
+
         // Check for time-range overlap with existing WicShiftEntries for this agent+date.
         // Two assignments are allowed on the same day only if their times do not overlap.
         // NULL or unparseable times are treated as "unknown — don't block".
@@ -835,7 +850,7 @@ public class WicShiftService
             return TimeSpan.TryParse(parts[0].Trim(), out var a) && TimeSpan.TryParse(parts[1].Trim(), out var b)
                 ? (a, b) : (null, null);
         }
-        var (newStart, newEnd) = ParseShift($"{openTime}-{closeTime}");
+        var (newStart, newEnd) = ParseShift(workingShift);
 
         // Only IsOnSite=true rows represent a real, currently-active WIC commitment.
         // IsOnSite=false rows are history (move-to-gsd), reassignment-to-other-task
@@ -966,7 +981,7 @@ public class WicShiftService
             .FirstOrDefault(w => string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase));
         if (existingForLoc != null)
         {
-            existingForLoc.WorkingShift = $"{openTime}-{closeTime}";
+            existingForLoc.WorkingShift = workingShift;
             existingForLoc.LocationCode = req.LocationCode;
             existingForLoc.IsOnSite     = true;
             existingForLoc.IsGSDDay     = false;
@@ -984,7 +999,7 @@ public class WicShiftService
                 IsOnSite        = true,
                 IsGSDDay        = false,
                 IsOffDay        = false,
-                WorkingShift    = $"{openTime}-{closeTime}",
+                WorkingShift    = workingShift,
                 Task            = "WIC",
             });
         }

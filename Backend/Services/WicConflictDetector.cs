@@ -153,18 +153,15 @@ public sealed class WicConflictDetector(GSDContext db)
 
     /// <summary>
     /// The window the agent is actually committed to AT THIS LOCATION: the row's own
-    /// WorkingShift (<c>WicShiftEntries</c> is unique per employee+date+location, so each row
-    /// describes one centre). Only when the row carries no usable HH:MM pair do we fall back
-    /// to the centre's opening window — the reading this detector used for every row before.
-    /// Reading the centre's hours for both entries is why two overlapping same-day
-    /// assignments at centres whose opening hours do not overlap went unreported.
+    /// WorkingShift CUT TO the centre's resolved window for the date (the RTM rule,
+    /// see <see cref="WicWorkingShift.EffectiveWindow"/>). <c>WicShiftEntries</c> is unique
+    /// per employee+date+location, so each row describes one centre. Two assignments are
+    /// therefore compared on their trimmed times: a shift that starts before the centre
+    /// opens, or ends after it closes, must not look like a clash with a second centre.
+    /// Falls back to the centre's opening window when the row carries no usable HH:MM pair.
     /// </summary>
     private static (string? Start, string? End) AssignmentWindow(WicShiftEntry entry, WicOpeningHour? hours)
-    {
-        var times = System.Text.RegularExpressions.Regex.Matches(entry.WorkingShift ?? "", @"\d{1,2}:\d{2}");
-        if (times.Count >= 2) return (times[0].Value, times[^1].Value);
-        return WicHoursResolver.DutyWindow(hours);
-    }
+        => WicWorkingShift.EffectiveWindow(entry.WorkingShift, hours);
 
     // Two windows overlap when start1 < end2 AND start2 < end1 — the same rule
     // WicShiftService.CreateAssignmentAsync uses to refuse a second same-day assignment.

@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Breaks;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Modules.Vwic;
@@ -328,9 +329,17 @@ public class VwicService
         if (emp == null)
             return new { error = "Employee not found" };
 
-        var shiftStart   = req.ShiftStart ?? "07:00";
-        var shiftEnd     = req.ShiftEnd   ?? "18:00";
-        var workingShift = $"{shiftStart} - {shiftEnd}";
+        // VWIC is a pseudo-centre: it has no WicLocation and therefore no WicOpeningHours
+        // window, so THE RULE's centre factor is empty and the working shift is the agent's
+        // own ShiftEntries window (WicWorkingShift.Slice with a null centre window). The
+        // request times only fill a gap in that window. The stored shape stays
+        // "HH:mm - HH:mm" because the VWIC reader parses exactly that (line 237).
+        var agentShift   = await _db.ShiftEntries
+            .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
+        var shiftStart   = agentShift?.ShiftStart ?? req.ShiftStart ?? "07:00";
+        var shiftEnd     = agentShift?.ShiftEnd   ?? req.ShiftEnd   ?? "18:00";
+        var workingShift = (WicWorkingShift.Slice(shiftStart, shiftEnd, null, null)
+                            ?? $"{shiftStart}-{shiftEnd}").Replace("-", " - ");
 
         var existing = await _db.WicShiftEntries
             .FirstOrDefaultAsync(w => w.EmployeeId == req.EmployeeId && w.ShiftDate == date);

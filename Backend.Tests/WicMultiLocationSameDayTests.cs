@@ -159,15 +159,16 @@ public class WicMultiLocationSameDayTests
 
     // ── 4. Real overlap is still a conflict ────────────────────────────────────
 
-    // The comparison case: two assignments with the SAME window (08:00-16:00) at two
-    // centres. It must be reported as an OVERLAP even though the two centres' opening
-    // hours (10:00-12:00 / 13:00-15:00) do not overlap — the agent is double-booked.
+    // The comparison case: the agent's day shift (08:00-16:00) exceeds both centres, and
+    // after the 2026-10-14 RTM rule trims each assignment to its centre's window the two
+    // trimmed windows (10:00-14:00 / 13:00-15:00) DO overlap, so the agent is
+    // double-booked and the day is an OVERLAP.
     [Fact]
-    public async Task ConflictDetector_OverlappingAssignments_IsOverlap_EvenWhenCentreHoursDoNotOverlap()
+    public async Task ConflictDetector_OverlapAfterTrimmingToCentreHours_IsOverlap()
     {
         using var db = NewDb();
         SeedEmployee(db);
-        SeedLocations(db);
+        SeedLocations(db, openA: "10:00", closeA: "14:00", openB: "13:00", closeB: "15:00");
         SeedOnSiteRow(db, NameA, "08:00-16:00");
         SeedOnSiteRow(db, NameB, "08:00-16:00");
         await db.SaveChangesAsync();
@@ -178,20 +179,23 @@ public class WicMultiLocationSameDayTests
         Assert.Equal("OVERLAP", conflict.ConflictType);
         Assert.Equal("E1", conflict.EmployeeId);
         Assert.Equal(2, conflict.Locations.Length);
-        Assert.All(conflict.Locations, l => Assert.Equal("08:00", l.OpenTime));
-        Assert.All(conflict.Locations, l => Assert.Equal("16:00", l.CloseTime));
+        // Trimmed to the centre windows, not the agent's raw 08:00-16:00.
+        Assert.Contains(conflict.Locations, l => l.OpenTime == "10:00" && l.CloseTime == "14:00");
+        Assert.Contains(conflict.Locations, l => l.OpenTime == "13:00" && l.CloseTime == "15:00");
     }
 
     // Two non-overlapping assignments (the Demmin case) are a SPLIT shift, never an
     // OVERLAP: the default conflict list stays empty, the detail view can still show it.
+    // The rows carry the agent's wider shift (07:30-16:30) — the detector trims them to
+    // the two centre windows (10:00-12:00 / 13:00-15:00) before comparing.
     [Fact]
     public async Task ConflictDetector_NonOverlappingAssignments_IsNotOverlap()
     {
         using var db = NewDb();
         SeedEmployee(db);
         SeedLocations(db);
-        SeedOnSiteRow(db, NameA, "10:00-12:00");
-        SeedOnSiteRow(db, NameB, "13:00-15:00");
+        SeedOnSiteRow(db, NameA, "07:30-16:30");
+        SeedOnSiteRow(db, NameB, "07:30-16:30");
         await db.SaveChangesAsync();
 
         var detector = new WicConflictDetector(db);
