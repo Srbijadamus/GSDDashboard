@@ -1,0 +1,56 @@
+SHIFT_MISMATCH POST-CHECKS - 2026-10-14 08:30:49
+scope        : 2026-10-15 .. 2027-02-28
+plan file    : C:\GSDDashboard_secure\.tmp-shiftfix\shift-mismatch-plan.csv  (1878 ShiftEntries / 1878 WicShiftEntries rows)
+login KID    : S69307 (DEV; S60028 is never used)
+
+=== 2) same agent, two centres, overlapping on-site WIC rows (expect 0) ===
+    emp 9074345 2026-10-29  Wesel 08:00-10:00 (wic 67886)  <>  Grafenrheinfeld 07:30-16:00 (wic 67967)  [pre-existing, untouched]
+  overlapping cross-centre pairs: 1
+
+=== 3) on-site WIC rows on a day with AL/SL in ShiftEntries (expect 0) ===
+    emp 9120965 2026-10-15 SL  wicId 67608 Quickborn 07:30-16:30  seId 56827 manualBy=S60028  [pre-existing, untouched]
+  rows: 1
+
+=== 1) remaining candidates a+b+c (expect 0) ===
+  Run:  pwsh -File Tools\ShiftMismatchFix\Fix-ShiftMismatch.ps1   and read REPAIR SET.
+
+=== 5) HR Export (ShiftPlan = the hours) for 2026-11-16 ===
+  HTTP 200, ShiftPlan rows for 2026-11-16: 112
+    emp 9125519  WIC_DUTY  export=09:00-15:00  db=09:00-15:00  MATCH  manualBy=  centre=Stade
+    emp 9129441  WIC_DUTY  export=09:00-17:00  db=09:00-17:00  MATCH  manualBy=  centre=Salzgitter
+    emp 9129428  WIC_DUTY  export=08:00-16:00  db=08:00-16:00  MATCH  manualBy=  centre=Pfaffenhofen
+
+=== 4) Shift Plan -> WIC sync (code check, no live write) ===
+  method SyncWicDutyFromShiftPlanAsync at ShiftService.cs:325
+    L394: var start = shift.ShiftStart;
+    L395: var end   = shift.ShiftEnd;
+    L401: var (dutyStart, dutyEnd) = WicHoursResolver.DutyWindow(hours);
+    L404: shift.ShiftStart = start;
+    L405: shift.ShiftEnd   = end;
+    L416: target.WorkingShift = $"{start}-{end}";
+    L435: WorkingShift    = $"{start}-{end}",
+  Reading: the sync takes the row's OWN ShiftStart/ShiftEnd (the repaired, manual-marked
+  value) and cuts nothing from the centre; it only falls back to the centre DutyWindow when
+  the row carries no time at all, which a repaired row never does. The method is reachable
+  only from a human edit (manualActor != null) and repaired rows carry ManualChangeBy, so
+  PreserveManualShift protects them from the bulk/automatic paths. No path re-writes the
+  centre hours into ShiftStart/ShiftEnd.
+  PreserveManualShift guard occurrences in ShiftService.cs: 4
+
+=== 6) /health and the WIC routes, local and through the tunnel ===
+  [local] login S69307 -> role=DEV employeeId=9074466
+  local  /health                                    -> 200 
+  local  /api/wic/cards?date=2026-11-16             -> 200 
+  local  /api/wic/coverage-gaps?days=14             -> 200 
+  local  /api/wic/forecast?horizon=14               -> 200 
+  local  /api/wic/briefing                          -> 200 
+  local  /api/wic/conflicts?from=2026-10-15&to=2027-02-28 -> 200 
+  local  /api/wic/reachability                      -> 200 
+  [tunnel] login S69307 -> role=DEV employeeId=9074466
+  tunnel /health                                    -> 200 
+  tunnel /api/wic/cards?date=2026-11-16             -> 200 
+  tunnel /api/wic/coverage-gaps?days=14             -> 200 
+  tunnel /api/wic/forecast?horizon=14               -> 200 
+  tunnel /api/wic/briefing                          -> 200 
+  tunnel /api/wic/conflicts?from=2026-10-15&to=2027-02-28 -> 200 
+  tunnel /api/wic/reachability                      -> 200 

@@ -1,0 +1,88 @@
+SHIFT_MISMATCH REPAIR - FINAL REPORT
+generated 2026-10-14 (server today 2026-10-14)
+scope: ShiftEntries ShiftType='WIC_DUTY', ShiftDate 2026-10-15 .. 2027-02-28
+
+RESULT
+  WIC_DUTY rows in scope                 : 2790
+  rows repaired (a+b+c)                  : 1878
+  WicShiftEntries.WorkingShift updated   : 421
+  guard skips during the transaction     : 0
+  post-write dry run REPAIR SET          : 0
+
+REPAIRED BY MONTH
+  2026-10     41
+  2026-11    444
+  2026-12    476
+  2027-01    453
+  2027-02    464
+  TOTAL   1878
+
+REPAIRED BY SOURCE BATCH
+  SYSTEM_WICFIX       1741
+  SYSTEM_BACKUPFIX      73
+  SYSTEM_EXT2027        64
+
+REPAIRED BY CENTRE (top 15)
+  Essen - BP1                    145
+  Pfaffenhofen                    94
+  Regensburg                      94
+  Augsburg                        87
+  Neu-Isenburg                    83
+  Saarbrücken                     83
+  Salzgitter                      83
+  Essen - TK                      83
+  Helmstedt                       83
+  München                         82
+  Bamberg                         82
+  Hannover                        78
+  Hamburg                         78
+  Stadland                        74
+  Essenbach                       69
+
+10 EXAMPLES (before -> after)
+  EmployeeId date       centre                   old shift    new shift    old WIC      new WIC
+  9125519   2026-10-15 Stadland                 07:30-16:30  08:00-17:00  08:30-16:30  08:00-16:30
+  9129428   2026-10-15 Pfaffenhofen             08:00-16:00  08:00-17:00  08:00-16:00  08:00-16:00
+  9130649   2026-10-15 Regensburg               08:00-16:00  07:30-16:30  08:00-16:00  08:00-16:00
+  9129428   2026-10-16 Pfaffenhofen             08:00-12:00  08:00-17:00  08:00-12:00  08:00-12:00
+  9130649   2026-10-16 Regensburg               08:00-12:00  07:30-16:30  08:00-12:00  08:00-12:00
+  9125519   2026-10-19 Stadland                 07:30-16:30  08:00-17:00  08:30-16:30  08:00-16:30
+  9129428   2026-10-19 Pfaffenhofen             08:00-16:00  08:00-17:00  08:00-16:00  08:00-16:00
+  9130649   2026-10-19 Regensburg               08:00-16:00  07:30-16:30  08:00-16:00  08:00-16:00
+  9125519   2026-10-20 Stadland                 07:30-16:30  08:00-17:00  08:30-16:30  08:00-16:30
+  9129428   2026-10-20 Pfaffenhofen             08:00-16:00  08:00-17:00  08:00-16:00  08:00-16:00
+
+ROLLBACK
+  backup dir : C:\ProgramData\PulseRollback\shift-fix-20261014-083131
+  files      : ShiftEntries.csv (1878 full pre-fix rows), WicShiftEntries.csv (1878), SHA256SUMS.txt, rollback.sql (1878+1878 UPDATE statements, NOT executed), plan-applied.csv
+  hashes     : 5E745B0983D5D9AE1D8F26585DD92FBC8276FB4528DF83FB287CCC7760BA7BE7  ShiftEntries.csv
+               42B7172F67DD7F812BCB435B65666DCD0D8699E3A1E5DB5696FD1A5B6E5D9BF8  WicShiftEntries.csv
+
+=== LISTA ZA RTM (rows NOT touched automatically) ===
+rows: 364
+
+-- grouped --
+  EmployeeId centre                     reason                rows first       last       
+  9074345   Wesel                      NEMA_JASNE_SMENE        16 2026-11-05  2027-02-25 
+  9074512   s-Hertogenbosch            NEMA_JASNE_SMENE         3 2026-11-17  2026-12-31 
+  9074512   Zwolle                     NEMA_JASNE_SMENE        30 2026-11-02  2027-02-24 
+  9125516   Stadland                   NEMA_JASNE_SMENE        18 2026-11-02  2026-12-31 
+  9125517   Emmerthal                  NEMA_JASNE_SMENE        87 2026-10-15  2027-02-26 
+  9125521   Grafenrheinfeld            NEMA_JASNE_SMENE        82 2026-11-02  2027-02-26 
+  9126874   Brokdorf                   NEMA_JASNE_SMENE        89 2026-10-15  2027-02-26 
+  9126881   Essenbach                  NEMA_JASNE_SMENE        39 2027-01-04  2027-02-26 
+
+-- reason totals --
+  NEMA_JASNE_SMENE       364
+
+=== RESIDUAL PRE-EXISTING FINDINGS (verified identical before and after) ===
+1) 9074345 2026-10-29: on-site WIC rows at Wesel 08:00-10:00 (wic 67886) and Grafenrheinfeld 07:30-16:00 (wic 67967) overlap;
+   the agent's ShiftEntries row for that day is MANUAL (S60028, Roster batch 248) so it is outside the repair scope.
+2) 9120965 2026-10-15: SL in ShiftEntries (seId 56827, manual S60028) while an on-site WIC row at Quickborn 07:30-16:30 (wic 67608) exists.
+   Pre-existing; the repair neither created nor removed it. Note the earlier wic-fix step excluded SL (only AL/SICK/OFF/PH).
+
+LIVE CHECKS
+  /health + /api/wic/{cards,coverage-gaps,forecast,briefing,conflicts,reachability}: 200 local AND tunnel (after login S69307/DEV).
+  HR Export ShiftPlan 2026-11-16: 3 sampled WIC_DUTY rows export 08:00-17:00 == DB, manualBy=S69307.
+  Shift Plan -> WIC sync: code-verified (Backend/ShiftService.cs:325 SyncWicDutyFromShiftPlanAsync takes the row's own
+  ShiftStart/ShiftEnd, never the centre hours; human-edit-only; manual marker protects the repaired rows).
