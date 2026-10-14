@@ -125,6 +125,15 @@ public class SubstitutionService
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
             .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
 
+        // Agents who had already left by a day in this window must never be offered as a
+        // substitute, even when they carry no shift row for that exact day. IsActive alone
+        // is not enough (the live Hannover 9130648 / 9087657 / 9124687 case still had
+        // IsActive=1); _fullAbsenceTypes only catches a RESIGNED row on the day itself.
+        var resignedRows = await _db.ShiftEntries
+            .Where(s => s.ShiftType == SubstituteEligibility.Resigned && s.ShiftDate <= endDate)
+            .ToListAsync();
+        var resignedFrom = SubstituteEligibility.EarliestResignedByEmployee(resignedRows);
+
         var wicEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate >= startDate && w.ShiftDate <= endDate)
             .ToListAsync();
@@ -294,6 +303,7 @@ public class SubstitutionService
             bool IsUnavailable(Employee emp, string? shiftType)
             {
                 if (!emp.IsActive) return true;
+                if (SubstituteEligibility.ResignedOnOrBefore(emp.EmployeeId, date, resignedFrom)) return true;
                 if (absentMainIds.Contains(emp.EmployeeId)) return true;
                 if (sickLeaves.Any(sl => sl.EmployeeId == emp.EmployeeId
                         && sl.FirstDay <= date && sl.LastDay >= date)) return true;
@@ -476,6 +486,7 @@ public class SubstitutionService
                     shiftByEmpDate.TryGetValue((we.EmployeeId, date), out var sh);
                     if (sh != null && _fullAbsenceTypes.Contains(sh.ShiftType)) continue;
                     if (!empById.TryGetValue(we.EmployeeId, out var emp)) continue;
+                    if (SubstituteEligibility.ResignedOnOrBefore(emp.EmployeeId, date, resignedFrom)) continue;
 
                     bool halfAL = sh != null &&
                         string.Equals(sh.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase);
@@ -508,6 +519,7 @@ public class SubstitutionService
             foreach (var emp in allEmployees)
             {
                 if (candidates.Any(c => c.EmployeeId == emp.EmployeeId)) continue;
+                if (SubstituteEligibility.ResignedOnOrBefore(emp.EmployeeId, date, resignedFrom)) continue;
                 if (onWicToday.Contains(emp.EmployeeId)) continue;
                 shiftByEmpDate.TryGetValue((emp.EmployeeId, date), out var sh);
 

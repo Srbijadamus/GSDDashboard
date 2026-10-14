@@ -289,6 +289,14 @@ public class WicCoverageGapService
         var shiftByEmpDate = shiftEntries
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
             .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
+
+        // Who has already left by a date in this window. Loaded once for the whole window
+        // (the earliest RESIGNED row per employee answers every date). IsActive alone is not
+        // enough: the live Hannover case (9130648, 2026-11-02) still had IsActive=1.
+        var resignedRows = await _db.ShiftEntries
+            .Where(s => s.ShiftType == SubstituteEligibility.Resigned && s.ShiftDate <= to)
+            .ToListAsync();
+        var resignedFrom = SubstituteEligibility.EarliestResignedByEmployee(resignedRows);
         var sickLeaves = await _db.SickLeaves
             .Where(sl => sl.EmployeeId != null && sl.FirstDay <= to && sl.LastDay >= from)
             .ToListAsync();
@@ -318,6 +326,17 @@ public class WicCoverageGapService
         var empByFullName = assignedEmployees
             .GroupBy(e => e.FullName!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var empById = assignedEmployees
+            .GroupBy(e => e.EmployeeId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        // Never offer an agent who has left: inactive Employees row, or a RESIGNED
+        // ShiftEntries row on/before the day (SubstituteEligibility). AbsenceTypes already
+        // keeps AL/SL/UL/OL/PH/LPH/OFF/CD floaters out of this list; RESIGNED is not an
+        // absence, so it needs the explicit check.
+        bool HasLeft(string? employeeId, DateOnly date) =>
+            (employeeId != null && empById.TryGetValue(employeeId, out var e) && !e.IsActive) ||
+            SubstituteEligibility.ResignedOnOrBefore(employeeId, date, resignedFrom);
 
         // ONE presence reading per (location, date), through the same resolver as the
         // forecast — never a second definition of "covered" living only in this file.
@@ -364,12 +383,14 @@ public class WicCoverageGapService
             string category = anyAbsent ? "UNCOVERED_ABSENCE" : "UNCOVERED_ASSIGNED";
 
             // Available-floater hint: REGIONAL agents shared with this location who are NOT
-            // absent today — never drives the category, only who to grab.
+            // absent today and have NOT left the company by this day — never drives the
+            // category, only who to grab.
             var floaters = regionalOnly
                 ? new List<WicGapAgent>()
                 : regional
                     .Select(a => ToGapAgent(a, date, empByFullName, shiftByEmpDate))
                     .Where(a => !AbsenceTypes.Contains(a.Status))
+                    .Where(a => !HasLeft(a.EmployeeId, date))
                     .OrderBy(a => a.FullName)
                     .ToList();
 

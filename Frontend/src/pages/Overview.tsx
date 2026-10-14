@@ -304,10 +304,13 @@ interface WicCoverageGapResult {
   criticalCount: number; warningCount: number
 }
 
-// Same absence definition as Backend/WicCoverageGapService.cs (AbsenceTypes) —
-// "is there a sensible candidate" must agree with "why is this agent greyed
-// out" or the button/link choice below would contradict the row's own data.
-const GAP_ABSENCE_SET = new Set(["AL", "HALF_AL", "SL", "UL", "OL", "PH", "LPH", "OFF", "CD"])
+// Same absence definition as Backend/WicCoverageGapService.cs (AbsenceTypes) plus
+// RESIGNED: a coverage-gap row must not offer "Assign" for a centre whose only own
+// agent has already left (the backend excludes them from the candidate list, so an
+// offering button here would open an empty picker). "is there a sensible candidate"
+// must agree with "why is this agent greyed out" or the button/link choice below
+// would contradict the row's own data.
+const GAP_ABSENCE_SET = new Set(["AL", "HALF_AL", "SL", "UL", "OL", "PH", "LPH", "OFF", "CD", "RESIGNED"])
 const hasSensibleCandidate = (g: WicCoverageGapEntry) =>
   g.availableFloaters.length > 0 || g.assignedAgents.some(a => !GAP_ABSENCE_SET.has(a.status))
 

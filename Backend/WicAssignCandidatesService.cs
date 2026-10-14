@@ -52,9 +52,18 @@ public class WicAssignCandidatesService
             .GroupBy(s => s.EmployeeId)
             .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g).ShiftType);
 
+        // Agents who had already left by this day (RESIGNED ShiftEntries row on/before it)
+        // are not candidates at all — not even as a greyed-out row. IsActive already
+        // removes the inactive ones; the live Hannover case still had IsActive=1.
+        var resignedRows = await _db.ShiftEntries
+            .Where(s => s.ShiftType == SubstituteEligibility.Resigned && s.ShiftDate <= date)
+            .ToListAsync();
+        var resignedFrom = SubstituteEligibility.EarliestResignedByEmployee(resignedRows);
+
         var candidates = new List<WicAssignCandidate>();
         foreach (var e in employees)
         {
+            if (SubstituteEligibility.ResignedOnOrBefore(e.EmployeeId, date, resignedFrom)) continue;
             var name = e.FullName ?? e.EmployeeId;
             statusByEmp.TryGetValue(e.EmployeeId, out var status);
             bool isAbsent = status != null && WicCoverageGapService.AbsenceTypes.Contains(status);

@@ -98,6 +98,14 @@ public class BackupService
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
             .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
 
+        // A leaver is never a backup candidate, whatever the day's row looks like. Same
+        // rule as the other suggestion surfaces (SubstituteEligibility): a RESIGNED
+        // ShiftEntries row on or before the day means the agent has left by then.
+        var resignedRows = await _db.ShiftEntries
+            .Where(s => s.ShiftType == SubstituteEligibility.Resigned && s.ShiftDate <= endDate)
+            .ToListAsync();
+        var resignedFrom = SubstituteEligibility.EarliestResignedByEmployee(resignedRows);
+
         var wicEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate >= startDate && w.ShiftDate <= endDate)
             .ToListAsync();
@@ -177,6 +185,7 @@ public class BackupService
 
                 bool IsAvailable(string empId)
                 {
+                    if (SubstituteEligibility.ResignedOnOrBefore(empId, date, resignedFrom)) return false;
                     if (absentIds.Contains(empId)) return false;
                     if (alreadyOnWic.Contains(empId)) return false;
                     if (!shiftByEmpDate.TryGetValue((empId, date), out var sh)) return false;

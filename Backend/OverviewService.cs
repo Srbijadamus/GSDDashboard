@@ -54,6 +54,12 @@ public class OverviewService
             .GroupBy(s => (s.EmployeeId, s.ShiftDate))
             .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
 
+        // Agents who had already left by a day in this window are never a top substitute.
+        var resignedRows = await _db.ShiftEntries
+            .Where(s => s.ShiftType == SubstituteEligibility.Resigned && s.ShiftDate <= endDate)
+            .ToListAsync();
+        var resignedFrom = SubstituteEligibility.EarliestResignedByEmployee(resignedRows);
+
         var days = new List<object>();
 
         for (var date = startDate; date <= endDate; date = date.AddDays(1))
@@ -108,10 +114,10 @@ public class OverviewService
                     topSub = allEmployees
                         .Where(e => e.PrimaryRole == "SSP" &&
                                !onWicIds.Contains(e.EmployeeId) &&
+                               !SubstituteEligibility.HasLeft(e, date, resignedFrom) &&
                                shiftByEmpDate.TryGetValue((e.EmployeeId, date), out var sh) &&
-                               sh.ShiftType != "SL" && sh.ShiftType != "AL" &&
-                               sh.ShiftType != "HALF_AL" && sh.ShiftType != "UL" &&
-                               sh.ShiftType != "OL")
+                               !AvailabilityResolver.FullAbsenceTypes.Contains(sh.ShiftType) &&
+                               sh.ShiftType != "HALF_AL")
                         .Select(e => e.FullName ?? e.EmployeeId)
                         .FirstOrDefault();
                 }

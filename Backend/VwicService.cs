@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Breaks;
+using GSDDashboard.API.Modules.WicShifts;
 using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -376,6 +377,22 @@ public class VwicService
             .Where(e => e.IsActive && e.PrimaryRole != "2nd Level" && (e.PrimaryRole == "Voice" || e.SecondaryRole == "Voice"))
             .ToListAsync();
 
+        // "Available agents" must never include a leaver. IsActive alone does not cover it:
+        // the live resignations still carry IsActive=1, and this endpoint's isAbsent test
+        // does not list RESIGNED, so a resigned Voice agent came back as an offerable
+        // candidate (2026-10-14: 9124687 with a date, 9087657 and 9124687 without one).
+        // No date = the Add-Agent modal, judged against today.
+        var day = dateStr != null && DateOnly.TryParse(dateStr, out var parsedDay)
+            ? parsedDay : DateOnly.FromDateTime(DateTime.Today);
+        var empIds = voiceEmps.Select(e => e.EmployeeId).ToList();
+        var resignedRows = await _db.ShiftEntries
+            .Where(s => s.ShiftType == SubstituteEligibility.Resigned && s.ShiftDate <= day && empIds.Contains(s.EmployeeId))
+            .ToListAsync();
+        var resignedFrom = SubstituteEligibility.EarliestResignedByEmployee(resignedRows);
+        voiceEmps = voiceEmps
+            .Where(e => !SubstituteEligibility.ResignedOnOrBefore(e.EmployeeId, day, resignedFrom))
+            .ToList();
+
         // No date → return all Voice employees for Add-Agent modal (no shift filter)
         if (dateStr == null || !DateOnly.TryParse(dateStr, out var date))
         {
@@ -384,8 +401,6 @@ public class VwicService
                 .Select(e => new VwicCandidateDto(e.EmployeeId, e.FullName, e.TeamLeadName, e.PrimaryRole, null, null, null, false))
                 .ToList();
         }
-
-        var empIds = voiceEmps.Select(e => e.EmployeeId).ToList();
 
         var shifts = await _db.ShiftEntries
             .Where(s => s.ShiftDate == date && empIds.Contains(s.EmployeeId))
@@ -403,8 +418,13 @@ public class VwicService
             {
                 var shift    = shifts.FirstOrDefault(s => s.EmployeeId == emp.EmployeeId);
                 var sl       = sickLeaves.FirstOrDefault(s => s.EmployeeId == emp.EmployeeId);
+                // Same day-absence definition the coverage-gaps floaters use (AL/HALF_AL/SL/
+                // UL/OL/PH/LPH/OFF/CD) plus OFF_WEEKEND, which this endpoint already treated
+                // as absent. The old inline list omitted OL (and CD): an agent on other leave
+                // was published as an available VWIC agent (live 2026-10-14: one OL row).
                 bool isAbsent  = sl != null
-                    || shift?.ShiftType is "AL" or "SL" or "UL" or "OFF" or "PH" or "OFF_WEEKEND" or "HALF_AL";
+                    || (shift != null && (WicCoverageGapService.AbsenceTypes.Contains(shift.ShiftType)
+                                          || string.Equals(shift.ShiftType, "OFF_WEEKEND", StringComparison.OrdinalIgnoreCase)));
                 bool isWorking = !isAbsent && shift?.ShiftType == "WORKING";
                 return (emp, shift, isAbsent, isWorking);
             })
