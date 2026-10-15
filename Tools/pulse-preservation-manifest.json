@@ -1,6 +1,6 @@
 {
   "LiveRoot": "C:\\GSDDashboard",
-  "CreatedAtUtc": "2026-10-13T15:04:15.7029221Z",
+  "CreatedAtUtc": "2026-10-15T18:40:26.9388629Z",
   "Live": [
     {
       "Path": "Backend.Tests/ALBalanceEligibleDaysTests.cs",
@@ -1006,7 +1006,11 @@
     },
     {
       "Path": "Backend.Tests/WicPresenceUnificationTests.cs",
-      "Hash": "A6D63D381264EE031C3A0CD3A51D3A1B87D5C8E92D07833C2C043569E1276E03"
+      "Hash": "C50C873C1C56AAA50B30DDA31A120CACA978B813A5B3D98CD87C62C7A38C3C9C"
+    },
+    {
+      "Path": "Backend.Tests/WicShiftPlanSyncTests.cs",
+      "Hash": "D8DA0C2159D2A77D66741643C18993B1CF83606F0B4444167DD2BF0D710D5396"
     },
     {
       "Path": "Backend.Tests/WicTwoIntervalCentreTests.cs",
@@ -1158,7 +1162,7 @@
     },
     {
       "Path": "Backend/GSDContext.cs",
-      "Hash": "C7E74A1D5C9B6438037E8C24E740BF779627B9E3391CD7F259AB56790A54CF8D"
+      "Hash": "21C8C687B5B51AFFFB27961EC54C95493ACFDD29A85DAEEBF2245967326E41C1"
     },
     {
       "Path": "Backend/GSDDashboard.API.csproj",
@@ -1222,7 +1226,7 @@
     },
     {
       "Path": "Backend/RosterService.cs",
-      "Hash": "02E0A1C3B9E13BBB2BD379D36359BC4725C3A1E0EEA06180C1080760F76A7313"
+      "Hash": "83DC8B5AC56B60C2C401875AD7269153A568150A06665E9D4FAA8D6794329F85"
     },
     {
       "Path": "Backend/RtmEntry.cs",
@@ -1339,6 +1343,10 @@
     {
       "Path": "Backend/Services/WicPresenceResolver.cs",
       "Hash": "9E5290F58909832830603579FB72B3A260C6129B67A5A54C629625C3811C9274"
+    },
+    {
+      "Path": "Backend/Services/WicShiftPlanSync.cs",
+      "Hash": "C65F07D28B2C40F83A30BA061F64F8AD6D7D6CDBB40C79A64CF51F6717BD1A77"
     },
     {
       "Path": "Backend/Services/WicWorkingShift.cs",

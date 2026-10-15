@@ -256,10 +256,21 @@ public class WicPresenceUnificationTests
     [Fact]
     public async Task Cards_RosterOnlyCentre_IsCovered_BadgedAndAgentListed()
     {
+        // The legacy "rostered here, on-site record missing" shape the ROSTER_ONLY evidence
+        // exists for: the flipped WORKING + centre-in-AgentTask encoding, which a writer can
+        // still leave behind when it takes a row off WIC_DUTY (the temporary-move trace —
+        // see GSDContext.LinkWicRowsToShiftTypeChanges). A WIC_DUTY row no longer produces
+        // this shape: the Shift Plan -> WIC sync (WicShiftPlanSync, called from
+        // GSDContext.SaveChanges) writes its on-site row in the same unit of work — see
+        // Cards_WicDutyRow_GetsItsOnSiteRow_AndReportsOnSite below.
         var date = new DateOnly(2026, 10, 1);
         using var db = NewDb();
         SeedCentre(db, date);
-        db.ShiftEntries.Add(WicDuty(date));
+        db.ShiftEntries.Add(new ShiftEntry
+        {
+            EmployeeId = "T1", ShiftDate = date, ShiftType = ShiftTypes.Working,
+            AgentTask = Name, ShiftStart = "08:00", ShiftEnd = "17:00", IsWicDuty = false,
+        });
         await db.SaveChangesAsync();
 
         var card = Assert.Single(await new WicCardsService(db).GetCardsAsync(date, null));
@@ -271,6 +282,33 @@ public class WicPresenceUnificationTests
         Assert.Equal("Test Main", agent.Name);
         Assert.True(agent.CheckInNotRecorded);
         Assert.Equal("FULL", agent.CoverageMatch);
+    }
+
+    [Fact]
+    public async Task Cards_WicDutyRow_GetsItsOnSiteRow_AndReportsOnSite()
+    {
+        // RTM 2026-10-15 follow-up: a WIC_DUTY ShiftEntries row and its on-site
+        // WicShiftEntries row are written together, so /api/wic/open (signal 1) and the
+        // cards agree — the day is covered ON SITE, not merely on the roster.
+        var date = new DateOnly(2026, 10, 1);
+        using var db = NewDb();
+        SeedCentre(db, date);
+        db.ShiftEntries.Add(WicDuty(date));
+        await db.SaveChangesAsync();
+
+        var wic = Assert.Single(db.WicShiftEntries.ToList());
+        Assert.True(wic.IsOnSite);
+        Assert.Equal(Name, wic.SupportLocation);
+        Assert.Equal("08:00-17:00", wic.WorkingShift);
+
+        var card = Assert.Single(await new WicCardsService(db).GetCardsAsync(date, null));
+
+        Assert.Equal("COVERED", card.CoverageStatus);
+        Assert.Equal("ON_SITE", card.CoverageEvidence);
+        Assert.Equal(0, card.CheckInNotRecordedCount);             // the on-site row exists
+        var agent = Assert.Single(card.AssignedAgents);
+        Assert.Equal("Test Main", agent.Name);
+        Assert.False(agent.CheckInNotRecorded);
     }
 
     [Fact]

@@ -1131,40 +1131,32 @@ public class RosterService
                 e.SourceId         = batch.Id;
             }
 
-            // WicShiftEntry upsert — unique on (EmployeeId, ShiftDate, SupportLocation).
+            // Resolved once for the whole batch: the centre's duty window per date
+            // (WicHoursResolver, so a manual exception day / Rollout day wins).
+            var wicOpeningHours = await _db.WicOpeningHours.ToListAsync();
+
+            // THE Shift Plan -> WIC sync, the SAME one every writer uses
+            // (WicShiftPlanSync.EnsureOnSiteRow, also called centrally from
+            // GSDContext.SaveChanges for every WIC_DUTY row):
+            //   * the on-site row carries the agent's segment CUT TO this centre's window
+            //     (WicWorkingShift), never the raw segment standing in for it;
+            //   * a row this unit of work is deleting — the OVERWRITE branch below removes
+            //     the day's WicShiftEntries rows before re-creating them — is REVIVED, so
+            //     SaveChanges cannot delete the WIC commitment. That was the live Wesel
+            //     defect (9074345, 2026-11-05/12/19/26, RosterBatch 265): the ShiftEntries
+            //     row stayed WIC_DUTY with no on-site row, /api/wic/cards read COVERED and
+            //     /api/wic/open read UNCOVERED.
             // One row per centre: a day on which the agent covers two non-overlapping
-            // MAIN centres gets one row each, carrying that centre's slice of the
-            // agent's shift (never the centre's own hours standing in for it).
-            async Task UpsertWicEntryAsync(DateOnly date, WicLocation loc, string segStart, string segEnd)
+            // MAIN centres gets one row each.
+            Task UpsertWicEntryAsync(DateOnly date, WicLocation loc, string segStart, string segEnd)
             {
-                var wic = await _db.WicShiftEntries.FirstOrDefaultAsync(w =>
-                    w.EmployeeId == input.Emp.EmployeeId &&
-                    w.ShiftDate == date &&
-                    w.SupportLocation == loc.DisplayName);
-                if (wic != null)
-                {
-                    wic.WorkingShift = $"{segStart}-{segEnd}";
-                    wic.LocationCode = loc.LocationCode;
-                    wic.IsOnSite     = true;
-                    wic.IsGSDDay     = false;
-                    wic.Task         = "WIC";
-                }
-                else
-                {
-                    _db.WicShiftEntries.Add(new WicShiftEntry
-                    {
-                        EmployeeId      = input.Emp.EmployeeId,
-                        ShiftDate       = date,
-                        DayOfWeek       = date.DayOfWeek.ToString(),
-                        SupportLocation = loc.DisplayName,
-                        LocationCode    = loc.LocationCode,
-                        IsOnSite        = true,
-                        IsGSDDay        = false,
-                        IsOffDay        = false,
-                        WorkingShift    = $"{segStart}-{segEnd}",
-                        Task            = "WIC",
-                    });
-                }
+                // cutToCentreWindow: false — the plan's segment IS the day's decided slice for
+                // this centre (SegmentFor cuts the agent's shift to the centre window; the
+                // repeated multi-centre decision is replayed verbatim, RTM 2026-10-12). The
+                // centre's hours must never re-time a decision that was already made.
+                WicShiftPlanSync.EnsureOnSiteRow(_db, input.Emp.EmployeeId, date, loc,
+                    segStart, segEnd, wicOpeningHours, cutToCentreWindow: false);
+                return Task.CompletedTask;
             }
 
             async Task UpsertWicEntriesAsync(PlanRow row)

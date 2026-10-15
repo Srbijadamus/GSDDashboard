@@ -1,0 +1,118 @@
+{
+  "generatedAt": "2026-10-15T20:50:28.7873355+02:00",
+  "base": "https://d2jn94qg-5000.euw.devtunnels.ms",
+  "loginKid": "S69307",
+  "rows": [
+    {
+      "date": "2026-11-05",
+      "centre": "Wesel",
+      "isOpen": true,
+      "open": "COVERED",
+      "cards": "COVERED",
+      "evidence": "ON_SITE",
+      "agents": "9074345",
+      "effective": 1,
+      "min": 1
+    },
+    {
+      "date": "2026-11-12",
+      "centre": "Wesel",
+      "isOpen": true,
+      "open": "COVERED",
+      "cards": "COVERED",
+      "evidence": "ON_SITE",
+      "agents": "9074345",
+      "effective": 1,
+      "min": 1
+    },
+    {
+      "date": "2026-11-19",
+      "centre": "Wesel",
+      "isOpen": true,
+      "open": "COVERED",
+      "cards": "COVERED",
+      "evidence": "ON_SITE",
+      "agents": "9074345",
+      "effective": 1,
+      "min": 1
+    },
+    {
+      "date": "2026-11-26",
+      "centre": "Wesel",
+      "isOpen": true,
+      "open": "COVERED",
+      "cards": "COVERED",
+      "evidence": "ON_SITE",
+      "agents": "9074345",
+      "effective": 1,
+      "min": 1
+    },
+    {
+      "date": "2026-10-29",
+      "centre": "Mülheim",
+      "isOpen": true,
+      "open": "UNCOVERED",
+      "cards": "UNCOVERED",
+      "evidence": "NONE",
+      "agents": "",
+      "effective": 0,
+      "min": 1
+    },
+    {
+      "date": "2026-10-16",
+      "centre": "Helmstedt",
+      "isOpen": true,
+      "open": "COVERED",
+      "cards": "COVERED",
+      "evidence": "ON_SITE",
+      "agents": "9129429",
+      "effective": 1,
+      "min": 1
+    },
+    {
+      "date": "2026-11-16",
+      "centre": "Pfaffenhofen",
+      "isOpen": true,
+      "open": "COVERED",
+      "cards": "COVERED",
+      "evidence": "ON_SITE",
+      "agents": "9135516",
+      "effective": 1,
+      "min": 1
+    },
+    {
+      "date": "2026-11-20",
+      "centre": "Pfaffenhofen",
+      "isOpen": true,
+      "open": "COVERED",
+      "cards": "COVERED",
+      "evidence": "ON_SITE",
+      "agents": "9135516",
+      "effective": 1,
+      "min": 1
+    },
+    {
+      "date": "2026-11-23",
+      "centre": "Pfaffenhofen",
+      "isOpen": true,
+      "open": "COVERED",
+      "cards": "COVERED",
+      "evidence": "ON_SITE",
+      "agents": "9135516",
+      "effective": 1,
+      "min": 1
+    },
+    {
+      "date": "2026-11-27",
+      "centre": "Pfaffenhofen",
+      "isOpen": true,
+      "open": "COVERED",
+      "cards": "COVERED",
+      "evidence": "ON_SITE",
+      "agents": "9135516",
+      "effective": 1,
+      "min": 1
+    }
+  ]
+}
+

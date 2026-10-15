@@ -102,6 +102,7 @@ public class GSDContext : DbContext
         GuardManualShifts();
         LinkWicRowsToShiftTypeChanges();
         SyncWicRowsForPlanBackOffice();
+        SyncWicRowsForWicDuty();
         var result = base.SaveChanges(acceptAllChangesOnSuccess);
         _manualEdits.Clear();
         _rolloutOwnedDeletes.Clear();
@@ -114,6 +115,7 @@ public class GSDContext : DbContext
         GuardManualShifts();
         LinkWicRowsToShiftTypeChanges();
         SyncWicRowsForPlanBackOffice();
+        SyncWicRowsForWicDuty();
         var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         _manualEdits.Clear();
         _rolloutOwnedDeletes.Clear();
@@ -150,6 +152,42 @@ public class GSDContext : DbContext
         if (changed > 0)
             _log?.LogInformation(
                 "WIC>BO rule: created/updated {Count} on-site WicShiftEntries row(s) for automatic back-office day(s)",
+                changed);
+    }
+
+    /// <summary>
+    /// SHIFT PLAN → WIC, the other direction (RTM 2026-10-15, follow-up): every Added/Modified
+    /// <c>WIC_DUTY</c> ShiftEntries row gets its on-site <c>WicShiftEntries</c> row in the SAME
+    /// unit of work, through <see cref="Services.WicShiftPlanSync"/> — the single rule
+    /// (agent window ∩ centre window, a closed centre gets no row, a row this unit of work is
+    /// deleting is revived).
+    ///
+    /// Without this the two coverage readings disagree on the very same day: the ShiftEntries
+    /// row makes <c>/api/wic/cards</c> report COVERED, while <c>/api/wic/open</c> — SIGNAL 1,
+    /// on-site rows only — reports UNCOVERED (live: Wesel, 9074345, 2026-11-05/12/19/26,
+    /// RosterBatch 265, where the generator's OVERWRITE path deleted the day's WIC row and then
+    /// wrote into the already-deleted entity).
+    ///
+    /// Only the <c>WIC_DUTY</c> type is in scope. The flipped <c>WORKING</c>+centre encoding is
+    /// deliberately NOT propagated: <see cref="LinkWicRowsToShiftTypeChanges"/> stands the
+    /// on-site rows down when a writer takes a row off WIC_DUTY, and that documented
+    /// "temporary move keeps only the AgentTask trace" behaviour stays as it is. Plan BO days
+    /// are <see cref="SyncWicRowsForPlanBackOffice"/>'s business.
+    /// </summary>
+    private void SyncWicRowsForWicDuty()
+    {
+        ChangeTracker.DetectChanges();
+        var rows = ChangeTracker.Entries<ShiftEntry>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified)
+            .Select(e => e.Entity)
+            .Where(Services.WicShiftPlanSync.IsWicDutyRow)
+            .ToList();
+        if (rows.Count == 0) return;
+
+        var changed = Services.WicShiftPlanSync.Apply(this, rows);
+        if (changed > 0)
+            _log?.LogInformation(
+                "Shift Plan -> WIC sync: created/updated {Count} on-site WicShiftEntries row(s) for WIC_DUTY ShiftEntries row(s)",
                 changed);
     }
 

@@ -1,0 +1,15 @@
+{
+  "windowFrom": "2026-10-15",
+  "windowTo": "2027-02-28",
+  "totalShiftEntries": 13409,
+  "wicDutyWithOnSite": 3185,
+  "wicDutyMissingOnSite": 0,
+  "centreUnresolved": 505,
+  "closedCentre": 0,
+  "halfAlWithWic": 1,
+  "halfAlWithoutWic": 5,
+  "byKind": {},
+  "bySourceModule": {},
+  "byCentre": {},
+  "byWriter": {}
+}
