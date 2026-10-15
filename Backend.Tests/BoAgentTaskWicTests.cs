@@ -17,8 +17,7 @@ namespace GSDDashboard.Tests;
 // already taken away.
 //
 // Two rules are pinned here:
-//   1. a BO row (RawValue="BO") is never WIC duty in any reader, whatever AgentTask says;
-//      and a row that AROSE from WIC_DUTY → non-WIC carries no centre name any more, so no
+//   1. a row that AROSE from WIC_DUTY → non-WIC carries no centre name any more, so no
 //      reader can match it; and
 //   2. the central hook (GSDContext.LinkWicRowsToShiftTypeChanges) clears that stale centre
 //      name in the SAME SaveChanges as the type change — but ONLY for the two MANUAL RTM
@@ -26,6 +25,11 @@ namespace GSDDashboard.Tests;
 //      An automatic writer (roster generator, absence sync, rollout, substitute, startup)
 //      keeps the name: it is the trace of a temporary move. See
 //      TemporaryMoveAgentTaskTests for the writer-by-writer rule.
+//
+// The BO rule itself was REVERSED by the owner on 2026-10-15 (same day): WIC has PRIORITY
+// over BO. A plan BO day (no manual RTM edit) for an agent with an active WIC assignment is
+// WIC duty at that agent's priority centre; only a BO day RTM authored stays BO. See
+// WicBackOfficePriority and WicBackOfficePriorityTests.
 public class BoAgentTaskWicTests
 {
     private const string PfaffenhofenCode = "DE~85276~Pfaffenhofen~Draht 7";
@@ -77,10 +81,12 @@ public class BoAgentTaskWicTests
     }
 
     [Fact]
-    public void IsWicDutyAt_BoRowWithCentreInAgentTask_IsNotWicDuty()
+    public void IsWicDutyAt_PlanBoRow_NeedsTheAssignmentIndex_ManualBoIsNeverWic()
     {
-        // The exact shape the live rows have (9129428, 16.-27.11.2026).
-        var row = new ShiftEntry
+        // The exact shape the live rows have (9129428, 16.-27.11.2026). Owner rule
+        // 2026-10-15: BO counts as non-WIC ONLY when RTM set it by hand; a plan BO day is
+        // WIC duty at the agent's priority centre.
+        ShiftEntry BoRow(string? manualBy) => new()
         {
             EmployeeId = "9129428",
             ShiftDate = Mon,
@@ -90,34 +96,64 @@ public class BoAgentTaskWicTests
             ShiftEnd = "16:30",
             AgentTask = Pfaffenhofen,
             IsWicDuty = false,
+            ManualChangeBy = manualBy,
         };
 
-        Assert.False(AvailabilityResolver.IsWicDutyAt(row, PfaffenhofenLocation()));
-        Assert.Equal(0.0, AvailabilityResolver.GetWicContributionAt(false, row, PfaffenhofenLocation()));
-        Assert.Equal(0.0, AvailabilityResolver.GetOnSiteWicContribution(false, row, PfaffenhofenLocation()));
+        var plan = BoRow(null);
+        var manual = BoRow("S60028");
+        var loc = PfaffenhofenLocation();
+
+        // Without assignment context a plan BO row cannot be placed (the generator writes
+        // AgentTask=null on it), but it is NOT rejected as "manual BO" either — the
+        // assignment-aware overload is what decides.
+        Assert.False(AvailabilityResolver.IsWicDutyAt(plan, loc));
+        Assert.Equal(0.0, AvailabilityResolver.GetWicContributionAt(false, plan, loc));
+
+        var index = WicBackOfficePriority.BuildIndex(
+            new[] { new WicAgentAssignment { Id = 1, LocationCode = PfaffenhofenCode, EmployeeName = "Bo Agent", AssignmentType = "MAIN", IsActive = true } },
+            new[] { loc },
+            new[] { new Employee { EmployeeId = "9129428", FullName = "Bo Agent", IsActive = true } });
+
+        Assert.True(AvailabilityResolver.IsWicDutyAt(plan, loc, index, new[] { OpenHours() }));
+        Assert.Equal(1.0, AvailabilityResolver.GetWicContributionAt(false, plan, loc, index, new[] { OpenHours() }));
+
+        // RTM's own BO day is never WIC, with or without the index.
+        Assert.False(AvailabilityResolver.IsWicDutyAt(manual, loc));
+        Assert.False(AvailabilityResolver.IsWicDutyAt(manual, loc, index, new[] { OpenHours() }));
     }
 
-    [Fact]
-    public void IsWicDutyAt_WicDutyRowWithBoRawValue_IsNotWicDuty()
+    private static WicOpeningHour OpenHours() => new()
     {
-        // The rule is about the row's meaning, not its ShiftType: a row whose RawValue says
-        // back office is not WIC duty even if ShiftType still reads WIC_DUTY.
+        LocationCode = PfaffenhofenCode, DayOfWeek = (int)Mon.DayOfWeek,
+        OpenTime = "08:00", CloseTime = "16:00",
+    };
+
+    [Fact]
+    public void IsWicDutyAt_WicDutyRowWithBoRawValue_IsStillWicDuty()
+    {
+        // The TYPE is the authority on a real WIC_DUTY row: a leftover RawValue="BO" (the
+        // generator and earlier imports left it on a handful of rows) never demotes it.
         var row = new ShiftEntry
         {
             EmployeeId = "E1", ShiftDate = Mon, ShiftType = ShiftTypes.WicDuty,
             RawValue = "BO", AgentTask = Pfaffenhofen, IsWicDuty = true,
         };
 
-        Assert.False(AvailabilityResolver.IsWicDutyAt(row, PfaffenhofenLocation()));
+        Assert.True(AvailabilityResolver.IsWicDutyAt(row, PfaffenhofenLocation()));
     }
 
     [Fact]
-    public void CandidateDutyRows_DropsBoRows_AndKeepsRealCandidates()
+    public void CandidateDutyRows_KeepsPlanBo_DropsManualBoAndBadges()
     {
-        var bo = new ShiftEntry
+        var planBo = new ShiftEntry
         {
             EmployeeId = "E1", ShiftDate = Mon, ShiftType = ShiftTypes.Working,
             RawValue = "BO", AgentTask = Pfaffenhofen,
+        };
+        var manualBo = new ShiftEntry
+        {
+            EmployeeId = "E4", ShiftDate = Mon, ShiftType = ShiftTypes.Working,
+            RawValue = "BO", AgentTask = Pfaffenhofen, ManualChangeBy = "S60028",
         };
         var flipped = new ShiftEntry
         {
@@ -129,19 +165,26 @@ public class BoAgentTaskWicTests
             EmployeeId = "E3", ShiftDate = Mon, ShiftType = ShiftTypes.Working,
             RawValue = "08:00 - 16:00", AgentTask = "GSD",
         };
+        // A plan BO day the generator wrote: no AgentTask at all.
+        var barePlanBo = new ShiftEntry
+        {
+            EmployeeId = "E5", ShiftDate = Mon, ShiftType = ShiftTypes.Working, RawValue = "BO",
+        };
 
-        var candidates = WicPresenceResolver.CandidateDutyRows(new[] { bo, flipped, badge });
+        var candidates = WicPresenceResolver.CandidateDutyRows(new[] { planBo, manualBo, flipped, badge, barePlanBo });
 
-        Assert.DoesNotContain(bo, candidates);
+        Assert.Contains(planBo, candidates);
+        Assert.Contains(barePlanBo, candidates);
+        Assert.DoesNotContain(manualBo, candidates);
         Assert.Contains(flipped, candidates);
         Assert.DoesNotContain(badge, candidates);
     }
 
     [Fact]
-    public void Resolver_BoAgentWithCentreInAgentTask_IsNotCover_NotEvenRosterOnly()
+    public void Resolver_PlanBoAgentWithoutAWicAssignment_IsNotCover_WithOneItIsCover()
     {
-        // Before the fix this produced ROSTER_ONLY cover and a "staffed, check-in not
-        // recorded" badge for an agent who is on back office.
+        // Owner rule 2026-10-15: WIC has priority over BO for an agent who HOLDS an active
+        // WIC assignment. Without one, a plan BO day is not cover.
         var bo = new ShiftEntry
         {
             EmployeeId = "9129428", ShiftDate = Mon, ShiftType = ShiftTypes.Working,
@@ -149,17 +192,33 @@ public class BoAgentTaskWicTests
             AgentTask = Pfaffenhofen,
         };
 
-        var presence = WicPresenceResolver.Resolve(
+        var without = WicPresenceResolver.Resolve(
             PfaffenhofenLocation(), Mon,
             onSiteRows: new List<WicShiftEntry>(),
             shiftByEmpDate: new Dictionary<(string, DateOnly), ShiftEntry> { [("9129428", Mon)] = bo },
             candidateDutyRows: WicPresenceResolver.CandidateDutyRows(new[] { bo }),
             isSick: _ => false);
 
-        Assert.Equal(WicCoverageEvidence.NONE, presence.Evidence);
-        Assert.Equal(0, presence.EffectiveCoverage);
-        Assert.Equal(0, presence.CheckInNotRecordedCount);
-        Assert.Empty(presence.Agents);
+        Assert.Equal(WicCoverageEvidence.NONE, without.Evidence);
+        Assert.Empty(without.Agents);
+
+        var index = WicBackOfficePriority.BuildIndex(
+            new[] { new WicAgentAssignment { Id = 1, LocationCode = PfaffenhofenCode, EmployeeName = "Bo Agent", AssignmentType = "MAIN", IsActive = true } },
+            new[] { PfaffenhofenLocation() },
+            new[] { new Employee { EmployeeId = "9129428", FullName = "Bo Agent", IsActive = true } });
+
+        var with = WicPresenceResolver.Resolve(
+            PfaffenhofenLocation(), Mon,
+            onSiteRows: new List<WicShiftEntry>(),
+            shiftByEmpDate: new Dictionary<(string, DateOnly), ShiftEntry> { [("9129428", Mon)] = bo },
+            candidateDutyRows: WicPresenceResolver.CandidateDutyRows(new[] { bo }),
+            isSick: _ => false,
+            assignments: index,
+            openingHours: new[] { OpenHours() });
+
+        Assert.Equal(1, with.EffectiveCoverage);
+        var agent = Assert.Single(with.Agents);
+        Assert.Equal("9129428", agent.EmployeeId);
     }
 
     [Fact]

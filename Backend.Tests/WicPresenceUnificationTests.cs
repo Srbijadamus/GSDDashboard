@@ -191,8 +191,43 @@ public class WicPresenceUnificationTests
     [Fact]
     public async Task Briefing_GenuinelyUnstaffedOpenCentre_IsStillAGap()
     {
-        // The feature has to keep working: open day, MAIN agent doing non-WIC work,
+        // The feature has to keep working: open day, MAIN agent on a MANUAL back-office day
+        // (RTM's own decision — owner rule 2026-10-15: a BO day RTM set by hand is not WIC),
         // nobody on site => present 0 < min 1 => a real gap.
+        var date = new DateOnly(2026, 10, 1);
+        var dbName = Guid.NewGuid().ToString();
+        await using var sp = NewProvider(dbName);
+
+        using (var seed = sp.CreateScope())
+        {
+            var db = seed.ServiceProvider.GetRequiredService<GSDContext>();
+            SeedCentre(db, date);
+            db.ShiftEntries.Add(new ShiftEntry
+            {
+                EmployeeId = "T1", ShiftDate = date, ShiftType = ShiftTypes.Working,
+                RawValue = "BO", ShiftStart = "08:00", ShiftEnd = "17:00",
+                ManualChangeBy = "S60028",
+                ManualChangeAt = new DateTime(2026, 9, 30, 8, 0, 0, DateTimeKind.Utc),
+            });
+            await db.SaveChangesAsync();
+        }
+
+        using var scope = sp.CreateScope();
+        var briefing = await scope.ServiceProvider.GetRequiredService<BriefingService>()
+            .GetBriefingAsync(date.ToString("yyyy-MM-dd"));
+
+        var gap = Assert.Single(briefing.Gaps);
+        Assert.Equal(Name, gap.DisplayName);
+        Assert.Equal(0, gap.Present);
+        Assert.Equal(1, gap.Required);
+        Assert.Equal("UNCOVERED", gap.Status);
+    }
+
+    [Fact]
+    public async Task Briefing_PlanBackOfficeDayForAnAssignedAgent_IsNotAGap()
+    {
+        // Owner rule 2026-10-15: WIC has priority over BO. An AUTOMATIC back-office day for
+        // an agent who holds the active WIC assignment counts as cover.
         var date = new DateOnly(2026, 10, 1);
         var dbName = Guid.NewGuid().ToString();
         await using var sp = NewProvider(dbName);
@@ -213,11 +248,7 @@ public class WicPresenceUnificationTests
         var briefing = await scope.ServiceProvider.GetRequiredService<BriefingService>()
             .GetBriefingAsync(date.ToString("yyyy-MM-dd"));
 
-        var gap = Assert.Single(briefing.Gaps);
-        Assert.Equal(Name, gap.DisplayName);
-        Assert.Equal(0, gap.Present);
-        Assert.Equal(1, gap.Required);
-        Assert.Equal("UNCOVERED", gap.Status);
+        Assert.Empty(briefing.Gaps);
     }
 
     // ── WIC Locations page (WicCardsService) ─────────────────────────────────────

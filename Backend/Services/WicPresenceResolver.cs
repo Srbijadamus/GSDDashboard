@@ -70,9 +70,11 @@ public record WicPresence(
 /// know". Both cover signals are unioned here, once:
 ///   1. an on-site <c>WicShiftEntries</c> row (IsOnSite=1), matched by SupportLocation; and
 ///   2. a <c>ShiftEntries</c> row that <see cref="AvailabilityResolver.IsWicDutyAt"/> reads
-///      as WIC duty at this centre. That reading is: the AgentTask names THIS centre, the
-///      row is not a back-office day (RawValue="BO"), and its ShiftType is WIC_DUTY or the
-///      WORKING of a row whose AgentTask still carried the centre name.
+///      as WIC duty at this centre. That reading is: the AgentTask names THIS centre and the
+///      ShiftType is WIC_DUTY or the WORKING of a row whose AgentTask still carried the
+///      centre name — OR the row is an AUTOMATIC back-office day and this is the agent's
+///      priority WIC centre (owner rule 2026-10-15: WIC has priority over BO; a BO day RTM
+///      set by hand stays BO — see <see cref="WicBackOfficePriority"/>).
 /// Agents found by both are counted once, by employee.
 ///
 /// Why this exists: the union used to live inline in ForecastService only. BriefingService
@@ -91,16 +93,19 @@ public record WicPresence(
 public static class WicPresenceResolver
 {
     /// <summary>
-    /// Pre-filter for signal 2: the only <c>ShiftEntries</c> rows that could name a centre.
-    /// A task badge (or "GSD") never can, and a back-office day (RawValue="BO") is never WIC
-    /// duty whatever its AgentTask still says, so both are dropped up front — the expensive
-    /// per-location match then runs over a much smaller set. Passing an unfiltered list
-    /// still produces the same answer, just slower.
+    /// Pre-filter for signal 2: the only <c>ShiftEntries</c> rows that could name a centre,
+    /// plus every PLAN back-office day. A task badge (or "GSD") can never name a centre and
+    /// is dropped; a BO day RTM authored is dropped too (it is never WIC duty). An AUTOMATIC
+    /// BO day is KEPT even though the generator writes no centre name on it: the owner rule
+    /// (2026-10-15) is WIC-over-BO, and the centre comes from the agent's active assignment —
+    /// see <see cref="WicBackOfficePriority"/>. Passing an unfiltered list still produces the
+    /// same answer, just slower.
     /// </summary>
     public static List<ShiftEntry> CandidateDutyRows(IEnumerable<ShiftEntry> shiftEntries) =>
         shiftEntries
-            .Where(s => !AvailabilityResolver.IsBackOfficeRawValue(s.RawValue))
-            .Where(s => !string.IsNullOrEmpty(s.AgentTask) && !AgentTasks.IsNonLocationValue(s.AgentTask))
+            .Where(s => !WicBackOfficePriority.IsManualBackOffice(s))
+            .Where(s => WicBackOfficePriority.IsPlanBackOffice(s)
+                        || (!string.IsNullOrEmpty(s.AgentTask) && !AgentTasks.IsNonLocationValue(s.AgentTask)))
             .ToList();
 
     /// <param name="onSiteRows">
@@ -123,7 +128,9 @@ public static class WicPresenceResolver
         IEnumerable<WicShiftEntry> onSiteRows,
         IReadOnlyDictionary<(string, DateOnly), ShiftEntry> shiftByEmpDate,
         IEnumerable<ShiftEntry> candidateDutyRows,
-        Func<string, bool> isSick)
+        Func<string, bool> isSick,
+        WicBackOfficePriority.WicAssignmentIndex? assignments = null,
+        IEnumerable<WicOpeningHour>? openingHours = null)
     {
         var agents = new List<WicPresentAgent>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -138,10 +145,13 @@ public static class WicPresenceResolver
 
             shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
             // Location-aware on purpose: an on-site agent whose ShiftEntries row is a
-            // WIC-duty row with a flipped ShiftType still counts (see IsWicDutyAt), and a
+            // WIC-duty row with a flipped ShiftType still counts (see IsWicDutyAt), a
             // HALF_AL day with an on-site row counts as the working part he is there for
-            // (GetOnSiteWicContribution — RTM 2026-10-15, requirement 1).
-            var contribution = AvailabilityResolver.GetOnSiteWicContribution(isSick(w.EmployeeId), sh, loc);
+            // (GetOnSiteWicContribution — RTM 2026-10-15, requirement 1), and an AUTOMATIC
+            // back-office day whose agent has an active WIC assignment counts too (owner
+            // rule 2026-10-15: WIC has priority over BO).
+            var contribution = AvailabilityResolver.GetOnSiteWicContribution(
+                isSick(w.EmployeeId), sh, loc, assignments, openingHours);
             agents.Add(new WicPresentAgent(w.EmployeeId, contribution, HasOnSiteRow: true, sh, w));
         }
 
@@ -150,10 +160,11 @@ public static class WicPresenceResolver
         {
             if (s.ShiftDate != date) continue;
             if (TestAccounts.IsExcluded(s.EmployeeId)) continue;
-            if (!AvailabilityResolver.IsWicDutyAt(s, loc)) continue;
+            if (!AvailabilityResolver.IsWicDutyAt(s, loc, assignments, openingHours)) continue;
             if (!seen.Add(s.EmployeeId)) continue;   // already counted via signal 1
 
-            var contribution = AvailabilityResolver.GetWicContributionAt(isSick(s.EmployeeId), s, loc);
+            var contribution = AvailabilityResolver.GetWicContributionAt(
+                isSick(s.EmployeeId), s, loc, assignments, openingHours);
             agents.Add(new WicPresentAgent(s.EmployeeId, contribution, HasOnSiteRow: false, s, null));
         }
 

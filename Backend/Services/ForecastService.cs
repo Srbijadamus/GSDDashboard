@@ -92,11 +92,19 @@ public class ForecastService
             .ToListAsync();
 
         // Signal-2 candidates for WicPresenceResolver: rows whose AgentTask could name a
-        // centre. A row counts as coverage even when the paired WicShiftEntries on-site
-        // row is missing (the SYSTEM_WICFIX gap - 521 rows across 37 locations as of
+        // centre, plus every AUTOMATIC back-office day (owner rule 2026-10-15: WIC has
+        // priority over BO). A row counts as coverage even when the paired WicShiftEntries
+        // on-site row is missing (the SYSTEM_WICFIX gap - 521 rows across 37 locations as of
         // 2026-09-30); the resolver reports that as Evidence=ROSTER_ONLY.
         var wicDutyEntriesAll = WicPresenceResolver.CandidateDutyRows(shiftEntries)
             .Where(s => !TestAccounts.IsExcluded(s.EmployeeId)).ToList();
+        // WIC-over-BO: the agent -> priority-centre index the resolver needs to place a plan
+        // BO day at the right centre.
+        var activeEmployees = await _db.Employees
+            .Where(e => e.IsActive && !TestAccounts.ExcludedEmployeeIds.Contains(e.EmployeeId))
+            .ToListAsync();
+        var activeAssignments = await _db.WicAgentAssignments.Where(a => a.IsActive).ToListAsync();
+        var boIndex = WicBackOfficePriority.BuildIndex(activeAssignments, locations, activeEmployees);
 
         var locationResults = new List<ForecastLocationDto>();
 
@@ -138,7 +146,8 @@ public class ForecastService
                 var presence = WicPresenceResolver.Resolve(
                     loc, date, wicEntries, shiftByEmpDate, wicDutyEntriesAll,
                     empId => sickLeaves.Any(sl =>
-                        sl.EmployeeId == empId && sl.FirstDay <= date && sl.LastDay >= date));
+                        sl.EmployeeId == empId && sl.FirstDay <= date && sl.LastDay >= date),
+                    boIndex, allHours);
 
                 double presentDouble = presence.PresentDouble;
                 int scheduledCount = presence.OnSiteCount + presence.CheckInNotRecordedCount;

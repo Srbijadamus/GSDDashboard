@@ -97,15 +97,15 @@ public class AvailabilityResolver
         };
 
     /// <summary>
-    /// The RawValue a BACK-OFFICE day carries. A BO day is entered as a WORKING row with
-    /// RawValue="BO" and NO AgentTask (RosterService's BO branch; Bulk RTM's BO category).
+    /// The RawValue a BACK-OFFICE day carries. A plan BO day is written by the roster
+    /// generator as a WORKING row with RawValue="BO" and NO AgentTask; the manual Shift Plan
+    /// API additionally accepts the literal <c>ShiftType="BO"</c>.
     ///
-    /// When a WIC_DUTY cell is edited to BO the centre name can be left behind in
-    /// AgentTask, and a row with RawValue="BO" is then a WORKING row whose AgentTask names
-    /// a centre — exactly the shape <see cref="IsWicDutyAt"/> used to read as WIC duty with
-    /// a flipped ShiftType. It is not: the agent is on back office that day. Rule (RTM
-    /// 2026-10-15, requirement 1): a BO row is never WIC duty in ANY reader, so the test
-    /// lives here once instead of in each reader.
+    /// Whether a BO row is WIC duty is NOT decided here — the owner rule (2026-10-15) is
+    /// "WIC has priority over BO, unless RTM set BO by hand", which needs the row's manual
+    /// marker and the agent's active WIC assignment. That decision lives in
+    /// <see cref="WicBackOfficePriority"/>; this helper only answers "does the raw value say
+    /// BO", the same way every reader has always asked it.
     /// </summary>
     public static bool IsBackOfficeRawValue(string? rawValue) =>
         string.Equals(rawValue?.Trim(), "BO", StringComparison.OrdinalIgnoreCase);
@@ -132,17 +132,21 @@ public class AvailabilityResolver
     ///
     /// Absence and away types are never reinterpreted — see NotOnWicDutyTypes.
     ///
-    /// A BO row is never WIC duty, whatever its AgentTask still says
-    /// (<see cref="IsBackOfficeRawValue"/>). A back-office day is entered as
-    /// ShiftType=WORKING with RawValue="BO"; when it is created by editing a WIC_DUTY cell,
-    /// the centre name can survive in AgentTask. Reading that as WIC duty is precisely the
-    /// phantom cover this rule removes — see GSDContext.LinkWicRowsToShiftTypeChanges, which
-    /// also clears the stale AgentTask on a WIC_DUTY -> non-WIC transition.
+    /// A BO row is WIC duty only per the owner rule (2026-10-15): WIC has priority over BO,
+    /// so a PLAN BO day (no manual RTM edit) for an agent with an active WIC assignment is
+    /// WIC duty at that centre — see
+    /// <see cref="IsWicDutyAt(ShiftEntry?, WicLocation, WicBackOfficePriority.WicAssignmentIndex, IEnumerable{WicOpeningHour})"/>,
+    /// which is the overload every coverage reader uses. A BO day RTM authored stays BO and
+    /// is never WIC (see <see cref="WicBackOfficePriority.IsManualBackOffice"/>).
     /// </summary>
     public static bool IsWicDutyAt(ShiftEntry? sh, WicLocation loc)
     {
         if (sh == null) return false;                                    // unknown is not present
-        if (IsBackOfficeRawValue(sh.RawValue)) return false;             // a BO day is never WIC duty
+        if (WicBackOfficePriority.IsManualBackOffice(sh)) return false;  // RTM set BO by hand
+        // A PLAN BO row's centre is not in the row (the generator writes AgentTask=null); it
+        // comes from the agent's assignment. Without that context there is nothing to match,
+        // so this overload cannot call it WIC duty — use the assignment-aware overload.
+        if (WicBackOfficePriority.IsPlanBackOffice(sh)) return false;
         if (!WicLocationMatcher.MatchesAgentTask(sh.AgentTask, loc)) return false;
 
         var type = sh.ShiftType ?? "";
@@ -151,6 +155,26 @@ public class AvailabilityResolver
         // WORKING with a centre in AgentTask = the WIC_DUTY encoding, ShiftType flipped.
         // Any other/unrecognised type stays false: unknown is not present.
         return string.Equals(type, ShiftTypes.Working, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The location-aware reading every coverage reader uses. Identical to
+    /// <see cref="IsWicDutyAt(ShiftEntry?, WicLocation)"/> except for a PLAN BO row, which
+    /// carries no centre name (the generator writes AgentTask=null): its centre is resolved
+    /// from the agent's active WIC assignment (MAIN, then BACKUP, then REGIONAL — only a
+    /// centre OPEN on the date counts). Owner rule 2026-10-15: BO counts as non-WIC ONLY
+    /// when RTM set it by hand; otherwise WIC has priority.
+    /// </summary>
+    public static bool IsWicDutyAt(
+        ShiftEntry? sh, WicLocation loc,
+        WicBackOfficePriority.WicAssignmentIndex? assignments,
+        IEnumerable<WicOpeningHour>? openingHours)
+    {
+        if (sh == null) return false;
+        if (WicBackOfficePriority.IsManualBackOffice(sh)) return false;  // RTM set BO by hand
+        if (WicBackOfficePriority.IsPlanBackOffice(sh))
+            return WicBackOfficePriority.IsPlanBackOfficeWicAt(sh, loc, assignments, openingHours);
+        return IsWicDutyAt(sh, loc);
     }
 
     /// <summary>
@@ -164,6 +188,21 @@ public class AvailabilityResolver
     {
         if (isSick) return 0.0;
         if (IsWicDutyAt(sh, loc)) return 1.0;
+        return GetWicContribution(isSick, sh);
+    }
+
+    /// <summary>
+    /// Assignment-aware <see cref="GetWicContributionAt"/>: a PLAN BO row counts as WIC duty
+    /// at the agent's priority centre (owner rule 2026-10-15). Every coverage reader passes
+    /// the index + hours it already loaded.
+    /// </summary>
+    public static double GetWicContributionAt(
+        bool isSick, ShiftEntry? sh, WicLocation loc,
+        WicBackOfficePriority.WicAssignmentIndex? assignments,
+        IEnumerable<WicOpeningHour>? openingHours)
+    {
+        if (isSick) return 0.0;
+        if (IsWicDutyAt(sh, loc, assignments, openingHours)) return 1.0;
         return GetWicContribution(isSick, sh);
     }
 
@@ -187,6 +226,11 @@ public class AvailabilityResolver
         if (isSick) return 0.0;
         if (sh != null && string.Equals(sh.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase))
             return 1.0;
+        // WIC OVER BO (owner, 2026-10-15): an automatic back-office day whose agent holds an
+        // active WIC assignment IS this centre's WIC duty. Without this the on-site row the
+        // sync writes would be scored 0.0 (a WORKING row) and the centre would still read
+        // uncovered. A BO day RTM authored is excluded — see IsManualBackOffice.
+        if (WicBackOfficePriority.IsPlanBackOffice(sh)) return 1.0;
         return GetWicContribution(isSick, sh);
     }
 
@@ -199,6 +243,22 @@ public class AvailabilityResolver
     {
         if (isSick) return 0.0;
         if (IsWicDutyAt(sh, loc)) return 1.0;
+        return GetOnSiteWicContribution(isSick, sh);
+    }
+
+    /// <summary>
+    /// Assignment-aware <see cref="GetOnSiteWicContribution(bool, ShiftEntry?, WicLocation)"/>:
+    /// a PLAN BO day whose agent holds an active WIC assignment is this centre's WIC duty
+    /// (owner rule 2026-10-15), scored with the same signal-1 semantics as any other on-site
+    /// agent.
+    /// </summary>
+    public static double GetOnSiteWicContribution(
+        bool isSick, ShiftEntry? sh, WicLocation loc,
+        WicBackOfficePriority.WicAssignmentIndex? assignments,
+        IEnumerable<WicOpeningHour>? openingHours)
+    {
+        if (isSick) return 0.0;
+        if (IsWicDutyAt(sh, loc, assignments, openingHours)) return 1.0;
         return GetOnSiteWicContribution(isSick, sh);
     }
 

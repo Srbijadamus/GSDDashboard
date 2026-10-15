@@ -1,0 +1,164 @@
+{
+  "when": "2026-10-15T19:35:51.5079864+02:00",
+  "health": {
+    "tunnel": 200,
+    "local": 200
+  },
+  "mulheim_20261029": {
+    "locationCode": "DE~45476~Mülheim~Moritzstr. 16-22",
+    "displayName": "Mülheim",
+    "city": "Mülheim",
+    "country": "DE",
+    "isOpen": true,
+    "closedReason": null,
+    "openIntervals": [
+      {
+        "openTime": "08:00",
+        "closeTime": "12:00"
+      }
+    ],
+    "coverageStatus": "UNCOVERED",
+    "scheduledCount": 0,
+    "absentCount": 0,
+    "effectiveCoverage": 0,
+    "minRequired": 1
+  },
+  "mulheim_20261029_card": {
+    "status": "UNCOVERED",
+    "agents": []
+  },
+  "mulheim_20261022": {
+    "locationCode": "DE~45476~Mülheim~Moritzstr. 16-22",
+    "displayName": "Mülheim",
+    "city": "Mülheim",
+    "country": "DE",
+    "isOpen": true,
+    "closedReason": null,
+    "openIntervals": [
+      {
+        "openTime": "08:00",
+        "closeTime": "12:00"
+      }
+    ],
+    "coverageStatus": "COVERED",
+    "scheduledCount": 2,
+    "absentCount": 0,
+    "effectiveCoverage": 2,
+    "minRequired": 1
+  },
+  "pfaffenhofen": [
+    {
+      "date": "2026-11-16",
+      "status": "COVERED",
+      "agents": "9135516",
+      "only9135516": true,
+      "has9129428": false
+    },
+    {
+      "date": "2026-11-17",
+      "status": "COVERED",
+      "agents": "9135516",
+      "only9135516": true,
+      "has9129428": false
+    },
+    {
+      "date": "2026-11-18",
+      "status": "COVERED",
+      "agents": "9135516",
+      "only9135516": true,
+      "has9129428": false
+    },
+    {
+      "date": "2026-11-19",
+      "status": "COVERED",
+      "agents": "9135516",
+      "only9135516": true,
+      "has9129428": false
+    },
+    {
+      "date": "2026-11-20",
+      "status": "COVERED",
+      "agents": "9135516",
+      "only9135516": true,
+      "has9129428": false
+    },
+    {
+      "date": "2026-11-23",
+      "status": "COVERED",
+      "agents": "9135516",
+      "only9135516": true,
+      "has9129428": false
+    },
+    {
+      "date": "2026-11-24",
+      "status": "COVERED",
+      "agents": "9135516",
+      "only9135516": true,
+      "has9129428": false
+    },
+    {
+      "date": "2026-11-25",
+      "status": "COVERED",
+      "agents": "9135516",
+      "only9135516": true,
+      "has9129428": false
+    },
+    {
+      "date": "2026-11-26",
+      "status": "COVERED",
+      "agents": "9135516",
+      "only9135516": true,
+      "has9129428": false
+    },
+    {
+      "date": "2026-11-27",
+      "status": "COVERED",
+      "agents": "9135516",
+      "only9135516": true,
+      "has9129428": false
+    }
+  ],
+  "helmstedt": {
+    "date": "2026-10-16",
+    "status": "COVERED"
+  },
+  "sample": [
+    {
+      "centre": "Saarbrücken",
+      "date": "2026-10-16",
+      "status": "COVERED",
+      "agents": "9112563,9117836"
+    },
+    {
+      "centre": "Neuss",
+      "date": "2026-10-28",
+      "status": "COVERED",
+      "agents": "9074352,9085138"
+    },
+    {
+      "centre": "München",
+      "date": "2026-10-20",
+      "status": "COVERED",
+      "agents": "9124145,9126882"
+    },
+    {
+      "centre": "Stadland",
+      "date": "2026-10-21",
+      "status": "COVERED",
+      "agents": "9125519"
+    },
+    {
+      "centre": "Mülheim",
+      "date": "2026-11-05",
+      "status": "COVERED",
+      "agents": "9119463,9120970"
+    },
+    {
+      "centre": "Arnsberg",
+      "date": "2026-11-04",
+      "status": "CLOSED",
+      "agents": ""
+    }
+  ],
+  "pass": true
+}

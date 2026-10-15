@@ -101,6 +101,7 @@ public class GSDContext : DbContext
     {
         GuardManualShifts();
         LinkWicRowsToShiftTypeChanges();
+        SyncWicRowsForPlanBackOffice();
         var result = base.SaveChanges(acceptAllChangesOnSuccess);
         _manualEdits.Clear();
         _rolloutOwnedDeletes.Clear();
@@ -112,11 +113,44 @@ public class GSDContext : DbContext
     {
         GuardManualShifts();
         LinkWicRowsToShiftTypeChanges();
+        SyncWicRowsForPlanBackOffice();
         var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         _manualEdits.Clear();
         _rolloutOwnedDeletes.Clear();
         _manualRtmTypeEdits.Clear();
         return result;
+    }
+
+    /// <summary>
+    /// WIC OVER BO (owner rule, 2026-10-15): every AUTOMATIC back-office day
+    /// (<c>RawValue="BO"</c>/<c>ShiftType="BO"</c> with no <c>ManualChangeBy</c>) whose agent
+    /// holds an active WIC assignment gets its on-site <c>WicShiftEntries</c> row created or
+    /// kept, with <c>WorkingShift = shift ∩ centre hours</c>. It runs in the SAME unit of work
+    /// as the ShiftEntries change, for every writer — roster generator, imports, the
+    /// generator's overwrite path — exactly like
+    /// <see cref="LinkWicRowsToShiftTypeChanges"/> does for the opposite transition.
+    ///
+    /// A BO day RTM authored is excluded twice over: <c>ManualChangeBy</c> is set before the
+    /// save by <see cref="RecordManualRtmShiftEdit"/>, so it is not a "plan" BO row, and
+    /// <see cref="GuardManualShifts"/> already protects the row itself. Leave types
+    /// (AL/SL/UL/OL/PH/LPH), HALF_AL, OFF/OFF_WEEKEND, TRAINING and RESIGNED are never BO
+    /// days and never reach this code.
+    /// </summary>
+    private void SyncWicRowsForPlanBackOffice()
+    {
+        ChangeTracker.DetectChanges();
+        var rows = ChangeTracker.Entries<ShiftEntry>()
+            .Where(e => e.State is EntityState.Added or EntityState.Modified)
+            .Select(e => e.Entity)
+            .Where(Services.WicBackOfficePriority.IsPlanBackOffice)
+            .ToList();
+        if (rows.Count == 0) return;
+
+        var changed = Services.WicBackOfficeSync.Apply(this, rows);
+        if (changed > 0)
+            _log?.LogInformation(
+                "WIC>BO rule: created/updated {Count} on-site WicShiftEntries row(s) for automatic back-office day(s)",
+                changed);
     }
 
     /// <summary>

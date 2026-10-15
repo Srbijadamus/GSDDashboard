@@ -1,0 +1,2 @@
+Deploy snapshot (code rollback): C:\ProgramData\PulseRollback\wicbo-deploy-20261015-193323
+Data backup / rollback.sql    : C:\ProgramData\PulseRollback\wicbo-20261015-193107

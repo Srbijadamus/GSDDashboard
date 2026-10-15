@@ -126,6 +126,9 @@ public class WicCardsService
         var activeEmpById = await _db.Employees
             .Where(e => e.IsActive && !TestAccounts.ExcludedEmployeeIds.Contains(e.EmployeeId))
             .ToDictionaryAsync(e => e.EmployeeId, e => e);
+        // WIC-over-BO (owner rule 2026-10-15): resolves a plan BO day to the agent's
+        // priority centre so the card counts it as cover (and not as a "GSD" marker).
+        var boIndex = WicBackOfficePriority.BuildIndex(assignments, locations, activeEmpById.Values);
 
         var cards = locations.Select(loc =>
         {
@@ -178,7 +181,10 @@ public class WicCardsService
                 var isNonWic = !isSick && !isAL && shiftEntry != null
                     && !AvailabilityResolver.FullAbsenceTypes.Contains(shiftEntry.ShiftType)
                     && !string.Equals(shiftEntry.ShiftType, "HALF_AL", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(shiftEntry.ShiftType, "WIC_DUTY", StringComparison.OrdinalIgnoreCase);
+                    && !string.Equals(shiftEntry.ShiftType, "WIC_DUTY", StringComparison.OrdinalIgnoreCase)
+                    // WIC OVER BO: an automatic back-office day whose agent holds an active
+                    // WIC assignment is this centre's WIC duty, not "GSD" work.
+                    && !WicBackOfficePriority.IsPlanBackOffice(shiftEntry);
                 // Absent agents get their absence type as marker (SICK/AL/HALF_AL/OFF/...)
                 // so RTM can see they are out; the frontend renders these as absent labels.
                 var marker = isSick ? "SICK" : absentType == "HALF_AL" ? "HALF_AL" : isAL ? "AL"
@@ -253,7 +259,7 @@ public class WicCardsService
             // ShiftEntries times - the only times such a row has.
             var presence = WicPresenceResolver.Resolve(
                 loc, date, wicShifts.Select(x => x.w), shiftByEmpDate, candidateDutyRows,
-                empId => sickToday.Contains(empId));
+                empId => sickToday.Contains(empId), boIndex, openingHours);
 
             // Select by "rostered here with no on-site row", NOT by CheckInNotRecorded:
             // a MANUAL duty is deliberately exempt from that warning, and selecting on it

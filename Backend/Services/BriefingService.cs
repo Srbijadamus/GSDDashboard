@@ -94,6 +94,9 @@ public class BriefingService
         // 0/1 UNCOVERED on 2026-10-01 while the banner and the KPI cards said covered.
         var candidateDutyRows = WicPresenceResolver.CandidateDutyRows(shiftEntries)
             .Where(s => !TestAccounts.IsExcluded(s.EmployeeId)).ToList();
+        // WIC-over-BO (owner rule 2026-10-15): resolve a plan BO day to the agent's priority
+        // centre, same reading the forecast and the cards use.
+        var boIndex = WicBackOfficePriority.BuildIndex(allAssignments, locations, allEmployees);
 
         // ── Absences today ────────────────────────────────────────────────────
         var todayShifts = shiftEntries.Where(s => s.ShiftDate == date).ToList();
@@ -185,7 +188,8 @@ public class BriefingService
             var presence = WicPresenceResolver.Resolve(
                 loc, date, wicEntries, shiftByEmpDate, candidateDutyRows,
                 empId => sickLeavesAll.Any(sl =>
-                    sl.EmployeeId == empId && sl.FirstDay <= date && sl.LastDay >= date));
+                    sl.EmployeeId == empId && sl.FirstDay <= date && sl.LastDay >= date),
+                boIndex, allHours);
             double presentDouble = presence.PresentDouble;
 
             int effectiveCoverage = presence.EffectiveCoverage;
@@ -250,7 +254,8 @@ public class BriefingService
                 var presence = WicPresenceResolver.Resolve(
                     loc, scanDate, wicEntries, shiftByEmpDate, candidateDutyRows,
                     empId => sickLeavesAll.Any(sl =>
-                        sl.EmployeeId == empId && sl.FirstDay <= scanDate && sl.LastDay >= scanDate));
+                        sl.EmployeeId == empId && sl.FirstDay <= scanDate && sl.LastDay >= scanDate),
+                    boIndex, allHours);
 
                 // Same rule as today's gap loop: a staffed-but-unrecorded centre is not a
                 // risk day, or the Closure Risk KPI would count record-keeping as risk.
