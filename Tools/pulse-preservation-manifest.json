@@ -857,6 +857,10 @@
       "Hash": "D0C024C2CB14E5B16E71AFA6252D05B9E3B9A9871588898A0194631C4B282EF1"
     },
     {
+      "Path": "Backend.Tests/HalWicAndWicAttendanceLinkTests.cs",
+      "Hash": "9C69E5B2EBC908E369842528C7015692D1FFE34F895A0FECAE2D1902B9F06862"
+    },
+    {
       "Path": "Backend.Tests/KioskProxyAccessTests.cs",
       "Hash": "D02C689A49FDA422DAEAC02F4DEEA2F0CBE636A8DB6377F03BDFC372AD712A3E"
     },
@@ -1094,7 +1098,7 @@
     },
     {
       "Path": "Backend/BackupService.cs",
-      "Hash": "357C080B3874518361AACCE18EEEFA1F8803F310FFEF5CAC23CC4E368A855BE0"
+      "Hash": "948CE11BE011DB1FB4226C5FAD3161C59CB03A7E4C3100932DE660BB10619554"
     },
     {
       "Path": "Backend/BoEntry.cs",
@@ -1142,7 +1146,7 @@
     },
     {
       "Path": "Backend/GSDContext.cs",
-      "Hash": "925EE9816BDF761ECAD51BA3C2322A6B04212A8FC2848EE718B689F0AF744AFB"
+      "Hash": "E5F1FB3FF72D0CD8D96A49250B5979AB47F3D3265FBF4ECDE9978E2F222704A2"
     },
     {
       "Path": "Backend/GSDDashboard.API.csproj",
@@ -1166,7 +1170,7 @@
     },
     {
       "Path": "Backend/OverviewService.cs",
-      "Hash": "7CD7FB038D7CFD1AE651D0F40567EC3B63747B54FCD3DE4B7CABB19B825D667F"
+      "Hash": "07F7CBBDDD63738EEA19AA06480EE4FC6ACC2A29086AAE1DF24815E8E59D74EE"
     },
     {
       "Path": "Backend/PipelineService.cs",
@@ -1226,7 +1230,7 @@
     },
     {
       "Path": "Backend/Services/AvailabilityResolver.cs",
-      "Hash": "998E418656382334FEFFC49FC11F9C84B4430F3EA7795CE28E417231B12456C7"
+      "Hash": "2C6A68E72C32E2297F13E5DDA4B096D1029F24AEEAFE959EA04D91D593F3EBB4"
     },
     {
       "Path": "Backend/Services/BerlinTime.cs",
@@ -1285,6 +1289,10 @@
       "Hash": "ADAB6537BDF1B74A9377958B4E8C09ACB5FF73BDC1261D824117C0FD6552E61A"
     },
     {
+      "Path": "Backend/Services/WicAttendanceLink.cs",
+      "Hash": "F41DA595F6C2E965EA82A87B60C9CEB2B728EF5016144801C6A8C349FE10E33B"
+    },
+    {
       "Path": "Backend/Services/WicConflictDetector.cs",
       "Hash": "33B73E995097DB64F3B56E3955D2C844159E97A99DA26D07B3C6AEA0E770D38E"
     },
@@ -1310,7 +1318,7 @@
     },
     {
       "Path": "Backend/Services/WicPresenceResolver.cs",
-      "Hash": "0A47168E6F2578A93C499FAC579553D170A114422FF4E6D838C5E6A9919A0AB2"
+      "Hash": "B8ABAAF0133227071428454C8923614F10D8FF8F026A81F100E091CA245B01C6"
     },
     {
       "Path": "Backend/Services/WicWorkingShift.cs",
@@ -1326,7 +1334,7 @@
     },
     {
       "Path": "Backend/ShiftService.cs",
-      "Hash": "35A888B012E1E98CF6868085F3B06B6D547A6E557581FEFFA6BBBC05874DE1A7"
+      "Hash": "C73A25584A25E2E18DF90B551810D4A560DEA8DC67944B4B5671673FDEAADB49"
     },
     {
       "Path": "Backend/ShiftSyncService.cs",
@@ -1382,7 +1390,7 @@
     },
     {
       "Path": "Backend/WicShiftService.cs",
-      "Hash": "18E5897CC02344ACED4185257374FC77BA46F6DBC4F6AC6E1DDD7E6E77E6AA9C"
+      "Hash": "9FEE43C09CA1439257598F520CD6E80C6874192642FB70F9F165F5920AB99A16"
     },
     {
       "Path": "Frontend/eslint.config.js",

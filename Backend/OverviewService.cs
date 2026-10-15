@@ -98,7 +98,7 @@ public class OverviewService
                     else
                     {
                         shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
-                        presentDouble += AvailabilityResolver.GetWicContribution(false, sh);
+                        presentDouble += AvailabilityResolver.GetOnSiteWicContribution(false, sh);
                     }
                 }
 

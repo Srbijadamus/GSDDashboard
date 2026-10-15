@@ -224,10 +224,18 @@ public class ShiftService
         if (manualActor == null && _db.PreserveManualShift(shift, "Shift update"))
             return new(null, "Manual shift is protected; use a human cell edit.");
 
-        if (dto.ShiftType        != null) shift.ShiftType        = dto.ShiftType;
+        // RTM 2026-10-15 (requirement 1): setting a cell to WIC_DUTY on a HALF_AL day keeps
+        // the day HALF_AL. Half annual leave is still on the row, and its ShiftStart..ShiftEnd
+        // is the WORKING part the WIC duty sits on; the WIC assignment is carried by the
+        // WicShiftEntries row (SyncWicDutyFromShiftPlanAsync below) exactly as for a
+        // WIC_DUTY cell.
+        bool halfAlWicRequest = string.Equals(dto.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(shift.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase);
+
+        if (dto.ShiftType        != null && !halfAlWicRequest) shift.ShiftType = dto.ShiftType;
         if (dto.ShiftType        != null && !string.Equals(dto.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase)) shift.IsWicDuty = false;
-        if (dto.ShiftStart       != null) shift.ShiftStart       = dto.ShiftStart;
-        if (dto.ShiftEnd         != null) shift.ShiftEnd         = dto.ShiftEnd;
+        if (dto.ShiftStart       != null && !halfAlWicRequest) shift.ShiftStart = dto.ShiftStart;
+        if (dto.ShiftEnd         != null && !halfAlWicRequest) shift.ShiftEnd   = dto.ShiftEnd;
         if (dto.AgentTask        != null) shift.AgentTask        = dto.AgentTask;
         if (dto.LocationId       != null) shift.LocationId       = dto.LocationId;
         if (dto.AssignmentStatus != null) shift.AssignmentStatus = dto.AssignmentStatus;
@@ -238,7 +246,8 @@ public class ShiftService
             // A human Shift Plan edit must land in the WIC tables too, or WIC
             // Attendance and the Overview coverage gaps keep reading the old state
             // (live 2026-10-12: a WIC_DUTY cell edit changed only ShiftEntries).
-            wicWarning = await SyncWicDutyFromShiftPlanAsync(shift, dto.LocationId, explicitTypeChange: dto.ShiftType != null);
+            wicWarning = await SyncWicDutyFromShiftPlanAsync(shift, dto.LocationId,
+                explicitTypeChange: dto.ShiftType != null, wicDutyRequested: halfAlWicRequest);
             shift.IsWicDuty = shift.ShiftType == ShiftTypes.WicDuty;
             _db.RecordManualShiftEdit(shift, manualActor);
         }
@@ -282,12 +291,20 @@ public class ShiftService
         }
 
         ShiftEntry shift;
+        // Same HALF_AL rule as UpdateShiftAsync: a WIC duty on a half-AL day leaves the
+        // row HALF_AL and puts the WIC assignment on the WicShiftEntries row only.
+        bool halfAlWicRequest = existing != null &&
+            string.Equals(dto.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(existing.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase);
         if (existing != null)
         {
             shift = existing;
-            shift.ShiftType  = dto.ShiftType;
-            shift.ShiftStart = dto.ShiftStart;
-            shift.ShiftEnd   = dto.ShiftEnd;
+            if (!halfAlWicRequest)
+            {
+                shift.ShiftType  = dto.ShiftType;
+                shift.ShiftStart = dto.ShiftStart;
+                shift.ShiftEnd   = dto.ShiftEnd;
+            }
             if (dto.ShiftType != ShiftTypes.WicDuty) shift.IsWicDuty = false;
         }
         else
@@ -307,7 +324,8 @@ public class ShiftService
         {
             // Same rule as UpdateShiftAsync: a human WIC_DUTY assignment from the
             // Shift Plan must be visible in WIC Attendance and on the Overview.
-            wicWarning = await SyncWicDutyFromShiftPlanAsync(shift, null, explicitTypeChange: true);
+            wicWarning = await SyncWicDutyFromShiftPlanAsync(shift, null,
+                explicitTypeChange: true, wicDutyRequested: halfAlWicRequest);
             shift.IsWicDuty = shift.ShiftType == ShiftTypes.WicDuty;
             _db.RecordManualShiftEdit(shift, manualActor);
         }
@@ -341,10 +359,25 @@ public class ShiftService
     /// Returns an English warning when the cell is WIC_DUTY but no centre can be
     /// resolved, so the Shift Plan shows the exact reason instead of silently diverging.
     /// Only ever called for a human edit (manualActor != null).
+    ///
+    /// <paramref name="wicDutyRequested"/> is true only for the HALF_AL case (RTM
+    /// 2026-10-15, requirement 1): the caller asked for WIC_DUTY but the row intentionally
+    /// stays HALF_AL, so this method must still write the WIC row — from the working part
+    /// the row carries, cut to the centre's window.
+    ///
+    /// The CENTRE A → CENTRE B move (requirement 3) is deliberately NOT implemented here:
+    /// a Shift Plan cell names ONE of a day's centres and must never stand another one
+    /// down (multi-centre rule, 2026-10-15 — see WicMultiCentreDayTests). The move is the
+    /// "Assign Agent" path, <see cref="GSDDashboard.API.Modules.WicShifts.WicShiftService.CreateAssignmentAsync"/>:
+    /// an overlapping commitment at the previous centre is replaced in the same SaveChanges
+    /// (toReplace / REPLACED_AUTOMATIC) and the new centre is upserted by location.
     /// </summary>
-    private async Task<string?> SyncWicDutyFromShiftPlanAsync(ShiftEntry shift, string? locationHint, bool explicitTypeChange)
+    private async Task<string?> SyncWicDutyFromShiftPlanAsync(
+        ShiftEntry shift, string? locationHint, bool explicitTypeChange, bool wicDutyRequested = false)
     {
-        var isWicDuty = string.Equals(shift.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase);
+        var isHalfAl = string.Equals(shift.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase);
+        var isWicDuty = string.Equals(shift.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase)
+            || (isHalfAl && wicDutyRequested);
         // A pure task-badge change (no explicit type change) must not stand down WIC
         // rows: "WIC" as a task badge on a WORKING row is not WIC on-site duty.
         if (!isWicDuty && (!explicitTypeChange || shift.ShiftType == null)) return null;
@@ -415,7 +448,8 @@ public class ShiftService
         var end   = shift.ShiftEnd;
         var centreHours = await _db.WicOpeningHours.ToListAsync();
         var (dutyStart, dutyEnd) = WicWorkingShift.CentreWindow(centreHours, location, shift.ShiftDate);
-        if (string.IsNullOrWhiteSpace(start) || string.IsNullOrWhiteSpace(end))
+        // A HALF_AL row's times are its WORKING part — never backfilled from the centre.
+        if (!isHalfAl && (string.IsNullOrWhiteSpace(start) || string.IsNullOrWhiteSpace(end)))
         {
             if (string.IsNullOrWhiteSpace(start)) start = dutyStart ?? "08:00";
             if (string.IsNullOrWhiteSpace(end))   end   = dutyEnd   ?? "17:00";
@@ -427,14 +461,17 @@ public class ShiftService
         // cut to the centre's resolved window (WicWorkingShift). The cell's own times are
         // never replaced by the centre's hours except when the cell carried none above.
         // When the two do not touch, the CENTRE's window is written — never the cell's own
-        // window (RTM 2026-10-15 item 4).
+        // window (RTM 2026-10-15 item 4). For a HALF_AL day this is exactly the intersection
+        // of the WORKING part and the centre's window (requirement 1).
         var workingShift = WicWorkingShift.Slice(shift.ShiftStart, shift.ShiftEnd, dutyStart, dutyEnd)
                            ?? WicWorkingShift.FallbackWindow(dutyStart, dutyEnd)
                            ?? $"{start}-{end}";
 
         // AgentTask carries the (truncated) centre name, the convention every WIC reader uses.
+        // A HALF_AL row is NOT marked IsWicDuty: the startup cleanup zeroes that flag on any
+        // non-WIC_DUTY row, and the WIC commitment lives on the WicShiftEntries row.
         shift.AgentTask = location.DisplayName.Length > 20 ? location.DisplayName[..20] : location.DisplayName;
-        shift.IsWicDuty = true;
+        if (!isHalfAl) shift.IsWicDuty = true;
 
         var target = rows.FirstOrDefault(w =>
             string.Equals(w.SupportLocation, location.DisplayName, StringComparison.OrdinalIgnoreCase));

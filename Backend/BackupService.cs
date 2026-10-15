@@ -162,7 +162,7 @@ public class BackupService
             foreach (var we in dayWic)
             {
                 shiftByEmpDate.TryGetValue((we.EmployeeId, date), out var shift);
-                double contrib = AvailabilityResolver.GetWicContribution(false, shift);
+                double contrib = AvailabilityResolver.GetOnSiteWicContribution(false, shift);
                 if (contrib <= 0.0)
                 {
                     absentIds.Add(we.EmployeeId);

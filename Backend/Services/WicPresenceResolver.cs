@@ -134,8 +134,10 @@ public static class WicPresenceResolver
 
             shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
             // Location-aware on purpose: an on-site agent whose ShiftEntries row is a
-            // WIC-duty row with a flipped ShiftType still counts (see IsWicDutyAt).
-            var contribution = AvailabilityResolver.GetWicContributionAt(isSick(w.EmployeeId), sh, loc);
+            // WIC-duty row with a flipped ShiftType still counts (see IsWicDutyAt), and a
+            // HALF_AL day with an on-site row counts as the working part he is there for
+            // (GetOnSiteWicContribution — RTM 2026-10-15, requirement 1).
+            var contribution = AvailabilityResolver.GetOnSiteWicContribution(isSick(w.EmployeeId), sh, loc);
             agents.Add(new WicPresentAgent(w.EmployeeId, contribution, HasOnSiteRow: true, sh, w));
         }
 

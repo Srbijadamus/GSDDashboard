@@ -294,7 +294,12 @@ public class WicShiftService
                     else
                     {
                         shiftByEmpDate.TryGetValue((w.EmployeeId, date), out var sh);
-                        double contrib = AvailabilityResolver.GetWicContribution(false, sh);
+                        // Signal 1 (the agent HAS an on-site row here): a HALF_AL day is
+                        // the working part of the day, and the on-site row's WorkingShift
+                        // is already cut to the overlap of that part and this centre's
+                        // window — so he staffs this centre, not "half of himself"
+                        // (RTM 2026-10-15, requirement 1).
+                        double contrib = AvailabilityResolver.GetOnSiteWicContribution(false, sh);
                         if (contrib <= 0.0) fullAbsentCount++; // non-WIC work also reduces effective count
                         else presentDouble += contrib;
                     }
@@ -498,14 +503,25 @@ public class WicShiftService
         // sync, generator) is refused by PreserveManualShift.
         if (manualActor == null && db.PreserveManualShift(shift, "WIC create shift"))
             return Results.Conflict(new { success = false, saved = false, skipped = true, reasonCode = "PROTECTED_MANUAL", reason = "Manual shift is protected." });
+        // RTM 2026-10-15 (requirement 1): a WIC duty placed on a HALF_AL day keeps the
+        // row HALF_AL — half annual leave is still on it, and its ShiftStart..ShiftEnd
+        // is the WORKING part the WIC duty is placed on. Only the WicShiftEntries row
+        // below carries the WIC assignment.
+        bool keepHalfAl = shift != null
+            && string.Equals(shift.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(req.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase);
         if (shift != null)
         {
-            shift.ShiftType    = req.ShiftType;
+            shift.ShiftType    = keepHalfAl ? ShiftTypes.HalfAL : req.ShiftType;
             // The agent's own times are never dropped by an edit that carries none. The WIC
             // block below then fills a still-empty window from the centre's hours, but it
             // must never turn the centre's hours into the agent's shift (RTM rule 2026-10-14).
-            shift.ShiftStart   = req.ShiftStart ?? shift.ShiftStart;
-            shift.ShiftEnd     = req.ShiftEnd   ?? shift.ShiftEnd;
+            // A HALF_AL working part is never re-timed from the request either.
+            if (!keepHalfAl)
+            {
+                shift.ShiftStart = req.ShiftStart ?? shift.ShiftStart;
+                shift.ShiftEnd   = req.ShiftEnd   ?? shift.ShiftEnd;
+            }
             shift.AgentTask    = req.AgentTask;
             shift.SourceModule = "MANUAL";
         }
@@ -563,7 +579,7 @@ public class WicShiftService
                 // gap-assign modal) that omits ShiftStart/ShiftEnd — expecting
                 // the centre's own hours to fill them in — previously got a
                 // WIC_DUTY row with blank times and IsWicDuty still false.
-                shift.IsWicDuty = true;
+                shift.IsWicDuty = !keepHalfAl;
                 if (string.IsNullOrEmpty(shift.ShiftStart)) shift.ShiftStart = openTime;
                 if (string.IsNullOrEmpty(shift.ShiftEnd))   shift.ShiftEnd   = closeTime;
 
@@ -697,6 +713,15 @@ public class WicShiftService
         var shift = await db.ShiftEntries
             .FirstOrDefaultAsync(s => s.EmployeeId == req.EmployeeId && s.ShiftDate == date);
 
+        // RTM 2026-10-15 (requirement 1): a HALF_AL day is half annual leave and half WORK.
+        // A WIC duty may be placed on the WORKING part, so the row must keep saying HALF_AL
+        // — its ShiftStart..ShiftEnd is that working part, which is what the HR export
+        // ("half AL + half work") and the Shift Plan show. Only the WicShiftEntries row
+        // carries the WIC assignment, and its WorkingShift is the intersection of the
+        // working part and the centre's window (WicWorkingShift.Slice below).
+        // Full AL/SL/UL/PH/LPH/OL/OFF/OFF_WEEKEND/RESIGNED days stay blocked (BlockingAbsenceTypes).
+        bool halfAlDay = string.Equals(shift?.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase);
+
         static (TimeOnly s, TimeOnly e)? ParseWindow(string? start, string? end) =>
             TimeOnly.TryParse(start, out var s) && TimeOnly.TryParse(end, out var e) && e > s
                 ? (s, e) : null;
@@ -707,7 +732,11 @@ public class WicShiftService
             return e > s ? (s, e) : null;
         }
         var agentWindow = ParseWindow(shift?.ShiftStart, shift?.ShiftEnd);
-        bool keepAgentShift = req.ShiftStart == null && req.ShiftEnd == null && agentWindow != null;
+        // A HALF_AL day ALWAYS keeps its own times: they are the working part, never the
+        // centre's hours and never the request's WIC times. Without usable times there is
+        // nothing to keep, so the WIC row falls back to the centre's window below.
+        bool keepAgentShift = agentWindow != null &&
+            (halfAlDay || (req.ShiftStart == null && req.ShiftEnd == null));
 
         // Time source priority for NEW assignments (fixes the Helmstedt/Rendsburg pattern
         // where the ShiftEntry got the location opening hours instead of the agent's time):
@@ -810,12 +839,18 @@ public class WicShiftService
 
         if (shift != null)
         {
-            shift.ShiftType    = ShiftTypes.WicDuty;
-            shift.IsWicDuty    = true;
-            shift.AgentTask    = agentTask;
+            // HALF_AL stays HALF_AL (see halfAlDay above); every other type becomes WIC duty
+            // exactly as before.
+            if (!halfAlDay)
+            {
+                shift.ShiftType = ShiftTypes.WicDuty;
+                shift.IsWicDuty = true;
+            }
+            shift.AgentTask = agentTask;
             // keepAgentShift: the agent's own ShiftStart/ShiftEnd stays exactly as his
             // schedule has it. The centre's window only shapes the WIC row above.
-            if (!keepAgentShift)
+            // A HALF_AL row is never re-timed here either — its times ARE the working part.
+            if (!keepAgentShift && !halfAlDay)
             {
                 shift.ShiftStart = req.ShiftStart ?? openTime;
                 shift.ShiftEnd   = req.ShiftEnd   ?? closeTime;

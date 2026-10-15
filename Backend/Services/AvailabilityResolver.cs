@@ -31,10 +31,15 @@ public class AvailabilityResolver
 
     // Blocking absence set used by the WIC assignment endpoint (WicShiftService.AssignAgent)
     // and by the coverage card calculation (WicCardsService). Superset of FullAbsenceTypes:
-    // also treats HALF_AL, OFF and OFF_WEEKEND as absent. Single source of truth — do not
+    // also treats OFF and OFF_WEEKEND as absent. Single source of truth — do not
     // re-declare this list elsewhere.
+    //
+    // HALF_AL is deliberately NOT in this set (RTM 2026-10-15, requirement 1). A half-AL day
+    // is half annual leave AND half WORK — the agent is available for the working part of
+    // the day, so a WIC duty may be placed on him for that part. Full AL/SL/UL/OL/PH/LPH and
+    // OFF/OFF_WEEKEND/RESIGNED still block: on those days there is no working part at all.
     public static readonly HashSet<string> BlockingAbsenceTypes =
-        new(StringComparer.OrdinalIgnoreCase) { "AL", "HALF_AL", "SL", "UL", "PH", "LPH", "OL", "OFF", "OFF_WEEKEND", "RESIGNED" };
+        new(StringComparer.OrdinalIgnoreCase) { "AL", "SL", "UL", "PH", "LPH", "OL", "OFF", "OFF_WEEKEND", "RESIGNED" };
 
     // The leave types the Overview "Absent today" people list / KPI reports.
     //
@@ -138,6 +143,41 @@ public class AvailabilityResolver
         if (isSick) return 0.0;
         if (IsWicDutyAt(sh, loc)) return 1.0;
         return GetWicContribution(isSick, sh);
+    }
+
+    /// <summary>
+    /// SIGNAL-1 contribution (RTM 2026-10-15, requirement 1): the agent HAS an on-site
+    /// <c>WicShiftEntries</c> row at this centre for this date, so the question is not
+    /// "how available is he in general" but "is he staffing this centre".
+    ///
+    /// Identical to <see cref="GetWicContribution"/> except for a HALF_AL day. There the
+    /// ShiftEntries row's ShiftStart..ShiftEnd is the agent's WORKING part (the other half
+    /// is annual leave) and the on-site row's WorkingShift is exactly that part cut to the
+    /// centre's window (<see cref="WicWorkingShift"/>). The agent is therefore on WIC duty
+    /// at this centre for every hour he is contracted to work, and the centre he is booked
+    /// into must not be graded with the generic half-day availability score — that score
+    /// would declare his own centre uncovered and offer a substitute for a day that is
+    /// fully staffed. HALF_AL without an on-site row still scores 0.5 (the generic
+    /// half-day availability).
+    /// </summary>
+    public static double GetOnSiteWicContribution(bool isSick, ShiftEntry? sh)
+    {
+        if (isSick) return 0.0;
+        if (sh != null && string.Equals(sh.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase))
+            return 1.0;
+        return GetWicContribution(isSick, sh);
+    }
+
+    /// <summary>
+    /// Location-aware <see cref="GetOnSiteWicContribution"/>. Keeps the flipped-ShiftType
+    /// reading of <see cref="IsWicDutyAt"/> (an on-site agent whose ShiftType was flipped
+    /// to WORKING still counts) and adds the HALF_AL working-part rule.
+    /// </summary>
+    public static double GetOnSiteWicContribution(bool isSick, ShiftEntry? sh, WicLocation loc)
+    {
+        if (isSick) return 0.0;
+        if (IsWicDutyAt(sh, loc)) return 1.0;
+        return GetOnSiteWicContribution(isSick, sh);
     }
 
     // Returns the absence status for a single employee on a given date.

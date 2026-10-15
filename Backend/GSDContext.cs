@@ -74,6 +74,7 @@ public class GSDContext : DbContext
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         GuardManualShifts();
+        LinkWicRowsToShiftTypeChanges();
         var result = base.SaveChanges(acceptAllChangesOnSuccess);
         _manualEdits.Clear();
         _rolloutOwnedDeletes.Clear();
@@ -83,10 +84,67 @@ public class GSDContext : DbContext
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         GuardManualShifts();
+        LinkWicRowsToShiftTypeChanges();
         var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         _manualEdits.Clear();
         _rolloutOwnedDeletes.Clear();
         return result;
+    }
+
+    /// <summary>
+    /// RTM 2026-10-15, requirement 3 — WIC ATTENDANCE FOLLOWS THE SHIFT PLAN.
+    ///
+    /// Every <c>ShiftEntries</c> row that stops being WIC duty in this unit of work has its
+    /// employee+date's ON-SITE <c>WicShiftEntries</c> rows stood down (<c>IsOnSite=false</c>)
+    /// before anything is written, so WIC Attendance, the coverage cards, /api/wic/open, the
+    /// forecast, the conflicts detector and the HR export all see the change in the same
+    /// SaveChanges as the Shift Plan cell / Bulk RTM paste / import / generator that made it.
+    ///
+    /// Doing it here (rather than in each writer) is the point: the writers are many and
+    /// independent, and the previous implementation only covered the hand Shift Plan cell.
+    /// A writer that already stands the rows down itself is unaffected — the rule is
+    /// idempotent.
+    ///
+    /// Only a TRANSITION is acted on (was WIC_DUTY, is now something else). Creating a new
+    /// non-WIC row for a day that never was WIC duty is not this rule's business, and a
+    /// move INTO WIC_DUTY must keep the on-site rows the WIC writers create.
+    /// See <see cref="Services.WicAttendanceLink"/> for the full rationale.
+    /// </summary>
+    private void LinkWicRowsToShiftTypeChanges()
+    {
+        ChangeTracker.DetectChanges();
+
+        var keys = new HashSet<(string Employee, DateOnly Date)>();
+        foreach (var entry in ChangeTracker.Entries<ShiftEntry>())
+        {
+            if (entry.State != EntityState.Modified) continue;
+            var before = entry.OriginalValues.GetValue<string?>(nameof(ShiftEntry.ShiftType));
+            if (!Services.WicAttendanceLink.LeavesWicDuty(before, entry.Entity.ShiftType)) continue;
+            keys.Add((entry.Entity.EmployeeId, entry.Entity.ShiftDate));
+        }
+        if (keys.Count == 0) return;
+
+        var employees = keys.Select(k => k.Employee).Distinct().ToList();
+        var dates     = keys.Select(k => k.Date).Distinct().ToList();
+
+        // Queried (not ChangeTracker-scanned) so a writer that changed ShiftEntries without
+        // ever loading the WIC rows — the common case — is still covered.
+        var rows = WicShiftEntries
+            .Where(w => w.IsOnSite && employees.Contains(w.EmployeeId) && dates.Contains(w.ShiftDate))
+            .ToList();
+
+        var changed = 0;
+        foreach (var w in rows)
+        {
+            if (!keys.Contains((w.EmployeeId, w.ShiftDate))) continue;
+            w.IsOnSite = false;
+            changed++;
+        }
+
+        if (changed > 0)
+            _log?.LogInformation(
+                "WIC attendance link: stood down {Count} on-site WicShiftEntries row(s) for {Keys} shift-type change(s)",
+                changed, keys.Count);
     }
 
     public DbSet<Employee>           Employees           { get; set; }
