@@ -829,6 +829,10 @@
       "Hash": "FEB7858E2DA2821F7295A39A91EB24496AEBA61AE343BC432A2C05E1E2C8DAA0"
     },
     {
+      "Path": "Backend.Tests/BoAgentTaskWicTests.cs",
+      "Hash": "5C2B043429AE90C0865C55C74DD6551CC31A4EA95B6B681523517EAF4FBF6ABA"
+    },
+    {
       "Path": "Backend.Tests/BulkRtmPasteTests.cs",
       "Hash": "D9C7CEED5E30F30203B234FC5EB0C6F27B3050EC6D04E12EB8DD7B6420808D8A"
     },
@@ -1146,7 +1150,7 @@
     },
     {
       "Path": "Backend/GSDContext.cs",
-      "Hash": "E5F1FB3FF72D0CD8D96A49250B5979AB47F3D3265FBF4ECDE9978E2F222704A2"
+      "Hash": "68AD5B31915AEC56DD126ADB3221C213872288E4EFFEDE0870BC6BAD8A280CAD"
     },
     {
       "Path": "Backend/GSDDashboard.API.csproj",
@@ -1230,7 +1234,7 @@
     },
     {
       "Path": "Backend/Services/AvailabilityResolver.cs",
-      "Hash": "2C6A68E72C32E2297F13E5DDA4B096D1029F24AEEAFE959EA04D91D593F3EBB4"
+      "Hash": "92C307DDD90DCF23DC6A4AFD7E4461A496E2DDCCE48DA39B8A0CCC848C4E4DE6"
     },
     {
       "Path": "Backend/Services/BerlinTime.cs",
@@ -1290,7 +1294,7 @@
     },
     {
       "Path": "Backend/Services/WicAttendanceLink.cs",
-      "Hash": "F41DA595F6C2E965EA82A87B60C9CEB2B728EF5016144801C6A8C349FE10E33B"
+      "Hash": "50F54344A7594B11EC46218C04CFF72D52F673FE1AF71ED012E49A3D988FF0C4"
     },
     {
       "Path": "Backend/Services/WicConflictDetector.cs",
@@ -1318,7 +1322,7 @@
     },
     {
       "Path": "Backend/Services/WicPresenceResolver.cs",
-      "Hash": "B8ABAAF0133227071428454C8923614F10D8FF8F026A81F100E091CA245B01C6"
+      "Hash": "970D827A8AC365F8846D2F18E4ED64D49F37A12EA9496080C4D101A3C5F717C9"
     },
     {
       "Path": "Backend/Services/WicWorkingShift.cs",
@@ -1378,7 +1382,7 @@
     },
     {
       "Path": "Backend/WicCoverageGapService.cs",
-      "Hash": "779BCA7B46FF8FB829FC2CFC2E5E8FC4F6452AC9452922E09318FBB138D2D73E"
+      "Hash": "25CE7861E4C7889F18D50CED60B5D5D69E2A4D96992AC525A7A580D6E6663AF3"
     },
     {
       "Path": "Backend/WicModels.cs",

@@ -212,7 +212,9 @@ public class WicCoverageGapService
 
         if (string.Equals(type, ShiftTypes.Working, StringComparison.OrdinalIgnoreCase))
         {
-            if (string.Equals(shift.RawValue, "BO", StringComparison.OrdinalIgnoreCase)) return "BO";
+            // A BO day is never WIC duty, whatever AgentTask still says
+            // (AvailabilityResolver.IsBackOfficeRawValue) — label it BO, never "WIC {centre}".
+            if (AvailabilityResolver.IsBackOfficeRawValue(shift.RawValue)) return "BO";
             if (string.Equals(shift.AgentTask, "VWIC", StringComparison.OrdinalIgnoreCase)) return "VWIC";
             // A centre name here means WIC duty with a flipped ShiftType
             // (AvailabilityResolver.IsWicDutyAt) — show it as the WIC duty it is, so the
@@ -275,9 +277,12 @@ public class WicCoverageGapService
         // Cover signal 2: ShiftEntries rows whose AgentTask could name a centre. The
         // ShiftType call belongs to AvailabilityResolver.IsWicDutyAt, not to this query —
         // filtering on ShiftType=WIC_DUTY here is what used to drop a WIC-duty row whose
-        // ShiftType had been flipped to WORKING, producing a phantom gap.
+        // ShiftType had been flipped to WORKING, producing a phantom gap. A BO day is not
+        // cover either (AvailabilityResolver.IsBackOfficeRawValue), so those are dropped
+        // here too — the same "a BO row is never WIC duty" rule every reader applies.
         var wicDutyEntries = await _db.ShiftEntries
             .Where(s => s.ShiftDate >= from && s.ShiftDate <= to &&
+                        (s.RawValue == null || s.RawValue != "BO") &&
                         s.AgentTask != null && s.AgentTask != "" &&
                         !NonLocationTasks.Contains(s.AgentTask))
             .ToListAsync();
@@ -490,6 +495,7 @@ public class WicCoverageGapService
             .Where(w => w.ShiftDate >= from && w.ShiftDate <= to && w.IsOnSite).ToListAsync();
         var wicDutyEntries = await _db.ShiftEntries
             .Where(s => s.ShiftDate >= from && s.ShiftDate <= to &&
+                        (s.RawValue == null || s.RawValue != "BO") &&
                         s.AgentTask != null && s.AgentTask != "" &&
                         !NonLocationTasks.Contains(s.AgentTask))
             .ToListAsync();

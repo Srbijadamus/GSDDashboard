@@ -97,6 +97,20 @@ public class AvailabilityResolver
         };
 
     /// <summary>
+    /// The RawValue a BACK-OFFICE day carries. A BO day is entered as a WORKING row with
+    /// RawValue="BO" and NO AgentTask (RosterService's BO branch; Bulk RTM's BO category).
+    ///
+    /// When a WIC_DUTY cell is edited to BO the centre name can be left behind in
+    /// AgentTask, and a row with RawValue="BO" is then a WORKING row whose AgentTask names
+    /// a centre — exactly the shape <see cref="IsWicDutyAt"/> used to read as WIC duty with
+    /// a flipped ShiftType. It is not: the agent is on back office that day. Rule (RTM
+    /// 2026-10-15, requirement 1): a BO row is never WIC duty in ANY reader, so the test
+    /// lives here once instead of in each reader.
+    /// </summary>
+    public static bool IsBackOfficeRawValue(string? rawValue) =>
+        string.Equals(rawValue?.Trim(), "BO", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Single definition of "this ShiftEntries row means the agent is on WIC duty at
     /// <paramref name="loc"/> that day". Every reader of the ShiftEntries cover signal
     /// calls this instead of testing <c>ShiftType == WIC_DUTY</c> itself.
@@ -117,10 +131,18 @@ public class AvailabilityResolver
     /// WicShiftEntries IsOnSite=1 row at the same centre (Helmstedt).
     ///
     /// Absence and away types are never reinterpreted — see NotOnWicDutyTypes.
+    ///
+    /// A BO row is never WIC duty, whatever its AgentTask still says
+    /// (<see cref="IsBackOfficeRawValue"/>). A back-office day is entered as
+    /// ShiftType=WORKING with RawValue="BO"; when it is created by editing a WIC_DUTY cell,
+    /// the centre name can survive in AgentTask. Reading that as WIC duty is precisely the
+    /// phantom cover this rule removes — see GSDContext.LinkWicRowsToShiftTypeChanges, which
+    /// also clears the stale AgentTask on a WIC_DUTY -> non-WIC transition.
     /// </summary>
     public static bool IsWicDutyAt(ShiftEntry? sh, WicLocation loc)
     {
         if (sh == null) return false;                                    // unknown is not present
+        if (IsBackOfficeRawValue(sh.RawValue)) return false;             // a BO day is never WIC duty
         if (!WicLocationMatcher.MatchesAgentTask(sh.AgentTask, loc)) return false;
 
         var type = sh.ShiftType ?? "";

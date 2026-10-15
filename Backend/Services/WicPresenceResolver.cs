@@ -70,7 +70,9 @@ public record WicPresence(
 /// know". Both cover signals are unioned here, once:
 ///   1. an on-site <c>WicShiftEntries</c> row (IsOnSite=1), matched by SupportLocation; and
 ///   2. a <c>ShiftEntries</c> row that <see cref="AvailabilityResolver.IsWicDutyAt"/> reads
-///      as WIC duty at this centre.
+///      as WIC duty at this centre. That reading is: the AgentTask names THIS centre, the
+///      row is not a back-office day (RawValue="BO"), and its ShiftType is WIC_DUTY or the
+///      WORKING of a row whose AgentTask still carried the centre name.
 /// Agents found by both are counted once, by employee.
 ///
 /// Why this exists: the union used to live inline in ForecastService only. BriefingService
@@ -90,12 +92,14 @@ public static class WicPresenceResolver
 {
     /// <summary>
     /// Pre-filter for signal 2: the only <c>ShiftEntries</c> rows that could name a centre.
-    /// A task badge (or "GSD") never can, so those are dropped up front — the expensive
+    /// A task badge (or "GSD") never can, and a back-office day (RawValue="BO") is never WIC
+    /// duty whatever its AgentTask still says, so both are dropped up front — the expensive
     /// per-location match then runs over a much smaller set. Passing an unfiltered list
     /// still produces the same answer, just slower.
     /// </summary>
     public static List<ShiftEntry> CandidateDutyRows(IEnumerable<ShiftEntry> shiftEntries) =>
         shiftEntries
+            .Where(s => !AvailabilityResolver.IsBackOfficeRawValue(s.RawValue))
             .Where(s => !string.IsNullOrEmpty(s.AgentTask) && !AgentTasks.IsNonLocationValue(s.AgentTask))
             .ToList();
 

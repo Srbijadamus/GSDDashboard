@@ -1,5 +1,6 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Modules.Shifts;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Services;
@@ -43,6 +44,36 @@ public static class WicAttendanceLink
     public static bool LeavesWicDuty(string? before, string? after) =>
         string.Equals(before, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase) &&
         !string.Equals(after, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// True when this <c>ShiftEntries</c> row has just LEFT WIC duty and still carries a
+    /// WIC centre's name in <c>AgentTask</c>, so the name must be cleared.
+    ///
+    /// The centre name is the SECOND cover signal's only handle
+    /// (<see cref="AvailabilityResolver.IsWicDutyAt"/> matches <c>AgentTask</c> against a
+    /// centre): a WORKING row whose AgentTask names a centre used to read as WIC duty with a
+    /// flipped ShiftType, which is why an agent taken off WIC duty kept showing up in the WIC
+    /// cards (9129428, Pfaffenhofen, 2026-11-16). Once the type has moved on, the name is
+    /// stale data and removing it is the only way every reader stops seeing the phantom duty.
+    ///
+    /// Only a value that actually names a WIC centre is cleared. A task badge ("GSD",
+    /// "Voice", ...) is the cell's own legitimate content and is never touched, and a row
+    /// that has no AgentTask is left as it is. Callers pass the ACTIVE centres, which is the
+    /// same set (and the same truncated-prefix matcher) the readers resolve against.
+    /// </summary>
+    public static bool ClearsWicCentreAgentTask(ShiftEntry row, IEnumerable<WicLocation> activeCentres)
+    {
+        if (string.IsNullOrWhiteSpace(row.AgentTask)) return false;
+        var task = row.AgentTask.Trim();
+        if (AgentTasks.IsNonLocationValue(task)) return false;
+        foreach (var centre in activeCentres)
+        {
+            // Same match the readers use: exact DisplayName/code, or the 20-char-truncated
+            // prefix AgentTask stores for long names. A short task badge can never match.
+            if (WicLocationMatcher.MatchesAgentTask(task, centre)) return true;
+        }
+        return false;
+    }
 
     /// <summary>
     /// Stands down every currently on-site WIC row of one employee on one date, optionally

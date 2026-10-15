@@ -94,16 +94,26 @@ public class GSDContext : DbContext
     /// <summary>
     /// RTM 2026-10-15, requirement 3 — WIC ATTENDANCE FOLLOWS THE SHIFT PLAN.
     ///
-    /// Every <c>ShiftEntries</c> row that stops being WIC duty in this unit of work has its
+    /// Every <c>ShiftEntries</c> row that stops being WIC duty in this unit of work (a) has its
     /// employee+date's ON-SITE <c>WicShiftEntries</c> rows stood down (<c>IsOnSite=false</c>)
-    /// before anything is written, so WIC Attendance, the coverage cards, /api/wic/open, the
-    /// forecast, the conflicts detector and the HR export all see the change in the same
+    /// and (b) has a stale WIC-centre name cleared from <c>AgentTask</c>, both BEFORE anything
+    /// is written. WIC Attendance, the coverage cards, /api/wic/open, the forecast, the
+    /// conflicts detector and the HR export therefore all see the change in the same
     /// SaveChanges as the Shift Plan cell / Bulk RTM paste / import / generator that made it.
     ///
     /// Doing it here (rather than in each writer) is the point: the writers are many and
     /// independent, and the previous implementation only covered the hand Shift Plan cell.
     /// A writer that already stands the rows down itself is unaffected — the rule is
     /// idempotent.
+    ///
+    /// (b) exists because AgentTask is what every reader of the SECOND cover signal matches a
+    /// centre against (AvailabilityResolver.IsWicDutyAt / WicPresenceResolver): a WORKING row
+    /// whose AgentTask still names a centre is read as WIC duty with a flipped ShiftType. When
+    /// RTM changes a WIC_DUTY cell to WORKING or BO, leaving the centre name behind made the
+    /// agent keep appearing in the WIC cards after he had been taken off WIC duty (9129428,
+    /// Pfaffenhofen, 2026-11-16). Clearing it on the transition removes the phantom cover at
+    /// the source. Only a value that actually names a WIC centre is cleared; a task badge
+    /// ("GSD", "Voice", ...) is the cell's own legitimate content and is left alone.
     ///
     /// Only a TRANSITION is acted on (was WIC_DUTY, is now something else). Creating a new
     /// non-WIC row for a day that never was WIC duty is not this rule's business, and a
@@ -115,14 +125,39 @@ public class GSDContext : DbContext
         ChangeTracker.DetectChanges();
 
         var keys = new HashSet<(string Employee, DateOnly Date)>();
+        var leavers = new List<ShiftEntry>();
         foreach (var entry in ChangeTracker.Entries<ShiftEntry>())
         {
             if (entry.State != EntityState.Modified) continue;
             var before = entry.OriginalValues.GetValue<string?>(nameof(ShiftEntry.ShiftType));
             if (!Services.WicAttendanceLink.LeavesWicDuty(before, entry.Entity.ShiftType)) continue;
             keys.Add((entry.Entity.EmployeeId, entry.Entity.ShiftDate));
+            leavers.Add(entry.Entity);
         }
         if (keys.Count == 0) return;
+
+        // (b) Clear a stale centre name BEFORE the stand-down query below: the clearing only
+        // touches ShiftEntry.AgentTask and is committed by this SaveChanges with everything else.
+        if (leavers.Count > 0)
+        {
+            var activeCentres = WicLocations
+                .Where(l => l.IsActive)
+                .ToList();
+            var cleared = 0;
+            foreach (var row in leavers)
+            {
+                if (!Services.WicAttendanceLink.ClearsWicCentreAgentTask(row, activeCentres)) continue;
+                _log?.LogInformation(
+                    "WIC link: cleared stale centre name '{AgentTask}' from AgentTask on ShiftEntry {Id} " +
+                    "(employee {Employee}, {Date}) after it left WIC_DUTY for {ShiftType}",
+                    row.AgentTask, row.Id, row.EmployeeId, row.ShiftDate, row.ShiftType);
+                row.AgentTask = null;
+                cleared++;
+            }
+            if (cleared > 0)
+                _log?.LogInformation(
+                    "WIC link: cleared AgentTask on {Count} row(s) that left WIC_DUTY", cleared);
+        }
 
         var employees = keys.Select(k => k.Employee).Distinct().ToList();
         var dates     = keys.Select(k => k.Date).Distinct().ToList();
