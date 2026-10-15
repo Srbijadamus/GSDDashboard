@@ -249,7 +249,9 @@ public class ShiftService
             wicWarning = await SyncWicDutyFromShiftPlanAsync(shift, dto.LocationId,
                 explicitTypeChange: dto.ShiftType != null, wicDutyRequested: halfAlWicRequest);
             shift.IsWicDuty = shift.ShiftType == ShiftTypes.WicDuty;
-            _db.RecordManualShiftEdit(shift, manualActor);
+            // MANUAL RTM cell edit: the only writer allowed to clear a stale WIC centre name
+            // from AgentTask when the cell goes WIC_DUTY -> WORKING/BO (see GSDContext).
+            _db.RecordManualRtmShiftEdit(shift, manualActor);
         }
         await _db.SaveChangesAsync();
 
@@ -327,7 +329,8 @@ public class ShiftService
             wicWarning = await SyncWicDutyFromShiftPlanAsync(shift, null,
                 explicitTypeChange: true, wicDutyRequested: halfAlWicRequest);
             shift.IsWicDuty = shift.ShiftType == ShiftTypes.WicDuty;
-            _db.RecordManualShiftEdit(shift, manualActor);
+            // MANUAL RTM cell / Bulk RTM paste (AL/OFF/CD/NIGHT): see UpdateShiftAsync.
+            _db.RecordManualRtmShiftEdit(shift, manualActor);
         }
         await _db.SaveChangesAsync();
 

@@ -34,6 +34,14 @@ namespace GSDDashboard.API.Services;
 /// its WorkingShift survive for the schedule/report, they just stop counting as coverage.
 /// Deleting rows is a separate, deliberate data operation — never something a shift-type
 /// edit does as a side effect.
+///
+/// The SECOND half of the hook — clearing a stale centre name from <c>AgentTask</c> — is
+/// deliberately much narrower: only a MANUAL RTM edit (Shift Plan cell / Bulk RTM paste)
+/// that takes the row to WORKING or BO may do it
+/// (<see cref="ClearsCentreOnManualRtmTypeEdit"/>; declared by
+/// <c>GSDContext.RecordManualRtmShiftEdit</c>). Every automatic writer stands the WIC row
+/// down but keeps the centre name, because that name is the trace of a temporary move and
+/// the handle back to the agent's home centre.
 /// </summary>
 public static class WicAttendanceLink
 {
@@ -44,6 +52,31 @@ public static class WicAttendanceLink
     public static bool LeavesWicDuty(string? before, string? after) =>
         string.Equals(before, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase) &&
         !string.Equals(after, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A back-office day stored as a literal ShiftType. In <c>ShiftEntries</c> a BO day is
+    /// normally <c>WORKING</c> + <c>RawValue="BO"</c> (see <see cref="AvailabilityResolver.IsBackOfficeRawValue"/>);
+    /// this constant only accepts the (equally BO) literal form defensively.
+    /// </summary>
+    public const string BackOfficeShiftType = "BO";
+
+    /// <summary>
+    /// True when a MANUAL RTM type edit (Shift Plan cell / Bulk RTM paste) moved the row from
+    /// WIC_DUTY to WORKING or BO. That is the ONLY transition allowed to clear the centre
+    /// name from AgentTask: the human has explicitly said "this agent is no longer on WIC duty
+    /// here", so leaving the name behind would keep him listed as cover.
+    ///
+    /// Deliberately NOT true for WIC_DUTY → AL/SL/OFF/... — a leave, a sickness or a day off
+    /// is a decision about the DAY, not about the centre — and, above all, not true for any
+    /// AUTOMATIC writer. The centre name is the trace of a TEMPORARY move (another WIC centre,
+    /// or BO/GSD) and the handle by which the agent returns to his home centre; automation
+    /// must never erase it. WIC_DUTY centre A → WIC_DUTY centre B is not a departure from WIC
+    /// duty at all, so <see cref="LeavesWicDuty"/> is already false for it and nothing clears.
+    /// </summary>
+    public static bool ClearsCentreOnManualRtmTypeEdit(string? before, string? after) =>
+        LeavesWicDuty(before, after) &&
+        (string.Equals(after, ShiftTypes.Working, StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(after, BackOfficeShiftType, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// True when this <c>ShiftEntries</c> row has just LEFT WIC duty and still carries a

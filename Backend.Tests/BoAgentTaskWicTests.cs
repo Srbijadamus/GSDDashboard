@@ -21,7 +21,11 @@ namespace GSDDashboard.Tests;
 //      and a row that AROSE from WIC_DUTY → non-WIC carries no centre name any more, so no
 //      reader can match it; and
 //   2. the central hook (GSDContext.LinkWicRowsToShiftTypeChanges) clears that stale centre
-//      name in the SAME SaveChanges as the type change, whatever writer made it.
+//      name in the SAME SaveChanges as the type change — but ONLY for the two MANUAL RTM
+//      entry points (Shift Plan cell / Bulk RTM paste) and only for WIC_DUTY → WORKING/BO.
+//      An automatic writer (roster generator, absence sync, rollout, substitute, startup)
+//      keeps the name: it is the trace of a temporary move. See
+//      TemporaryMoveAgentTaskTests for the writer-by-writer rule.
 public class BoAgentTaskWicTests
 {
     private const string PfaffenhofenCode = "DE~85276~Pfaffenhofen~Draht 7";
@@ -211,16 +215,20 @@ public class BoAgentTaskWicTests
         Assert.NotEqual("COVERED", card.CoverageStatus);
     }
 
-    // ── 2. The central hook clears the stale centre name on the transition ────────────────
+    // ── 2. The central hook clears the stale centre name only for the manual RTM writers ──
 
     [Theory]
     [InlineData(ShiftTypes.Working, null)]
     [InlineData(ShiftTypes.Working, "BO")]
     [InlineData(ShiftTypes.Off, null)]
     [InlineData(ShiftTypes.AnnualLeave, null)]
-    public async Task Hook_WicDutyToNonWic_ClearsAStaleCentreNameInAgentTask(
+    public async Task Hook_AutomaticWriter_LeavingWicDuty_KeepsTheCentreName(
         string newType, string? newRawValue)
     {
+        // No RecordManualRtmShiftEdit — this is the write shape of every automatic writer
+        // (the generator, the leave sync, a rollout, a substitute accept, startup). The
+        // centre name is the trace of a temporary move and must survive.
+        // (The manual-cell counterpart lives in TemporaryMoveAgentTaskTests.)
         using var db = NewDb();
         SeedCentre(db);
         db.Employees.Add(new Employee { EmployeeId = "9129428", FullName = "Bo Agent", IsActive = true });
@@ -237,7 +245,22 @@ public class BoAgentTaskWicTests
         shift.IsWicDuty = false;
         await db.SaveChangesAsync();
 
-        Assert.Null((await db.ShiftEntries.SingleAsync(s => s.Id == 1)).AgentTask);
+        Assert.Equal(Pfaffenhofen, (await db.ShiftEntries.SingleAsync(s => s.Id == 1)).AgentTask);
+    }
+
+    [Theory]
+    [InlineData(ShiftTypes.Working, true)]
+    [InlineData("BO", true)]
+    [InlineData(ShiftTypes.Off, false)]
+    [InlineData(ShiftTypes.AnnualLeave, false)]
+    [InlineData(ShiftTypes.SickLeave, false)]
+    [InlineData(ShiftTypes.WicDuty, false)]
+    public void ClearsCentreOnManualRtmTypeEdit_OnlyForWorkingOrBo(string after, bool expected)
+    {
+        Assert.Equal(expected, WicAttendanceLink.ClearsCentreOnManualRtmTypeEdit(ShiftTypes.WicDuty, after));
+        // Never for a writer that did not start at WIC_DUTY.
+        Assert.False(WicAttendanceLink.ClearsCentreOnManualRtmTypeEdit(ShiftTypes.Working, after));
+        Assert.False(WicAttendanceLink.ClearsCentreOnManualRtmTypeEdit(null, after));
     }
 
     [Fact]

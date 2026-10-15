@@ -86,6 +86,30 @@ and no time is stored. Full document: **[documentation/BULK_RTM.md](documentatio
   (50 + the additive `WicRolloutDays` and `WicRolloutWorkers`); a mismatch is reported,
   never fatal.
 
+## Temporary moves and `AgentTask` (added 2026-10-15, follow-up)
+
+An agent is **temporarily** sent to help at another WIC centre, or to BO/GSD, and then
+returns to his home centre. The centre name in `ShiftEntries.AgentTask` is the trace of that
+move — automation must never erase it.
+
+- The central hook `GSDContext.LinkWicRowsToShiftTypeChanges` still stands the day's on-site
+  `WicShiftEntries` rows down (`IsOnSite=false`) for **every** writer when a row leaves
+  `WIC_DUTY` (unchanged, "removing the on-site WIC row stays as is").
+- It may clear the centre name from `AgentTask` **only** for a **manual RTM type edit** —
+  the Shift Plan cell (`PATCH /api/shifts/{id}[/manual]`) or the Bulk RTM paste
+  (`POST /api/shifts/assign[/manual]`), declared by `GSDContext.RecordManualRtmShiftEdit` —
+  and **only** when that edit takes the row to `WORKING` or BO (`WORKING` + `RawValue="BO"`).
+- Every automatic writer keeps the name: roster generator, sickness/vacation sync and their
+  reverts, future-vacation reconciliation, rollout, substitute accept, WIC writers, startup.
+  A manual `WIC_DUTY → AL/SL/OFF/…` keeps it too (a decision about the day, not the centre).
+- `WIC_DUTY` centre A → `WIC_DUTY` centre B (temporary help) is not a departure from WIC
+  duty, so nothing is cleared and the A→B→A cycle is safe.
+- Tests: `Backend.Tests/TemporaryMoveAgentTaskTests.cs` and the hook section of
+  `Backend.Tests/BoAgentTaskWicTests.cs`.
+- Data repair tool for the 2026-10-15 clean-up:
+  `Tools/AgentTaskRestore20261015/Restore-AgentTask.ps1` (DryRun by default; `-Apply`
+  requires the expected count, writes the backup first, then one guarded transaction).
+
 ## Language rule (permanent — applies to this and every future task)
 
 **Every user-visible string in Pulse is English or German only, according to the selected
