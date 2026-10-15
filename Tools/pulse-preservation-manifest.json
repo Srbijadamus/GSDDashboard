@@ -925,6 +925,10 @@
       "Hash": "F9478ADDEFC858457E490F879849DCC20E49617EF6422D2B10C97FF4F752AE51"
     },
     {
+      "Path": "Backend.Tests/ShiftPlanRosterTests.cs",
+      "Hash": "EBD2BE7F54455C9F75DBCCE354FE9F2E811248F74B6EEDEDE7089BC77F5238D6"
+    },
+    {
       "Path": "Backend.Tests/ShiftTaskCoverageTests.cs",
       "Hash": "B4D70E1B87189BFECA907EC73F0070ED87CDE9CAC86F9F6704F3EADF683095F4"
     },
@@ -1322,7 +1326,7 @@
     },
     {
       "Path": "Backend/ShiftService.cs",
-      "Hash": "DBD99048E27E1F1064CE7CDD6470C9DDD441CF65D092264F89D68D7A39C68E25"
+      "Hash": "35A888B012E1E98CF6868085F3B06B6D547A6E557581FEFFA6BBBC05874DE1A7"
     },
     {
       "Path": "Backend/ShiftSyncService.cs",
@@ -1666,7 +1670,7 @@
     },
     {
       "Path": "Frontend/src/pages/Shifts.tsx",
-      "Hash": "D63CAEE97FB1628C0395325D814E1AB48ED4F779E42ADC2E9A621F42F536D718"
+      "Hash": "4333ADDE80306BC8E84739C452ED40D6FF96C761C54A3A3691B0EB4DCC167E0B"
     },
     {
       "Path": "Frontend/src/pages/SickLeave.tsx",

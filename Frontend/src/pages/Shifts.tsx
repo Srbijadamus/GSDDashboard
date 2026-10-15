@@ -1005,7 +1005,9 @@ export default function Shifts() {
                         <>
                           <td className={`font-mono ${isAbsent ? "text-ink-disabled opacity-50" : "text-wic-fg"}`} style={{ padding:"6px 10px", fontSize:11, whiteSpace:"nowrap" }}>{emp.role}</td>
                           <td style={{ padding:"6px 10px" }}>
-                            {todayShift ? (
+                            {/* A placeholder row (id 0) is not a shift: no task badge, no
+                                assign button that would PATCH a non-existent id. */}
+                            {todayShift?.id ? (
                               <div className={isAbsent ? "pointer-events-none" : ""}>
                                 <TaskBadge shift={todayShift} onTaskChange={updateTask} t={t} />
                               </div>
@@ -1018,9 +1020,14 @@ export default function Shifts() {
                     })()}
                     {dates.map(d => {
                       const s  = shifts[d]
+                      // The API also returns ONE placeholder row (id 0, ShiftType EMPTY) for an
+                      // active employee with no ShiftEntries in the window. It is what makes a
+                      // newly created employee a visible plan row; for the grid it must behave
+                      // like a day without a row — a weekend column stays "WE".
+                      const hasShift = !!s && !!s.id
                       const we = isWeekend(d)
                       const tod = isToday(d)
-                      if (!s && we) return (
+                      if (!hasShift && we) return (
                         <td key={d} style={{ padding:"3px 4px", borderLeft:"1px solid rgb(var(--border-subtle))",
                           background: "rgb(var(--surface-sunken))" }}>
                           <div className="text-ink-soft font-mono" style={{ textAlign:"center", fontSize:9 }}>WE</div>
@@ -1029,7 +1036,7 @@ export default function Shifts() {
                       const cellShift = s ?? { id: null, employeeId: emp.id, shiftDate: d, shiftType: "EMPTY", shiftStart: null, shiftEnd: null }
                       return (
                         <td key={d} style={{ borderLeft:"1px solid rgb(var(--border-subtle))",
-                          background: !s && tod ? "rgb(var(--st-info-bg))" : "transparent" }}>
+                          background: !hasShift && tod ? "rgb(var(--st-info-bg))" : "transparent" }}>
                           <ShiftCell shift={cellShift} onUpdate={updateShift} onSwapDone={() => qc.invalidateQueries({ queryKey:["shifts-cal"] })} />
                         </td>
                       )

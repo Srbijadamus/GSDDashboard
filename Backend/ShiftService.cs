@@ -109,55 +109,75 @@ public class ShiftService
     private readonly GSDContext _db;
     public ShiftService(GSDContext db) => _db = db;
 
+    /// <summary>
+    /// The Shift Plan is a roster of PEOPLE, not of shift rows. It starts from every
+    /// active Employees row and LEFT-JOINs its ShiftEntries in the window, so an active
+    /// employee is a visible row even when no shift has been planned for them yet.
+    ///
+    /// Before 2026-10-15 the list was an INNER JOIN (ShiftEntries x Employees), so an
+    /// employee existed in the plan only as long as one of their rows fell inside the
+    /// requested dates. A newly created employee therefore vanished as soon as their
+    /// first (and only) row fell out of the default window - the live case of employee
+    /// 9128154, created 2026-10-14 with one row on that day, missing from the plan on
+    /// 2026-10-15 although Employees.IsActive was 1 and /api/employees returned them.
+    ///
+    /// An employee with no row in the window gets exactly one placeholder row: Id 0,
+    /// ShiftType EMPTY, no times, dated `from`. That is the same shape the Shift Plan
+    /// grid already builds locally for a day without a row (`!shift.id` => assign),
+    /// and the Excel export prints it as a blank cell. Filters (team lead, role,
+    /// engagement) still select employees; the shift-type filter still selects ROWS, so
+    /// "WIC_DUTY only" keeps its old meaning and drops an employee without such a row.
+    /// </summary>
     public async Task<List<ShiftRowDto>> GetShiftsAsync(ShiftFilterParams f)
     {
         var from = f.From != null && DateOnly.TryParse(f.From, out var fd) ? fd : DateOnly.FromDateTime(DateTime.Today);
         var to   = f.To   != null && DateOnly.TryParse(f.To,   out var td) ? td : from;
 
-        var query = _db.ShiftEntries
-            .Where(s => s.ShiftDate >= from && s.ShiftDate <= to)
-            .Join(_db.Employees,
-                  s => s.EmployeeId,
-                  e => e.EmployeeId,
-                  (s, e) => new { Shift = s, Employee = e })
-            .Where(x => x.Employee.IsActive);
-
+        var employees = _db.Employees.Where(e => e.IsActive);
         if (!string.IsNullOrWhiteSpace(f.TeamLead))
-            query = query.Where(x => x.Employee.TeamLeadName == f.TeamLead);
+            employees = employees.Where(e => e.TeamLeadName == f.TeamLead);
         if (!string.IsNullOrWhiteSpace(f.Role))
-            query = query.Where(x => x.Employee.PrimaryRole == f.Role);
+            employees = employees.Where(e => e.PrimaryRole == f.Role);
         if (!string.IsNullOrWhiteSpace(f.Engagement))
-            query = query.Where(x => x.Employee.Engagement == f.Engagement);
+            employees = employees.Where(e => e.Engagement == f.Engagement);
+
+        var query = employees
+            .GroupJoin(_db.ShiftEntries.Where(s => s.ShiftDate >= from && s.ShiftDate <= to),
+                       e => e.EmployeeId,
+                       s => s.EmployeeId,
+                       (e, shifts) => new { Employee = e, Shifts = shifts })
+            .SelectMany(x => x.Shifts.DefaultIfEmpty(), (x, s) => new { x.Employee, Shift = s });
+
         if (!string.IsNullOrWhiteSpace(f.ShiftType))
-            query = query.Where(x => x.Shift.ShiftType == f.ShiftType);
+            query = query.Where(x => x.Shift != null && x.Shift.ShiftType == f.ShiftType);
 
         var rows = await query
             .OrderBy(x => x.Employee.TeamLeadName)
             .ThenBy(x => x.Employee.FullName)
-            .ThenBy(x => x.Shift.ShiftDate)
+            .ThenBy(x => x.Shift!.ShiftDate)
             .ToListAsync();
 
-        return rows.Select(x => new ShiftRowDto(
-            x.Shift.Id,
-            x.Employee.EmployeeId,
-            x.Employee.FullName ?? x.Employee.EmployeeId,
-            x.Employee.Engagement,
-            x.Employee.PrimaryRole,
-            x.Employee.SecondaryRole,
-            x.Employee.TeamLeadName,
-            x.Shift.ShiftDate,
-            x.Shift.ShiftType,
-            x.Shift.ShiftStart,
-            x.Shift.ShiftEnd,
-            x.Shift.IsWicDuty,
-            x.Shift.RawValue,
-            x.Shift.AgentTask,
-            x.Shift.LocationId,
-            x.Shift.AssignmentStatus,
-            AgentTasks.Resolve(x.Shift.AgentTask, x.Employee.PrimaryRole),
-            ShiftPatterns.DefaultTimes(x.Employee.ShiftPattern).Start,
-            ShiftPatterns.DefaultTimes(x.Employee.ShiftPattern).End
-        )).ToList();
+        return rows.Select(x =>
+        {
+            var e = x.Employee;
+            var s = x.Shift;
+            if (s == null)
+            {
+                var pattern = ShiftPatterns.DefaultTimes(e.ShiftPattern);
+                return new ShiftRowDto(
+                    0, e.EmployeeId, e.FullName ?? e.EmployeeId, e.Engagement, e.PrimaryRole,
+                    e.SecondaryRole, e.TeamLeadName, from, ShiftTypes.Empty, null, null,
+                    false, null, null, null, null, null, pattern.Start, pattern.End);
+            }
+            return new ShiftRowDto(
+                s.Id, e.EmployeeId, e.FullName ?? e.EmployeeId, e.Engagement, e.PrimaryRole,
+                e.SecondaryRole, e.TeamLeadName, s.ShiftDate, s.ShiftType, s.ShiftStart,
+                s.ShiftEnd, s.IsWicDuty, s.RawValue, s.AgentTask, s.LocationId,
+                s.AssignmentStatus,
+                AgentTasks.Resolve(s.AgentTask, e.PrimaryRole),
+                ShiftPatterns.DefaultTimes(e.ShiftPattern).Start,
+                ShiftPatterns.DefaultTimes(e.ShiftPattern).End);
+        }).ToList();
     }
 
     public async Task<List<ShiftRowDto>> GetWorkingTodayAsync(DateOnly date)
