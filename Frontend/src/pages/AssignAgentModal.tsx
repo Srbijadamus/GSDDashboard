@@ -139,11 +139,17 @@ export function AssignAgentModal({ isOpen, onClose, defaultLocationCode, default
     }
   }, [isOpen, defaultLocationCode, defaultDate])
 
+  // The picker offers the agents who may still be assigned for the SELECTED day: the server
+  // applies the same rule as the Shift Plan / Overview candidate lists (inactive row, or a
+  // RESIGNED ShiftEntries row on/before that day, are not offered). dateFrom is part of the
+  // query key, so changing the day re-reads the list; an employee who has already left by it
+  // never appears, while an on-demand employee stays offered.
   const { data: employees = [] } = useQuery<Employee[]>({
-    queryKey: ["employees-active"],
-    queryFn: () => fetch("/api/employees/?active=true").then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
+    queryKey: ["employees-active", dateFrom],
+    queryFn: () => fetch(`/api/employees/?active=true&date=${encodeURIComponent(dateFrom)}`)
+      .then(r => { if (!r.ok) throw new Error(`API ${r.status}`); return r.json() }),
     staleTime: 5 * 60 * 1000,
-    enabled: isOpen,
+    enabled: isOpen && !!dateFrom,
   })
 
   const { data: locations = [] } = useQuery<WicLocation[]>({

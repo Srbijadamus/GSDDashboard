@@ -204,30 +204,9 @@ public class ResignedSuggestionTests
         { LocationCode = Code, EmployeeName = "Main Agent", AssignmentType = "MAIN", IsActive = true });
     }
 
-    [Fact]
-    public async Task AssignCandidates_ResignedOrInactive_AreNotCandidatesAtAll()
-    {
-        using var db = NewDb();
-        SeedAssignCentre(db);
-        db.Employees.Add(new Employee { EmployeeId = "M1", FullName = "Main Agent", IsActive = true });
-        db.Employees.Add(new Employee { EmployeeId = "GONE1", FullName = "Left Earlier", IsActive = true });
-        db.Employees.Add(new Employee { EmployeeId = "GONE2", FullName = "Left Today", IsActive = true });
-        db.Employees.Add(new Employee { EmployeeId = "GONE3", FullName = "Inactive Row", IsActive = false });
-        db.Employees.Add(new Employee { EmployeeId = "OK1", FullName = "Still Here", IsActive = true });
-        db.ShiftEntries.Add(Resigned("GONE1", Date.AddDays(-5)));
-        db.ShiftEntries.Add(Resigned("GONE2", Date));
-        await db.SaveChangesAsync();
-
-        var result = await new WicAssignCandidatesService(db).GetCandidatesAsync(Code, Date);
-
-        Assert.NotNull(result);
-        var ids = result!.Candidates.Select(c => c.EmployeeId).ToList();
-        Assert.Contains("M1", ids);
-        Assert.Contains("OK1", ids);
-        Assert.DoesNotContain("GONE1", ids);
-        Assert.DoesNotContain("GONE2", ids);
-        Assert.DoesNotContain("GONE3", ids);
-    }
+    // The resigned/inactive ASSIGN-picker cases live in AssignCandidateFilterTests.cs (the
+    // 2026-10-16 filter: history up to the asked day, future exit dates, IsOnDemand kept,
+    // the /api/employees date parameter and the Shift Plan window).
 
     [Fact]
     public async Task AssignCandidates_LeaveOnTheDay_StaysListedButUnavailable()

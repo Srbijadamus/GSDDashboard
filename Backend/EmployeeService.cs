@@ -30,8 +30,17 @@ public class EmployeeService
     private readonly GSDContext _db;
     public EmployeeService(GSDContext db) => _db = db;
 
+    /// <summary>
+    /// The employee directory. When <paramref name="date"/> is supplied the SAME rule every
+    /// suggestion surface uses (SubstituteEligibility.HasLeft: inactive row, or a RESIGNED
+    /// ShiftEntries row on/before that day) removes agents who have already left by it, so a
+    /// list and a write for the same day can never disagree. Without a date the list stays
+    /// the plain directory (IsActive only) — callers such as the Employees page need to see
+    /// an inactive record too.
+    /// </summary>
     public async Task<List<EmployeeDto>> GetEmployeesAsync(
-        string? role, string? engagement, string? teamLead, string? category, bool? active)
+        string? role, string? engagement, string? teamLead, string? category, bool? active,
+        DateOnly? date = null)
     {
         var q = _db.Employees.AsQueryable();
         if (!string.IsNullOrWhiteSpace(role))
@@ -45,8 +54,20 @@ public class EmployeeService
         if (!active.HasValue || active.Value)
             q = q.Where(e => e.IsActive);
 
-        var rows = await q.OrderBy(e => e.TeamLeadName).ThenBy(e => e.FullName).ToListAsync();
-        return rows.Select(Map).ToList();
+        var list = await q.OrderBy(e => e.TeamLeadName).ThenBy(e => e.FullName).ToListAsync();
+
+        if (date.HasValue)
+        {
+            // One dictionary for the whole list (EarliestResignedByEmployee): "has left by
+            // this day" is answered per employee without a query per row.
+            var resignedRows = await _db.ShiftEntries
+                .Where(s => s.ShiftType == SubstituteEligibility.Resigned && s.ShiftDate <= date.Value)
+                .ToListAsync();
+            var resignedFrom = SubstituteEligibility.EarliestResignedByEmployee(resignedRows);
+            list = list.Where(e => !SubstituteEligibility.HasLeft(e, date.Value, resignedFrom)).ToList();
+        }
+
+        return list.Select(Map).ToList();
     }
 
 
@@ -221,8 +242,21 @@ public static class EmployeeEndpointMapper
     {
         var grp = app.MapGroup("/api/employees").WithTags("Employees");
 
-        grp.MapGet("/", async (string? role, string? engagement, string? teamLead, string? category, bool? active, EmployeeService svc) =>
-            Results.Ok(await svc.GetEmployeesAsync(role, engagement, teamLead, category, active)));
+        // `date` is additive and optional: the Assign-Agent picker passes the day it is
+        // assigning for, so an agent who has already left by that day is not offered.
+        // Omitting it keeps the previous directory behaviour for every other caller.
+        grp.MapGet("/", async (string? role, string? engagement, string? teamLead, string? category,
+            bool? active, string? date, EmployeeService svc) =>
+        {
+            DateOnly? day = null;
+            if (!string.IsNullOrWhiteSpace(date))
+            {
+                if (!DateOnly.TryParse(date, out var parsed))
+                    return Results.BadRequest(new { error = "Invalid date format. Expected yyyy-MM-dd." });
+                day = parsed;
+            }
+            return Results.Ok(await svc.GetEmployeesAsync(role, engagement, teamLead, category, active, day));
+        });
 
         grp.MapGet("/{employeeId}", async (string employeeId, EmployeeService svc) =>
         {

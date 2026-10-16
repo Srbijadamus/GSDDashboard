@@ -141,21 +141,53 @@ public class ShiftService
         if (!string.IsNullOrWhiteSpace(f.Engagement))
             employees = employees.Where(e => e.Engagement == f.Engagement);
 
-        var query = employees
-            .GroupJoin(_db.ShiftEntries.Where(s => s.ShiftDate >= from && s.ShiftDate <= to),
-                       e => e.EmployeeId,
-                       s => s.EmployeeId,
-                       (e, shifts) => new { Employee = e, Shifts = shifts })
-            .SelectMany(x => x.Shifts.DefaultIfEmpty(), (x, s) => new { x.Employee, Shift = s });
+        // The plan must not carry an agent who has already left by the end of the window.
+        // Same ONE rule as every candidate list (SubstituteEligibility.HasLeft): an inactive
+        // row or a RESIGNED ShiftEntries row dated on/before the window's last day. A future
+        // exit date leaves the agent in the plan up to that day, so their real rows are still
+        // visible; IsOnDemand agents are untouched and keep their place.
+        var resignedRows = await _db.ShiftEntries
+            .Where(s => s.ShiftType == SubstituteEligibility.Resigned && s.ShiftDate <= to)
+            .ToListAsync();
+        var resignedFrom = SubstituteEligibility.EarliestResignedByEmployee(resignedRows);
+        // Materialised before the shared predicate: HasLeft reads the in-memory dictionary,
+        // so the filter runs here rather than as a translation of it.
+        var employeeList = (await employees.ToListAsync())
+            .Where(e => !SubstituteEligibility.HasLeft(e, to, resignedFrom))
+            .ToList();
 
-        if (!string.IsNullOrWhiteSpace(f.ShiftType))
-            query = query.Where(x => x.Shift != null && x.Shift.ShiftType == f.ShiftType);
+        // LEFT JOIN in memory (employeeList is small and the window's ShiftEntries are one
+        // query): the shared predicate above already needed materialised rows, and this keeps
+        // the join identical on the in-memory test provider and on SQL Server.
+        var windowShifts = await _db.ShiftEntries
+            .Where(s => s.ShiftDate >= from && s.ShiftDate <= to)
+            .ToListAsync();
+        var shiftsByEmployee = windowShifts
+            .GroupBy(s => s.EmployeeId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
-        var rows = await query
+        var rows = new List<(Employee Employee, ShiftEntry? Shift)>();
+        foreach (var e in employeeList)
+        {
+            var own = shiftsByEmployee.TryGetValue(e.EmployeeId, out var found)
+                ? found
+                : new List<ShiftEntry>();
+            // A shift-type filter selects ROWS, so an employee without such a row drops out
+            // exactly as before - "WIC_DUTY only" must not list everybody as a placeholder.
+            // Without a filter an employee with no row gets exactly one placeholder.
+            if (!string.IsNullOrWhiteSpace(f.ShiftType) && !own.Any(s => s.ShiftType == f.ShiftType))
+                continue;
+            rows.AddRange(own
+                .Where(s => string.IsNullOrWhiteSpace(f.ShiftType) || s.ShiftType == f.ShiftType)
+                .Select(s => (e, (ShiftEntry?)s)));
+            if (own.Count == 0) rows.Add((e, null));
+        }
+
+        rows = rows
             .OrderBy(x => x.Employee.TeamLeadName)
             .ThenBy(x => x.Employee.FullName)
-            .ThenBy(x => x.Shift!.ShiftDate)
-            .ToListAsync();
+            .ThenBy(x => x.Shift?.ShiftDate)
+            .ToList();
 
         return rows.Select(x =>
         {

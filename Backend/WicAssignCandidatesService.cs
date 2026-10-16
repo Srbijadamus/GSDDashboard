@@ -52,9 +52,14 @@ public class WicAssignCandidatesService
             .GroupBy(s => s.EmployeeId)
             .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g).ShiftType);
 
-        // Agents who had already left by this day (RESIGNED ShiftEntries row on/before it)
-        // are not candidates at all — not even as a greyed-out row. IsActive already
-        // removes the inactive ones; the live Hannover case still had IsActive=1.
+        // Agents who had already left by this day (inactive Employees row, or a RESIGNED
+        // ShiftEntries row on/before it) are not candidates at all — not even as a
+        // greyed-out row. IsActive alone removes the inactive ones (the query above);
+        // the live Hannover case still had IsActive=1, so the shared historical signal is
+        // applied here through the ONE rule (SubstituteEligibility.HasLeft) that the
+        // coverage gaps, Find Substitute, the Overview top substitute and the Shift Plan
+        // also use. A future exit date therefore keeps the agent offerable up to the day
+        // before it (RESIGNED is dated on the exit day itself).
         var resignedRows = await _db.ShiftEntries
             .Where(s => s.ShiftType == SubstituteEligibility.Resigned && s.ShiftDate <= date)
             .ToListAsync();
@@ -63,7 +68,7 @@ public class WicAssignCandidatesService
         var candidates = new List<WicAssignCandidate>();
         foreach (var e in employees)
         {
-            if (SubstituteEligibility.ResignedOnOrBefore(e.EmployeeId, date, resignedFrom)) continue;
+            if (SubstituteEligibility.HasLeft(e, date, resignedFrom)) continue;
             var name = e.FullName ?? e.EmployeeId;
             statusByEmp.TryGetValue(e.EmployeeId, out var status);
             bool isAbsent = status != null && WicCoverageGapService.AbsenceTypes.Contains(status);

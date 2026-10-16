@@ -1,6 +1,6 @@
 {
   "LiveRoot": "C:\\GSDDashboard",
-  "CreatedAtUtc": "2026-10-16T06:49:55.4003342Z",
+  "CreatedAtUtc": "2026-10-16T07:13:07.5886736Z",
   "Live": [
     {
       "Path": "Backend.Tests/ALBalanceEligibleDaysTests.cs",
@@ -821,6 +821,10 @@
       "Hash": "3B82E7ECF002D529395EEB2656583D222F366561B15223C47B4A3C4297A797F8"
     },
     {
+      "Path": "Backend.Tests/AssignCandidateFilterTests.cs",
+      "Hash": "D50BD81AB7E2120EF823877737BB49A320D3A7D76B175F273EFDE07E4C5DB505"
+    },
+    {
       "Path": "Backend.Tests/AuthServiceTests.cs",
       "Hash": "162243E14D6D18419F4D450CC45A8E57F23BAE2B0A7E5694A011B7FAE7CBAA82"
     },
@@ -906,7 +910,7 @@
     },
     {
       "Path": "Backend.Tests/ResignedSuggestionTests.cs",
-      "Hash": "D0ADC2F7B46A74A53E9F9E61EB2F6978237D5DC054A4D1EB91C4117B7C12751B"
+      "Hash": "CCD4C437F40E390E0FEC11278514A7D5118524099BAA672AF3512A85536651E8"
     },
     {
       "Path": "Backend.Tests/RolloutTests.cs",
@@ -1166,7 +1170,7 @@
     },
     {
       "Path": "Backend/EmployeeService.cs",
-      "Hash": "D8DD04FE823A927C2E6522376832AF2BFD0509C6B041BBCC0F1A5802E82A4087"
+      "Hash": "F427D57B7AB98A06D97324A12351DEAE050CA97E5ACFEB9BD486B2053739B954"
     },
     {
       "Path": "Backend/GSDContext.cs",
@@ -1374,7 +1378,7 @@
     },
     {
       "Path": "Backend/ShiftService.cs",
-      "Hash": "E55A4581392561F8210796691E8D90AC8C9F79BE5C103D3A575135C1C49EB6B4"
+      "Hash": "24D2D0B420E03487407E270515F08B0D2D93C6889DB8CAE636DD900F37AEBED1"
     },
     {
       "Path": "Backend/ShiftSyncService.cs",
@@ -1406,7 +1410,7 @@
     },
     {
       "Path": "Backend/WicAssignCandidatesService.cs",
-      "Hash": "F3EAFFF8935361FDE9B66EFC85493288DD0145B4F51B10283263C0EB0404F34E"
+      "Hash": "FE907B005B5029617C68FA122CAB7DFBE66296F6E5E20631B1D90E533C19C9BE"
     },
     {
       "Path": "Backend/WicAssistantService.cs",
@@ -1626,7 +1630,7 @@
     },
     {
       "Path": "Frontend/src/pages/AssignAgentModal.tsx",
-      "Hash": "842495F29C73B62708AC34FF7E75B917AFC930A43936263220EE6798F1A6F394"
+      "Hash": "D9D1EC1E69D49FA855E69305E73F7F2AE6EAFDD862558CC3101B096EDE611AA2"
     },
     {
       "Path": "Frontend/src/pages/Attendance.tsx",

@@ -1,0 +1,621 @@
+{
+  "base": {
+    "local": "http://127.0.0.1:5000",
+    "tunnel": "https://d2jn94qg-5000.euw.devtunnels.ms"
+  },
+  "routes": {
+    "local200": 85,
+    "non200": [],
+    "total": 85,
+    "tunnelSkipped": [],
+    "tunnel200": 85
+  },
+  "all": [
+    {
+      "route": "/",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/shifts",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/roster",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/wic-shifts",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/vwic",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/breaks",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/training",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/pipeline",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/rollout",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/wic-attendance",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/remote-attendance",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/wic-schedule",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/wic",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/wic-coverage",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/wic-al",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/attendance",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/sickleave",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/vacations",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/albalance",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/alcalendar",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/employees",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/assistant",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/bo-list",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/bulk-rtm",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/export",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/my",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/login",
+      "local": 200,
+      "localShape": "spa-shell",
+      "tunnel": 200,
+      "tunnelShape": "spa-shell"
+    },
+    {
+      "route": "/health",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/pipeline",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/rollout",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/rollout/candidates?locationCode=DE~97506~Grafenrheinfeld~Kraftwerkstra%C3%9Fe&date=2026-10-16",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/rollout/standard-hours?locationCode=DE~97506~Grafenrheinfeld~Kraftwerkstra%C3%9Fe&date=2026-10-16",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/wic/locations",
+      "local": 200,
+      "localShape": "array[43]",
+      "tunnel": 200,
+      "tunnelShape": "array[43]"
+    },
+    {
+      "route": "/api/wic?from=2026-10-16&to=2026-10-29",
+      "local": 200,
+      "localShape": "array[1045]",
+      "tunnel": 200,
+      "tunnelShape": "array[1045]"
+    },
+    {
+      "route": "/api/wic/open?date=2026-10-16",
+      "local": 200,
+      "localShape": "array[3]",
+      "tunnel": 200,
+      "tunnelShape": "array[3]"
+    },
+    {
+      "route": "/api/wic/cards?date=2026-10-16",
+      "local": 200,
+      "localShape": "array[43]",
+      "tunnel": 200,
+      "tunnelShape": "array[43]"
+    },
+    {
+      "route": "/api/wic/briefing",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/wic/forecast?horizon=7",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/wic/conflicts?from=2026-10-16&to=2026-11-15",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/wic/coverage-gaps?days=90",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/wic/assign-candidates?locationCode=DE~97506~Grafenrheinfeld~Kraftwerkstra%C3%9Fe&date=2026-10-16",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/wic/availableHours?from=2026-10-16&to=2026-10-29",
+      "local": 200,
+      "localShape": "array[114]",
+      "tunnel": 200,
+      "tunnelShape": "array[114]"
+    },
+    {
+      "route": "/api/wic/substitutes?locationCode=DE~97506~Grafenrheinfeld~Kraftwerkstra%C3%9Fe&date=2026-10-16",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/wic/backup?locationCode=DE~97506~Grafenrheinfeld~Kraftwerkstra%C3%9Fe&date=2026-10-16",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/wicschedule/opening-hours",
+      "local": 200,
+      "localShape": "array[43]",
+      "tunnel": 200,
+      "tunnelShape": "array[43]"
+    },
+    {
+      "route": "/api/wicschedule/agents?from=2026-10-16&to=2026-10-29",
+      "local": 200,
+      "localShape": "array[66]",
+      "tunnel": 200,
+      "tunnelShape": "array[66]"
+    },
+    {
+      "route": "/api/wicschedule/closed-day-duties",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/overview/wic-status?date=2026-10-16&horizon=7",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/dashboard/summary?date=2026-10-16",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/dashboard/wic-cards?date=2026-10-16",
+      "local": 200,
+      "localShape": "array[43]",
+      "tunnel": 200,
+      "tunnelShape": "array[43]"
+    },
+    {
+      "route": "/api/dashboard/teamlead-summary?date=2026-10-16",
+      "local": 200,
+      "localShape": "array[6]",
+      "tunnel": 200,
+      "tunnelShape": "array[6]"
+    },
+    {
+      "route": "/api/employees",
+      "local": 200,
+      "localShape": "array[123]",
+      "tunnel": 200,
+      "tunnelShape": "array[123]"
+    },
+    {
+      "route": "/api/employees/?active=true",
+      "local": 200,
+      "localShape": "array[123]",
+      "tunnel": 200,
+      "tunnelShape": "array[123]"
+    },
+    {
+      "route": "/api/employees/9074466",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/employees/9074466/timeline?from=2026-10-16&to=2026-11-15",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/shifts?from=2026-10-16&to=2026-10-16",
+      "local": 200,
+      "localShape": "array[121]",
+      "tunnel": 200,
+      "tunnelShape": "array[121]"
+    },
+    {
+      "route": "/api/shifts/coverage?date=2026-10-16",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/attendance?from=2026-10-16&to=2026-10-16",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/attendance/agents?date=2026-10-16",
+      "local": 200,
+      "localShape": "array[120]",
+      "tunnel": 200,
+      "tunnelShape": "array[120]"
+    },
+    {
+      "route": "/api/attendance/teamleads",
+      "local": 200,
+      "localShape": "array[6]",
+      "tunnel": 200,
+      "tunnelShape": "array[6]"
+    },
+    {
+      "route": "/api/albalance?year=2026",
+      "local": 200,
+      "localShape": "array[121]",
+      "tunnel": 200,
+      "tunnelShape": "array[121]"
+    },
+    {
+      "route": "/api/alcalendar?from=2026-10-16&to=2026-11-15",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/publicholidays?bundesland=BY&year=2026",
+      "local": 200,
+      "localShape": "array[9]",
+      "tunnel": 200,
+      "tunnelShape": "array[9]"
+    },
+    {
+      "route": "/api/bo-list?date=2026-10-16",
+      "local": 200,
+      "localShape": "array[16]",
+      "tunnel": 200,
+      "tunnelShape": "array[16]"
+    },
+    {
+      "route": "/api/breaks?date=2026-10-16",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/rtm?date=2026-10-16",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/sickleave?from=2026-10-16&to=2026-11-15",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/sickleave/stats?from=2026-10-16&to=2026-11-15",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/vacations?from=2026-10-16&to=2026-11-15",
+      "local": 200,
+      "localShape": "array[39]",
+      "tunnel": 200,
+      "tunnelShape": "array[39]"
+    },
+    {
+      "route": "/api/vacations/active?date=2026-10-16",
+      "local": 200,
+      "localShape": "array[9]",
+      "tunnel": 200,
+      "tunnelShape": "array[9]"
+    },
+    {
+      "route": "/api/vacations/upcoming?days=30",
+      "local": 200,
+      "localShape": "array[31]",
+      "tunnel": 200,
+      "tunnelShape": "array[31]"
+    },
+    {
+      "route": "/api/training/topics",
+      "local": 200,
+      "localShape": "array[7]",
+      "tunnel": 200,
+      "tunnelShape": "array[7]"
+    },
+    {
+      "route": "/api/training/sessions?from=2026-10-16&to=2026-11-15",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/vwic/daily?date=2026-10-16",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/vwic/candidates?date=2026-10-16",
+      "local": 200,
+      "localShape": "array[17]",
+      "tunnel": 200,
+      "tunnelShape": "array[17]"
+    },
+    {
+      "route": "/api/wic-coverage/agents",
+      "local": 200,
+      "localShape": "array[119]",
+      "tunnel": 200,
+      "tunnelShape": "array[119]"
+    },
+    {
+      "route": "/api/wic-coverage/wics",
+      "local": 200,
+      "localShape": "array[43]",
+      "tunnel": 200,
+      "tunnelShape": "array[43]"
+    },
+    {
+      "route": "/api/roster/locations",
+      "local": 200,
+      "localShape": "array[43]",
+      "tunnel": 200,
+      "tunnelShape": "array[43]"
+    },
+    {
+      "route": "/api/roster/batches",
+      "local": 200,
+      "localShape": "array[251]",
+      "tunnel": 200,
+      "tunnelShape": "array[251]"
+    },
+    {
+      "route": "/api/roster/missing?days=14",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/kiosk/attendance",
+      "local": 200,
+      "localShape": "array[124]",
+      "tunnel": 200,
+      "tunnelShape": "array[124]"
+    },
+    {
+      "route": "/api/auth/me",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    },
+    {
+      "route": "/api/employees/?active=true&date=2026-10-16",
+      "local": 200,
+      "localShape": "array[121]",
+      "tunnel": 200,
+      "tunnelShape": "array[121]"
+    },
+    {
+      "route": "/api/employees/?active=true&date=2026-10-29",
+      "local": 200,
+      "localShape": "array[120]",
+      "tunnel": 200,
+      "tunnelShape": "array[120]"
+    },
+    {
+      "route": "/api/wic/al-tracker-conflicts?from=2026-10-16&to=2026-11-15",
+      "local": 200,
+      "localShape": "object",
+      "tunnel": 200,
+      "tunnelShape": "object"
+    }
+  ],
+  "login": {
+    "local": {
+      "role": "DEV",
+      "status": 200
+    },
+    "tunnel": {
+      "role": "DEV",
+      "status": 200
+    }
+  },
+  "when": "2026-10-16T09:16:50.9658734+02:00"
+}
