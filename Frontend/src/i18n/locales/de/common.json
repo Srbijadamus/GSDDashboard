@@ -181,6 +181,12 @@
       "assign": "Zuweisen",
       "fixAssignment": "Zuweisung korrigieren"
     },
+    "alTrackerConflict": {
+      "title_one": "{{count}} AL-Tracker-Eintrag widerspricht dem Schichtplan",
+      "title_other": "{{count}} AL-Tracker-Einträge widersprechen dem Schichtplan",
+      "hint": "Der Schichtplan hat Vorrang: Der Tag gilt als Dienst und der AL-Tracker-Eintrag wird ignoriert. Bitte den Verantwortlichen für den AL-Tracker den Eintrag korrigieren lassen (es wurde nichts gelöscht).",
+      "shiftPlan": "Schichtplan"
+    },
     "error": {
       "title": "Übersicht konnte nicht geladen werden",
       "detail": "Beim Rendern ist ein Fehler aufgetreten — bitte laden Sie die Seite neu."
@@ -550,7 +556,10 @@
     "errorUpdateFailed": "Aktualisierung des AL-Saldos fehlgeschlagen"
   },
   "employees": {
-    "roleVwicLabel": "VWIC – Virtuelles Walk-In-Center"
+    "roleVwicLabel": "VWIC – Virtuelles Walk-In-Center",
+    "onDemand": "Nach Bedarf – nicht von uns verplant",
+    "onDemandShort": "nach Bedarf",
+    "onDemandHint": "Arbeitet in einem anderen Projekt und wird nur bei Bedarf eingesetzt. Er wird im Banner „Roster gaps“ nicht gelistet, bleibt aber manuell einteilbar und in Vorschlägen sichtbar."
   },
   "auth": {
     "title": "Anmelden",

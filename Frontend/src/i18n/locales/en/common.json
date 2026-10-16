@@ -181,6 +181,12 @@
       "assign": "Assign",
       "fixAssignment": "Fix assignment"
     },
+    "alTrackerConflict": {
+      "title_one": "{{count}} AL Tracker entry contradicts the Shift Plan",
+      "title_other": "{{count}} AL Tracker entries contradict the Shift Plan",
+      "hint": "The Shift Plan wins: the day is read as on duty and the AL Tracker entry is ignored. Please have the AL Tracker owner correct the entry (nothing has been deleted).",
+      "shiftPlan": "Shift Plan"
+    },
     "error": {
       "title": "Overview failed to load",
       "detail": "A rendering error occurred — please refresh the page to continue."
@@ -550,7 +556,10 @@
     "errorUpdateFailed": "Failed to update AL balance"
   },
   "employees": {
-    "roleVwicLabel": "VWIC – Virtual Walk-In Center"
+    "roleVwicLabel": "VWIC – Virtual Walk-In Center",
+    "onDemand": "On demand – not rostered by us",
+    "onDemandShort": "on demand",
+    "onDemandHint": "Works on another project and is engaged only when needed. He is excluded from the Roster gaps banner but stays assignable by hand and visible to suggestions."
   },
   "auth": {
     "title": "Sign in",

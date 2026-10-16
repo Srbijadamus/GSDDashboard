@@ -38,6 +38,10 @@ CREATE TABLE Employees (
     IsTrainee       BIT             NOT NULL DEFAULT 0,
     PlannedRole     NVARCHAR(50)    NULL,
     CreatedAt       DATETIME2       NOT NULL DEFAULT GETDATE(),
+    -- ON DEMAND / NOT ROSTERED BY US (owner decision 2026-10-16): works on another project,
+    -- engaged only when needed. Silences only the Roster gaps banner (GET /api/roster/missing);
+    -- the employee stays active and assignable by hand. Additive, defaults to 0.
+    IsOnDemand      BIT             NOT NULL DEFAULT 0,
     CONSTRAINT UQ_Employees_EmployeeId UNIQUE (EmployeeId)
 );
 

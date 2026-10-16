@@ -603,6 +603,16 @@ app.UseDefaultFiles();
     db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_WicRollout_Date' AND object_id=OBJECT_ID('WicRolloutDays')) CREATE INDEX IX_WicRollout_Date ON WicRolloutDays (RolloutDate)");
     db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UQ_WicRolloutWorkers_DayEmp' AND object_id=OBJECT_ID('WicRolloutWorkers')) CREATE UNIQUE INDEX UQ_WicRolloutWorkers_DayEmp ON WicRolloutWorkers (RolloutDayId, EmployeeId)");
 
+    // ON DEMAND / NOT ROSTERED BY US (owner decision, 2026-10-16). Additive and defaulted
+    // false: an employee engaged only when needed works on another project and has no
+    // roster of his own. The flag silences ONLY the Overview "Roster gaps" banner
+    // (GET /api/roster/missing); the employee stays active and assignable by hand and is
+    // still offered by the substitute/candidate suggestions. No existing row is changed.
+    db.Database.ExecuteSqlRaw("""
+        IF COL_LENGTH('Employees','IsOnDemand') IS NULL
+            ALTER TABLE Employees ADD IsOnDemand BIT NOT NULL CONSTRAINT DF_Employees_IsOnDemand DEFAULT 0
+    """);
+
     // Clear IsWicDuty on any non-WIC_DUTY row (safe: sets corrupt 1→0, never removes rows)
     var wicDutyFixed = db.Database.ExecuteSqlRaw("""
         UPDATE ShiftEntries

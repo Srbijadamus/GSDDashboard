@@ -1,6 +1,6 @@
 {
   "LiveRoot": "C:\\GSDDashboard",
-  "CreatedAtUtc": "2026-10-15T18:40:26.9388629Z",
+  "CreatedAtUtc": "2026-10-16T06:12:03.3404117Z",
   "Live": [
     {
       "Path": "Backend.Tests/ALBalanceEligibleDaysTests.cs",
@@ -817,6 +817,10 @@
       "Hash": "749368AA5979221C103116BA5102208B77F98BB1F3532A7E2745838ACCDA3829"
     },
     {
+      "Path": "Backend.Tests/AlTrackerOverrideTests.cs",
+      "Hash": "3B82E7ECF002D529395EEB2656583D222F366561B15223C47B4A3C4297A797F8"
+    },
+    {
       "Path": "Backend.Tests/AuthServiceTests.cs",
       "Hash": "162243E14D6D18419F4D450CC45A8E57F23BAE2B0A7E5694A011B7FAE7CBAA82"
     },
@@ -1130,7 +1134,7 @@
     },
     {
       "Path": "Backend/BreakService.cs",
-      "Hash": "032631620092F7729E5F650A2E49318F45681F366C6C5485685612DFA4C6E7E4"
+      "Hash": "D89D28F77DE5FF7D26B31EBF7497BBB71768D04DC65F0A70EE374C29096F495A"
     },
     {
       "Path": "Backend/BulkRtmService.cs",
@@ -1154,11 +1158,11 @@
     },
     {
       "Path": "Backend/Employee.cs",
-      "Hash": "4C592FA710B6D0B632E52CA47C8F5C131EFB32D13905AD3A1D8333762EE29A84"
+      "Hash": "0F349D5154845A0A5CF5233D4F4A35DAC186BBF266C96884D9BFE110464F5E6B"
     },
     {
       "Path": "Backend/EmployeeService.cs",
-      "Hash": "5DE2C5B0B87DED130A910E43E936849E0D7099611606E06880C21D8B5040AD42"
+      "Hash": "D8DD04FE823A927C2E6522376832AF2BFD0509C6B041BBCC0F1A5802E82A4087"
     },
     {
       "Path": "Backend/GSDContext.cs",
@@ -1198,7 +1202,7 @@
     },
     {
       "Path": "Backend/Program.cs",
-      "Hash": "6B379A45D8B3F93F32A0DF149A71AB291271CFE0F5B502F17800979C3A990FFC"
+      "Hash": "96B74C2D28A67E8A0B988A0B72F9B8B37349278F007CAA07366574FD611453AD"
     },
     {
       "Path": "Backend/PublicHoliday.cs",
@@ -1226,7 +1230,7 @@
     },
     {
       "Path": "Backend/RosterService.cs",
-      "Hash": "83DC8B5AC56B60C2C401875AD7269153A568150A06665E9D4FAA8D6794329F85"
+      "Hash": "142DFD3708BC6C1C456722C274536FA0D4B7DEAFED0562D4C067A75C2F46AD6E"
     },
     {
       "Path": "Backend/RtmEntry.cs",
@@ -1241,12 +1245,16 @@
       "Hash": "BB5E2BEE20E54C1470347B3ECD44732942374D5D20E27D0B0D579B979C159F67"
     },
     {
+      "Path": "Backend/Services/AlTrackerOverrides.cs",
+      "Hash": "08316632E25135A7E1C8316B0A222FA78B5BEA3EE3CFDAD5E76C8607817C2B55"
+    },
+    {
       "Path": "Backend/Services/AuthService.cs",
       "Hash": "404EAF153BB2B757CA52D0D44270E12939B1EB4347DDB220EBBC25638C3E2C7F"
     },
     {
       "Path": "Backend/Services/AvailabilityResolver.cs",
-      "Hash": "CF3AD24D2D84F337E4C9D043EBDB394FD452EF0D7E8BB16156752C8F703BC5D2"
+      "Hash": "882E8CBB341287ED90B5B161CC46C37542CEFA93084E6A653FF9F1B7F5B4E851"
     },
     {
       "Path": "Backend/Services/BerlinTime.cs",
@@ -1254,7 +1262,7 @@
     },
     {
       "Path": "Backend/Services/BriefingService.cs",
-      "Hash": "1CBA22E32DD4DDBB140E3F69D7A340717AB8A0DE2C50AE99727177FDDDF37D28"
+      "Hash": "AA9444E659099C0363D987A1C76CB98E509BC6E3E248723D5185562E2340B5FD"
     },
     {
       "Path": "Backend/Services/CoverageEvaluator.cs",
@@ -1402,7 +1410,7 @@
     },
     {
       "Path": "Backend/WicCardsService.cs",
-      "Hash": "D673EE2F745F2DD7FF063E2B85840550145FD4BBB7263CB6DFA71C6D0CF01BCA"
+      "Hash": "F15709BA4103FA94804DC151017B72F229DB528F9C6B1A62E52A3F098DFDB149"
     },
     {
       "Path": "Backend/WicCoverageGapService.cs",
@@ -1554,11 +1562,11 @@
     },
     {
       "Path": "Frontend/src/i18n/locales/de/common.json",
-      "Hash": "7A2B7FA8B25D716034827125C28E20099002BC988BA98FEF59750097C450CED2"
+      "Hash": "6B1F4696E73EDC8D6BC45BEF13AE8CE6F323F1A16EBF2E8F875A3829B094DFC3"
     },
     {
       "Path": "Frontend/src/i18n/locales/en/common.json",
-      "Hash": "3FE9BE86FAB829B3D64E74011011E4EC48B323541F0CD01E96149934E683D0C5"
+      "Hash": "9FC18D4DB819968B0354E4F95F543A8D8DF9027000113006BF1ED02AD7BCAC49"
     },
     {
       "Path": "Frontend/src/index.css",
@@ -1654,7 +1662,7 @@
     },
     {
       "Path": "Frontend/src/pages/Employees.tsx",
-      "Hash": "2FEEF4624A38821B4130D53ED052586D0507D7AA629DC26D17C70D84F38ACA45"
+      "Hash": "D2D3FAC81D1C12338511F0B5B967877A79B62D98819B4073FF251BE13319A53B"
     },
     {
       "Path": "Frontend/src/pages/Export.tsx",
@@ -1674,7 +1682,7 @@
     },
     {
       "Path": "Frontend/src/pages/Overview.tsx",
-      "Hash": "1E73A3E71BCE7F112BFABA7ABDEC1981E22438350D4E7291C275A09F21B10F5A"
+      "Hash": "7C0EE68E2549409BAFB68559FAAAE43C350ED5C8D457E7BE865B1CBDB910BE08"
     },
     {
       "Path": "Frontend/src/pages/overview/DayStrip.tsx",

@@ -66,6 +66,32 @@ public class WicCardsService
     private readonly GSDContext _db;
     public WicCardsService(GSDContext db) => _db = db;
 
+    /// <summary>
+    /// AL-TRACKER CONFLICTS for one date (owner rule 2026-10-16): a day where the Shift Plan
+    /// carries a manual RTM duty but the AL Tracker still has an approved leave. The tracker
+    /// is ignored by every reader; this is the warning that tells the AL owner to fix it.
+    /// Read-only, never writes.
+    /// </summary>
+    public static async Task<List<AlTrackerConflict>> GetAlTrackerConflictsAsync(
+        GSDContext db, DateOnly date)
+    {
+        var rows = await db.Vacations
+            .Where(v => v.FirstDay <= date && v.LastDay >= date && v.EmployeeId != null)
+            .ToListAsync();
+        if (rows.Count == 0) return new List<AlTrackerConflict>();
+
+        var empIds = rows.Select(v => v.EmployeeId!).Distinct().ToList();
+        var shifts = await db.ShiftEntries
+            .Where(s => s.ShiftDate == date && empIds.Contains(s.EmployeeId))
+            .ToListAsync();
+        var byEmp = shifts
+            .GroupBy(s => s.EmployeeId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => (ShiftEntry?)ShiftDuplicateResolver.BestShiftEntry(g),
+                StringComparer.OrdinalIgnoreCase);
+
+        return AlTrackerOverrides.Resolve(date, rows, byEmp).Conflicts;
+    }
+
     public async Task<List<WicCardDto2>> GetCardsAsync(DateOnly date, string? country)
     {
         var dow = (int)date.DayOfWeek; // 0=Sun ... 6=Sat
@@ -87,9 +113,8 @@ public class WicCardsService
             .Where(s => s.FirstDay <= date && s.LastDay >= date)
             .Select(s => s.EmployeeId)
             .ToListAsync();
-        var alToday = await _db.Vacations
+        var alRowsToday = await _db.Vacations
             .Where(v => v.FirstDay <= date && v.LastDay >= date)
-            .Select(v => v.EmployeeId)
             .ToListAsync();
         var wicShifts = await _db.WicShiftEntries
             .Where(w => w.ShiftDate == date && w.IsOnSite)
@@ -112,6 +137,17 @@ public class WicCardsService
             .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
         // Keyed the way WicPresenceResolver expects (employee + date).
         var shiftByEmpDate = shiftByEmp.ToDictionary(kv => (kv.Key, date), kv => kv.Value);
+        // OWNER RULE 2026-10-16: the Shift Plan wins over the AL Tracker. A manual RTM edit
+        // of the day's row to a NON-absence type suppresses that day's Vacations row, so
+        // /api/wic/cards (and, through this same resolver, /api/wic/open, kiosk check-in
+        // status, Overview and the forecast) stop reporting the agent as ABSENT (AL).
+        var (ignoredAlIds, _) = AlTrackerOverrides.Resolve(
+            date, alRowsToday,
+            shiftByEmp.ToDictionary(kv => kv.Key, kv => (ShiftEntry?)kv.Value));
+        var alToday = alRowsToday
+            .Where(v => v.EmployeeId != null && !ignoredAlIds.Contains(v.Id))
+            .Select(v => v.EmployeeId!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         // How many on-site centres this employee holds TODAY. More than one means the
         // day-level ShiftEntries row (one row per agent-day: UQ_ShiftEntries_EmpDate)
         // cannot describe every centre, so each card must use its own WicShiftEntries
@@ -259,7 +295,7 @@ public class WicCardsService
             // ShiftEntries times - the only times such a row has.
             var presence = WicPresenceResolver.Resolve(
                 loc, date, wicShifts.Select(x => x.w), shiftByEmpDate, candidateDutyRows,
-                empId => sickToday.Contains(empId), boIndex, openingHours);
+                empId => sickToday.Contains(empId) || alToday.Contains(empId), boIndex, openingHours);
 
             // Select by "rostered here with no on-site row", NOT by CheckInNotRecorded:
             // a MANUAL duty is deliberately exempt from that warning, and selecting on it
@@ -343,6 +379,34 @@ public static class WicCardsEndpointMapper
             var d = date != null && DateOnly.TryParse(date, out var pd)
                 ? pd : DateOnly.FromDateTime(DateTime.Today);
             return Results.Ok(await svc.GetCardsAsync(d, country));
+        }).WithTags("WIC");
+
+        // AL-TRACKER CONFLICTS (owner rule 2026-10-16). Read-only warning list: a day where
+        // the Shift Plan has a manual RTM duty but the AL Tracker still holds an approved
+        // leave. The tracker entry is IGNORED by every reader (the Shift Plan wins); this
+        // endpoint only tells the AL owner which tracker row to correct. Nothing is deleted
+        // and nothing is written.
+        app.MapGet("/api/wic/al-tracker-conflicts", async (string? date, string? from, string? to, GSDContext db) =>
+        {
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var start = date != null && DateOnly.TryParse(date, out var d) ? d
+                      : from != null && DateOnly.TryParse(from, out var f) ? f : today;
+            var end = date != null && DateOnly.TryParse(date, out var d2) ? d2
+                    : to != null && DateOnly.TryParse(to, out var t) ? t : start;
+            if (end < start) end = start;
+            var days = Math.Min(end.DayNumber - start.DayNumber + 1, 92);
+
+            var all = new List<AlTrackerConflict>();
+            for (var i = 0; i < days; i++)
+                all.AddRange(await WicCardsService.GetAlTrackerConflictsAsync(db, start.AddDays(i)));
+
+            return Results.Ok(new
+            {
+                from = start.ToString("yyyy-MM-dd"),
+                to = start.AddDays(days - 1).ToString("yyyy-MM-dd"),
+                count = all.Count,
+                conflicts = all,
+            });
         }).WithTags("WIC");
     }
 }

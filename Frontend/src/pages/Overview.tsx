@@ -205,6 +205,72 @@ const rosterPill: CSSProperties = {
   color: "inherit", textDecoration: "none", fontWeight: 600, whiteSpace: "nowrap",
 }
 
+// ── AL Tracker vs Shift Plan conflicts ───────────────────────────────────────
+// OWNER RULE (2026-10-16): the Shift Plan wins over the AL Tracker. When RTM removes an
+// AL in the Shift Plan and puts a duty on the day, the AL Tracker ("Annual Leave" tab,
+// Vacations table) keeps its entry and every reader used to show the agent as ABSENT (AL).
+// That entry is now IGNORED (see Backend/Services/AlTrackerOverrides.cs) and this banner is
+// the warning that tells whoever maintains the AL Tracker which entry to correct.
+// Deliberately shows the EmployeeId and the AL entry id ONLY — no names.
+interface AlTrackerConflict {
+  date: string
+  employeeId: string
+  alTrackerEntryId: number
+  trackerFirstDay: string
+  trackerLastDay: string
+  shiftType: string
+  agentTask: string | null
+  shiftStart: string | null
+  shiftEnd: string | null
+  manualChangeBy: string | null
+  manualChangeAt: string | null
+}
+interface AlTrackerConflictResult {
+  from: string; to: string; count: number; conflicts: AlTrackerConflict[]
+}
+
+function AlTrackerConflictBanner() {
+  const { t } = useTranslation()
+  const { session } = useAuth()
+  const allowed = session != null && ["RTM", "TEAM_LEAD", "DEV"].includes(session.role)
+  // Rolling window: today → +30 days is where an RTM actually edits the Shift Plan.
+  const today = new Date()
+  const from = today.toISOString().slice(0, 10)
+  const to = new Date(today.getTime() + 30 * 86400000).toISOString().slice(0, 10)
+  const { data } = useQuery({
+    queryKey: ["al-tracker-conflicts", from, to],
+    queryFn: () => apiFetch<AlTrackerConflictResult>(
+      `/api/wic/al-tracker-conflicts?from=${from}&to=${to}`),
+    staleTime: 5 * 60 * 1000,
+    enabled: allowed,
+    retry: false,
+  })
+  if (!allowed || !data || data.count === 0) return null
+
+  return (
+    <div className="bg-warn-bg border border-warn-bd rounded-[8px] px-4 py-3 text-[12px] text-warn-fg">
+      <div className="flex items-center gap-2 font-bold mb-2">
+        <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+        {t("overview.alTrackerConflict.title", { count: data.count })}
+      </div>
+      <div className="mb-2 text-[11px]">{t("overview.alTrackerConflict.hint")}</div>
+      <div className="flex flex-col gap-[4px] font-mono text-[11px]">
+        {data.conflicts.slice(0, 12).map(c => (
+          <div key={`${c.date}-${c.employeeId}-${c.alTrackerEntryId}`}>
+            {c.date} · {c.employeeId} · AL #{c.alTrackerEntryId} ({c.trackerFirstDay} → {c.trackerLastDay})
+            {" · "}{t("overview.alTrackerConflict.shiftPlan")}: {c.shiftType}
+            {c.shiftStart && c.shiftEnd ? ` ${c.shiftStart}–${c.shiftEnd}` : ""}
+            {c.agentTask ? ` · ${c.agentTask}` : ""}
+          </div>
+        ))}
+        {data.conflicts.length > 12 && (
+          <div className="text-ink-soft">… {data.conflicts.length - 12} more</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function MissingRosterBanner() {
   const { session } = useAuth()
   const allowed = session != null && ["RTM", "TEAM_LEAD", "DEV"].includes(session.role)
@@ -1140,6 +1206,9 @@ export default function Overview() {
 
       {/* ── Missing-roster warning (RTM / TEAM_LEAD / DEV only) ── */}
       <MissingRosterBanner />
+
+      {/* ── AL Tracker vs Shift Plan conflict warning (RTM / TEAM_LEAD / DEV only) ── */}
+      <AlTrackerConflictBanner />
 
       {/* ── WIC coverage-gaps warning + Coverage Risk (RTM / TEAM_LEAD / DEV only) ── */}
       <WicCoverageGapsBanner

@@ -11,7 +11,7 @@ public record EmployeeDto(
     string? Engagement, string? PrimaryRole, string? SecondaryRole,
     string? TeamLeadName, string? Category, bool IsActive, bool IsTrainee,
     string? PlannedRole, string? SourceSheet, string? Birthday, string? Bundesland,
-    string? ShiftPattern
+    string? ShiftPattern, bool IsOnDemand = false
 );
 
 public record ShiftTimelineItem(string ShiftDate, string ShiftType, string? ShiftStart, string? ShiftEnd, bool IsWicDuty);
@@ -70,6 +70,7 @@ public class EmployeeService
             SourceSheet  = dto.SourceSheet ?? "GSD_DE",
             ShiftPattern = dto.ShiftPattern,
             IsActive     = true,
+            IsOnDemand   = dto.IsOnDemand,
             CreatedAt    = DateTime.UtcNow
         };
         _db.Employees.Add(emp);
@@ -90,6 +91,9 @@ public class EmployeeService
         if (dto.IsActive.HasValue)    emp.IsActive      = dto.IsActive.Value;
         if (dto.Bundesland   != null) emp.Bundesland   = dto.Bundesland;
         if (dto.ShiftPattern != null) emp.ShiftPattern = dto.ShiftPattern;
+        // ON DEMAND / NOT ROSTERED BY US (owner decision 2026-10-16). Explicit tri-state:
+        // null = leave unchanged. Only this flag is written — no ShiftEntries row is touched.
+        if (dto.IsOnDemand.HasValue)  emp.IsOnDemand   = dto.IsOnDemand.Value;
 
         await _db.SaveChangesAsync();
         return Map(emp);
@@ -194,7 +198,7 @@ public class EmployeeService
         e.TeamLeadName, e.Category, e.IsActive, e.IsTrainee,
         e.PlannedRole, e.SourceSheet,
         e.Birthday.HasValue ? e.Birthday.Value.ToString("MM-dd") : null,
-        e.Bundesland, e.ShiftPattern
+        e.Bundesland, e.ShiftPattern, e.IsOnDemand
     );
 }
 
@@ -202,12 +206,12 @@ public class EmployeeService
 public record CreateEmployeeDto(
     string EmployeeId, string FullName, string? Engagement,
     string? PrimaryRole, string? TeamLeadName, string? Category, string? SourceSheet,
-    string? ShiftPattern = null
+    string? ShiftPattern = null, bool IsOnDemand = false
 );
 public record UpdateEmployeeDto(
     string? FullName, string? Engagement, string? PrimaryRole,
     string? TeamLeadName, string? Category, bool? IsActive
-, string? Bundesland, string? ShiftPattern = null);
+, string? Bundesland, string? ShiftPattern = null, bool? IsOnDemand = null);
 public record ALBalanceUpdateDto(int AlUsed);
 public record ALEligibleDaysUpdateDto(decimal EligibleDays);
 

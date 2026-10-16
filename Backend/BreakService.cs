@@ -1,5 +1,6 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Modules.Breaks;
@@ -107,11 +108,23 @@ public class BreakService
             .Select(sl => sl.EmployeeId!)
             .ToListAsync();
 
-        var vacToday = await _db.Vacations
+        var vacRowsToday = await _db.Vacations
             .Where(v => v.EmployeeId != null && slotEmpIds.Contains(v.EmployeeId!)
                      && v.FirstDay <= date && v.LastDay >= date)
-            .Select(v => v.EmployeeId!)
             .ToListAsync();
+        var dayShiftRows = await _db.ShiftEntries
+            .Where(s => s.ShiftDate == date && slotEmpIds.Contains(s.EmployeeId))
+            .ToListAsync();
+        // AL-TRACKER OVERRIDE (owner rule 2026-10-16): a manual RTM duty on the day makes the
+        // AL tracker's row irrelevant, so the agent is not treated as absent here either.
+        var (ignoredAlIds, _) = AlTrackerOverrides.Resolve(date, vacRowsToday,
+            dayShiftRows.GroupBy(s => s.EmployeeId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => (ShiftEntry?)ShiftDuplicateResolver.BestShiftEntry(g),
+                    StringComparer.OrdinalIgnoreCase));
+        var vacToday = vacRowsToday
+            .Where(v => v.EmployeeId != null && !ignoredAlIds.Contains(v.Id))
+            .Select(v => v.EmployeeId!)
+            .ToList();
 
         var nonWorkingToday = await _db.ShiftEntries
             .Where(s => s.ShiftDate == date && slotEmpIds.Contains(s.EmployeeId)
@@ -167,11 +180,20 @@ public class BreakService
             .Select(sl => sl.EmployeeId!)
             .ToListAsync();
 
-        var vacIds = await _db.Vacations
+        var vacRows = await _db.Vacations
             .Where(v => v.EmployeeId != null && empIds.Contains(v.EmployeeId!)
                      && v.FirstDay <= date && v.LastDay >= date)
-            .Select(v => v.EmployeeId!)
             .ToListAsync();
+        // AL-TRACKER OVERRIDE (owner rule 2026-10-16): a manual RTM duty on the day
+        // suppresses the tracker's leave row, so the agent stays in the pool.
+        var (ignoredAlIdsAuto, _) = AlTrackerOverrides.Resolve(date, vacRows,
+            shifts.GroupBy(s => s.EmployeeId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => (ShiftEntry?)ShiftDuplicateResolver.BestShiftEntry(g),
+                    StringComparer.OrdinalIgnoreCase));
+        var vacIds = vacRows
+            .Where(v => v.EmployeeId != null && !ignoredAlIdsAuto.Contains(v.Id))
+            .Select(v => v.EmployeeId!)
+            .ToList();
 
         var absentIds = new HashSet<string>(sickIds.Concat(vacIds));
 

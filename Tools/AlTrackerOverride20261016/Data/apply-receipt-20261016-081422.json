@@ -1,0 +1,9 @@
+{
+  "when": "2026-10-16T08:14:23.1902192+02:00",
+  "employeeId": "9128154",
+  "rowId": 147,
+  "before": 0,
+  "after": 1,
+  "backupCsv": "C:\\GSDDashboard_secure\\Tools\\AlTrackerOverride20261016\\Data\\employees-9128154-before-20261016-081422.csv",
+  "rollbackSql": "C:\\GSDDashboard_secure\\Tools\\AlTrackerOverride20261016\\Data\\rollback-9128154-20261016-081422.sql"
+}

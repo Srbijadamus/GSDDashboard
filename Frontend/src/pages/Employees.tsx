@@ -70,6 +70,7 @@ function EmployeeModal({ emp, onClose, onSave }: {
     category:     emp?.category ?? "",
     bundesland:   emp?.bundesland ?? "",
     shiftPattern: emp?.shiftPattern ?? "",
+    isOnDemand:   emp?.isOnDemand ?? false,
   })
   const [errors, setErrors] = useState<Record<string,string>>({})
 
@@ -84,6 +85,10 @@ function EmployeeModal({ emp, onClose, onSave }: {
   const handleChange = (field: string, value: string) => {
     setForm(f => ({ ...f, [field]: value }))
     setErrors(e => { const ne = { ...e }; delete ne[field]; return ne })
+  }
+
+  const handleToggle = (field: string) => {
+    setForm(f => ({ ...f, [field]: !(f as any)[field] }))
   }
 
   const handleSubmit = () => {
@@ -168,6 +173,21 @@ function EmployeeModal({ emp, onClose, onSave }: {
               <option value="">-- Select Shift --</option>
               {SHIFT_PATTERNS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
+          </div>
+
+          {/* ON DEMAND / NOT ROSTERED BY US (owner decision 2026-10-16).
+              An agent engaged only when needed works on another project and has no roster
+              of his own. The switch silences the Overview "Roster gaps" banner for him; he
+              stays active, assignable by hand and visible to substitute suggestions. */}
+          <div className="bg-sunken border border-line-subtle rounded-[6px] px-3 py-[10px]">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" checked={!!(form as any).isOnDemand}
+                onChange={() => handleToggle("isOnDemand")} className="mt-[2px]" />
+              <span>
+                <span className="text-[12px] text-ink block">{t("employees.onDemand")}</span>
+                <span className="text-[10px] text-ink-soft block mt-[2px]">{t("employees.onDemandHint")}</span>
+              </span>
+            </label>
           </div>
         </div>
 
@@ -321,13 +341,13 @@ export default function Employees() {
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
             <thead>
               <tr className="bg-sunken">
-                {["ID","Full Name","Type","Primary Role","Team Lead","Source","Bundesland","Shift","Actions"].map(h => (
+                {["ID","Full Name","Type","Primary Role","Team Lead","Source","Bundesland","Shift","Roster","Actions"].map(h => (
                   <th key={h} className="px-3 py-[10px] text-left text-[10px] font-medium uppercase tracking-[.07em] text-ink-soft border-b border-line-subtle">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {isLoading && <tr><td colSpan={9} className="p-6 text-center text-ink-soft">Loading...</td></tr>}
+              {isLoading && <tr><td colSpan={10} className="p-6 text-center text-ink-soft">Loading...</td></tr>}
               {filtered.map((e: any) => (
                 <tr key={e.employeeId} className="border-b border-line-subtle hover:bg-hovered">
                   <td className="px-3 py-[9px] font-mono text-[11px] text-ink-soft">{e.employeeId}</td>
@@ -338,6 +358,15 @@ export default function Employees() {
                   <td className="px-3 py-[9px] text-[10px] font-mono text-ink-soft">{e.sourceSheet}</td>
                   <td className="px-3 py-[9px]">{(e as any).bundesland && <span className="bg-holiday-bg border border-holiday-bd text-holiday-fg" style={{ borderRadius:4, fontSize:9, padding:"2px 6px", fontWeight:600 }}>{(e as any).bundesland}</span>}</td>
                   <td className="px-3 py-[9px]">{shiftBadge((e as any).shiftPattern)}</td>
+                  <td className="px-3 py-[9px]">
+                    {(e as any).isOnDemand && (
+                      <span className="bg-warn-bg border border-warn-bd text-warn-fg"
+                        style={{ borderRadius:4, fontSize:9, padding:"2px 6px", fontWeight:600, whiteSpace:"nowrap" }}
+                        title={t("employees.onDemandHint")}>
+                        {t("employees.onDemandShort")}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-[9px]">
                     <div className="flex gap-[6px]">
                       <button onClick={() => setEditEmp(e)} className="bg-info-bg border border-info-bd text-info-fg px-2 py-1 rounded text-[10px] cursor-pointer flex items-center gap-[3px]"><Pencil size={11} /> Edit</button>

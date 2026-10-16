@@ -58,6 +58,9 @@ public class AvailabilityResolver
     // Reusable as a List<string> for EF Core IN-clause translation.
     private static readonly List<string> FullAbsenceTypesList = FullAbsenceTypes.ToList();
 
+    /// <summary>EF-translatable list form, kept for callers that still need an IN clause.</summary>
+    internal static List<string> FullAbsenceTypesForQuery => FullAbsenceTypesList;
+
     public AvailabilityResolver(GSDContext db) => _db = db;
 
     // Returns the WIC coverage contribution for a scheduled agent.
@@ -264,15 +267,30 @@ public class AvailabilityResolver
 
     // Returns the absence status for a single employee on a given date.
     // SickLeave records take priority over ShiftEntries.
+    //
+    // Both queries load the whole day-row (not just ShiftType) because the AL-TRACKER
+    // OVERRIDE (owner rule 2026-10-16, see <see cref="AlTrackerOverrides"/>) needs the
+    // row's manual marker: a manual RTM edit to a non-absence type means the day's tracker
+    // entry is ignored. The shift type is still the answer; only the *override* changes.
     public async Task<AbsenceStatus> GetStatusAsync(string employeeId, DateOnly date)
     {
         var hasSickLeave = await _db.SickLeaves.AnyAsync(s =>
             s.EmployeeId == employeeId && s.FirstDay <= date && s.LastDay >= date);
         if (hasSickLeave) return AbsenceStatus.SL;
 
-        var entry = await _db.ShiftEntries.FirstOrDefaultAsync(s =>
-            s.EmployeeId == employeeId && s.ShiftDate == date);
+        var entries = await _db.ShiftEntries
+            .Where(s => s.EmployeeId == employeeId && s.ShiftDate == date)
+            .ToListAsync();
+        var entry = ShiftDuplicateResolver.BestShiftEntry(entries);
         if (entry == null) return AbsenceStatus.UNKNOWN;
+
+        // AL-TRACKER OVERRIDE (owner rule 2026-10-16, see AlTrackerOverrides). A day can
+        // carry TWO ShiftEntries rows — the leave sync's AL projection and a manual RTM
+        // duty the sync later refused to overwrite. The manual duty is the human decision
+        // and the Shift Plan wins, so the day is a working day here even when the AL row has
+        // the higher Id (BestShiftEntry would otherwise pick it).
+        if (entries.Any(AlTrackerOverrides.IsManualNonAbsenceDuty))
+            return AbsenceStatus.WORKING;
 
         return (entry.ShiftType ?? "").ToUpperInvariant() switch
         {
@@ -291,6 +309,19 @@ public class AvailabilityResolver
         };
     }
 
+    /// <summary>
+    /// The full absence test of ONE employee+date: an active SickLeave record, or a
+    /// <c>ShiftEntries</c> row whose ShiftType is in <see cref="FullAbsenceTypes"/>.
+    ///
+    /// AL-TRACKER OVERRIDE (owner rule 2026-10-16): an AL/SL/... <c>ShiftEntries</c> row a
+    /// human did NOT edit is the tracker's own projection, so it is honoured. A row a human
+    /// DID edit by hand to a non-absence type can never be absent — which the ShiftType test
+    /// already answers, and <see cref="AlTrackerOverrides"/> is the single statement of that
+    /// rule for readers that hold the tracker rows separately.
+    /// </summary>
+    internal static bool IsAbsent(bool isSick, ShiftEntry? row) =>
+        isSick || (row != null && FullAbsenceTypes.Contains(row.ShiftType));
+
     // Returns the subset of the supplied employee IDs that are absent on the given date.
     // An employee is absent if they have an active SickLeave record OR a ShiftEntry
     // whose ShiftType is in FullAbsenceTypes.
@@ -307,17 +338,25 @@ public class AvailabilityResolver
             .Select(s => s.EmployeeId!)
             .ToListAsync();
 
-        var shiftAbsentIds = await _db.ShiftEntries
+        var shiftRows = await _db.ShiftEntries
             .Where(s => s.EmployeeId != null
                      && ids.Contains(s.EmployeeId)
-                     && s.ShiftDate == date
-                     && FullAbsenceTypesList.Contains(s.ShiftType))
-            .Select(s => s.EmployeeId!)
+                     && s.ShiftDate == date)
             .ToListAsync();
 
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var id in sickIds)        result.Add(id);
-        foreach (var id in shiftAbsentIds) result.Add(id);
+        foreach (var id in sickIds) result.Add(id);
+        foreach (var group in shiftRows.GroupBy(s => s.EmployeeId!, StringComparer.OrdinalIgnoreCase))
+        {
+            // AL-TRACKER OVERRIDE (owner rule 2026-10-16): a manual RTM duty anywhere on the
+            // day makes it a working day, even when a second, later-inserted leave row also
+            // exists (the exact reported shape: the Shift Plan was edited by hand while the
+            // AL Tracker's row still stood). BestShiftEntry alone would pick the leave row by
+            // Id and read the agent as absent.
+            if (group.Any(AlTrackerOverrides.IsManualNonAbsenceDuty)) continue;
+            var row = ShiftDuplicateResolver.BestShiftEntry(group);
+            if (IsAbsent(false, row)) result.Add(group.Key);
+        }
         return result;
     }
 }

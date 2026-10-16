@@ -99,7 +99,21 @@ public class BriefingService
         var boIndex = WicBackOfficePriority.BuildIndex(allAssignments, locations, allEmployees);
 
         // ── Absences today ────────────────────────────────────────────────────
+        // The day's tracker rows are loaded FIRST because the AL-tracker override needs them.
+        var vacToday = await _db.Vacations
+            .Where(v => v.FirstDay <= date && v.LastDay >= date && v.EmployeeId != null)
+            .ToListAsync();
         var todayShifts = shiftEntries.Where(s => s.ShiftDate == date).ToList();
+        var todayBestByEmp = todayShifts
+            .Where(s => s.EmployeeId != null)
+            .GroupBy(s => s.EmployeeId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => (ShiftEntry?)ShiftDuplicateResolver.BestShiftEntry(g),
+                StringComparer.OrdinalIgnoreCase);
+        // AL-TRACKER OVERRIDE (owner rule 2026-10-16): a manual RTM edit of the day's row to
+        // a NON-absence type suppresses the day's AL-tracker row, so "Absent today" must not
+        // report someone the Shift Plan says is on duty.
+        var (ignoredAlIds, _) = AlTrackerOverrides.Resolve(date, vacToday, todayBestByEmp);
+        var effectiveVacToday = vacToday.Where(v => !ignoredAlIds.Contains(v.Id)).ToList();
         // "Absent today" is a people list, so it uses AbsenceFeedTypes rather than
         // FullAbsenceTypes: RESIGNED is excluded on purpose (the agent has left, they are
         // not absent), HALF_AL is included (half a day away is still an absence). Coverage
@@ -117,12 +131,9 @@ public class BriefingService
         var sickLeavesAll = await _db.SickLeaves
             .Where(s => s.FirstDay <= lookaheadEnd && s.LastDay >= date && s.EmployeeId != null)
             .ToListAsync();
-        var vacToday = await _db.Vacations
-            .Where(v => v.FirstDay <= date && v.LastDay >= date && v.EmployeeId != null)
-            .ToListAsync();
         var sickByEmp = sickToday.GroupBy(s => s.EmployeeId!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.FirstDay).First(), StringComparer.OrdinalIgnoreCase);
-        var vacByEmp  = vacToday.GroupBy(v => v.EmployeeId!, StringComparer.OrdinalIgnoreCase)
+        var vacByEmp  = effectiveVacToday.GroupBy(v => v.EmployeeId!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(v => v.FirstDay).First(), StringComparer.OrdinalIgnoreCase);
 
         // Build WIC location lookup per employee name (for absence -> WIC link)

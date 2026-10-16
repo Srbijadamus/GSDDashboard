@@ -1592,7 +1592,7 @@ public class RosterService
 
         var activeEmployees = await _db.Employees
             .Where(e => e.IsActive)
-            .Select(e => new { e.EmployeeId, e.FullName, e.TeamLeadName, e.PrimaryRole })
+            .Select(e => new { e.EmployeeId, e.FullName, e.TeamLeadName, e.PrimaryRole, e.IsOnDemand })
             .ToListAsync();
 
         var windowGroups = await _db.ShiftEntries
@@ -1614,7 +1614,7 @@ public class RosterService
 
         // Last rostered date ever, for context on the missing list (one extra query).
         var missingIds = activeEmployees
-            .Where(e => !withRoster.Contains(e.EmployeeId))
+            .Where(e => !withRoster.Contains(e.EmployeeId) && !e.IsOnDemand)
             .Select(e => e.EmployeeId).ToList();
         var lastDates = await _db.ShiftEntries
             .Where(s => missingIds.Contains(s.EmployeeId))
@@ -1625,7 +1625,7 @@ public class RosterService
             StringComparer.OrdinalIgnoreCase);
 
         var missing = activeEmployees
-            .Where(e => !withRoster.Contains(e.EmployeeId))
+            .Where(e => !withRoster.Contains(e.EmployeeId) && !e.IsOnDemand)
             .OrderBy(e => e.TeamLeadName).ThenBy(e => e.FullName ?? e.EmployeeId)
             .Select(e => new MissingRosterAgent(
                 e.EmployeeId, e.FullName, e.TeamLeadName, e.PrimaryRole,
@@ -1676,6 +1676,12 @@ public class RosterService
         var dateGaps = new List<EmployeeDateGaps>();
         foreach (var e in activeEmployees)
         {
+            // ON DEMAND / NOT ROSTERED BY US (owner decision, 2026-10-16): an agent engaged
+            // only when needed has no roster of his own by design. Both the all-or-nothing
+            // "no roster" list and this per-date gap list would otherwise raise a permanent
+            // false alarm and hide the real gaps. He stays active, assignable by hand and
+            // visible to the substitute/candidate suggestions.
+            if (e.IsOnDemand) continue;
             existingDatesByEmp.TryGetValue(e.EmployeeId, out var existing);
             existing ??= new HashSet<DateOnly>();
             var gapDates = allDatesInWindow

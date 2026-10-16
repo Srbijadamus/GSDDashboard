@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GSDDashboard.API.Data.Models;
@@ -31,6 +31,21 @@ public class Employee
     [MaxLength(100)] public string? GroupRegion   { get; set; }
     [MaxLength(20)]  public string? ShiftPattern  { get; set; }
     public bool NppQualified { get; set; } = false;
+
+    /// <summary>
+    /// ON DEMAND / NOT ROSTERED BY US (owner decision, 2026-10-16). An agent who works on
+    /// another project and is engaged only when needed. Such a person has no roster of his
+    /// own, so the Overview "Roster gaps" banner (<c>GET /api/roster/missing</c>) must not
+    /// list him — a permanent false alarm that hides the real gaps.
+    ///
+    /// The flag ONLY silences that banner. The agent stays ACTIVE, stays assignable by hand
+    /// (Shift Plan, WIC assignment, Bulk RTM) and stays visible to the substitute/candidate
+    /// suggestions: those are exactly the "engaged only when needed" paths.
+    ///
+    /// Additive and defaulted false: no existing row is changed by the migration; the AL
+    /// Tracker and ShiftEntries are not touched.
+    /// </summary>
+    public bool IsOnDemand { get; set; } = false;
 }
 
 // The agent's default daily shift-time slot (distinct from ShiftEntry.ShiftType,
