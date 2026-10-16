@@ -141,19 +141,22 @@ public class ShiftService
         if (!string.IsNullOrWhiteSpace(f.Engagement))
             employees = employees.Where(e => e.Engagement == f.Engagement);
 
-        // The plan must not carry an agent who has already left by the end of the window.
+        // The plan must not carry an agent who had already left BEFORE the window opens.
         // Same ONE rule as every candidate list (SubstituteEligibility.HasLeft): an inactive
-        // row or a RESIGNED ShiftEntries row dated on/before the window's last day. A future
-        // exit date leaves the agent in the plan up to that day, so their real rows are still
-        // visible; IsOnDemand agents are untouched and keep their place.
+        // Employees row, or a RESIGNED ShiftEntries row dated before the window's first day.
+        // An agent who leaves INSIDE the window stays a plan row: the days before the exit are
+        // still real work, and the RESIGNED rows from the exit day onwards are shown exactly
+        // as before. IsOnDemand agents are untouched and keep their place.
         var resignedRows = await _db.ShiftEntries
-            .Where(s => s.ShiftType == SubstituteEligibility.Resigned && s.ShiftDate <= to)
+            .Where(s => s.ShiftType == SubstituteEligibility.Resigned && s.ShiftDate < from)
             .ToListAsync();
         var resignedFrom = SubstituteEligibility.EarliestResignedByEmployee(resignedRows);
         // Materialised before the shared predicate: HasLeft reads the in-memory dictionary,
-        // so the filter runs here rather than as a translation of it.
+        // so the filter runs here rather than as a translation of it. The query above already
+        // restricts the dictionary to dates before `from`, so HasLeft(e, from) means "resigned
+        // strictly before the first shown day" — a RESIGNED row ON `from` is inside the window.
         var employeeList = (await employees.ToListAsync())
-            .Where(e => !SubstituteEligibility.HasLeft(e, to, resignedFrom))
+            .Where(e => !SubstituteEligibility.HasLeft(e, from, resignedFrom))
             .ToList();
 
         // LEFT JOIN in memory (employeeList is small and the window's ShiftEntries are one

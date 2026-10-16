@@ -1,6 +1,6 @@
 {
   "LiveRoot": "C:\\GSDDashboard",
-  "CreatedAtUtc": "2026-10-16T07:13:07.5886736Z",
+  "CreatedAtUtc": "2026-10-16T07:26:47.2868746Z",
   "Live": [
     {
       "Path": "Backend.Tests/ALBalanceEligibleDaysTests.cs",
@@ -822,7 +822,7 @@
     },
     {
       "Path": "Backend.Tests/AssignCandidateFilterTests.cs",
-      "Hash": "D50BD81AB7E2120EF823877737BB49A320D3A7D76B175F273EFDE07E4C5DB505"
+      "Hash": "5D4AF6A04B498BBC99C2733638E6EBBC53F5962B7B7A6F4E1AD99EB4D1108306"
     },
     {
       "Path": "Backend.Tests/AuthServiceTests.cs",
@@ -1378,7 +1378,7 @@
     },
     {
       "Path": "Backend/ShiftService.cs",
-      "Hash": "24D2D0B420E03487407E270515F08B0D2D93C6889DB8CAE636DD900F37AEBED1"
+      "Hash": "C974A11644BAAD77895D23DED17E58EE85751CD3674B4129F15836ECA4002F63"
     },
     {
       "Path": "Backend/ShiftSyncService.cs",

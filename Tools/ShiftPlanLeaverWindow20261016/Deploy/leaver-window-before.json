@@ -1,0 +1,113 @@
+{
+  "when": "2026-10-16T09:27:19.6410892+02:00",
+  "employeeId": "9106138",
+  "pass": false,
+  "bases": {
+    "http://127.0.0.1:5000": {
+      "login": {
+        "status": 200,
+        "role": "DEV"
+      },
+      "health": 200,
+      "checks": [
+        {
+          "name": "inside-2026-10-20..26",
+          "from": "2026-10-20",
+          "to": "2026-10-26",
+          "status": 200,
+          "totalRows": 824,
+          "contains": false,
+          "expected": true,
+          "resignedDates": "",
+          "ok": false
+        },
+        {
+          "name": "after-2026-10-27..11-02",
+          "from": "2026-10-27",
+          "to": "2026-11-02",
+          "status": 200,
+          "totalRows": 804,
+          "contains": false,
+          "expected": false,
+          "resignedDates": "",
+          "ok": true
+        },
+        {
+          "name": "from-2026-10-27-single",
+          "from": "2026-10-27",
+          "to": "2026-10-27",
+          "status": 200,
+          "totalRows": 120,
+          "contains": false,
+          "expected": false,
+          "resignedDates": "",
+          "ok": true
+        },
+        {
+          "name": "before-2026-10-19..25",
+          "from": "2026-10-19",
+          "to": "2026-10-26",
+          "status": 200,
+          "totalRows": 941,
+          "contains": false,
+          "expected": true,
+          "resignedDates": "",
+          "ok": false
+        }
+      ]
+    },
+    "https://d2jn94qg-5000.euw.devtunnels.ms": {
+      "login": {
+        "status": 200,
+        "role": "DEV"
+      },
+      "health": 200,
+      "checks": [
+        {
+          "name": "inside-2026-10-20..26",
+          "from": "2026-10-20",
+          "to": "2026-10-26",
+          "status": 200,
+          "totalRows": 824,
+          "contains": false,
+          "expected": true,
+          "resignedDates": "",
+          "ok": false
+        },
+        {
+          "name": "after-2026-10-27..11-02",
+          "from": "2026-10-27",
+          "to": "2026-11-02",
+          "status": 200,
+          "totalRows": 804,
+          "contains": false,
+          "expected": false,
+          "resignedDates": "",
+          "ok": true
+        },
+        {
+          "name": "from-2026-10-27-single",
+          "from": "2026-10-27",
+          "to": "2026-10-27",
+          "status": 200,
+          "totalRows": 120,
+          "contains": false,
+          "expected": false,
+          "resignedDates": "",
+          "ok": true
+        },
+        {
+          "name": "before-2026-10-19..25",
+          "from": "2026-10-19",
+          "to": "2026-10-26",
+          "status": 200,
+          "totalRows": 941,
+          "contains": false,
+          "expected": true,
+          "resignedDates": "",
+          "ok": false
+        }
+      ]
+    }
+  }
+}

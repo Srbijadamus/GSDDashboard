@@ -11,15 +11,16 @@ namespace GSDDashboard.Tests;
 
 // The 2026-10-16 Assign defect: the Assign picker (AssignAgentModal → /api/employees,
 // and the UNCOVERED / coverage-gap row → /api/wic/assign-candidates) still offered agents
-// who had already left, and the Shift Plan could still show an agent whose exit day was
-// inside the window.
+// who had already left.
 //
-// This file pins the ONE shared rule (SubstituteEligibility.HasLeft, the rule the Shift
-// Plan / Overview / coverage gaps / Find Substitute already use) on the three surfaces
-// this task changes:
+// This file pins the ONE shared rule (SubstituteEligibility.HasLeft, the rule the
+// Overview / coverage gaps / Find Substitute use) on the surfaces this task changes:
 //   * /api/wic/assign-candidates     — a leaver is not a candidate at all,
 //   * /api/employees?active=true&date= — the same rule for the Assign-Agent picker,
-//   * GET /api/shifts (Shift Plan)    — a leaver is not a plan row,
+//   * GET /api/shifts (Shift Plan)    — the SAME rule, but asked about the WINDOW's FIRST
+//     day, not its last: only an agent who had already left BEFORE the window opens is
+//     dropped. An exit date INSIDE the window keeps him planned, because the days before
+//     it are real work and his RESIGNED rows from the exit day onwards still show.
 // plus the two deliberate non-changes:
 //   * a FUTURE exit date keeps the agent offerable up to the day before it,
 //   * an IsOnDemand agent is never dropped by this rule.
@@ -195,45 +196,118 @@ public class AssignCandidateFilterTests
     }
 
     // ── Shift Plan (GET /api/shifts) ─────────────────────────────────────────────
+    //
+    // 2026-10-16 owner decision: the plan is the roster of the requested WINDOW, so an agent
+    // is dropped ONLY when he had already left BEFORE the window's first day (resigned rows
+    // are loaded with `ShiftDate < from` and HasLeft is asked about `from`). An exit date
+    // INSIDE the window keeps him planned: the days before the exit are real work, and the
+    // RESIGNED rows from the exit day onwards keep showing exactly as before.
 
     private static ShiftFilterParams Window(string from, string to) =>
         new(from, to, null, null, null, null);
 
+    private static Task<List<ShiftRowDto>> PlanRows(GSDContext db, string from, string to) =>
+        new ShiftService(db).GetShiftsAsync(Window(from, to));
+
     private static async Task<List<string>> PlanIds(GSDContext db, string from, string to)
     {
-        var rows = await new ShiftService(db).GetShiftsAsync(Window(from, to));
+        var rows = await PlanRows(db, from, to);
         return rows.Select(r => r.EmployeeId).ToList();
     }
 
+    private static string D(DateOnly d) => d.ToString("yyyy-MM-dd");
+
     [Fact]
-    public async Task ShiftPlan_InactiveEmployee_AndLeaverInsideTheWindow_AreNotPlanRows()
+    public async Task ShiftPlan_LeaverInsideTheWindow_StaysWithTheDaysBeforeTheExit()
     {
+        // The exit (Date+3) falls inside the Date..Date+6 window: the agent must stay, with
+        // his real WORKING rows before the exit and the RESIGNED row on the exit day itself.
         using var db = NewDb();
-        db.Employees.Add(Emp("GONE1", "Left In Window"));
-        db.Employees.Add(Emp("GONE2", "Inactive Row", active: false));
-        db.Employees.Add(Emp("OK1", "Still Here"));
-        db.ShiftEntries.Add(Resigned("GONE1", Date.AddDays(3)));
+        db.Employees.Add(Emp("MID1", "Leaves Mid Window"));
+        db.ShiftEntries.Add(new ShiftEntry { EmployeeId = "MID1", ShiftDate = Date.AddDays(1), ShiftType = ShiftTypes.Working });
+        db.ShiftEntries.Add(new ShiftEntry { EmployeeId = "MID1", ShiftDate = Date.AddDays(2), ShiftType = ShiftTypes.Working });
+        db.ShiftEntries.Add(Resigned("MID1", Date.AddDays(3)));
         await db.SaveChangesAsync();
 
-        var ids = await PlanIds(db, Date.ToString("yyyy-MM-dd"), Date.AddDays(6).ToString("yyyy-MM-dd"));
+        var rows = await PlanRows(db, D(Date), D(Date.AddDays(6)));
+
+        Assert.Contains("MID1", rows.Select(r => r.EmployeeId));
+        var beforeExit = rows
+            .Where(r => r.EmployeeId == "MID1" && r.ShiftType == ShiftTypes.Working)
+            .Select(r => r.ShiftDate).OrderBy(d => d).ToList();
+        Assert.Equal(new[] { Date.AddDays(1), Date.AddDays(2) }, beforeExit);
+        Assert.Contains(rows, r => r.EmployeeId == "MID1"
+                                   && r.ShiftType == SubstituteEligibility.Resigned
+                                   && r.ShiftDate == Date.AddDays(3));
+    }
+
+    [Fact]
+    public async Task ShiftPlan_LeaverBeforeTheWindow_IsNotAPlanRow()
+    {
+        using var db = NewDb();
+        db.Employees.Add(Emp("GONE1", "Left Earlier"));
+        db.ShiftEntries.Add(new ShiftEntry { EmployeeId = "GONE1", ShiftDate = Date.AddDays(-1), ShiftType = ShiftTypes.Working });
+        db.ShiftEntries.Add(Resigned("GONE1", Date.AddDays(-1)));
+        await db.SaveChangesAsync();
+
+        var ids = await PlanIds(db, D(Date), D(Date.AddDays(6)));
+
+        Assert.DoesNotContain("GONE1", ids);
+    }
+
+    [Fact]
+    public async Task ShiftPlan_ResignedOnTheFirstShownDay_IsStillAPlanRow()
+    {
+        // "Before the window" is strict: a RESIGNED row ON `from` leaves the agent in the plan.
+        using var db = NewDb();
+        db.Employees.Add(Emp("TODAY1", "Leaves On First Day"));
+        db.ShiftEntries.Add(Resigned("TODAY1", Date));
+        await db.SaveChangesAsync();
+
+        var ids = await PlanIds(db, D(Date), D(Date.AddDays(6)));
+
+        Assert.Contains("TODAY1", ids);
+    }
+
+    [Fact]
+    public async Task ShiftPlan_ActiveEmployeeWithoutExit_IsAPlanRow()
+    {
+        // Control: the fix must not empty the plan for an ordinary active agent.
+        using var db = NewDb();
+        db.Employees.Add(Emp("OK1", "Still Here"));
+        await db.SaveChangesAsync();
+
+        var ids = await PlanIds(db, D(Date), D(Date.AddDays(6)));
 
         Assert.Contains("OK1", ids);
-        Assert.DoesNotContain("GONE1", ids);
+    }
+
+    [Fact]
+    public async Task ShiftPlan_InactiveEmployee_IsNeverAPlanRow()
+    {
+        using var db = NewDb();
+        db.Employees.Add(Emp("GONE2", "Inactive Row", active: false));
+        await db.SaveChangesAsync();
+
+        var ids = await PlanIds(db, D(Date), D(Date.AddDays(6)));
+
         Assert.DoesNotContain("GONE2", ids);
     }
 
     [Fact]
-    public async Task ShiftPlan_FutureExitDate_LeavesTheAgentInThePlanUntilItPasses()
+    public async Task ShiftPlan_FutureExitDate_KeepsTheAgentUntilAWindowStartsAfterIt()
     {
         using var db = NewDb();
         db.Employees.Add(Emp("FUT1", "Leaves Later"));
         db.ShiftEntries.Add(Resigned("FUT1", Date.AddDays(10)));
         await db.SaveChangesAsync();
 
-        // Window ends before the exit date: the agent is still planned (his real rows matter).
-        Assert.Contains("FUT1", await PlanIds(db, Date.ToString("yyyy-MM-dd"), Date.AddDays(6).ToString("yyyy-MM-dd")));
-        // Window reaches the exit date: he is no longer a plan row.
-        Assert.DoesNotContain("FUT1", await PlanIds(db, Date.ToString("yyyy-MM-dd"), Date.AddDays(10).ToString("yyyy-MM-dd")));
+        // Window ends before the exit date: the agent is planned (his real rows matter).
+        Assert.Contains("FUT1", await PlanIds(db, D(Date), D(Date.AddDays(6))));
+        // Window reaches the exit date: still planned, because the exit is INSIDE the window.
+        Assert.Contains("FUT1", await PlanIds(db, D(Date), D(Date.AddDays(10))));
+        // The first window to START after the exit date: now he had left before it, so he is gone.
+        Assert.DoesNotContain("FUT1", await PlanIds(db, D(Date.AddDays(11)), D(Date.AddDays(17))));
     }
 
     [Fact]
@@ -243,6 +317,6 @@ public class AssignCandidateFilterTests
         db.Employees.Add(Emp("OD1", "On Demand", onDemand: true));
         await db.SaveChangesAsync();
 
-        Assert.Contains("OD1", await PlanIds(db, Date.ToString("yyyy-MM-dd"), Date.AddDays(6).ToString("yyyy-MM-dd")));
+        Assert.Contains("OD1", await PlanIds(db, D(Date), D(Date.AddDays(6))));
     }
 }
