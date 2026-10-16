@@ -1,6 +1,6 @@
 {
   "LiveRoot": "C:\\GSDDashboard",
-  "CreatedAtUtc": "2026-10-16T06:12:03.3404117Z",
+  "CreatedAtUtc": "2026-10-16T06:49:55.4003342Z",
   "Live": [
     {
       "Path": "Backend.Tests/ALBalanceEligibleDaysTests.cs",
@@ -993,6 +993,10 @@
       "Hash": "3EF407B794585A0C1463452F6E61400BBF72FB5F1D82ACA6F1E948DACB474E9A"
     },
     {
+      "Path": "Backend.Tests/WicGapMoveConsequenceTests.cs",
+      "Hash": "088AE5AD9E21C3DA5AE8617B64EEDB981F930B2DF3575CC7E8A6B6B0C35828DE"
+    },
+    {
       "Path": "Backend.Tests/WicManualChangeTests.cs",
       "Hash": "1088D3EFB73206BA3F080E31FBD390754C39CD8A822D96190D0482BE31613F60"
     },
@@ -1414,7 +1418,7 @@
     },
     {
       "Path": "Backend/WicCoverageGapService.cs",
-      "Hash": "ABA973AE3B3462399608D0AB0295B009CF241BE6D3C3D571536D37A9B7F9AFAF"
+      "Hash": "ADACF0A0084FA8C207208BF02B0A78F5C78E6D20C06F3A8FF6CC94549040A0F5"
     },
     {
       "Path": "Backend/WicModels.cs",
@@ -1562,11 +1566,11 @@
     },
     {
       "Path": "Frontend/src/i18n/locales/de/common.json",
-      "Hash": "6B1F4696E73EDC8D6BC45BEF13AE8CE6F323F1A16EBF2E8F875A3829B094DFC3"
+      "Hash": "FC4F38A2201C44F16F3C8816C6C728ED80FB29A74D79B2CC8F5B5EAD2B56FB58"
     },
     {
       "Path": "Frontend/src/i18n/locales/en/common.json",
-      "Hash": "9FC18D4DB819968B0354E4F95F543A8D8DF9027000113006BF1ED02AD7BCAC49"
+      "Hash": "9258A29A8E24B323404E93171E0FC8593F5F61653A18B89BF18A7D7E56A7FD8C"
     },
     {
       "Path": "Frontend/src/index.css",
@@ -1682,7 +1686,7 @@
     },
     {
       "Path": "Frontend/src/pages/Overview.tsx",
-      "Hash": "7C0EE68E2549409BAFB68559FAAAE43C350ED5C8D457E7BE865B1CBDB910BE08"
+      "Hash": "EBBF5A4566E2DE7C573CA5108CE981C1FB03BBF595456C60A1BEBDE12AE0E285"
     },
     {
       "Path": "Frontend/src/pages/overview/DayStrip.tsx",

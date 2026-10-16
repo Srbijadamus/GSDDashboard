@@ -1,0 +1,25 @@
+== Regensburg 2026-10-20 (case check, read-only) ==
+Id|EmployeeId|ShiftDate|ShiftType|AgentTask|ManualChangeBy|ManualChangeAt|SourceModule
+--|----------|---------|---------|---------|--------------|--------------|------------
+57122|9130657|2026-10-20|WIC_DUTY|Regensburg|S60028|2026-10-14 07:48:40.3975767|ASSIGN
+Id|EmployeeId|ShiftDate|SupportLocation|IsOnSite|WorkingShift
+--|----------|---------|---------------|--------|------------
+68923|9130657|2026-10-20|Regensburg|1|08:00-16:00
+Id|EmployeeId|FirstDay|LastDay
+--|----------|--------|-------
+VacRowsCovering20261020
+-----------------------
+7
+== Hannover 2026-11-02..06 proposal 9124697 (read-only) ==
+Id|LocationCode|EmployeeName|AssignmentType|IsActive
+--|------------|------------|--------------|--------
+110|DE~38350~Helmstedt~Schillerstr. 3|Merlin Voss|MAIN|1
+200|DE~30459~Hannover~Ricklinger Stadtweg 123-127|Merlin Voss|REGIONAL|1
+218|DE~38226~Salzgitter~Joachim-Campe-Straße 14|Merlin Voss|BACKUP|1
+Id|EmployeeId|ShiftDate|ShiftType|AgentTask|ShiftStart|ShiftEnd|ManualChangeBy
+--|----------|---------|---------|---------|----------|--------|--------------
+57930|9124697|2026-11-02|WIC_DUTY|Helmstedt|08:00|17:00|NULL
+58022|9124697|2026-11-03|WIC_DUTY|Helmstedt|08:00|17:00|NULL
+58114|9124697|2026-11-04|WIC_DUTY|Helmstedt|08:00|17:00|NULL
+58206|9124697|2026-11-05|WIC_DUTY|Helmstedt|08:00|17:00|NULL
+58299|9124697|2026-11-06|WIC_DUTY|Helmstedt|08:00|17:00|NULL

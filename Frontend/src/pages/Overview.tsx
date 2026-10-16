@@ -352,6 +352,16 @@ function MissingRosterBanner() {
 // shouldn't flag every location they float for.
 interface WicGapAgent {
   employeeId: string | null; fullName: string; assignmentType: string; status: string; taskLabel: string
+  // Consequence of the move (owner decision 2026-10-16). "Available" stays a HINT: nobody
+  // is hidden and nothing is assigned automatically. These four say what taking this agent
+  // out of their OWN centre would do to it — present−1 against that centre's MinRequired,
+  // measured only over the time the gap and the source centre share. All null / false when
+  // the move has no measurable consequence (BO, "rostered, no task", source centre closed
+  // at the gap time), and the row then renders exactly as before.
+  sourceLocation: string | null
+  sourcePresentAfter: number | null
+  sourceRequired: number | null
+  sourceBelowMinimum: boolean
 }
 interface WicCoverageGapEntry {
   date: string; weekday: string; locationCode: string; displayName: string; city: string
@@ -428,9 +438,27 @@ function GapRow({ g, onAssign }: { g: WicCoverageGapEntry; onAssign: (g: WicCove
       </span>
       {g.availableFloaters.length > 0 && (
         <span style={{ color: STATUS_TOKEN_FG["COVERED"], fontSize: 11, whiteSpace: "nowrap" }}>
-          {t("overview.coverageBanner.available", {
-            names: g.availableFloaters.map(a => `${a.fullName} (${a.taskLabel})`).join(", "),
-          })}
+          {t("overview.coverageBanner.availableLabel")}{" "}
+          {g.availableFloaters.map((a, i) => (
+            <span key={a.employeeId ?? a.fullName + i}>
+              {i > 0 && ", "}
+              {/* The move's CONSEQUENCE, only when it drops the agent's own centre below
+                  its minimum: "WIC Helmstedt → 0/1", in the row's own tone (red for a
+                  critical row, orange for an unstaffed one). Otherwise the floater reads
+                  exactly as before. */}
+              <span
+                title={a.sourceBelowMinimum && a.sourceLocation
+                  ? t("overview.coverageBanner.availableWarningHint", { centre: a.sourceLocation })
+                  : undefined}
+                style={a.sourceBelowMinimum
+                  ? { color: STATUS_TOKEN_FG[tone], fontWeight: 700 }
+                  : undefined}
+              >
+                {a.fullName} ({a.taskLabel}
+                {a.sourceBelowMinimum && a.sourcePresentAfter != null ? ` → ${a.sourcePresentAfter}/${a.sourceRequired}` : ""})
+              </span>
+            </span>
+          ))}
         </span>
       )}
       {canAssign ? (

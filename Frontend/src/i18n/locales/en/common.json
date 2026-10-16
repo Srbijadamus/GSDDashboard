@@ -177,7 +177,8 @@
       "recordKeepingOpenDays": "{{name}} ({{count}} open days)",
       "absence": "ABSENCE",
       "unstaffed": "UNSTAFFED",
-      "available": "Available: {{names}}",
+      "availableLabel": "Available:",
+      "availableWarningHint": "Moving this agent would leave {{centre}} below its minimum.",
       "assign": "Assign",
       "fixAssignment": "Fix assignment"
     },

@@ -177,7 +177,8 @@
       "recordKeepingOpenDays": "{{name}} ({{count}} offene Tage)",
       "absence": "ABWESENHEIT",
       "unstaffed": "UNBESETZT",
-      "available": "Verfügbar: {{names}}",
+      "availableLabel": "Verfügbar:",
+      "availableWarningHint": "Ein Verschieben dieses Agenten würde {{centre}} unter das Minimum bringen.",
       "assign": "Zuweisen",
       "fixAssignment": "Zuweisung korrigieren"
     },

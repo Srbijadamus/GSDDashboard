@@ -1,0 +1,2800 @@
+{
+  "expected": {
+    "proposals": 111,
+    "warnings": 5
+  },
+  "when": "2026-10-16T08:47:20.3074326+02:00",
+  "failures": [],
+  "results": [
+    {
+      "base": "http://127.0.0.1:5000",
+      "login": {
+        "status": 200,
+        "role": "DEV"
+      },
+      "health": 200,
+      "gapsWindow": {
+        "warning": 49,
+        "notRecorded": 0,
+        "from": "2026-10-16",
+        "total": 79,
+        "critical": 30,
+        "to": "2027-01-13"
+      },
+      "proposals": 111,
+      "proposalsWithWarning": 5,
+      "warnings": [
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-02",
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-03",
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-04",
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-05",
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-06",
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1
+        }
+      ],
+      "hannover": [
+        {
+          "date": "2026-11-02",
+          "present": 0,
+          "required": 1,
+          "category": "UNCOVERED_ABSENCE",
+          "floaters": [
+            {
+              "employeeId": "9124697",
+              "taskLabel": "WIC Helmstedt",
+              "sourceLocation": "Helmstedt",
+              "after": 0,
+              "required": 1,
+              "belowMinimum": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-03",
+          "present": 0,
+          "required": 1,
+          "category": "UNCOVERED_ABSENCE",
+          "floaters": [
+            {
+              "employeeId": "9124697",
+              "taskLabel": "WIC Helmstedt",
+              "sourceLocation": "Helmstedt",
+              "after": 0,
+              "required": 1,
+              "belowMinimum": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-04",
+          "present": 0,
+          "required": 1,
+          "category": "UNCOVERED_ABSENCE",
+          "floaters": [
+            {
+              "employeeId": "9124697",
+              "taskLabel": "WIC Helmstedt",
+              "sourceLocation": "Helmstedt",
+              "after": 0,
+              "required": 1,
+              "belowMinimum": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-05",
+          "present": 0,
+          "required": 1,
+          "category": "UNCOVERED_ABSENCE",
+          "floaters": [
+            {
+              "employeeId": "9124697",
+              "taskLabel": "WIC Helmstedt",
+              "sourceLocation": "Helmstedt",
+              "after": 0,
+              "required": 1,
+              "belowMinimum": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-06",
+          "present": 0,
+          "required": 1,
+          "category": "UNCOVERED_ABSENCE",
+          "floaters": [
+            {
+              "employeeId": "9124697",
+              "taskLabel": "WIC Helmstedt",
+              "sourceLocation": "Helmstedt",
+              "after": 0,
+              "required": 1,
+              "belowMinimum": true
+            }
+          ]
+        }
+      ],
+      "hannoverOk": true,
+      "alTrackerConflict": {
+        "count": 0,
+        "regensburg1020": false
+      },
+      "regensburg1020": {
+        "open": {
+          "minRequired": 1,
+          "absent": 0,
+          "effective": 1,
+          "isOpen": true,
+          "status": "COVERED",
+          "scheduled": 1
+        },
+        "card": {
+          "status": "COVERED",
+          "evidence": "ON_SITE",
+          "agents": [
+            "9130657"
+          ]
+        }
+      },
+      "allProposals": [
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-02",
+          "index": 0,
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1,
+          "belowMinimum": true
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-03",
+          "index": 1,
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1,
+          "belowMinimum": true
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-04",
+          "index": 2,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-04",
+          "index": 3,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-04",
+          "index": 4,
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1,
+          "belowMinimum": true
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-05",
+          "index": 5,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-05",
+          "index": 6,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-05",
+          "index": 7,
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1,
+          "belowMinimum": true
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-06",
+          "index": 8,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-06",
+          "index": 9,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-06",
+          "index": 10,
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1,
+          "belowMinimum": true
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-09",
+          "index": 11,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Essen - TK",
+          "sourceLocation": "Essen - TK",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-09",
+          "index": 12,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-10",
+          "index": 13,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Essen - TK",
+          "sourceLocation": "Essen - TK",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-10",
+          "index": 14,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-11",
+          "index": 15,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Essen - TK",
+          "sourceLocation": "Essen - TK",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-11",
+          "index": 16,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-12",
+          "index": 17,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Essen - TK",
+          "sourceLocation": "Essen - TK",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-12",
+          "index": 18,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-13",
+          "index": 19,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Essen - TK",
+          "sourceLocation": "Essen - TK",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-13",
+          "index": 20,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-19",
+          "index": 21,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-19",
+          "index": 22,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-20",
+          "index": 23,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-20",
+          "index": 24,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-11-23",
+          "index": 25,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-11-24",
+          "index": 26,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-11-25",
+          "index": 27,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-11-26",
+          "index": 28,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-11-27",
+          "index": 29,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-24",
+          "index": 30,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-24",
+          "index": 31,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-31",
+          "index": 32,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-31",
+          "index": 33,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2027-01-04",
+          "index": 34,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2027-01-05",
+          "index": 35,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2027-01-07",
+          "index": 36,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2027-01-08",
+          "index": 37,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-02",
+          "index": 38,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-02",
+          "index": 39,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-03",
+          "index": 40,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-03",
+          "index": 41,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-16",
+          "index": 42,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-16",
+          "index": 43,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-17",
+          "index": 44,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-17",
+          "index": 45,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-18",
+          "index": 46,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-18",
+          "index": 47,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-23",
+          "index": 48,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-23",
+          "index": 49,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-24",
+          "index": 50,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-24",
+          "index": 51,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-25",
+          "index": 52,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-25",
+          "index": 53,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-26",
+          "index": 54,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-26",
+          "index": 55,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-27",
+          "index": 56,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-27",
+          "index": 57,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-30",
+          "index": 58,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-30",
+          "index": 59,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-01",
+          "index": 60,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-01",
+          "index": 61,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-01",
+          "index": 62,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-02",
+          "index": 63,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-02",
+          "index": 64,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-02",
+          "index": 65,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-03",
+          "index": 66,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-03",
+          "index": 67,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-03",
+          "index": 68,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-04",
+          "index": 69,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-04",
+          "index": 70,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-04",
+          "index": 71,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-07",
+          "index": 72,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-07",
+          "index": 73,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-07",
+          "index": 74,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-08",
+          "index": 75,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-08",
+          "index": 76,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-08",
+          "index": 77,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-09",
+          "index": 78,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-09",
+          "index": 79,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-09",
+          "index": 80,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-10",
+          "index": 81,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-10",
+          "index": 82,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-10",
+          "index": 83,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-11",
+          "index": 84,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-11",
+          "index": 85,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-11",
+          "index": 86,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-14",
+          "index": 87,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-14",
+          "index": 88,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-14",
+          "index": 89,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-15",
+          "index": 90,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-15",
+          "index": 91,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-15",
+          "index": 92,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-16",
+          "index": 93,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-16",
+          "index": 94,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-16",
+          "index": 95,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-17",
+          "index": 96,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-17",
+          "index": 97,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-17",
+          "index": 98,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-18",
+          "index": 99,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-18",
+          "index": 100,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-18",
+          "index": 101,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-21",
+          "index": 102,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-21",
+          "index": 103,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-22",
+          "index": 104,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-22",
+          "index": 105,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-23",
+          "index": 106,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-23",
+          "index": 107,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-28",
+          "index": 108,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-29",
+          "index": 109,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-30",
+          "index": 110,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        }
+      ],
+      "issues": [],
+      "pass": true
+    },
+    {
+      "base": "https://d2jn94qg-5000.euw.devtunnels.ms",
+      "login": {
+        "status": 200,
+        "role": "DEV"
+      },
+      "health": 200,
+      "gapsWindow": {
+        "warning": 49,
+        "notRecorded": 0,
+        "from": "2026-10-16",
+        "total": 79,
+        "critical": 30,
+        "to": "2027-01-13"
+      },
+      "proposals": 111,
+      "proposalsWithWarning": 5,
+      "warnings": [
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-02",
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-03",
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-04",
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-05",
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-06",
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1
+        }
+      ],
+      "hannover": [
+        {
+          "date": "2026-11-02",
+          "present": 0,
+          "required": 1,
+          "category": "UNCOVERED_ABSENCE",
+          "floaters": [
+            {
+              "employeeId": "9124697",
+              "taskLabel": "WIC Helmstedt",
+              "sourceLocation": "Helmstedt",
+              "after": 0,
+              "required": 1,
+              "belowMinimum": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-03",
+          "present": 0,
+          "required": 1,
+          "category": "UNCOVERED_ABSENCE",
+          "floaters": [
+            {
+              "employeeId": "9124697",
+              "taskLabel": "WIC Helmstedt",
+              "sourceLocation": "Helmstedt",
+              "after": 0,
+              "required": 1,
+              "belowMinimum": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-04",
+          "present": 0,
+          "required": 1,
+          "category": "UNCOVERED_ABSENCE",
+          "floaters": [
+            {
+              "employeeId": "9124697",
+              "taskLabel": "WIC Helmstedt",
+              "sourceLocation": "Helmstedt",
+              "after": 0,
+              "required": 1,
+              "belowMinimum": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-05",
+          "present": 0,
+          "required": 1,
+          "category": "UNCOVERED_ABSENCE",
+          "floaters": [
+            {
+              "employeeId": "9124697",
+              "taskLabel": "WIC Helmstedt",
+              "sourceLocation": "Helmstedt",
+              "after": 0,
+              "required": 1,
+              "belowMinimum": true
+            }
+          ]
+        },
+        {
+          "date": "2026-11-06",
+          "present": 0,
+          "required": 1,
+          "category": "UNCOVERED_ABSENCE",
+          "floaters": [
+            {
+              "employeeId": "9124697",
+              "taskLabel": "WIC Helmstedt",
+              "sourceLocation": "Helmstedt",
+              "after": 0,
+              "required": 1,
+              "belowMinimum": true
+            }
+          ]
+        }
+      ],
+      "hannoverOk": true,
+      "alTrackerConflict": {
+        "count": 0,
+        "regensburg1020": false
+      },
+      "regensburg1020": {
+        "open": {
+          "minRequired": 1,
+          "absent": 0,
+          "effective": 1,
+          "isOpen": true,
+          "status": "COVERED",
+          "scheduled": 1
+        },
+        "card": {
+          "status": "COVERED",
+          "evidence": "ON_SITE",
+          "agents": [
+            "9130657"
+          ]
+        }
+      },
+      "allProposals": [
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-02",
+          "index": 0,
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1,
+          "belowMinimum": true
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-03",
+          "index": 1,
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1,
+          "belowMinimum": true
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-04",
+          "index": 2,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-04",
+          "index": 3,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-04",
+          "index": 4,
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1,
+          "belowMinimum": true
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-05",
+          "index": 5,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-05",
+          "index": 6,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-05",
+          "index": 7,
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1,
+          "belowMinimum": true
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-06",
+          "index": 8,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-06",
+          "index": 9,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Hannover",
+          "gapDate": "2026-11-06",
+          "index": 10,
+          "employeeId": "9124697",
+          "taskLabel": "WIC Helmstedt",
+          "sourceLocation": "Helmstedt",
+          "after": 0,
+          "required": 1,
+          "belowMinimum": true
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-09",
+          "index": 11,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Essen - TK",
+          "sourceLocation": "Essen - TK",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-09",
+          "index": 12,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-10",
+          "index": 13,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Essen - TK",
+          "sourceLocation": "Essen - TK",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-10",
+          "index": 14,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-11",
+          "index": 15,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Essen - TK",
+          "sourceLocation": "Essen - TK",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-11",
+          "index": 16,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-12",
+          "index": 17,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Essen - TK",
+          "sourceLocation": "Essen - TK",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-12",
+          "index": 18,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-13",
+          "index": 19,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Essen - TK",
+          "sourceLocation": "Essen - TK",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-13",
+          "index": 20,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-19",
+          "index": 21,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-19",
+          "index": 22,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-20",
+          "index": 23,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-20",
+          "index": 24,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-11-23",
+          "index": 25,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-11-24",
+          "index": 26,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-11-25",
+          "index": 27,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-11-26",
+          "index": 28,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-11-27",
+          "index": 29,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-24",
+          "index": 30,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-24",
+          "index": 31,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-31",
+          "index": 32,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-31",
+          "index": 33,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2027-01-04",
+          "index": 34,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2027-01-05",
+          "index": 35,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2027-01-07",
+          "index": 36,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2027-01-08",
+          "index": 37,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-02",
+          "index": 38,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-02",
+          "index": 39,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-03",
+          "index": 40,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-03",
+          "index": 41,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-16",
+          "index": 42,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-16",
+          "index": 43,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-17",
+          "index": 44,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-17",
+          "index": 45,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-18",
+          "index": 46,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-18",
+          "index": 47,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-23",
+          "index": 48,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-23",
+          "index": 49,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-24",
+          "index": 50,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-24",
+          "index": 51,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-25",
+          "index": 52,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-25",
+          "index": 53,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-26",
+          "index": 54,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-26",
+          "index": 55,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-27",
+          "index": 56,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-27",
+          "index": 57,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-30",
+          "index": 58,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-11-30",
+          "index": 59,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-01",
+          "index": 60,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-01",
+          "index": 61,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-01",
+          "index": 62,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-02",
+          "index": 63,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-02",
+          "index": 64,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-02",
+          "index": 65,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-03",
+          "index": 66,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-03",
+          "index": 67,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-03",
+          "index": 68,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-04",
+          "index": 69,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-04",
+          "index": 70,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-04",
+          "index": 71,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-07",
+          "index": 72,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-07",
+          "index": 73,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-07",
+          "index": 74,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-08",
+          "index": 75,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-08",
+          "index": 76,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-08",
+          "index": 77,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-09",
+          "index": 78,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-09",
+          "index": 79,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-09",
+          "index": 80,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-10",
+          "index": 81,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-10",
+          "index": 82,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-10",
+          "index": 83,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-11",
+          "index": 84,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-11",
+          "index": 85,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-11",
+          "index": 86,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-14",
+          "index": 87,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-14",
+          "index": 88,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-14",
+          "index": 89,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-15",
+          "index": 90,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-15",
+          "index": 91,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-15",
+          "index": 92,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-16",
+          "index": 93,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-16",
+          "index": 94,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-16",
+          "index": 95,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-17",
+          "index": 96,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Mülheim",
+          "sourceLocation": "Mülheim",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-17",
+          "index": 97,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-17",
+          "index": 98,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-18",
+          "index": 99,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-18",
+          "index": 100,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essenbach",
+          "gapDate": "2026-12-18",
+          "index": 101,
+          "employeeId": "9130643",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-21",
+          "index": 102,
+          "employeeId": "9120970",
+          "taskLabel": "BO",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-21",
+          "index": 103,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-22",
+          "index": 104,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Arnsberg",
+          "sourceLocation": "Arnsberg",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-22",
+          "index": 105,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-23",
+          "index": 106,
+          "employeeId": "9120970",
+          "taskLabel": "WIC Recklinghausen",
+          "sourceLocation": "Recklinghausen",
+          "after": 1,
+          "required": 1,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-23",
+          "index": 107,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-28",
+          "index": 108,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-29",
+          "index": 109,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        },
+        {
+          "gapLocation": "Essen - BP1",
+          "gapDate": "2026-12-30",
+          "index": 110,
+          "employeeId": "9074363",
+          "taskLabel": "rostered, no task",
+          "sourceLocation": null,
+          "after": null,
+          "required": null,
+          "belowMinimum": false
+        }
+      ],
+      "issues": [],
+      "pass": true
+    }
+  ],
+  "enforceWarningFields": true,
+  "pass": true
+}

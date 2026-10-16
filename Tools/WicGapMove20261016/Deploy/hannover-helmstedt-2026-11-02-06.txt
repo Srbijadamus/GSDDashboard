@@ -1,0 +1,12 @@
+Read-only /api/wic/open evidence, 2026-10-16 (window 2026-11-02..06)
+
+2026-11-02  Hannover   isOpen=True  status=UNCOVERED scheduled=0 effective=0 min=1 open=09:00-12:00
+2026-11-02  Helmstedt  isOpen=True  status=COVERED   scheduled=1 effective=1 min=1 open=09:00-17:00
+2026-11-03  Hannover   isOpen=True  status=UNCOVERED scheduled=0 effective=0 min=1 open=09:00-12:00,13:00-15:00
+2026-11-03  Helmstedt  isOpen=True  status=COVERED   scheduled=1 effective=1 min=1 open=09:00-17:00
+2026-11-04  Hannover   isOpen=True  status=UNCOVERED scheduled=0 effective=0 min=1 open=09:00-12:00,13:00-15:00
+2026-11-04  Helmstedt  isOpen=True  status=COVERED   scheduled=1 effective=1 min=1 open=09:00-17:00
+2026-11-05  Hannover   isOpen=True  status=UNCOVERED scheduled=0 effective=0 min=1 open=09:00-12:00,13:00-15:00
+2026-11-05  Helmstedt  isOpen=True  status=COVERED   scheduled=1 effective=1 min=1 open=09:00-17:00
+2026-11-06  Hannover   isOpen=True  status=UNCOVERED scheduled=0 effective=0 min=1 open=10:00-12:00
+2026-11-06  Helmstedt  isOpen=True  status=COVERED   scheduled=1 effective=1 min=1 open=08:00-13:00

@@ -68,7 +68,18 @@ namespace GSDDashboard.API.Modules.WicShifts;
 // doing, not just "working" (which only says they have some shift, not
 // whether pulling them in would open a hole somewhere else). See
 // ComputeTaskLabel for the exact rules.
-public record WicGapAgent(string? EmployeeId, string FullName, string AssignmentType, string Status, string TaskLabel);
+// The last four members are the CONSEQUENCE OF THE MOVE (owner decision 2026-10-16).
+// "Available" stays a hint for RTM: nobody is hidden and nothing is assigned
+// automatically — what is added is what pulling this agent out of their own centre
+// would do to that centre. Source* are null / false whenever the move has no measurable
+// consequence (BO, "rostered, no task", no duty at all, or the source centre is closed
+// at the gap time), and the row then renders exactly as it did before.
+public record WicGapAgent(
+    string? EmployeeId, string FullName, string AssignmentType, string Status, string TaskLabel,
+    string? SourceLocation = null,
+    int? SourcePresentAfter = null,
+    int? SourceRequired = null,
+    bool SourceBelowMinimum = false);
 
 public record WicCoverageGapEntry(
     string Date, string Weekday, string LocationCode, string DisplayName, string City, string Category,
@@ -277,7 +288,10 @@ public class WicCoverageGapService
         if (to < from)
             return new WicCoverageGapResult(from.ToString("yyyy-MM-dd"), from.ToString("yyyy-MM-dd"), new(), new(), 0, 0);
 
-        var locations = await _db.WicLocations.Where(l => l.IsActive).ToListAsync();
+        // Ordered by Id so the "which centre is this agent on duty at" scan below is
+        // deterministic when two rows could match the same name; the gap list itself is
+        // re-sorted by category/date/name further down, so this changes nothing else.
+        var locations = await _db.WicLocations.Where(l => l.IsActive).OrderBy(l => l.Id).ToListAsync();
         var allHours  = await _db.WicOpeningHours.ToListAsync();
         var holidays  = await _db.PublicHolidays
             .Where(h => h.HolidayDate >= from && h.HolidayDate <= to)
@@ -372,8 +386,11 @@ public class WicCoverageGapService
         // forecast — never a second definition of "covered" living only in this file.
         // The assignment index (built above from the same assignments the classification
         // uses) lets a plan BO day count as WIC at the agent's priority centre.
-        var presenceCache = new Dictionary<(int, DateOnly), double>();
-        double PresenceFor(WicLocation loc, DateOnly date)
+        // The full WicPresence is cached (not just the double) because the "consequence of
+        // the move" below needs the contributing agent's own score to subtract exactly
+        // that agent and nobody else.
+        var presenceCache = new Dictionary<(int, DateOnly), WicPresence>();
+        WicPresence PresenceDetailFor(WicLocation loc, DateOnly date)
         {
             if (presenceCache.TryGetValue((loc.Id, date), out var cached)) return cached;
             var presence = WicPresenceResolver.Resolve(
@@ -381,9 +398,12 @@ public class WicCoverageGapService
                 empId => sickLeaves.Any(sl =>
                     sl.EmployeeId == empId && sl.FirstDay <= date && sl.LastDay >= date),
                 boIndex, allHours);
-            presenceCache[(loc.Id, date)] = presence.PresentDouble;
-            return presence.PresentDouble;
+            presenceCache[(loc.Id, date)] = presence;
+            return presence;
         }
+
+        double PresenceFor(WicLocation loc, DateOnly date) =>
+            PresenceDetailFor(loc, date).PresentDouble;
 
         WicOpeningHour? HoursFor(WicLocation loc, DateOnly date) =>
             WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, (int)date.DayOfWeek, date);
@@ -403,6 +423,66 @@ public class WicCoverageGapService
                 h.HolidayDate == date && string.Equals(h.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
         }
 
+        // ── Consequence of the move (owner decision, 2026-10-16) ────────────────
+        // "Available" stays a HINT: nobody is hidden and nothing is assigned
+        // automatically. What this adds is what RTM cannot see today: taking this
+        // agent out of their own centre leaves that centre short or not.
+        //
+        // The agent's duty is read from the SAME source ComputeTaskLabel /
+        // WicPresenceResolver use — the day's ShiftEntry, resolved through
+        // AvailabilityResolver.IsWicDutyAt (which owns the flipped-ShiftType and
+        // WIC-over-BO readings). A BO day, a "rostered, no task" row or a leave day
+        // therefore has no centre and reports nothing.
+        //
+        // What is measured is the OVERLAP only: the part of the day the gap's open
+        // window and the SOURCE centre's own working window (WicHoursResolver) share.
+        // A source centre that is closed at the gap time — or whose window never
+        // touches the gap — cannot be made short by moving the agent, so it is not
+        // warned about. Presence itself is a per-day reading (the whole codebase reads
+        // it that way); the overlap decides WHETHER the day is measured, and the move
+        // subtracts exactly this agent's own contribution (prisutno − 1 for a full
+        // 1.0 duty), never a blind "minus one" that would shrink a centre the agent is
+        // not actually staffing.
+        WicLocation? SourceCentreFor(string? employeeId, DateOnly date, WicLocation gapLocation)
+        {
+            if (employeeId == null) return null;
+            if (!shiftByEmpDate.TryGetValue((employeeId, date), out var shift) || shift == null) return null;
+            foreach (var candidate in locations)
+            {
+                // Already standing at the gap centre: pulling them "here" is not a move.
+                if (candidate.Id == gapLocation.Id) continue;
+                if (AvailabilityResolver.IsWicDutyAt(shift, candidate, boIndex, allHours)) return candidate;
+            }
+            return null;
+        }
+
+        WicGapAgent WithMoveConsequence(WicGapAgent a, DateOnly date, WicLocation gapLocation, WicOpeningHour? gapHours)
+        {
+            var source = SourceCentreFor(a.EmployeeId, date, gapLocation);
+            if (source == null) return a;   // BO / no task / no duty that day
+
+            var sourceHours = HoursFor(source, date);
+            bool overlapsInWorkingTime = WicHoursResolver.Intervals(gapHours).Any(g =>
+                WicHoursResolver.Intervals(sourceHours).Any(s => g.s < s.e && s.s < g.e));
+            if (!overlapsInWorkingTime) return a with { SourceLocation = source.DisplayName };
+
+            var presence = PresenceDetailFor(source, date);
+            double ownContribution = presence.Agents
+                .Where(x => string.Equals(x.EmployeeId, a.EmployeeId, StringComparison.OrdinalIgnoreCase))
+                .Sum(x => x.Contribution);
+            int after = (int)Math.Floor(presence.PresentDouble - ownContribution);
+            if (after < 0) after = 0;
+            int required = MinRequiredFor(source, sourceHours);
+
+            return a with
+            {
+                SourceLocation = source.DisplayName,
+                SourcePresentAfter = after,
+                SourceRequired = required,
+                SourceBelowMinimum = after < required,
+            };
+        }
+
         WicCoverageGapEntry BuildGap(
             WicLocation loc, DateOnly date,
             List<WicAgentAssignment> classifying, List<WicAgentAssignment> regional, bool regionalOnly)
@@ -417,7 +497,8 @@ public class WicCoverageGapService
 
             // Available-floater hint: REGIONAL agents shared with this location who are NOT
             // absent today and have NOT left the company by this day — never drives the
-            // category, only who to grab.
+            // category, only who to grab. The list itself is UNCHANGED by the owner decision
+            // (same agents, same order); each entry only gains the consequence of the move.
             var floaters = regionalOnly
                 ? new List<WicGapAgent>()
                 : regional
@@ -425,6 +506,7 @@ public class WicCoverageGapService
                     .Where(a => !AbsenceTypes.Contains(a.Status))
                     .Where(a => !HasLeft(a.EmployeeId, date))
                     .OrderBy(a => a.FullName)
+                    .Select(a => WithMoveConsequence(a, date, loc, hours))
                     .ToList();
 
             return new WicCoverageGapEntry(
