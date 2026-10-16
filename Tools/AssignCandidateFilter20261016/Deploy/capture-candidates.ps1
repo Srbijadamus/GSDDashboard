@@ -40,6 +40,8 @@ function Q([string]$sql, $pars = $null) {
 }
 
 $results = @()
+# The picker's own starting set: every ACTIVE employee (no date filter on the old build).
+$activeDir = @(Q "SELECT EmployeeId FROM Employees WHERE IsActive=1")
 foreach ($t in $targets) {
     $day = $t.Date
     $enc = [uri]::EscapeDataString($t.Code)
@@ -50,11 +52,17 @@ foreach ($t in $targets) {
     # IsActive=0 rows and RESIGNED-on/before-the-day rows: the two things the shared rule drops.
     $inactive = @(Q "SELECT EmployeeId FROM Employees WHERE IsActive=0")
     $inactiveIds = @($inactive | ForEach-Object { $_.EmployeeId })
-    $resigned = @(Q @"
-SELECT DISTINCT EmployeeId FROM ShiftEntries
-WHERE ShiftType='RESIGNED' AND ShiftDate <= CONVERT(date, @d, 23)
-"@ @{ '@d' = $day })
+    # An explicit date literal: CONVERT(date, @d, 23) over a bound string parameter was not
+    # converted reliably, which silently produced an empty resigned set. The value is a
+    # yyyy-MM-dd literal from this script's own target table, never user input.
+    $resigned = @(Q "SELECT DISTINCT EmployeeId FROM ShiftEntries WHERE ShiftType='RESIGNED' AND ShiftDate <= CONVERT(date, '$day', 23)")
     $resignedIds = @($resigned | ForEach-Object { $_.EmployeeId })
+
+    # The full active directory (123) is the picker's pre-filter baseline on the old build:
+    # active employees minus those already excluded because they had left by the day.
+    $activeIds = @($activeDir | ForEach-Object { $_.EmployeeId })
+    $baselineIds = @($activeIds | Where-Object { $inactiveIds -notcontains $_ -and $resignedIds -notcontains $_ })
+    $excludedByLeaverRule = @($activeIds | Where-Object { $liveIds -notcontains $_ })
 
     $expectedIds   = @($liveIds | Where-Object { $inactiveIds -notcontains $_ -and $resignedIds -notcontains $_ })
     $removedIds    = @($liveIds | Where-Object { $inactiveIds -contains $_ -or $resignedIds -contains $_ })
@@ -66,12 +74,23 @@ WHERE ShiftType='RESIGNED' AND ShiftDate <= CONVERT(date, @d, 23)
                      elseif ($inactiveIds -contains $id) { 'INACTIVE' } else { 'RESIGNED' }
         }
     })
+    $excludedDetail = @($excludedByLeaverRule | ForEach-Object {
+        $id = $_
+        [pscustomobject]@{
+            EmployeeId = $id
+            Reason = if ($inactiveIds -contains $id) { 'INACTIVE' } else { 'RESIGNED' }
+        }
+    })
 
     $results += [pscustomobject]@{
         location = $t.Name; locationCode = $t.Code; date = $day
+        activeDirectory  = $activeIds.Count
+        baselineOldBuild = $baselineIds.Count
         liveCandidates   = $liveIds.Count
         expectedAfter    = $expectedIds.Count
-        removed          = $removedIds.Count
+        excludedByLeaverRule = $excludedDetail.Count
+        excludedIds      = $excludedDetail
+        removedByNewRule = $removedIds.Count
         removedIds       = $removedDetail
         hasSensible      = $live.hasSensibleCandidate
         onDemand9128154Offered = ($liveIds -contains '9128154')
@@ -114,7 +133,8 @@ $conn.Close()
 
 if ($OutFile) { $receipt | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $OutFile -Encoding UTF8; "receipt: $OutFile" }
 "login: $($login.role)   base: $Base"
-$results | Select-Object location, date, liveCandidates, expectedAfter, removed, onDemand9128154Offered |
-    Format-Table -AutoSize | Out-String -Width 200 | Write-Output
+$results | Select-Object location, date, activeDirectory, baselineOldBuild, liveCandidates,
+    excludedByLeaverRule, removedByNewRule, onDemand9128154Offered |
+    Format-Table -AutoSize | Out-String -Width 220 | Write-Output
 "control ShiftEntries rows: $($control.Count)"
 $receipt | ConvertTo-Json -Depth 8
