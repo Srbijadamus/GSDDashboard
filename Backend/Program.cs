@@ -61,6 +61,8 @@ builder.Services.AddScoped<BreakService>();
 builder.Services.AddScoped<SickLeaveService>();
 builder.Services.AddScoped<VacationService>();
 builder.Services.AddScoped<ShiftSyncService>();
+// One shared sickness-period rule for the modal, the active list, the absence feed and the Briefing.
+builder.Services.AddScoped<SickLeavePeriodService>();
 builder.Services.AddScoped<AvailabilityResolver>();
 builder.Services.AddScoped<PublicHolidayService>();
 builder.Services.AddScoped<ShiftValidationService>();

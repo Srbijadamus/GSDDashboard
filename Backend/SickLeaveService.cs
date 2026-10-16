@@ -24,7 +24,17 @@ public record SickLeaveDto(
     string? SourceSheet,
     // True when this row exists only as an SL ShiftEntries row (manual /shifts cell):
     // there is no Krankmeldung record behind it to edit, end or delete.
-    bool FromShift = false
+    bool FromShift = false,
+    // ── Merged-spell display fields (2026-10-16) ─────────────────────────────
+    // Display ONLY; never used for edits. The row's own FirstDay/LastDay stay the
+    // Krankmeldung's dates so Edit/Delete keep working, while these describe the whole
+    // continuous spell (Krankmeldung + manual SL shift cells, weekends/holidays/OFF
+    // bridged). Filled by SickLeavePeriodService — the one shared period rule.
+    string? PeriodStart = null,
+    string? PeriodEnd = null,
+    int? PeriodDays = null,
+    int? DaysSoFar = null,
+    string? ExpectedReturn = null
 );
 
 public record SickLeaveStatsDto(
@@ -64,8 +74,10 @@ public class SickLeaveService
     private readonly GSDContext _db;
     private readonly ShiftSyncService _shiftSync;
     private readonly ILogger<SickLeaveService> _logger;
-    public SickLeaveService(GSDContext db, ShiftSyncService shiftSync, ILogger<SickLeaveService> logger)
-    { _db = db; _shiftSync = shiftSync; _logger = logger; }
+    private readonly SickLeavePeriodService _periods;
+    public SickLeaveService(GSDContext db, ShiftSyncService shiftSync, ILogger<SickLeaveService> logger,
+        SickLeavePeriodService? periods = null)
+    { _db = db; _shiftSync = shiftSync; _logger = logger; _periods = periods ?? new SickLeavePeriodService(db); }
 
     // "SL" is the legacy spelling of the same thing as "Self" (older synced rows carry it);
     // "Child" is a child's sickness. All three are sick leave. The active queries used to
@@ -107,10 +119,15 @@ public class SickLeaveService
         var rows = await query.OrderBy(s => s.TeamLeadName).ThenBy(s => s.LastName).ToListAsync();
         var empIds = rows.Select(r => r.EmployeeId).Where(x => x != null).Distinct().ToList();
         var empMap = await _db.Employees.Where(e => empIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
-        return rows
+        var list = rows
             .Where(s => s.EmployeeId != null && empMap.ContainsKey(s.EmployeeId))
             .Select(s => MapSl(s, empMap[s.EmployeeId!]))
             .ToList();
+        // Same shared spell rule as the active list / modal / Briefing, so "Days so far" and the
+        // duration in a list can never disagree with the modal again.
+        var sets = await _periods.BuildAsync(
+            list.Select(r => r.EmployeeId!).Distinct(StringComparer.OrdinalIgnoreCase).ToList(), fromDate, toDate);
+        return list.Select(r => ApplyPeriod(r, sets, today)).ToList();
     }
 
     public async Task<List<SickLeaveDto>> GetActiveOnDateAsync(DateOnly date)
@@ -121,8 +138,10 @@ public class SickLeaveService
         var today = DateOnly.FromDateTime(DateTime.Today);
         var active = await GetActiveSickAsync(today);
         // Every active row covers today by construction, so the time served is start→today.
+        // DaysSoFar is the merged-spell value from the shared rule (see SickLeavePeriodResolver).
         var avgDuration = active.Any()
-            ? active.Average(s => (double)(today.DayNumber - DateOnly.ParseExact(s.FirstDay, "yyyy-MM-dd").DayNumber + 1))
+            ? active.Average(s => (double)(s.DaysSoFar
+                ?? (today.DayNumber - DateOnly.ParseExact(s.FirstDay, "yyyy-MM-dd").DayNumber + 1)))
             : 0;
 
         var byTL = active
@@ -197,7 +216,36 @@ public class SickLeaveService
                 date.ToString("yyyy-MM-dd"), date.ToString("yyyy-MM-dd"), 1,
                 "Self", null, null, ShiftSourcedSheet, FromShift: true));
         }
-        return rows;
+
+        // 2026-10-16: the row above is only ONE day of the spell. RTMs record an ongoing
+        // sickness as a chain of SL shift cells (plus the Krankmeldung it may have started
+        // from), so before this the modal said "sick since today, expected return tomorrow,
+        // 1d" for agents who had been sick for weeks. The merged spell is computed once here
+        // by the shared rule and handed to every surface.
+        var sets = await _periods.BuildAsync(
+            rows.Select(r => r.EmployeeId!).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            date, date.AddDays(120));
+        return rows.Select(r => ApplyPeriod(r, sets, date)).ToList();
+    }
+
+    /// <summary>
+    /// Overlay the merged-spell display fields onto a row, leaving its own record dates
+    /// (used by Edit/Delete) untouched.
+    /// </summary>
+    private static SickLeaveDto ApplyPeriod(
+        SickLeaveDto dto, Dictionary<string, SickLeavePeriodService.PeriodSet> sets, DateOnly referenceDate)
+    {
+        if (dto.EmployeeId == null || !sets.TryGetValue(dto.EmployeeId, out var set)) return dto;
+        var period = set.ActiveOn(referenceDate);
+        if (period == null) return dto;
+        return dto with
+        {
+            PeriodStart = period.FirstDay.ToString("yyyy-MM-dd"),
+            PeriodEnd = period.LastDay.ToString("yyyy-MM-dd"),
+            PeriodDays = period.CalendarDays,
+            DaysSoFar = referenceDate.DayNumber - period.FirstDay.DayNumber + 1,
+            ExpectedReturn = set.ExpectedReturn(period),
+        };
     }
 
     private static SickLeaveDto MapSl(SickLeaveModel s, Employee? emp = null)

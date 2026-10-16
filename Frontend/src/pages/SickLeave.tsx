@@ -324,12 +324,20 @@ function DrillDownModal({ title, entries, onClose, onEnd }: { title: string; ent
             <tbody>
               {entries.length === 0 && <tr><td colSpan={7} style={{ padding: 24, textAlign: "center" }} className="text-ink-soft">No entries</td></tr>}
               {entries.map((s: any, i: number) => {
-                const since = new Date(s.firstDay)
+                // Merged spell computed once on the server (SickLeavePeriodService): "sick since"
+                // is the FIRST day of the continuous spell, not the day of this one row, and
+                // "expected return" is the first working day after the LAST recorded sick day.
+                // Fallbacks keep the old single-row behaviour only if the backend did not
+                // decorate the row.
+                const periodStart: string = s.periodStart ?? s.firstDay
+                const periodEnd: string = s.periodEnd ?? s.lastDay
+                const isOpenEnded = periodEnd >= "2099-01-01"
                 const todayD = new Date(today)
-                const daysSoFar = Math.max(0, Math.floor((todayD.getTime() - since.getTime()) / 86400000) + 1)
-                const isOpenEnded = s.lastDay >= "2099-01-01"
-                const lastDay = new Date(s.lastDay); lastDay.setDate(lastDay.getDate() + 1)
-                const expectedReturn = isOpenEnded ? "–" : lastDay.toLocaleDateString("en-CA")
+                const daysSoFar = s.daysSoFar != null
+                  ? s.daysSoFar
+                  : Math.max(0, Math.floor((todayD.getTime() - new Date(periodStart).getTime()) / 86400000) + 1)
+                const fallbackReturn = new Date(periodEnd); fallbackReturn.setDate(fallbackReturn.getDate() + 1)
+                const expectedReturn = s.expectedReturn ?? (isOpenEnded ? "–" : fallbackReturn.toLocaleDateString("en-CA"))
                 const isCritical = daysSoFar >= 10; const isWarn = daysSoFar >= 5
                 const empId = String(s.employeeId)
                 const isEnding = endingEmpId === empId
@@ -338,7 +346,7 @@ function DrillDownModal({ title, entries, onClose, onEnd }: { title: string; ent
                     <td style={{ padding: "8px 12px", fontSize: 11 }} className="font-mono text-ink-soft">{s.employeeId}</td>
                     <td style={{ padding: "8px 12px", fontWeight: 500 }}>{resolveName(s)}</td>
                     <td style={{ padding: "8px 12px", fontSize: 11 }} className="text-ink-muted">{s.teamLeadName}</td>
-                    <td style={{ padding: "8px 12px", fontSize: 11 }} className="font-mono">{s.firstDay}</td>
+                    <td style={{ padding: "8px 12px", fontSize: 11 }} className="font-mono">{periodStart}</td>
                     <td style={{ padding: "8px 12px", fontSize: 11 }} className="font-mono">{expectedReturn}</td>
                     <td style={{ padding: "8px 12px" }}>
                       <span className={`font-mono font-semibold ${isCritical ? "text-warn-fg" : isWarn ? "text-warn-fg" : "text-ink-muted"}`} style={{ fontSize: 11 }}>

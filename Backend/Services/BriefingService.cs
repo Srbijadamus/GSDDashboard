@@ -53,14 +53,16 @@ public class BriefingService
 {
     private readonly GSDContext _db;
     private readonly SubstitutionService _substitution;
+    private readonly SickLeavePeriodService _sickPeriods;
     private const int AtRiskLookahead = 14;
 
     // Absent/non-WIC logic is centralised in AvailabilityResolver.GetWicContribution.
 
-    public BriefingService(GSDContext db, SubstitutionService substitution)
+    public BriefingService(GSDContext db, SubstitutionService substitution, SickLeavePeriodService? sickPeriods = null)
     {
         _db = db;
         _substitution = substitution;
+        _sickPeriods = sickPeriods ?? new SickLeavePeriodService(db);
     }
 
     public async Task<BriefingResponse> GetBriefingAsync(string? dateStr)
@@ -122,6 +124,17 @@ public class BriefingService
             .Where(s => AvailabilityResolver.AbsenceFeedTypes.Contains(s.ShiftType ?? ""))
             .ToList();
 
+        // 2026-10-16: one SL shift cell is only ONE day of an ongoing sickness. The absence feed
+        // used to fall back to "today..today / 1d" whenever no Krankmeldung covered today (which
+        // is the normal case for the manual /shifts SL cells), so every long-term sick agent
+        // showed 1d. Same shared period rule as the "Currently Sick Agents" modal.
+        var sickPeriods = await _sickPeriods.BuildAsync(
+            absenceShifts.Where(s => s.ShiftType == ShiftTypes.SickLeave)
+                         .Select(s => s.EmployeeId)
+                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                         .ToList(),
+            date, date.AddDays(120));
+
         var empById = allEmployees.ToDictionary(e => e.EmployeeId, StringComparer.OrdinalIgnoreCase);
 
         var sickToday = await _db.SickLeaves
@@ -161,9 +174,12 @@ public class BriefingService
                 var emp = empById[s.EmployeeId];
                 var isAl = s.ShiftType.Equals("AL", StringComparison.OrdinalIgnoreCase)
                         || s.ShiftType.Equals("HALF_AL", StringComparison.OrdinalIgnoreCase);
+                var isSick = s.ShiftType.Equals(ShiftTypes.SickLeave, StringComparison.OrdinalIgnoreCase);
                 DateOnly first = date, last = date;
                 if (isAl && vacByEmp.TryGetValue(s.EmployeeId, out var vac))
                     { first = vac.FirstDay; last = vac.LastDay; }
+                else if (isSick && sickPeriods.TryGetValue(s.EmployeeId, out var set) && set.ActiveOn(date) is { } period)
+                    { first = period.FirstDay; last = period.LastDay; }
                 else if (!isAl && sickByEmp.TryGetValue(s.EmployeeId, out var sl))
                     { first = sl.FirstDay; last = sl.LastDay; }
                 int total    = last.DayNumber  - first.DayNumber + 1;
