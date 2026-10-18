@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { groupGapsV21, reasonOf, isoWeek, type CoverageGap, type GapGroupV21, type CandidateV21, type ReasonCode } from "../../utils/groupGaps"
+import { groupGapsV21, dayStatusFromGaps, reasonOf, isoWeek, type CoverageGap, type GapGroupV21, type CandidateV21, type ReasonCode } from "../../utils/groupGaps"
 import { postSubstituteAccept, substituteAcceptErrorText } from "../../utils/substituteAccept"
 import { apiFetch } from "../../api/client"
 import { useAuth } from "../../auth/AuthContext"
@@ -129,16 +129,7 @@ export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstit
   const partialCount = gaps.length - uncoveredCount
   const filtered = selectedDay ? groups.filter(g => g.days.some(d => d.date === selectedDay)) : groups
 
-  const dayStatus = useMemo(() => {
-    const m = new Map<string, { uncovered: number; partial: number }>()
-    for (const g of gaps) {
-      const e = m.get(g.date) ?? { uncovered: 0, partial: 0 }
-      if (g.present === 0) e.uncovered++
-      else e.partial++
-      m.set(g.date, e)
-    }
-    return m
-  }, [gaps])
+  const dayStatus = useMemo(() => dayStatusFromGaps(gaps), [gaps])
 
   async function doAssign(group: GapGroupV21, candidate: CandidateV21, dates: string[]) {
     if (!candidate.sourceType) return
@@ -178,10 +169,10 @@ export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstit
           const isSel = selectedDay === d
           const dt = new Date(d)
           return (
-            <button key={d} onClick={() => setSelectedDay(isSel ? null : d)} title={`${d}: ${st?.uncovered ?? 0} uncovered, ${st?.partial ?? 0} partial`} style={{ flex: "0 0 34px", height: 44, borderRadius: 6, border: isToday ? "2px solid rgb(var(--focus-ring))" : "1px solid rgb(var(--border-subtle))", background: "rgb(var(--surface-raised))", cursor: "pointer", padding: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, outline: isSel ? "2px solid rgb(var(--focus-ring))" : "none" }}>
+            <button key={d} onClick={() => setSelectedDay(isSel ? null : d)} title={`${d}: ${st?.uncovered ?? 0} uncovered, ${st?.partial ?? 0} partial`} style={{ flex: "0 0 34px", height: 52, borderRadius: 6, border: isToday ? "2px solid rgb(var(--focus-ring))" : "1px solid rgb(var(--border-subtle))", background: "rgb(var(--surface-raised))", cursor: "pointer", padding: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, outline: isSel ? "2px solid rgb(var(--focus-ring))" : "none" }}>
               <span style={{ fontSize: 9, color: "rgb(var(--text-tertiary))" }}>{["Su","Mo","Tu","We","Th","Fr","Sa"][dt.getDay()]}</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: "rgb(var(--text-primary))" }}>{String(dt.getDate()).padStart(2, "0")}</span>
-              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: 12, borderRadius: 3, background: total > 0 ? (hasUncovered ? "rgb(var(--ov2-uncovered-bar))" : "rgb(var(--ov2-partial-bar))") : "rgb(var(--surface-sunken))", color: "#fff", fontSize: 8, fontWeight: 700 }}>
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: 12, flexShrink: 0, borderRadius: 3, background: total > 0 ? (hasUncovered ? "rgb(var(--ov2-uncovered-bar))" : "rgb(var(--ov2-partial-bar))") : "rgb(var(--surface-sunken))", color: "#fff", fontSize: 8, fontWeight: 700 }}>
                 {total > 0 ? total : ""}
               </span>
             </button>

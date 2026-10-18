@@ -346,3 +346,24 @@ export function groupGapsV21(gaps: CoverageGap[]): GapGroupV21[] {
     }
   })
 }
+
+/** Per-day uncovered/partial counts for the strip above the list. */
+export interface DayStatus {
+  uncovered: number
+  partial: number
+}
+
+/** Build the day-status map keyed by gap date ("yyyy-MM-dd"). The day strip shows a
+ *  number (= uncovered + partial) for every date present here; dates without a gap
+ *  render an empty (neutral) cell. This is the single source that decides which days
+ *  carry a visible label. */
+export function dayStatusFromGaps(gaps: CoverageGap[]): Map<string, DayStatus> {
+  const m = new Map<string, DayStatus>()
+  for (const g of gaps) {
+    const e = m.get(g.date) ?? { uncovered: 0, partial: 0 }
+    if (g.present === 0) e.uncovered++
+    else e.partial++
+    m.set(g.date, e)
+  }
+  return m
+}

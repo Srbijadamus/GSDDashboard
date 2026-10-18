@@ -1,4 +1,4 @@
-import { groupGaps, groupGapsV21, type CoverageGap } from "./groupGaps.js"
+import { groupGaps, groupGapsV21, dayStatusFromGaps, type CoverageGap } from "./groupGaps.js"
 import assert from "node:assert/strict"
 
 function gap(p: Partial<CoverageGap> & { date: string; locationCode: string }): CoverageGap {
@@ -229,6 +229,28 @@ const candidate = (id: string) => ({ employeeId: id, fullName: "Candidate " + id
   assert.equal(g[0].weeks.length, 2) // cut into two weeks
   assert.equal(g[0].weeks[0].days.length, 1)
   assert.equal(g[0].weeks[1].days.length, 1)
+}
+
+// ── Day strip: visible-label count = distinct gap dates ───────────────────────
+// The strip shows a number (> 0) for exactly the distinct dates present in the
+// coverage-gaps response; duplicate gaps on the same date still count once, and a
+// date with no gap carries no label.
+{
+  const gaps: CoverageGap[] = [
+    gap({ date: "2026-11-02", locationCode: "A", present: 0 }),  // uncovered
+    gap({ date: "2026-11-02", locationCode: "B", present: 1 }),  // partial (same date)
+    gap({ date: "2026-11-03", locationCode: "A", present: 0 }),
+    gap({ date: "2026-11-09", locationCode: "B", present: 1 }),
+  ]
+  const status = dayStatusFromGaps(gaps)
+
+  const distinctDates = new Set(gaps.map(g => g.date)).size
+  const visibleDays = [...status.values()].filter(s => s.uncovered + s.partial > 0).length
+  assert.equal(visibleDays, distinctDates, "visible-label days must equal distinct gap dates")
+
+  // 2026-11-02 has two gaps (one uncovered, one partial) but is a single labelled day.
+  assert.deepEqual(status.get("2026-11-02"), { uncovered: 1, partial: 1 })
+  assert.equal(status.has("2026-11-04"), false) // no gap -> no label
 }
 
 console.log("groupGapsV21: all tests passed")
