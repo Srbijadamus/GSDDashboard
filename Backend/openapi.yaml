@@ -1,0 +1,644 @@
+openapi: 3.0.1
+info:
+  title: EON GSD Dashboard API
+  version: v1
+  description: |
+    Endpoint surface of the Pulse backend (security/kiosk-hardening branch),
+    derived from the Minimal-API route registrations (MapGroup + MapGet/Post/...).
+
+    NOTE: this is a SURFACE inventory (paths, methods, tags). Request/response
+    JSON schemas are not enumerated here. Regenerate the full document from a
+    running backend with Tools/GenerateOpenApi.ps1, which pulls
+    /swagger/v1/swagger.json (DEV role only) and writes the complete schema.
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: KID-only cookie login (rate-limited)
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Sign out
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current session identity
+  /api/kiosk/attendance:
+    get:
+      tags: [Kiosk]
+      summary: Proxied kiosk attendance (role-gated)
+  /api/kiosk/agents:
+    get:
+      tags: [Kiosk]
+      summary: Proxied kiosk agent list (role-gated)
+  /api/kiosk/manual-checkin:
+    post:
+      tags: [Kiosk]
+      summary: Manual kiosk check-in (role-gated, same-origin)
+  /api/kiosk/manual-logout:
+    post:
+      tags: [Kiosk]
+      summary: Manual kiosk logout (role-gated, same-origin)
+  /api/dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard summary
+  /api/dashboard/teamlead-summary:
+    get:
+      tags: [Dashboard]
+      summary: Team-lead summary
+  /api/dashboard/wic-cards:
+    get:
+      tags: [Dashboard]
+      summary: WIC cards
+  /api/shifts:
+    get:
+      tags: [Shifts]
+      summary: List shifts
+  /api/shifts/working-today:
+    get:
+      tags: [Shifts]
+      summary: Shifts working today
+  /api/shifts/coverage:
+    get:
+      tags: [Shifts]
+      summary: Shift coverage
+  /api/shifts/download:
+    get:
+      tags: [Shifts]
+      summary: Excel export
+  /api/shifts/validate:
+    post:
+      tags: [Shifts]
+      summary: Validate a shift
+  /api/shifts/assign:
+    post:
+      tags: [Shifts]
+      summary: Assign a shift
+  /api/shifts/assign/bulk:
+    post:
+      tags: [Shifts]
+      summary: Bulk assign
+  /api/shifts/assign/manual:
+    post:
+      tags: [Shifts]
+      summary: Manual assign (guarded)
+  /api/shifts/{id}:
+    patch:
+      tags: [Shifts]
+      summary: Update a shift
+  /api/shifts/{id}/manual:
+    patch:
+      tags: [Shifts]
+      summary: Manual RTM type edit
+  /api/shifts/{id}/swap:
+    post:
+      tags: [Shifts]
+      summary: Swap shift employee
+  /api/shifts/{id}/wic-entries:
+    get:
+      tags: [Shifts]
+      summary: WIC entries for a shift
+  /api/shiftplan/reorder:
+    patch:
+      tags: [Shifts]
+      summary: Reorder shift plan rows
+  /api/wic:
+    get:
+      tags: [WIC]
+      summary: List WIC shifts
+  /api/wic/{id}:
+    patch:
+      tags: [WIC]
+      summary: Update a WIC shift
+  /api/wic/locations:
+    get:
+      tags: [WIC]
+      summary: WIC locations
+  /api/wic/coverage:
+    get:
+      tags: [WIC]
+      summary: WIC coverage
+  /api/wic/open:
+    get:
+      tags: [WIC]
+      summary: Open WIC centres
+  /api/wic/availableHours:
+    get:
+      tags: [WIC]
+      summary: Available hours
+  /api/wic/availableHours/download:
+    get:
+      tags: [WIC]
+      summary: Available hours export
+  /api/wic/agent/{employeeId}:
+    get:
+      tags: [WIC]
+      summary: WIC shifts for an agent
+  /api/wic/download:
+    get:
+      tags: [WIC]
+      summary: WIC Excel export
+  /api/wic/shifts:
+    post:
+      tags: [WIC]
+      summary: Create a WIC shift
+  /api/wic/assignments:
+    post:
+      tags: [WIC]
+      summary: Create WIC assignments
+  /api/wic/move-to-gsd:
+    post:
+      tags: [WIC]
+      summary: Move a row to GSD
+  /api/wic/cards:
+    get:
+      tags: [WIC]
+      summary: WIC cards
+  /api/wic/al-tracker-conflicts:
+    get:
+      tags: [WIC]
+      summary: AL tracker conflicts
+  /api/wic/assign-candidates:
+    get:
+      tags: [WIC]
+      summary: Assign candidates
+  /api/wic/coverage-gaps:
+    get:
+      tags: [WIC]
+      summary: Coverage gaps
+  /api/wic/conflicts:
+    get:
+      tags: [WIC]
+      summary: WIC conflicts
+  /api/wic/backup:
+    get:
+      tags: [WIC]
+      summary: WIC backup
+  /api/wic/forecast:
+    get:
+      tags: [WIC]
+      summary: WIC forecast
+  /api/wic/briefing:
+    get:
+      tags: [WIC]
+      summary: WIC briefing
+  /api/wic/briefing/export:
+    get:
+      tags: [WIC]
+      summary: WIC briefing export
+  /api/wic/al-planning:
+    post:
+      tags: [WIC]
+      summary: AL planning
+  /api/wic/substitutes:
+    get:
+      tags: [WIC]
+      summary: Substitution candidates
+  /api/wic/substitutes/accept:
+    post:
+      tags: [WIC]
+      summary: Accept a substitute
+  /api/wic/whatif:
+    get:
+      tags: [WIC]
+      summary: What-if analysis
+  /api/wic/reachability:
+    get:
+      tags: [WIC]
+      summary: Agent reachability
+  /api/wic/reachability/sanity:
+    get:
+      tags: [WIC]
+      summary: Reachability sanity check
+  /api/wic-coverage/agents:
+    get:
+      tags: [WicCoverage]
+      summary: WIC coverage agents
+  /api/wic-coverage/agents/{kid}:
+    get:
+      tags: [WicCoverage]
+      summary: One WIC coverage agent
+    patch:
+      tags: [WicCoverage]
+      summary: Update a WIC coverage agent
+  /api/wic-coverage/wics:
+    get:
+      tags: [WicCoverage]
+      summary: WIC master data
+  /api/wic-coverage/wics/{locationCode}:
+    get:
+      tags: [WicCoverage]
+      summary: One WIC centre
+  /api/wic-coverage/wics/{locationCode}/reachable-agents:
+    get:
+      tags: [WicCoverage]
+      summary: Reachable agents for a centre
+  /api/wic-coverage/wics/{locationCode}/backup-b:
+    post:
+      tags: [WicCoverage]
+      summary: Pin backup B
+  /api/wicschedule/agents:
+    get:
+      tags: [WicSchedule]
+      summary: Schedule agents
+  /api/wicschedule/opening-hours:
+    get:
+      tags: [WicSchedule]
+      summary: Opening hours
+  /api/wicschedule/opening-hours/{locationCode}/{dow}/min-required:
+    patch:
+      tags: [WicSchedule]
+      summary: Update min required
+  /api/wicschedule/opening-hours/{locationCode}/version:
+    post:
+      tags: [WicSchedule]
+      summary: Version opening hours
+  /api/wicschedule/opening-hours/{locationCode}/cleanup-closed-days:
+    post:
+      tags: [WicSchedule]
+      summary: Clean up closed days
+  /api/wicschedule/closed-day-duties:
+    get:
+      tags: [WicSchedule]
+      summary: Closed-day duties
+  /api/wicschedule/export/agents/csv:
+    get:
+      tags: [WicSchedule]
+      summary: Agents CSV export
+  /api/vwic/daily:
+    get:
+      tags: [VWIC]
+      summary: Daily VWIC
+  /api/vwic/assign:
+    post:
+      tags: [VWIC]
+      summary: Assign VWIC
+  /api/vwic/candidates:
+    get:
+      tags: [VWIC]
+      summary: VWIC candidates
+  /api/vwic/agents/add:
+    put:
+      tags: [VWIC]
+      summary: Add VWIC agent
+  /api/vwic/agents/remove:
+    put:
+      tags: [VWIC]
+      summary: Remove VWIC agent
+  /api/vwic/rotation-plan:
+    post:
+      tags: [VWIC]
+      summary: Rotation plan
+  /api/vwic/rotation-plan/save:
+    post:
+      tags: [VWIC]
+      summary: Save rotation plan
+  /api/vwic/rotation-plan-week:
+    post:
+      tags: [VWIC]
+      summary: Weekly rotation plan
+  /api/vwic/rotation-plan-week/export:
+    post:
+      tags: [VWIC]
+      summary: Weekly rotation export
+  /api/sickleave:
+    get:
+      tags: [SickLeave]
+      summary: List sick leave
+    post:
+      tags: [SickLeave]
+      summary: Create sick leave
+  /api/sickleave/active:
+    get:
+      tags: [SickLeave]
+      summary: Active sick leave
+  /api/sickleave/stats:
+    get:
+      tags: [SickLeave]
+      summary: Sick leave stats
+  /api/sickleave/download:
+    get:
+      tags: [SickLeave]
+      summary: Sick leave export
+  /api/sickleave/end-active/{employeeId}:
+    post:
+      tags: [SickLeave]
+      summary: End active sick leave
+  /api/sickleave/{id}:
+    patch:
+      tags: [SickLeave]
+      summary: Update sick leave
+    delete:
+      tags: [SickLeave]
+      summary: Delete sick leave
+  /api/vacations:
+    get:
+      tags: [Vacations]
+      summary: List vacations
+    post:
+      tags: [Vacations]
+      summary: Create vacation
+  /api/vacations/active:
+    get:
+      tags: [Vacations]
+      summary: Active vacations
+  /api/vacations/upcoming:
+    get:
+      tags: [Vacations]
+      summary: Upcoming vacations
+  /api/vacations/availability:
+    get:
+      tags: [Vacations]
+      summary: Vacation availability
+  /api/vacations/download:
+    get:
+      tags: [Vacations]
+      summary: Vacations export
+  /api/vacations/{id}:
+    delete:
+      tags: [Vacations]
+      summary: Delete vacation
+  /api/albalance:
+    get:
+      tags: [ALBalance]
+      summary: AL balances
+  /api/albalance/{employeeId}:
+    get:
+      tags: [ALBalance]
+      summary: One AL balance
+  /api/alcalendar:
+    get:
+      tags: [ALCalendar]
+      summary: AL calendar
+  /api/employees:
+    get:
+      tags: [Employees]
+      summary: List employees
+    post:
+      tags: [Employees]
+      summary: Create employee
+  /api/employees/{employeeId}:
+    get:
+      tags: [Employees]
+      summary: One employee
+    patch:
+      tags: [Employees]
+      summary: Update employee
+    delete:
+      tags: [Employees]
+      summary: Soft-delete employee
+  /api/employees/{employeeId}/future-shifts:
+    get:
+      tags: [Employees]
+      summary: Future shifts
+  /api/employees/{employeeId}/timeline:
+    get:
+      tags: [Employees]
+      summary: Employee timeline
+  /api/employees/{employeeId}/albalance:
+    patch:
+      tags: [Employees]
+      summary: Update AL balance
+  /api/employees/{employeeId}/albalance/eligible:
+    patch:
+      tags: [Employees]
+      summary: Update eligible days
+  /api/attendance:
+    get:
+      tags: [Attendance]
+      summary: Attendance feed
+  /api/attendance/locations:
+    get:
+      tags: [Attendance]
+      summary: Attendance locations
+  /api/attendance/agents:
+    get:
+      tags: [Attendance]
+      summary: Attendance agents
+  /api/attendance/teamleads:
+    get:
+      tags: [Attendance]
+      summary: Attendance team leads
+  /api/attendance/download:
+    get:
+      tags: [Attendance]
+      summary: Attendance export
+  /api/breaks:
+    get:
+      tags: [Breaks]
+      summary: List breaks
+  /api/breaks/auto-distribute:
+    post:
+      tags: [Breaks]
+      summary: Auto-distribute breaks
+  /api/breaks/manual:
+    post:
+      tags: [Breaks]
+      summary: Manual break
+  /api/breaks/{id}/start:
+    post:
+      tags: [Breaks]
+      summary: Start break
+  /api/breaks/{id}/end:
+    post:
+      tags: [Breaks]
+      summary: End break
+  /api/breaks/{id}/cancel:
+    post:
+      tags: [Breaks]
+      summary: Cancel break
+  /api/publicholidays:
+    get:
+      tags: [PublicHolidays]
+      summary: Public holidays
+  /api/publicholidays/agent/{employeeId}:
+    get:
+      tags: [PublicHolidays]
+      summary: Agent public holidays
+  /api/publicholidays/bundeslaender:
+    get:
+      tags: [PublicHolidays]
+      summary: Bundesländer
+  /api/pipeline:
+    get:
+      tags: [Pipeline]
+      summary: List pipeline events
+    post:
+      tags: [Pipeline]
+      summary: Create pipeline event
+  /api/pipeline/{id}:
+    get:
+      tags: [Pipeline]
+      summary: One pipeline event
+    patch:
+      tags: [Pipeline]
+      summary: Update pipeline event
+    delete:
+      tags: [Pipeline]
+      summary: Delete pipeline event
+  /api/rollout:
+    get:
+      tags: [Rollout]
+      summary: List rollout days
+    post:
+      tags: [Rollout]
+      summary: Create rollout day
+  /api/rollout/preview:
+    post:
+      tags: [Rollout]
+      summary: Preview rollout
+  /api/rollout/candidates:
+    get:
+      tags: [Rollout]
+      summary: Rollout candidates
+  /api/rollout/standard-hours:
+    get:
+      tags: [Rollout]
+      summary: Standard hours
+  /api/rollout/{id}:
+    get:
+      tags: [Rollout]
+      summary: One rollout day
+    put:
+      tags: [Rollout]
+      summary: Update rollout day
+    delete:
+      tags: [Rollout]
+      summary: Delete rollout day
+  /api/roster/preview:
+    post:
+      tags: [Roster]
+      summary: Preview roster generation
+  /api/roster/generate:
+    post:
+      tags: [Roster]
+      summary: Generate roster
+  /api/roster/locations:
+    get:
+      tags: [Roster]
+      summary: Roster locations
+  /api/roster/batches:
+    get:
+      tags: [Roster]
+      summary: Roster batches
+  /api/roster/batches/{id}:
+    delete:
+      tags: [Roster]
+      summary: Delete roster batch
+  /api/roster/missing:
+    get:
+      tags: [Roster]
+      summary: Missing roster coverage
+  /api/roster/generate-location-coverage:
+    post:
+      tags: [Roster]
+      summary: Generate location coverage
+  /api/rtm:
+    get:
+      tags: [BulkRtm]
+      summary: Bulk RTM entries
+  /api/rtm/save:
+    post:
+      tags: [BulkRtm]
+      summary: Save bulk RTM
+  /api/rtm/rows:
+    post:
+      tags: [BulkRtm]
+      summary: Add bulk RTM rows
+  /api/rtm/rows/{id}:
+    patch:
+      tags: [BulkRtm]
+      summary: Update bulk RTM row
+    delete:
+      tags: [BulkRtm]
+      summary: Delete bulk RTM row
+  /api/rtm/home-wic:
+    get:
+      tags: [BulkRtm]
+      summary: Home WIC
+  /api/bo-list:
+    get:
+      tags: [BoList]
+      summary: BO list
+    post:
+      tags: [BoList]
+      summary: Add BO entry
+  /api/bo-list/{id}:
+    patch:
+      tags: [BoList]
+      summary: Update BO entry
+    delete:
+      tags: [BoList]
+      summary: Delete BO entry
+  /api/bo-list/by-date:
+    delete:
+      tags: [BoList]
+      summary: Delete BO entries by date
+  /api/training/topics:
+    get:
+      tags: [Training]
+      summary: Training topics
+    post:
+      tags: [Training]
+      summary: Create training topic
+  /api/training/sessions:
+    get:
+      tags: [Training]
+      summary: Training sessions
+  /api/training/sessions/{id}:
+    delete:
+      tags: [Training]
+      summary: Delete training session
+  /api/training/suggest:
+    post:
+      tags: [Training]
+      summary: Suggest training
+  /api/training/confirm:
+    post:
+      tags: [Training]
+      summary: Confirm training
+  /api/wic-assistant/ask:
+    post:
+      tags: [Assistant]
+      summary: WIC-only assistant (legacy)
+  /api/assistant/ask:
+    post:
+      tags: [Assistant]
+      summary: Full-dashboard assistant
+  /api/assistant/score:
+    post:
+      tags: [Assistant]
+      summary: Assistant scoring (debug)
+  /api/overview/detail:
+    get:
+      tags: [Overview]
+      summary: Overview detail
+  /api/overview/wic-status:
+    get:
+      tags: [Overview]
+      summary: Overview WIC status
+  /api/hr-export:
+    get:
+      tags: [Admin]
+      summary: HR export
+  /api/admin/demo-data:
+    delete:
+      tags: [Admin]
+      summary: Delete demo data
+  /api/admin/cleanup-wic-orphans:
+    post:
+      tags: [Admin]
+      summary: Clean up orphan WIC entries
+  /api/admin/wic-migration/dry-run:
+    get:
+      tags: [Admin]
+      summary: WIC migration dry run
+  /api/debug/client-error:
+    post:
+      tags: [Debug]
+      summary: Client error log (rate-limited)
