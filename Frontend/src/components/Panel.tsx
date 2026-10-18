@@ -14,7 +14,7 @@ export function Panel({ title, collapsible, storageKey, defaultOpen = true, chil
   const [open, setOpen] = useState<boolean>(() => {
     if (!collapsible) return true
     if (storageKey) {
-      try { const v = localStorage.getItem(storageKey); if (v !== null) return v === 'true' } catch {}
+      try { const v = localStorage.getItem(storageKey); if (v !== null) return v === 'true' } catch { /* ignore */ }
     }
     return defaultOpen
   })
@@ -22,7 +22,7 @@ export function Panel({ title, collapsible, storageKey, defaultOpen = true, chil
   const toggle = () => {
     const next = !open
     setOpen(next)
-    if (storageKey) { try { localStorage.setItem(storageKey, String(next)) } catch {} }
+    if (storageKey) { try { localStorage.setItem(storageKey, String(next)) } catch { /* ignore */ } }
   }
 
   return (

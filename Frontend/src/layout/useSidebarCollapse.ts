@@ -8,7 +8,7 @@ export function useSidebarCollapse() {
   })
 
   useEffect(() => {
-    try { localStorage.setItem(KEY, String(collapsed)) } catch {}
+    try { localStorage.setItem(KEY, String(collapsed)) } catch { /* ignore */ }
   }, [collapsed])
 
   return { collapsed, setCollapsed, toggle: () => setCollapsed(c => !c) }

@@ -124,7 +124,7 @@ export default function Training() {
         const r = await fetch(`${BASE}/api/shifts?from=${s.scheduledDate}&to=${s.scheduledDate}`)
         const data = await r.json()
         setSessionShifts((prev: any) => ({ ...prev, [s.scheduledDate]: data }))
-      } catch {}
+      } catch { /* ignore */ }
     }
   }
 

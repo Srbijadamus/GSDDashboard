@@ -1082,7 +1082,7 @@ export default function Overview() {
   })
   const toggleDetailGrid = () => setShowDetailGrid(prev => {
     const next = !prev
-    try { localStorage.setItem("gsd.overview.detail", String(next)) } catch {}
+    try { localStorage.setItem("gsd.overview.detail", String(next)) } catch { /* ignore */ }
     return next
   })
 

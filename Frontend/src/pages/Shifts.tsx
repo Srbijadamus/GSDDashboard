@@ -303,7 +303,7 @@ function TaskBadge({ shift, onTaskChange, t }: {
 
       {showLocPicker && (
         <LocationPicker
-          onSelect={(locId, _locName) => {
+          onSelect={(locId) => {
             onTaskChange(shift.id, "WIC", locId)
             setShowLocPicker(false)
           }}
@@ -559,7 +559,7 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
   )
 }
 
-function ContextMenu({ emp: _emp, onEdit, onDelete, onRemove, onClose }: {
+function ContextMenu({ onEdit, onDelete, onRemove, onClose }: {
   emp: any; onEdit: () => void; onDelete: () => void; onRemove: () => void; onClose: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -1083,7 +1083,7 @@ export default function Shifts() {
               qc.invalidateQueries({ queryKey: ["shifts-cal"] })
               qc.invalidateQueries({ queryKey: ["vacations"] })
               qc.invalidateQueries({ queryKey: ["albalance"] })
-            } catch {}
+            } catch { /* ignore */ }
             setShowAlModal(false)
           }}
         />

@@ -138,7 +138,7 @@ export default function Pipeline() {
       const r = await fetch(`${BASE}/api/pipeline?from=${fromDate}&to=${toDate}`)
       if (!r.ok) throw new Error(`API ${r.status}`)
       setEvents(await r.json())
-    } catch {}
+    } catch { /* ignore */ }
     setLoading(false)
   }
 
@@ -147,7 +147,7 @@ export default function Pipeline() {
       const r = await fetch(`${BASE}/api/wic/locations`)
       if (!r.ok) throw new Error(`API ${r.status}`)
       setLocations(await r.json())
-    } catch {}
+    } catch { /* ignore */ }
   }
 
   useEffect(() => { fetchEvents(); fetchLocations() }, [])

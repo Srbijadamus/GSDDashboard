@@ -19,7 +19,7 @@ function getMondayOfWeek(date: Date) {
   return d.toISOString().split("T")[0]
 }
 function getDates(from: string, to: string) {
-  const dates: string[] = []; let d = new Date(from); const end = new Date(to)
+  const dates: string[] = []; const d = new Date(from); const end = new Date(to)
   while (d<=end){dates.push(d.toISOString().split("T")[0]);d.setDate(d.getDate()+1)}
   return dates
 }

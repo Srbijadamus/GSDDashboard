@@ -412,7 +412,7 @@ export function useAssistantAsk(
         })
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === "AbortError")
-          throw new Error("Request timed out after 15 s. Please try again.")
+          throw new Error("Request timed out after 15 s. Please try again.", { cause: err })
         throw err
       } finally {
         clearTimeout(timer)

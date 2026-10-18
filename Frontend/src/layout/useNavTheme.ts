@@ -13,7 +13,7 @@ export function useNavTheme() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-nav-theme', navTheme)
-    try { localStorage.setItem(KEY, navTheme) } catch {}
+    try { localStorage.setItem(KEY, navTheme) } catch { /* ignore */ }
   }, [navTheme])
 
   return {

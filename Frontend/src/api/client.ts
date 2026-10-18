@@ -8,7 +8,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   const res = await fetch(`${API_BASE}${path}`, options)
   if (!res.ok) {
     let msg = `API error ${res.status}`
-    try { const body = await res.json(); if (body?.error) msg = body.error } catch {}
+    try { const body = await res.json(); if (body?.error) msg = body.error } catch { /* ignore */ }
     throw new Error(msg)
   }
   return res.json()
@@ -70,7 +70,7 @@ export const api = {
       const res = await fetch(`${API_BASE}/api/sickleave/${id}`, { method: "DELETE" })
       if (!res.ok) {
         let msg = `API error ${res.status}`
-        try { const body = await res.json(); if (body?.error) msg = body.error } catch {}
+        try { const body = await res.json(); if (body?.error) msg = body.error } catch { /* ignore */ }
         throw new Error(msg)
       }
     },
