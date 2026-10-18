@@ -30,6 +30,7 @@ using GSDDashboard.API.Modules.Admin;
 using GSDDashboard.API.Modules.HrExport;
 using GSDDashboard.API.Modules.Auth;
 using GSDDashboard.API.Modules.MyShifts;
+using GSDDashboard.API.Modules.Rules;
 using GSDDashboard.API.Middleware;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -73,6 +74,8 @@ builder.Services.AddScoped<SickLeavePeriodService>();
 builder.Services.AddScoped<AvailabilityResolver>();
 builder.Services.AddScoped<PublicHolidayService>();
 builder.Services.AddScoped<ShiftValidationService>();
+builder.Services.AddScoped<GSDDashboard.API.Modules.Rules.RulesService>();
+builder.Services.Configure<GSDDashboard.API.Modules.Rules.RulesOptions>(builder.Configuration.GetSection("Rules"));
 builder.Services.AddScoped<PipelineService>();
 builder.Services.AddScoped<RolloutService>();
 builder.Services.AddScoped<WicScheduleService>();
@@ -753,6 +756,7 @@ app.MapDemoDataAdminEndpoints();
 app.MapHrExportEndpoints();
 app.MapFeaturesEndpoints();
 app.MapMyEndpoints();
+app.MapRulesEndpoints();
 
 // Manual one-shot cleanup: removes WicShiftEntries rows where SupportLocation IS NULL
 // and a non-NULL sibling exists for the same (EmployeeId, ShiftDate).

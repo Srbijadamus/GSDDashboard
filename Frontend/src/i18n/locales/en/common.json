@@ -952,5 +952,18 @@
     "body": "Coverage gaps are now grouped by decision — review a whole period at once and assign an available agent to several days in one click. Groups only break when the status or the suggested agent changes, so a full week stays one decision.",
     "menu": "What's new",
     "dismiss": "Got it"
+  },
+  "rules": {
+    "title": "Rule warnings",
+    "R1": "Overlapping shift ({{times}})",
+    "R2": { "SL": "Shift conflicts with sick leave", "AL": "Shift conflicts with annual leave" },
+    "R3": "Assigned to {{locations}} WIC centres on the same day",
+    "R4": "Shift overlaps a training session",
+    "R5": "Only {{hours}}h rest between shifts (minimum 11h)",
+    "R6": "{{days}} consecutive working days (maximum 6)",
+    "DATA_INVALID": "Unparseable shift time ({{field}})",
+    "saveAnyway": "Save anyway",
+    "cancel": "Cancel",
+    "field": { "start": "start", "end": "end" }
   }
 }

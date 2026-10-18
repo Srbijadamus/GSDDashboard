@@ -17,6 +17,8 @@ public sealed class FeaturesOptions
     public bool AbsenceStrip { get; set; }
     // B7: "Export calendar" (ICS) on My View for the logged-in user's own shifts.
     public bool IcsExport { get; set; }
+    public bool RulesEngine { get; set; }
+    public bool RuleWarnings { get; set; }
 }
 
 public static class FeaturesEndpointMapper
@@ -30,7 +32,7 @@ public static class FeaturesEndpointMapper
             if (ctx.User.Identity?.IsAuthenticated != true)
                 return Results.Json(new { error = "Authentication required" }, statusCode: StatusCodes.Status401Unauthorized);
             var f = monitor.CurrentValue;
-            return Results.Ok(new { overviewV2 = f.OverviewV2, overviewGroupingV21 = f.OverviewGroupingV21, whatsNew = f.WhatsNew, absenceStrip = f.AbsenceStrip, icsExport = f.IcsExport });
+            return Results.Ok(new { overviewV2 = f.OverviewV2, overviewGroupingV21 = f.OverviewGroupingV21, whatsNew = f.WhatsNew, absenceStrip = f.AbsenceStrip, icsExport = f.IcsExport, rulesEngine = f.RulesEngine, ruleWarnings = f.RuleWarnings });
         }).WithTags("Features");
     }
 }

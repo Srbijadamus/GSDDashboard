@@ -8,6 +8,8 @@ interface FeaturesResponse {
   whatsNew: boolean
   absenceStrip: boolean
   icsExport: boolean
+  rulesEngine: boolean
+  ruleWarnings: boolean
 }
 
 function readLocal(key: string): string | null {
@@ -35,10 +37,12 @@ export function useFeatures() {
   const whatsNew = data?.whatsNew ?? false
   const absenceStrip = data?.absenceStrip ?? false
   const icsExport = data?.icsExport ?? false
+  const rulesEngine = data?.rulesEngine ?? false
+  const ruleWarnings = data?.ruleWarnings ?? false
 
   const kid = session?.kid ?? "anon"
   const override = readLocal(`pulse.overviewV2.${kid}`)
   const overviewV2 = serverOverviewV2 && override !== "old"
 
-  return { overviewV2, overviewGroupingV21: serverOverviewGroupingV21, whatsNew, serverOverviewV2, absenceStrip, icsExport }
+  return { overviewV2, overviewGroupingV21: serverOverviewGroupingV21, whatsNew, serverOverviewV2, absenceStrip, icsExport, rulesEngine, ruleWarnings }
 }

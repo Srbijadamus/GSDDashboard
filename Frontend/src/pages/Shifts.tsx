@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { api, apiFetch } from "../api/client"
@@ -9,6 +9,7 @@ import { MoreVertical, Pencil, Trash2, UserMinus, ChevronUp, ChevronDown, AlertT
 import { maxFutureDateStr } from "../constants"
 import { berlinStamp } from "../utils/berlinTime"
 import { useFeatures } from "../utils/useFeatures"
+import { ruleWarningText, warningsByEmployeeDate, type RuleWarning, type RulesResponse } from "../utils/ruleWarnings"
 import { AddVacationModal } from "./Vacations"
 
 const OVERRIDE_CONFIRM_TYPES = ["OFF_WEEKEND", "PH"]
@@ -184,6 +185,35 @@ function LegalViolationModal({ violations, onClose, onConfirmAnyway }: {
   )
 }
 
+function RuleWarningsModal({ warnings, onProceed, onCancel }: {
+  warnings: RuleWarning[]; onProceed: () => void; onCancel: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.7)", zIndex:2500, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div role="dialog" aria-modal="true" aria-label={t("rules.title")} className="bg-raised"
+        style={{ border:"1px solid rgb(var(--st-warn-bd))", borderRadius:10, padding:24, width:480, maxHeight:"80vh", overflowY:"auto" }}>
+        <h2 className="text-warn-fg" style={{ fontSize:15, fontWeight:600, marginBottom:16 }}>
+          <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> {t("rules.title")}
+        </h2>
+        {warnings.map((w, i) => (
+          <div key={i} className="bg-warn-bg border border-warn-bd" style={{ borderRadius:6, padding:"10px 14px", marginBottom:8 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+              <span className="font-mono text-2xs font-bold text-warn-fg">{w.code}</span>
+              <span className="font-mono text-ink-soft" style={{ fontSize:10 }}>{w.date}</span>
+            </div>
+            <div className="text-ink-muted" style={{ fontSize:12 }}>{ruleWarningText(w, t)}</div>
+          </div>
+        ))}
+        <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:16 }}>
+          <button onClick={onCancel} className="bg-sunken border border-line-subtle text-ink-muted" style={{ padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer" }}>{t("rules.cancel")}</button>
+          <button onClick={onProceed} style={{ background:"rgb(var(--st-holiday-solid))", border:"none", color:"#000", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>{t("rules.saveAnyway")}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function LocationPicker({ onSelect, onClose }: { onSelect: (locId: string, locName: string) => void; onClose: () => void }) {
   const { data: locations } = useQuery({ queryKey:["wic-locations"], queryFn: api.wic.locations })
   const ref = useRef<HTMLDivElement>(null)
@@ -327,11 +357,13 @@ function TaskBadge({ shift, onTaskChange, t }: {
   )
 }
 
-function ShiftCell({ shift, onUpdate, onSwapDone }: {
+function ShiftCell({ shift, onUpdate, onSwapDone, warnings }: {
   shift: any
   onUpdate: (shift: any, type: string, start?: string, end?: string) => Promise<string | null>
   onSwapDone?: () => void
+  warnings?: RuleWarning[]
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [editStart, setEditStart] = useState(shift.shiftStart ?? "")
   const [editEnd,   setEditEnd]   = useState(shift.shiftEnd   ?? "")
@@ -427,6 +459,15 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
 
   return (
     <td style={{ padding:"3px 4px", position:"relative", minWidth:90 }}>
+      {(warnings?.length ?? 0) > 0 && (
+        <span title={warnings!.map(w => `${w.code}: ${ruleWarningText(w, t)}`).join("\n")}
+          className="text-warn-fg font-mono"
+          style={{ position:"absolute", top:-4, right:-2, fontSize:10, fontWeight:700,
+            background:"rgb(var(--st-warn-bg))", border:"1px solid rgb(var(--st-warn-bd))",
+            borderRadius:8, padding:"0 4px", lineHeight:"14px", zIndex:5, cursor:"help" }}>
+          !
+        </span>
+      )}
       <div onClick={() => { if (open) setPendingType(null); setOpen(!open) }} className="font-mono"
         style={{ ...c, padding:"3px 6px", borderRadius:4, fontSize:10,
           fontWeight:600, cursor:"pointer",
@@ -620,6 +661,7 @@ export default function Shifts() {
   const { t } = useTranslation()
   const { absenceStrip } = useFeatures()
   const qc = useQueryClient()
+  const { ruleWarnings } = useFeatures()
   const today = new Date()
 
   const [teamLead,   setTeamLead]   = useState("")
@@ -642,6 +684,7 @@ export default function Shifts() {
     if (table) topInner.style.width = table.scrollWidth + "px"
   })
   const [legalModal, setLegalModal] = useState<{violations:any[]; pendingUpdate:()=>void} | null>(null)
+  const [ruleWarnModal, setRuleWarnModal] = useState<{warnings:RuleWarning[]; proceed:()=>void} | null>(null)
   const [assignError, setAssignError] = useState<string | null>(null)
   const [showAlModal, setShowAlModal] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
@@ -676,6 +719,17 @@ export default function Shifts() {
     setAbsenceFilter(prev => (prev?.date === date ? null : { date, ids: new Set(ids) }))
   }
 
+  // Rule warnings for the visible window (Feature:RuleWarnings). Fetched across the
+  // whole window — never filtered client-side — so every visible cell can carry its "!".
+  const rulesParams = `from=${from}&to=${to}`
+  const { data: rulesData } = useQuery({
+    queryKey: ["rules-week", rulesParams],
+    queryFn: () => api.rules.week(rulesParams),
+    enabled: ruleWarnings,
+    staleTime: 60000,
+  })
+  const warnMap = useMemo(() => warningsByEmployeeDate(rulesData as RulesResponse | undefined), [rulesData])
+
   const byEmployee: Record<string, { emp:any; shifts:Record<string,any> }> = {}
   rows?.forEach((s: any) => {
     if (!byEmployee[s.employeeId]) {
@@ -697,6 +751,26 @@ export default function Shifts() {
   const updateShift = async (shift: any, type: string, start?: string, end?: string): Promise<string | null> => {
     setAssignError(null)
     try {
+      // Rule-engine warnings before saving (Feature:RuleWarnings). Non-blocking:
+      // a rules failure or an empty result never stops the save, and "Save anyway"
+      // always proceeds. Only timed changes carry shift times the engine can check.
+      if (ruleWarnings && TIMED_TYPES.includes(type)) {
+        try {
+          const rRes: RulesResponse = await api.rules.validate({
+            from, to,
+            proposed: { employeeId: shift.employeeId, date: shift.shiftDate, shiftType: type, start: start ?? null, end: end ?? null },
+          })
+          const personWarnings = rRes?.people?.[0]?.warnings ?? []
+          if (personWarnings.length > 0) {
+            setRuleWarnModal({ warnings: personWarnings, proceed: () => {
+              const p = shift.id ? doUpdateShift(shift.id, type, start, end) : doAssignShift(shift.employeeId, shift.shiftDate, type, start, end)
+              void Promise.resolve(p).catch(() => {})
+            }})
+            return null
+          }
+        } catch { /* rules endpoint unavailable — saving must still work */ }
+      }
+
       if (!shift.id) {
         await doAssignShift(shift.employeeId, shift.shiftDate, type, start, end)
         return null
@@ -1042,6 +1116,8 @@ export default function Shifts() {
               )}
               {orderedEmps.map(({ emp, shifts }, idx) => {
                 const todayShift = shifts[today.toISOString().split("T")[0]]
+                const empWarn = warnMap[emp.id]
+                const empWarnTotal = empWarn ? Object.values(empWarn).reduce((n, a) => n + a.length, 0) : 0
                 return (
                   <tr key={emp.id}
                     draggable
@@ -1063,6 +1139,11 @@ export default function Shifts() {
                     <td className="bg-raised" style={{ padding:"6px 10px", position:"sticky", left:0, zIndex:1, borderRight:"1px solid rgb(var(--border-subtle))" }}>
                       <div style={{ fontWeight:500, fontSize:12 }}>{emp.name}</div>
                       <div className="font-mono text-ink-soft" style={{ fontSize:9 }}>{emp.id}</div>
+                      {empWarnTotal > 0 && (
+                        <div title={t("rules.title")} className="text-warn-fg font-mono" style={{ fontSize:9, fontWeight:700, marginTop:1, display:"flex", alignItems:"center", gap:2 }}>
+                          <AlertTriangle size={9} className="inline" /> {empWarnTotal}
+                        </div>
+                      )}
                     </td>
                     {(() => {
                       const absentTypes = new Set(["AL", "HALF_AL", "SL", "UL", "OL"])
@@ -1103,7 +1184,8 @@ export default function Shifts() {
                       return (
                         <td key={d} style={{ borderLeft:"1px solid rgb(var(--border-subtle))",
                           background: !hasShift && tod ? "rgb(var(--st-info-bg))" : "transparent" }}>
-                          <ShiftCell shift={cellShift} onUpdate={updateShift} onSwapDone={() => qc.invalidateQueries({ queryKey:["shifts-cal"] })} />
+                          <ShiftCell shift={cellShift} onUpdate={updateShift} warnings={empWarn?.[d]}
+                            onSwapDone={() => qc.invalidateQueries({ queryKey:["shifts-cal"] })} />
                         </td>
                       )
                     })}
@@ -1135,6 +1217,13 @@ export default function Shifts() {
           violations={legalModal.violations}
           onClose={() => setLegalModal(null)}
           onConfirmAnyway={legalModal.violations.every((v:any) => !v.isHardBlock) ? () => { legalModal.pendingUpdate(); setLegalModal(null) } : undefined}
+        />
+      )}
+      {ruleWarnModal && (
+        <RuleWarningsModal
+          warnings={ruleWarnModal.warnings}
+          onCancel={() => setRuleWarnModal(null)}
+          onProceed={() => { const p = ruleWarnModal.proceed; setRuleWarnModal(null); p() }}
         />
       )}
       {showAlModal && (
