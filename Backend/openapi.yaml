@@ -19,6 +19,10 @@ paths:
     get:
       tags: [Features]
       summary: Feature flags (authorized)
+  /api/my/shifts.ics:
+    get:
+      tags: [My]
+      summary: Own shifts calendar for the next 60 days (authorized)
   /api/auth/login:
     post:
       tags: [Auth]
@@ -359,6 +363,10 @@ paths:
     get:
       tags: [Vacations]
       summary: Vacation availability
+  /api/vacations/absence-strip:
+    get:
+      tags: [Vacations]
+      summary: Per-day annual-leave and sick-leave employees for the Shift Plan strip
   /api/vacations/download:
     get:
       tags: [Vacations]

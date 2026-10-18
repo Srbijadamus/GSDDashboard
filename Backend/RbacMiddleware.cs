@@ -132,6 +132,11 @@ public static class RbacMiddleware
         if (path.Equals($"/api/albalance/{ownId}", StringComparison.OrdinalIgnoreCase))
             return true;
 
+        // Own shifts calendar (B7): scoped to the session's own EmployeeId server-side,
+        // so it is safe to allow for AGENT. Anonymous is still rejected by the endpoint.
+        if (path.Equals("/api/my/shifts.ics", StringComparison.OrdinalIgnoreCase))
+            return true;
+
         // List endpoints that support an employeeId filter — only with own id, never
         // unfiltered and never with somebody else's id.
         if (path.Equals("/api/vacations", StringComparison.OrdinalIgnoreCase) ||

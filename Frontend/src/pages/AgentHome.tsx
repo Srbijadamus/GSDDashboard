@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { apiFetch } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useFeatures } from '../utils/useFeatures'
 
 // Read-only own-data view for AGENT sessions. Every call below is scoped to the
 // session's own EmployeeId and enforced again server-side (RbacMiddleware).
@@ -63,6 +64,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 export default function AgentHome() {
   const { t } = useTranslation()
   const { session } = useAuth()
+  const { icsExport } = useFeatures()
   const ownId = session?.employeeId ?? ''
 
   const [employee, setEmployee] = useState<EmployeeDto | null>(null)
@@ -101,6 +103,16 @@ export default function AgentHome() {
 
   return (
     <div className="space-y-4 max-w-4xl">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <h1 className="text-ink" style={{ fontSize: 22, fontWeight: 600 }}>{t("nav.myView")}</h1>
+        {icsExport && (
+          <a href="/api/my/shifts.ics" download
+            className="bg-info-solid text-white border-0"
+            style={{ padding: "7px 14px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", textDecoration: "none" }}>
+            {t("my.exportCalendar")}
+          </a>
+        )}
+      </div>
       <Card title={t('my.profile')}>
         <Row label={t('my.name')} value={employee?.fullName ?? session?.name} />
         <Row label={t('my.employeeId')} value={ownId} />

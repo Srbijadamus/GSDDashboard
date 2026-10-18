@@ -93,6 +93,11 @@
       "sick": "Krank",
       "training": "Schulung",
       "off": "Frei"
+    },
+    "absenceStrip": {
+      "urlaub": "Urlaub",
+      "krank": "krank",
+      "filterTitle": "Plan auf diese Personen filtern"
     }
   },
   "status": {
@@ -591,7 +596,8 @@
     "wicDuty": "WIC",
     "sickLeaves": "Meine Krankmeldungen",
     "vacations": "Meine Urlaube",
-    "none": "Keine"
+    "none": "Keine",
+    "exportCalendar": "Kalender exportieren"
   },
   "export": {
     "title": "HR-Datenexport",
