@@ -1,3 +1,4 @@
+using GSDDashboard.API;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.ALCalendar;
@@ -126,6 +127,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.Configure<FeaturesOptions>(builder.Configuration.GetSection("Features"));
 
 // Per-IP rate limit for anonymous, abuse-prone endpoints (login, client-error log).
 builder.Services.AddRateLimiter(options =>
@@ -748,6 +750,7 @@ app.MapAssistantEndpoints();
 app.MapWicMigrationEndpoints();
 app.MapDemoDataAdminEndpoints();
 app.MapHrExportEndpoints();
+app.MapFeaturesEndpoints();
 
 // Manual one-shot cleanup: removes WicShiftEntries rows where SupportLocation IS NULL
 // and a non-NULL sibling exists for the same (EmployeeId, ShiftDate).
