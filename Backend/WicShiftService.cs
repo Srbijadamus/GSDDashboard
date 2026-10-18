@@ -52,7 +52,11 @@ public record CreateAssignmentRequest(
     string Date,
     string? ShiftStart,
     string? ShiftEnd,
-    bool ConfirmManualReplace = false
+    bool ConfirmManualReplace = false,
+    // "Assign anyway" (Overview v2 manual add): a human (manualActor != null) explicitly
+    // overrides a blocking absence (AL/SL/OFF/PH/TRAINING/VWIC) so the WIC duty is written
+    // anyway. Automatic writers never pass this and stay blocked.
+    bool AssignAnyway = false
 );
 
 // DateTo/SkipWeekends optional (default: DateTo=Date, SkipWeekends=true) so single-day callers
@@ -818,7 +822,9 @@ public class WicShiftService
         // etc. (AvailabilityResolver.BlockingAbsenceTypes, shared with WicCardsService), nor
         // TRAINING, nor a WORKING shift explicitly tasked VWIC — same "unavailable" set the
         // permanent WIC-priority rule uses (RosterService.IsProtectedFromOverwrite).
-        if (shift != null)
+        // A human "Assign anyway" (AssignAnyway=true, manualActor != null) overrides this for
+        // the Overview v2 manual add; automatic writers never pass AssignAnyway.
+        if (shift != null && !(req.AssignAnyway && manualActor != null))
         {
             bool isBlocked = AvailabilityResolver.BlockingAbsenceTypes.Contains(shift.ShiftType ?? "") ||
                 string.Equals(shift.ShiftType, ShiftTypes.Training, StringComparison.OrdinalIgnoreCase) ||

@@ -36,6 +36,7 @@ Frontend/.wic-coverage-state-test-out/
 Frontend/.wic-horizon-test-out/
 Frontend/.wic-open-hours-test-out/
 Frontend/.group-gaps-test-out/
+Frontend/.manual-assign-test-out/
 .pulse-build-receipt.json
 
 # Audit 2026-10-18 — temporary/deploy/build artefacts (move to C:\GSDDashboard_archive, never commit)

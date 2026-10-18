@@ -17,7 +17,8 @@
     "test:wic-open-hours": "tsc --ignoreConfig src/utils/wicOpenHours.ts src/utils/wicOpenHours.test.ts --outDir .wic-open-hours-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .wic-open-hours-test-out/wicOpenHours.test.js",
     "test:wic-coverage-state": "tsc --ignoreConfig src/utils/wicCoverageState.ts src/utils/wicCoverageState.test.ts --outDir .wic-coverage-state-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .wic-coverage-state-test-out/wicCoverageState.test.js",
     "test:wic-horizon": "tsc --ignoreConfig src/utils/wicHorizon.ts src/utils/wicHorizon.test.ts --outDir .wic-horizon-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .wic-horizon-test-out/wicHorizon.test.js",
-    "test:group-gaps": "tsc --ignoreConfig src/utils/groupGaps.ts src/utils/groupGaps.test.ts --outDir .group-gaps-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .group-gaps-test-out/groupGaps.test.js"
+    "test:group-gaps": "tsc --ignoreConfig src/utils/groupGaps.ts src/utils/groupGaps.test.ts --outDir .group-gaps-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .group-gaps-test-out/groupGaps.test.js",
+    "test:manual-assign": "tsc --ignoreConfig src/utils/manualAssign.ts src/utils/manualAssign.test.ts --outDir .manual-assign-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .manual-assign-test-out/manualAssign.test.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.14",
