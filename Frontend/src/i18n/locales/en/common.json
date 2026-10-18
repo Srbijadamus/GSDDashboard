@@ -945,7 +945,32 @@
     "assignThisWeek": "Assign this week",
     "assignAllWeeks": "Assign all weeks ({{count}} days)",
     "weekCount": "{{count}} weeks",
-    "weekWarning": "The candidate has another task on these days."
+    "weekWarning": "The candidate has another task on these days.",
+    "onlyOneOption": "Only 1 option",
+    "otherOptions": "Other options",
+    "forDate": "for {{date}}",
+    "escalate": "No one available – escalate",
+    "assignManually": "Assign manually",
+    "manual": {
+      "title": "Assign manually",
+      "searchPlaceholder": "Search by name or personnel number",
+      "allDays": "All {{count}} days",
+      "pickDays": "Pick days",
+      "assignAnyway": "Assign anyway",
+      "sickCannotAssign": "Sick leave – cannot assign",
+      "assign": "Assign",
+      "cancel": "Cancel",
+      "empty": "No employees found",
+      "status": {
+        "free": "free",
+        "rosteredNoTask": "rostered, no task",
+        "otherWic": "other WIC",
+        "bo": "BO",
+        "annualLeave": "annual leave",
+        "sick": "sick leave",
+        "training": "training"
+      }
+    }
   },
   "whatsNew": {
     "title": "What's new",

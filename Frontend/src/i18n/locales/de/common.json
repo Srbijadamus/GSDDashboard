@@ -945,7 +945,32 @@
     "assignThisWeek": "Diese Woche zuweisen",
     "assignAllWeeks": "Alle Wochen zuweisen ({{count}} Tage)",
     "weekCount": "{{count}} Wochen",
-    "weekWarning": "Der Kandidat hat an diesen Tagen eine andere Aufgabe."
+    "weekWarning": "Der Kandidat hat an diesen Tagen eine andere Aufgabe.",
+    "onlyOneOption": "Nur 1 Option",
+    "otherOptions": "Weitere Optionen",
+    "forDate": "für {{date}}",
+    "escalate": "Niemand verfügbar – eskalieren",
+    "assignManually": "Manuell zuweisen",
+    "manual": {
+      "title": "Manuell zuweisen",
+      "searchPlaceholder": "Nach Name oder Personalnummer suchen",
+      "allDays": "Alle {{count}} Tage",
+      "pickDays": "Tage wählen",
+      "assignAnyway": "Trotzdem zuweisen",
+      "sickCannotAssign": "Krank – Zuweisung nicht möglich",
+      "assign": "Zuweisen",
+      "cancel": "Abbrechen",
+      "empty": "Keine Mitarbeiter gefunden",
+      "status": {
+        "free": "frei",
+        "rosteredNoTask": "eingeteilt, ohne Aufgabe",
+        "otherWic": "anderes WIC",
+        "bo": "BO",
+        "annualLeave": "Jahresurlaub",
+        "sick": "Krankheit",
+        "training": "Schulung"
+      }
+    }
   },
   "whatsNew": {
     "title": "Was ist neu",

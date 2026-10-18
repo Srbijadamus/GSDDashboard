@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { groupGapsV21, reasonOf, isoWeek, type CoverageGap, type GapGroupV21, type CandidateV21, type ReasonCode } from "../../utils/groupGaps"
 import { postSubstituteAccept, substituteAcceptErrorText } from "../../utils/substituteAccept"
+import { apiFetch } from "../../api/client"
+import { useAuth } from "../../auth/AuthContext"
+import { AssignManuallyModal } from "./AssignManuallyModal"
 
 interface Props {
   gaps: CoverageGap[]
@@ -42,14 +46,83 @@ function fmtRange(from: string, to: string): string {
   return from === to ? fKey : `${fKey} – ${tKey}`
 }
 
+interface OtherOptionSub {
+  employeeId: string
+  fullName: string
+  sourceType: string
+}
+
+/** "Other options" (Overview v2 point 1): the first 5 entries of the existing
+ *  /api/wic/substitutes list, in the same order the SubstituteDrawer shows them. */
+function OtherOptions({ group, onFindSubstitute, onAssigned }: { group: GapGroupV21; onFindSubstitute: (args: { locationCode: string; date: string; displayName: string }) => void; onAssigned: () => void }) {
+  const { t } = useTranslation()
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const firstDate = group.days[0].date
+  // "19.10." from "2026-10-19" — the assignment always targets only the group's first day.
+  const dayLabel = `${firstDate.slice(8, 10)}.${firstDate.slice(5, 7)}.`
+
+  const { data, isLoading } = useQuery<OtherOptionSub[]>({
+    queryKey: ["subs-other-options", group.locationCode, firstDate],
+    queryFn: async () => {
+      const r = await apiFetch<{ days: Array<{ candidates: OtherOptionSub[] }> }>(
+        `/api/wic/substitutes?locationCode=${encodeURIComponent(group.locationCode)}&date=${firstDate}&horizon=1`
+      )
+      return r.days?.[0]?.candidates ?? []
+    },
+    staleTime: 2 * 60 * 1000,
+  })
+
+  const subs = (data ?? []).slice(0, 5)
+
+  async function assign(s: OtherOptionSub) {
+    setBusyId(s.employeeId)
+    setError(null)
+    try {
+      await postSubstituteAccept({ employeeId: s.employeeId, locationCode: group.locationCode, date: firstDate, sourceType: s.sourceType })
+      onAssigned()
+    } catch (e) {
+      setError(substituteAcceptErrorText(e, t))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <div style={{ border: "1px solid rgb(var(--ov2-suggest-border))", background: "rgb(var(--ov2-suggest-bg))", borderRadius: 8, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: "rgb(var(--text-secondary))" }}>{t("overviewV21.otherOptions")} <span style={{ fontWeight: 400, opacity: .8 }}>{t("overviewV21.forDate", { date: dayLabel })}</span></span>
+      {error && <span style={{ fontSize: 12, color: "rgb(var(--st-crit-fg))" }}>{error}</span>}
+      {isLoading ? (
+        <div className="skeleton" style={{ height: 28, borderRadius: 6 }} />
+      ) : subs.length === 0 ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: "rgb(var(--text-secondary))" }}>{t("overviewV21.escalate")}</span>
+          <button onClick={() => onFindSubstitute({ locationCode: group.locationCode, date: firstDate, displayName: group.displayName })} style={{ marginLeft: "auto", padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--action-solid))", color: "rgb(var(--action-fg))" }}>{t("overviewV21.findSubstitute")}</button>
+        </div>
+      ) : subs.map(s => (
+        <div key={s.employeeId} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: "rgb(var(--text-primary))" }}><strong>{s.fullName}</strong></span>
+          <span style={{ fontSize: 12, color: "rgb(var(--text-tertiary))" }}>{s.sourceType}</span>
+          <button disabled={busyId === s.employeeId} onClick={() => assign(s)} style={{ marginLeft: "auto", padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--ov2-assign-bg))", color: "rgb(var(--ov2-assign-fg))" }}>{t("overviewV2.confirm.confirm")} · {t("overviewV21.forDate", { date: dayLabel })}</button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstitute }: Props) {
   const { t } = useTranslation()
+  const { session } = useAuth()
+  const queryClient = useQueryClient()
+  const allowed = session != null && ["RTM", "TEAM_LEAD", "DEV"].includes(session.role)
+  const refetchGaps = () => queryClient.invalidateQueries({ queryKey: ["wic-coverage-gaps"] })
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<{ group: GapGroupV21; candidate: CandidateV21; dates: string[] } | null>(null)
   const [openGroup, setOpenGroup] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ ok: string[]; failed: Record<string, string> } | null>(null)
+  const [manualGroup, setManualGroup] = useState<GapGroupV21 | null>(null)
 
   const groups = useMemo(() => groupGapsV21(gaps), [gaps])
   const uncoveredCount = gaps.filter(g => g.present === 0).length
@@ -99,6 +172,8 @@ export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstit
       <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 6 }}>
         {heatDates.map(d => {
           const st = dayStatus.get(d)
+          const total = (st?.uncovered ?? 0) + (st?.partial ?? 0)
+          const hasUncovered = (st?.uncovered ?? 0) > 0
           const isToday = d === today
           const isSel = selectedDay === d
           const dt = new Date(d)
@@ -106,9 +181,8 @@ export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstit
             <button key={d} onClick={() => setSelectedDay(isSel ? null : d)} title={`${d}: ${st?.uncovered ?? 0} uncovered, ${st?.partial ?? 0} partial`} style={{ flex: "0 0 34px", height: 44, borderRadius: 6, border: isToday ? "2px solid rgb(var(--focus-ring))" : "1px solid rgb(var(--border-subtle))", background: "rgb(var(--surface-raised))", cursor: "pointer", padding: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, outline: isSel ? "2px solid rgb(var(--focus-ring))" : "none" }}>
               <span style={{ fontSize: 9, color: "rgb(var(--text-tertiary))" }}>{["Su","Mo","Tu","We","Th","Fr","Sa"][dt.getDay()]}</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: "rgb(var(--text-primary))" }}>{String(dt.getDate()).padStart(2, "0")}</span>
-              <span style={{ display: "flex", width: "100%", height: 5, borderRadius: 3, overflow: "hidden", background: "rgb(var(--surface-sunken))" }}>
-                <span style={{ width: `${Math.min(100, (st?.uncovered ?? 0) * 34)}%`, background: "rgb(var(--ov2-uncovered-bar))" }} />
-                <span style={{ width: `${Math.min(100, (st?.partial ?? 0) * 34)}%`, background: "rgb(var(--ov2-partial-bar))" }} />
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: 12, borderRadius: 3, background: total > 0 ? (hasUncovered ? "rgb(var(--ov2-uncovered-bar))" : "rgb(var(--ov2-partial-bar))") : "rgb(var(--surface-sunken))", color: "#fff", fontSize: 8, fontWeight: 700 }}>
+                {total > 0 ? total : ""}
               </span>
             </button>
           )
@@ -139,7 +213,9 @@ export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstit
                     <span style={{ fontFamily: "monospace", fontSize: 12, color: "rgb(var(--text-secondary))" }}>{grp.timeVaries ? t("overviewV21.differentHours") : grp.time}</span>
                     <span style={{ fontSize: 12, color: "rgb(var(--text-secondary))" }}>{grp.days[0].present}/{grp.days[0].required}</span>
                     {needed > 0 && <span style={{ fontSize: 12, fontWeight: 600, color: "rgb(var(--st-warn-fg))" }}>{t("overviewV21.needsMore", { count: needed })}</span>}
+                    {grp.candidates.length === 1 && <span style={{ fontSize: 11, fontWeight: 600, padding: "1px 8px", borderRadius: 999, background: "rgb(var(--ov2-notask-bg))", color: "rgb(var(--ov2-notask-fg))" }}>{t("overviewV21.onlyOneOption")}</span>}
                     <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+                      {allowed && <button onClick={() => setManualGroup(grp)} style={{ fontSize: 11, border: "1px solid rgb(var(--border-default))", background: "transparent", color: "rgb(var(--text-secondary))", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>{t("overviewV21.assignManually")}</button>}
                       <button onClick={() => onFindSubstitute({ locationCode: grp.locationCode, date: grp.days[0].date, displayName: grp.displayName })} style={{ fontSize: 11, border: "1px solid rgb(var(--border-default))", background: "transparent", color: "rgb(var(--text-secondary))", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>{t("overviewV21.findSubstitute")}</button>
                       <button onClick={() => setOpenGroup(open ? null : key)} style={{ fontSize: 11, border: "1px solid rgb(var(--border-default))", background: "transparent", color: "rgb(var(--text-secondary))", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>{open ? t("overviewV21.hideDays") : t("overviewV21.showDays", { count: grp.dayCount })}</button>
                     </div>
@@ -203,6 +279,10 @@ export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstit
                     </div>
                   )}
 
+                  {grp.candidates.length < needed + 1 && (
+                    <OtherOptions group={grp} onFindSubstitute={onFindSubstitute} onAssigned={refetchGaps} />
+                  )}
+
                   {open && (
                     <div style={{ borderTop: "1px solid rgb(var(--border-subtle))", paddingTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
                       {grp.days.map(d => (
@@ -250,6 +330,10 @@ export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstit
         <div style={{ padding: "8px 12px", borderRadius: 8, fontSize: 13, background: "rgb(var(--st-info-bg))", color: "rgb(var(--st-info-fg))" }}>
           {Object.keys(result.failed).length === 0 ? t("overviewV2.assignOk", { count: result.ok.length }) : t("overviewV2.assignPartial", { ok: result.ok.length, failed: Object.keys(result.failed).length }) + " " + Object.entries(result.failed).map(([d, e]) => `${d}: ${e}`).join("; ")}
         </div>
+      )}
+
+      {manualGroup && (
+        <AssignManuallyModal group={manualGroup} onClose={() => setManualGroup(null)} onAssigned={refetchGaps} />
       )}
     </div>
   )
