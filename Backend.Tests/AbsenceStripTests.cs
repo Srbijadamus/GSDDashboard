@@ -1,12 +1,18 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Modules.Auth;
 using GSDDashboard.API.Modules.Vacations;
 using GSDDashboard.API.Services;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,13 +32,28 @@ public class AbsenceStripTests
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Testing" });
         builder.Configuration.Sources.Clear();
         builder.Logging.ClearProviders();
+        builder.Services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
+        builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie();
+        builder.Services.AddAuthorization();
         builder.Services.AddDbContext<GSDContext>(o => o.UseInMemoryDatabase(database));
         builder.Services.AddScoped<VacationService>();
         builder.Services.AddScoped<ShiftSyncService>();
 
         var app = builder.Build();
         app.Urls.Add("http://127.0.0.1:0");
+        app.UseAuthentication();
+        app.UseAuthorization();
         app.MapVacationEndpoints();
+        // Synthetic sign-in helper (the endpoint's own gate is under test, not the real login).
+        app.MapPost("/test/sign-in", async (string? role, string? kid, HttpContext ctx) =>
+        {
+            var claims = new List<Claim> { new(AuthClaims.Name, "absence-test") };
+            if (!string.IsNullOrEmpty(role)) claims.Add(new Claim(AuthClaims.Role, role));
+            if (!string.IsNullOrEmpty(kid)) claims.Add(new Claim(AuthClaims.Kid, kid));
+            await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme)));
+            return Results.Ok();
+        });
 
         await app.StartAsync();
         return app;
@@ -45,6 +66,12 @@ public class AbsenceStripTests
         {
             BaseAddress = new Uri(address),
         };
+    }
+
+    private static async Task SignIn(HttpClient client, string role, string kid = "K1")
+    {
+        using var res = await client.PostAsync($"/test/sign-in?role={role}&kid={kid}", null);
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
     }
 
     [Fact]
@@ -70,6 +97,7 @@ public class AbsenceStripTests
             }
 
             using var client = ClientFor(app);
+            await SignIn(client, AppRoles.Dev);
             using var res = await client.GetAsync($"/api/vacations/absence-strip?from={iso}&to={iso}");
             Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             var days = await res.Content.ReadFromJsonAsync<List<AbsenceStripDayDto>>();
@@ -100,12 +128,53 @@ public class AbsenceStripTests
             }
 
             using var client = ClientFor(app);
+            await SignIn(client, AppRoles.Dev);
             using var res = await client.GetAsync($"/api/vacations/absence-strip?from={iso}&to={iso}");
             Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             var days = await res.Content.ReadFromJsonAsync<List<AbsenceStripDayDto>>();
             var day = Assert.Single(days!);
             Assert.Empty(day.Urlaub);
             Assert.Empty(day.Krank);
+        }
+        finally { await app.StopAsync(); }
+    }
+
+    [Fact]
+    public async Task Strip_Anonymous401_Agent403()
+    {
+        await using var app = await BuildAppAsync(Guid.NewGuid().ToString());
+        try
+        {
+            var iso = DateTime.Today.ToString("yyyy-MM-dd");
+
+            using (var anon = ClientFor(app))
+            using (var anonRes = await anon.GetAsync($"/api/vacations/absence-strip?from={iso}&to={iso}"))
+                Assert.Equal(HttpStatusCode.Unauthorized, anonRes.StatusCode);
+
+            using (var agent = ClientFor(app))
+            {
+                await SignIn(agent, AppRoles.Agent);
+                using var agentRes = await agent.GetAsync($"/api/vacations/absence-strip?from={iso}&to={iso}");
+                Assert.Equal(HttpStatusCode.Forbidden, agentRes.StatusCode);
+            }
+        }
+        finally { await app.StopAsync(); }
+    }
+
+    [Theory]
+    [InlineData(AppRoles.Dev)]
+    [InlineData(AppRoles.Rtm)]
+    [InlineData(AppRoles.TeamLead)]
+    public async Task Strip_PrivilegedRole_200(string role)
+    {
+        await using var app = await BuildAppAsync(Guid.NewGuid().ToString());
+        try
+        {
+            var iso = DateTime.Today.ToString("yyyy-MM-dd");
+            using var client = ClientFor(app);
+            await SignIn(client, role);
+            using var res = await client.GetAsync($"/api/vacations/absence-strip?from={iso}&to={iso}");
+            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         }
         finally { await app.StopAsync(); }
     }

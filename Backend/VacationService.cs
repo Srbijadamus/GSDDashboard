@@ -3,6 +3,7 @@ using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using ALBalanceModel = GSDDashboard.API.Data.Models.ALBalance;
 using Microsoft.EntityFrameworkCore;
+using GSDDashboard.API.Modules.Auth;
 using GSDDashboard.API.Services;
 
 namespace GSDDashboard.API.Modules.Vacations;
@@ -311,6 +312,27 @@ public class VacationService
 
 public static class VacationEndpointMapper
 {
+    /// <summary>
+    /// B4 (Features:AbsenceStrip): the strip returns employee ids, so the endpoint must
+    /// itself require a session and a privileged role EVEN while Auth:EnforceAuthorization
+    /// is false (that flag is a rollout gate for the shared RbacMiddleware, not a reason
+    /// for a new id-returning surface to be anonymous). Mirrors ShiftService.CheckManualAccess:
+    /// anonymous → 401, DEV/RTM/TEAM_LEAD → allow, AGENT (or any other role) → 403.
+    /// </summary>
+    private static IResult? CheckAbsenceStripAccess(HttpContext ctx)
+    {
+        if (ctx.User.Identity?.IsAuthenticated != true)
+            return Results.Json(new { error = "Authentication required" }, statusCode: 401);
+        var role = ctx.User.FindFirst(AuthClaims.Role)?.Value;
+        var actor = ctx.User.FindFirst(AuthClaims.Kid)?.Value;
+        if (role is AppRoles.Dev or AppRoles.Rtm or AppRoles.TeamLead &&
+            !string.IsNullOrWhiteSpace(actor) && actor.Length <= 100)
+            return null;
+        ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("RBAC")
+            .LogInformation("Absence strip forbidden: role={Role}", role);
+        return Results.Json(new { error = "Forbidden" }, statusCode: 403);
+    }
+
     public static void MapVacationEndpoints(this WebApplication app)
     {
         var grp = app.MapGroup("/api/vacations").WithTags("Vacations");
@@ -335,8 +357,12 @@ public static class VacationEndpointMapper
             return Results.Ok(await svc.GetLeaveAvailabilityAsync(f, t, maxLeave ?? 8));
         });
 
-        grp.MapGet("/absence-strip", async (string? from, string? to, VacationService svc) =>
-            Results.Ok(await svc.GetAbsenceStripAsync(from, to)));
+        grp.MapGet("/absence-strip", async (string? from, string? to, VacationService svc, HttpContext ctx) =>
+        {
+            var denied = CheckAbsenceStripAccess(ctx);
+            if (denied != null) return denied;
+            return Results.Ok(await svc.GetAbsenceStripAsync(from, to));
+        });
 
         grp.MapPost("/", async (CreateVacationDto dto, VacationService svc) =>
         {

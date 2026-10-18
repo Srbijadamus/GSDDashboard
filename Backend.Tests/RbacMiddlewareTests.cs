@@ -119,6 +119,24 @@ public class RbacMiddlewareTests
     }
 
     [Fact]
+    public async Task EnforceTrue_AgentIcsExactMatchOnly_NotOtherMyPaths()
+    {
+        await using var app = await BuildApp(enforce: true);
+
+        var (_, agent) = await SignIn(AppRoles.Agent, employeeId: "E1", kid: "K1");
+        using (agent)
+        {
+            // The exact own-calendar address is on the AGENT allow-list.
+            using var ics = await agent.GetAsync("/api/my/shifts.ics");
+            Assert.Equal(HttpStatusCode.OK, ics.StatusCode);
+
+            // A different /api/my/* address is NOT — a prefix allow would leak it, so 403.
+            using var other = await agent.GetAsync("/api/my/other");
+            Assert.Equal(HttpStatusCode.Forbidden, other.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task EnforceTrue_UnknownRoleDenied()
     {
         await using var app = await BuildApp(enforce: true);
@@ -173,6 +191,10 @@ public class RbacMiddlewareTests
         app.MapGet("/api/admin/test", () => Results.Ok()).WithTags("Admin");
         app.MapPost("/api/some-write", () => Results.Ok()).WithTags("Test");
         app.MapGet("/health", () => Results.Ok()).WithTags("Health");
+
+        // B7 own-calendar address and a sibling /api/my/* probe (exact-match check).
+        app.MapGet("/api/my/shifts.ics", () => Results.Ok()).WithTags("My");
+        app.MapGet("/api/my/other", () => Results.Ok()).WithTags("My");
 
         // Isolated sign-in helper (issues synthetic identities; never a real login).
         app.MapPost("/test/sign-in", async (string? role, string? employeeId, string? kid, HttpContext ctx) =>
