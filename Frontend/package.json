@@ -16,7 +16,8 @@
     "test:roster-errors": "tsc --ignoreConfig src/utils/rosterErrors.ts src/utils/rosterErrors.test.ts --outDir .roster-errors-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .roster-errors-test-out/rosterErrors.test.js",
     "test:wic-open-hours": "tsc --ignoreConfig src/utils/wicOpenHours.ts src/utils/wicOpenHours.test.ts --outDir .wic-open-hours-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .wic-open-hours-test-out/wicOpenHours.test.js",
     "test:wic-coverage-state": "tsc --ignoreConfig src/utils/wicCoverageState.ts src/utils/wicCoverageState.test.ts --outDir .wic-coverage-state-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .wic-coverage-state-test-out/wicCoverageState.test.js",
-    "test:wic-horizon": "tsc --ignoreConfig src/utils/wicHorizon.ts src/utils/wicHorizon.test.ts --outDir .wic-horizon-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .wic-horizon-test-out/wicHorizon.test.js"
+    "test:wic-horizon": "tsc --ignoreConfig src/utils/wicHorizon.ts src/utils/wicHorizon.test.ts --outDir .wic-horizon-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .wic-horizon-test-out/wicHorizon.test.js",
+    "test:group-gaps": "tsc --ignoreConfig src/utils/groupGaps.ts src/utils/groupGaps.test.ts --outDir .group-gaps-test-out --module nodenext --moduleResolution nodenext --target es2022 --strict --skipLibCheck --types node && node .group-gaps-test-out/groupGaps.test.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.14",
@@ -45,6 +46,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "playwright": "^1.64.1",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.2",
