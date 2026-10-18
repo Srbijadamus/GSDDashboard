@@ -934,7 +934,12 @@
     "findSubstitute": "Find substitute",
     "noOneAvailable": "No one available",
     "needsMore": "needs {{count}} more",
-    "availableXOfN": "{{x}} of {{n}} days"
+    "availableXOfN": "{{x}} of {{n}} days",
+    "weeks": "KW {{weeks}}",
+    "assignThisWeek": "Assign this week",
+    "assignAllWeeks": "Assign all weeks ({{count}} days)",
+    "weekCount": "{{count}} weeks",
+    "weekWarning": "The candidate has another task on these days."
   },
   "whatsNew": {
     "title": "What's new",

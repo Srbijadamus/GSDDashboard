@@ -205,6 +205,23 @@ export function sourceOf(f: GapAgent): string {
   return "rostered, no task"
 }
 
+/** ISO 8601 week number (Mon–Sun weeks). */
+export function isoWeek(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const dayNum = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+}
+
+/** One calendar-week sub-group of a (long) gap group. */
+export interface GapWeekV21 {
+  week: number   // ISO week number (for the "KW 45" label)
+  from: string
+  to: string
+  days: GapDayV21[]
+}
+
 export interface GapGroupV21 {
   locationCode: string
   displayName: string
@@ -219,6 +236,7 @@ export interface GapGroupV21 {
   agents: GapAgentV21[]
   candidateId: string | null   // first candidate (the grouping key)
   candidates: CandidateV21[]   // ALL available candidates, in API order
+  weeks: GapWeekV21[]          // days split into calendar weeks (Mon–Sun)
 }
 
 /** v2.1 grouping key: location + status + first suggested candidate (or none).
@@ -297,6 +315,19 @@ export function groupGapsV21(gaps: CoverageGap[]): GapGroupV21[] {
       candidateAvailable: firstFloater ? g.availableFloaters.some(f => (f.employeeId ?? f.fullName) === candidateId) : false,
     }))
 
+    // Cut into calendar weeks (Mon–Sun) — a group spans at most one week per sub-group.
+    const weeks: GapWeekV21[] = []
+    for (const d of days) {
+      const wk = isoWeek(new Date(d.date))
+      const last = weeks[weeks.length - 1]
+      if (last && last.week === wk) {
+        last.days.push(d)
+        last.to = d.date
+      } else {
+        weeks.push({ week: wk, from: d.date, to: d.date, days: [d] })
+      }
+    }
+
     return {
       locationCode: first.locationCode,
       displayName: first.displayName,
@@ -311,6 +342,7 @@ export function groupGapsV21(gaps: CoverageGap[]): GapGroupV21[] {
       agents,
       candidateId,
       candidates,
+      weeks,
     }
   })
 }

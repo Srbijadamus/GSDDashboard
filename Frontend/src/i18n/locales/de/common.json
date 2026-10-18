@@ -934,7 +934,12 @@
     "findSubstitute": "Vertretung suchen",
     "noOneAvailable": "Niemand verfügbar",
     "needsMore": "noch {{count}} benötigt",
-    "availableXOfN": "{{x}} von {{n}} Tagen"
+    "availableXOfN": "{{x}} von {{n}} Tagen",
+    "weeks": "KW {{weeks}}",
+    "assignThisWeek": "Diese Woche zuweisen",
+    "assignAllWeeks": "Alle Wochen zuweisen ({{count}} Tage)",
+    "weekCount": "{{count}} Wochen",
+    "weekWarning": "Der Kandidat hat an diesen Tagen eine andere Aufgabe."
   },
   "whatsNew": {
     "title": "Was ist neu",

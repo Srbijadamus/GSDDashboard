@@ -218,4 +218,17 @@ const candidate = (id: string) => ({ employeeId: id, fullName: "Candidate " + id
   assert.equal(g[0].candidates[2].source, "rostered, no task")
 }
 
+// (j) a group spanning two calendar weeks -> two week sub-groups (KW 45 + KW 46)
+{
+  const c = candidate("C1")
+  const g = groupGapsV21([
+    gap({ date: "2026-11-06", locationCode: "A", availableFloaters: [c] }), // Fri KW 45
+    gap({ date: "2026-11-09", locationCode: "A", availableFloaters: [c] }), // Mon KW 46
+  ])
+  assert.equal(g.length, 1)          // same candidate -> one group
+  assert.equal(g[0].weeks.length, 2) // cut into two weeks
+  assert.equal(g[0].weeks[0].days.length, 1)
+  assert.equal(g[0].weeks[1].days.length, 1)
+}
+
 console.log("groupGapsV21: all tests passed")
