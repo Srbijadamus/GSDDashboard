@@ -973,8 +973,18 @@
     }
   },
   "whatsNew": {
-    "title": "Was ist neu",
-    "body": "Abdeckungslücken sind jetzt nach Entscheidung gruppiert — prüfen Sie einen ganzen Zeitraum auf einmal und weisen Sie einen verfügbaren Mitarbeiter mit einem Klick mehreren Tagen zu. Gruppen brechen nur bei Status- oder Kandidatenwechsel, so bleibt eine ganze Woche eine Entscheidung.",
+    "title": "Neu in WorkForce Pulse",
+    "body": [
+      "Übersicht: Lücken sind zu Entscheidungen gruppiert (gleicher Standort, gleiche Situation, pro Kalenderwoche). Alle passenden Kandidaten werden angezeigt, inklusive „noch X nötig“.",
+      "„Weitere Optionen“: Gibt es zu wenige Kandidaten, zeigt Pulse automatisch die nächsten 5 Vertretungen.",
+      "„Nur 1 Option“ markiert riskante Lücken.",
+      "Tagesleiste: Rot = unbesetzt, Orange = teilweise besetzt. Ein Klick auf einen Tag filtert die Liste.",
+      "„Manuell zuweisen“: Suche nach Name oder Personalnummer, mit Status pro Tag. Urlaub, Schulung oder anderer WIC nur mit „Trotzdem zuweisen“. Krankheit kann nie überschrieben werden.",
+      "Schichtplan: Abwesenheitsleiste (Urlaub/krank pro Tag). Klick filtert den Plan.",
+      "Meine Ansicht: „Kalender exportieren“ – eigene Schichten der nächsten 60 Tage als Datei für Outlook.",
+      "Mindestbesetzung Essen-BP1 (3) und Essenbach (2) ist jetzt überall einheitlich.",
+      "Feedback bitte direkt an mich."
+    ],
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   },

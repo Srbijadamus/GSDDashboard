@@ -973,8 +973,18 @@
     }
   },
   "whatsNew": {
-    "title": "What's new",
-    "body": "Coverage gaps are now grouped by decision — review a whole period at once and assign an available agent to several days in one click. Groups only break when the status or the suggested agent changes, so a full week stays one decision.",
+    "title": "New in WorkForce Pulse",
+    "body": [
+      "Overview: gaps are grouped into decisions (same location, same situation, per calendar week). All matching candidates are shown, including \"needs X more\".",
+      "\"Other options\": when there are too few candidates, Pulse automatically shows the next 5 substitutes.",
+      "\"Only 1 option\" flags risky gaps.",
+      "Day strip: red = uncovered, orange = partial. Click a day to filter the list.",
+      "\"Assign manually\": search by name or personnel number, with status per day. Annual leave, training or another WIC only with \"Assign anyway\". Sick leave can never be overwritten.",
+      "Shift plan: absence strip (vacation/sick per day). Click to filter the plan.",
+      "My view: \"Export calendar\" – your own shifts for the next 60 days as a file for Outlook.",
+      "Minimum staffing for Essen-BP1 (3) and Essenbach (2) is now consistent everywhere.",
+      "Please send feedback directly to me."
+    ],
     "menu": "What's new",
     "dismiss": "Got it"
   },
