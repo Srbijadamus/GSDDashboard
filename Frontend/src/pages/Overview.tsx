@@ -22,6 +22,8 @@ import { Panel } from "../components/Panel"
 import { DayStrip } from "./overview/DayStrip"
 import { ExceptionList } from "./overview/ExceptionList"
 import NewShiftModal from "./WICShifts/NewShiftModal"
+import { useFeatures } from "../utils/useFeatures"
+import { OverviewV2 } from "./overview/OverviewV2"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1215,6 +1217,8 @@ export default function Overview() {
     setSheetOpen(true)
   }
 
+  const { overviewV2 } = useFeatures()
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -1238,7 +1242,11 @@ export default function Overview() {
       {/* ── AL Tracker vs Shift Plan conflict warning (RTM / TEAM_LEAD / DEV only) ── */}
       <AlTrackerConflictBanner />
 
-      {/* ── WIC coverage-gaps warning + Coverage Risk (RTM / TEAM_LEAD / DEV only) ── */}
+      {/* ── WIC coverage-gaps — V2 (grouped) or legacy (banner + Coverage Risk) ── */}
+      {overviewV2 ? (
+        <OverviewV2 gaps={coverageGaps} heatDates={heatDates} today={today} absentToday={absentToday} />
+      ) : (
+      <>
       <WicCoverageGapsBanner
         horizon={horizon}
         state={coverageState}
@@ -1359,6 +1367,8 @@ export default function Overview() {
           )
         })()}
       </Panel>
+      </>
+      )}
 
       {/* ── Recommendations ── */}
       {(briefing?.gaps?.length ?? 0) > 0 && (

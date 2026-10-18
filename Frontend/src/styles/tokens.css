@@ -192,3 +192,45 @@
   --nav-muted:    95 105 130;
   --nav-soft:    130 140 160;
 }
+
+/* ── OVERVIEW V2 — gap status + reason + suggestion/assign tokens ──────────── */
+/* light theme */
+:root {
+  --ov2-uncovered-bar: 159  31  18;  /* #9F1F12 */
+  --ov2-uncovered-bg:  253 236 234;  /* #FDECEA */
+  --ov2-uncovered-fg:  159  31  18;  /* #9F1F12 */
+  --ov2-partial-bar:   122  74   0;  /* #7A4A00 */
+  --ov2-partial-bg:    255 244 219;  /* #FFF4DB */
+  --ov2-partial-fg:    122  74   0;  /* #7A4A00 */
+
+  --ov2-annualleave-bg: 226 245 236; --ov2-annualleave-fg:  11  95  67;  /* #E2F5EC / #0B5F43 */
+  --ov2-bo-bg:          254 241 222; --ov2-bo-fg:          138  75   0;  /* #FEF1DE / #8A4B00 */
+  --ov2-otherwic-bg:    231 239 254; --ov2-otherwic-fg:     31  79 176;  /* #E7EFFE / #1F4FB0 */
+  --ov2-notrostered-bg: 255 244 219; --ov2-notrostered-fg: 122  74   0;  /* #FFF4DB / #7A4A00 */
+  --ov2-notask-bg:      238 240 236; --ov2-notask-fg:       59  65  75;  /* #EEF0EC / #3B414B */
+
+  --ov2-suggest-bg:     241 247 245;  /* #F1F7F5 */
+  --ov2-suggest-border: 200 218 211;
+  --ov2-assign-bg:       15 107  97;  /* #0F6B61 */
+  --ov2-assign-fg:      255 255 255;
+}
+
+.dark {
+  --ov2-uncovered-bar: 229  72  77;  /* #E5484D */
+  --ov2-uncovered-bg:   74  26  23;  /* #4A1A17 */
+  --ov2-uncovered-fg:  255 180 171;  /* #FFB4AB */
+  --ov2-partial-bar:   232 163  61;  /* #E8A33D */
+  --ov2-partial-bg:     58  42  14;  /* #3A2A0E */
+  --ov2-partial-fg:    245 196 107;  /* #F5C46B */
+
+  --ov2-annualleave-bg: 19  48  31; --ov2-annualleave-fg: 127 216 168;  /* #13301F / #7FD8A8 */
+  --ov2-bo-bg:          46  36  16; --ov2-bo-fg:         232 194 122;  /* #2E2410 / #E8C27A */
+  --ov2-otherwic-bg:    22  40  63; --ov2-otherwic-fg:    141 180 255;  /* #16283F / #8DB4FF */
+  --ov2-notrostered-bg: 58  42  14; --ov2-notrostered-fg: 245 196 107;  /* #3A2A0E / #F5C46B */
+  --ov2-notask-bg:      38  43  54; --ov2-notask-fg:      201 206 214;  /* #262B36 / #C9CED6 */
+
+  --ov2-suggest-bg:     18  38  29;  /* #12261D */
+  --ov2-suggest-border: 30  66  49;  /* #1E4231 */
+  --ov2-assign-bg:      61 214 140;  /* #3DD68C */
+  --ov2-assign-fg:       6  20  12;  /* #06140C */
+}

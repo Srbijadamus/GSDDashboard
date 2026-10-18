@@ -15,6 +15,10 @@ paths:
     get:
       tags: [Health]
       summary: Liveness probe
+  /api/features:
+    get:
+      tags: [Features]
+      summary: Feature flags (authorized)
   /api/auth/login:
     post:
       tags: [Auth]

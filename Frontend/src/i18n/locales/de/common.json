@@ -890,5 +890,41 @@
   "sickLeave": {
     "shiftPlanOnly": "Schichtplan",
     "shiftPlanOnlyHint": "Auf der Seite Schichten erfasst (SL-Zelle); dort ändern oder beenden."
+  },
+  "overviewV2": {
+    "problem": {
+      "title": "{{count}} Lücken brauchen eine Entscheidung",
+      "summary": "gruppiert in {{groups}} Entscheidungen · {{uncovered}} unbesetzt · {{partial}} teilbesetzt · {{absent}} heute abwesend",
+      "review": "Jetzt prüfen"
+    },
+    "days": "{{count}} Tage",
+    "empty": "Keine Abdeckungslücken in diesem Zeitraum.",
+    "emptyFiltered": "Keine Lücken am gewählten Tag.",
+    "suggested": "Vorschlag",
+    "availableAllDays": "an allen Tagen verfügbar",
+    "availableXDays": "an {{count}} dieser Tage verfügbar",
+    "pickDays": "Tage wählen",
+    "assignAll": "Alle {{count}} Tage zuweisen",
+    "assignX": "{{count}} Tage zuweisen",
+    "cancel": "Abbrechen",
+    "confirm": {
+      "title": "{{name}} an diesen Tagen zuweisen?",
+      "confirm": "Zuweisen"
+    },
+    "assignOk": "{{count}} Tag(e) zugewiesen.",
+    "assignPartial": "{{ok}} zugewiesen, {{failed}} fehlgeschlagen.",
+    "reason": {
+      "annual-leave": "Jahresurlaub",
+      "bo": "BO",
+      "other-wic": "anderes WIC",
+      "not-rostered": "nicht eingeteilt",
+      "no-task": "eingeteilt, keine Aufgabe",
+      "other": "sonstiges"
+    }
+  },
+  "whatsNew": {
+    "title": "Was ist neu",
+    "body": "Abdeckungslücken sind jetzt nach Entscheidung gruppiert: den ganzen Zeitraum auf einmal prüfen und einen verfügbaren Mitarbeiter mit einem Klick mehreren Tagen zuweisen.",
+    "dismiss": "Verstanden"
   }
 }

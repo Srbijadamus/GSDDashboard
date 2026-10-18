@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { CommandPalette } from '../components/CommandPalette'
 import { WicChatWidget } from '../components/WicChatWidget'
+import { WhatsNew } from '../components/WhatsNew'
 import { useSidebarCollapse } from './useSidebarCollapse'
 import { useAuth } from '../auth/AuthContext'
 
@@ -79,6 +80,7 @@ export function AppShell() {
       </div>
       {!isAgent && <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />}
       {!isAgent && <WicChatWidget />}
+      {!isAgent && <WhatsNew />}
     </div>
   )
 }

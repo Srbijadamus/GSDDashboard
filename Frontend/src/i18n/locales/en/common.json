@@ -890,5 +890,41 @@
   "sickLeave": {
     "shiftPlanOnly": "Shift plan",
     "shiftPlanOnlyHint": "Recorded on the Shifts page (SL cell); change or end it there."
+  },
+  "overviewV2": {
+    "problem": {
+      "title": "{{count}} gaps need a decision",
+      "summary": "grouped into {{groups}} decisions · {{uncovered}} uncovered · {{partial}} partial · {{absent}} absent today",
+      "review": "Review now"
+    },
+    "days": "{{count}} days",
+    "empty": "No coverage gaps in this window.",
+    "emptyFiltered": "No gaps on the selected day.",
+    "suggested": "Suggested",
+    "availableAllDays": "available every day",
+    "availableXDays": "available {{count}} of these days",
+    "pickDays": "Pick days",
+    "assignAll": "Assign all {{count}} days",
+    "assignX": "Assign {{count}} days",
+    "cancel": "Cancel",
+    "confirm": {
+      "title": "Assign {{name}} to these days?",
+      "confirm": "Assign"
+    },
+    "assignOk": "Assigned {{count}} day(s).",
+    "assignPartial": "{{ok}} assigned, {{failed}} failed.",
+    "reason": {
+      "annual-leave": "annual leave",
+      "bo": "BO",
+      "other-wic": "other WIC",
+      "not-rostered": "not rostered",
+      "no-task": "rostered, no task",
+      "other": "other"
+    }
+  },
+  "whatsNew": {
+    "title": "What's new",
+    "body": "Coverage gaps are now grouped by decision: review the whole period at once and assign an available agent to several days in one click.",
+    "dismiss": "Got it"
   }
 }
