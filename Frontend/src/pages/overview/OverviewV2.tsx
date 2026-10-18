@@ -83,7 +83,7 @@ export function OverviewV2({ gaps, heatDates, today, absentToday }: Props) {
     const failed: Record<string, string> = {}
     for (const d of dates) {
       try {
-        await postSubstituteAccept({ employeeId: s.employeeId, locationCode: group.locationCode, date: d, sourceType: "OVERVIEW_V2" })
+        await postSubstituteAccept({ employeeId: s.employeeId, locationCode: group.locationCode, date: d, sourceType: s.assignmentType })
         ok.push(d)
       } catch (e) {
         failed[d] = substituteAcceptErrorText(e, t)

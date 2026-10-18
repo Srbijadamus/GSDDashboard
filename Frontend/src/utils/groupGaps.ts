@@ -34,6 +34,8 @@ export type GapStatus = "UNCOVERED" | "PARTIAL"
 export interface FloaterSuggestion {
   employeeId: string
   fullName: string
+  /** Assignment type of the floater (e.g. REGIONAL) — used as the accept SourceType. */
+  assignmentType: string
   /** Dates within the group on which this floater is available. */
   availableDates: string[]
 }
@@ -128,11 +130,13 @@ export function groupGaps(gaps: CoverageGap[]): GapGroup[] {
     const byDate = new Map(sorted.filter(x => x.locationCode === grp.locationCode && grp.days.includes(x.date)).map(x => [x.date, x]))
     const availability = new Map<string, string[]>()
     const names = new Map<string, string>()
+    const types = new Map<string, string>()
     for (const date of grp.days) {
       const g = byDate.get(date)!
       for (const f of g.availableFloaters) {
         const id = f.employeeId ?? f.fullName
         names.set(id, f.fullName)
+        types.set(id, f.assignmentType || "REGIONAL")
         if (!availability.has(id)) availability.set(id, [])
         availability.get(id)!.push(date)
       }
@@ -142,6 +146,7 @@ export function groupGaps(gaps: CoverageGap[]): GapGroup[] {
       suggestions: [...availability.entries()].map(([id, dates]) => ({
         employeeId: id,
         fullName: names.get(id) ?? id,
+        assignmentType: types.get(id) ?? "REGIONAL",
         availableDates: dates,
       })),
     }
