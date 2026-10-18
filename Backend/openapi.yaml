@@ -565,6 +565,14 @@ paths:
     get:
       tags: [BulkRtm]
       summary: Home WIC
+  /api/rules/validate:
+    post:
+      tags: [Rules]
+      summary: Validate a shift against the rule catalog
+  /api/rules/week:
+    get:
+      tags: [Rules]
+      summary: Weekly rule warnings per person
   /api/bo-list:
     get:
       tags: [BoList]

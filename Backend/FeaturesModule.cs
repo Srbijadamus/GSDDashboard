@@ -13,6 +13,8 @@ public sealed class FeaturesOptions
     public bool OverviewV2 { get; set; }
     public bool OverviewGroupingV21 { get; set; }
     public bool WhatsNew { get; set; }
+    public bool RulesEngine { get; set; }
+    public bool RuleWarnings { get; set; }
 }
 
 public static class FeaturesEndpointMapper
@@ -26,7 +28,7 @@ public static class FeaturesEndpointMapper
             if (ctx.User.Identity?.IsAuthenticated != true)
                 return Results.Json(new { error = "Authentication required" }, statusCode: StatusCodes.Status401Unauthorized);
             var f = monitor.CurrentValue;
-            return Results.Ok(new { overviewV2 = f.OverviewV2, overviewGroupingV21 = f.OverviewGroupingV21, whatsNew = f.WhatsNew });
+            return Results.Ok(new { overviewV2 = f.OverviewV2, overviewGroupingV21 = f.OverviewGroupingV21, whatsNew = f.WhatsNew, rulesEngine = f.RulesEngine, ruleWarnings = f.RuleWarnings });
         }).WithTags("Features");
     }
 }
