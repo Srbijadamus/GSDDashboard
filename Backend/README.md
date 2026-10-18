@@ -9,10 +9,10 @@ Internal workforce management dashboard for the GSD DE and WIC teams (~122 emplo
 | Backend | ASP.NET Core 8 Minimal API |
 | ORM | Entity Framework Core 8 |
 | Database | SQL Server Express 2022 (local) |
-| Excel export | ClosedXML 0.105.0 (MIT) |
+| Excel export | ClosedXML 0.102.2 (MIT) |
 | Frontend | React 19 + Vite + TypeScript |
-| UI | shadcn/ui + Tailwind CSS |
-| Charts | Recharts 2.x (MIT) |
+| UI | Tailwind CSS (custom components) |
+| Charts | Recharts 3.x (MIT) |
 | Data fetching | TanStack Query v5 |
 | Tables | TanStack Table v8 |
 
@@ -34,7 +34,7 @@ Internal workforce management dashboard for the GSD DE and WIC teams (~122 emplo
 Open SQL Server Management Studio (SSMS) or Azure Data Studio and run:
 
 ```
-backend/GSDDashboard.API/Data/schema.sql
+Backend/schema.sql
 ```
 
 This script:
@@ -42,7 +42,7 @@ This script:
 - Creates 8 core tables (Employees, ShiftEntries, WicShiftEntries, WicLocations, DailyAttendance, SickLeaves, Vacations, ALBalance)
 - Seeds all 40 WIC locations (38 DE + 2 NL)
 
-The application creates 3 additional tables at startup: `BreakSlots`, `VwicRotationSlots`, `AgentReachableCities`.  
+The application creates additional tables at startup (idempotent): `BreakSlots`, `VwicRotationSlots`, `AgentReachableCities`, `BoEntries`, `RtmEntries`, `RosterBatches`, `WicRolloutDays`, `WicRolloutWorkers`, `AppUserRoles`.  
 The remaining entity tables (WicAgentAssignments, WicOpeningHours, WicPipeline, PublicHolidays, TrainingTopics, TrainingSchedule, LeaveQuotas, SubstitutionHistory) must exist in the live DB — create them via separate SQL scripts before first use.
 
 Verify: `SELECT COUNT(*) FROM WicLocations` should return **40**.
@@ -52,7 +52,7 @@ Verify: `SELECT COUNT(*) FROM WicLocations` should return **40**.
 ## Step 2 — Backend setup
 
 ```bash
-cd backend/GSDDashboard.API
+cd Backend
 dotnet restore
 dotnet run
 ```
@@ -72,7 +72,7 @@ Located in `appsettings.json`:
 ## Step 3 — Frontend setup
 
 ```bash
-cd frontend/gsd-dashboard
+cd Frontend
 npm install
 npm run dev
 ```
@@ -85,7 +85,13 @@ The Vite dev server proxies all `/api` requests to `http://localhost:5000`.
 
 ## API Endpoints
 
-Full documentation at `/swagger`. Endpoints support GET, POST, PATCH, and DELETE operations.
+The authoritative list is `/swagger` (DEV role only). The summary below covers the
+main groups; these modules are also live but not listed above — Roster
+(`/api/roster`), Rollout (`/api/rollout`), Bulk RTM (`/api/rtm`), BO List
+(`/api/bo-list`), WIC assign-candidates (`/api/wic/assign-candidates`), WIC
+Assistant (`/api/wic-assistant/ask`), Assistant (`/api/assistant/ask|score`),
+Admin (`/api/admin/*`), HR Export (`/api/hr-export`) and the kiosk proxy
+(`/api/kiosk/*`).
 
 ### Dashboard
 ```
@@ -102,7 +108,7 @@ GET    /api/shifts/download?from=&to=       → .xlsx
 POST   /api/shifts                          create shift entry
 PATCH  /api/shifts/{id}                     update shift entry
 DELETE /api/shifts/{id}                     delete shift entry
-GET    /api/shifts/reorder                  shift reorder helpers
+PATCH  /api/shiftplan/reorder               reorder shift plan rows
 ```
 
 ### WIC Shifts
@@ -131,8 +137,15 @@ POST   /api/wic-coverage/wics/{locationCode}/backup-b
 
 ### V-WIC
 ```
-GET  /api/vwic?date=
-GET  /api/vwic/rotation?from=&to=
+GET  /api/vwic/daily
+POST /api/vwic/assign
+GET  /api/vwic/candidates
+PUT  /api/vwic/agents/add
+PUT  /api/vwic/agents/remove
+POST /api/vwic/rotation-plan
+POST /api/vwic/rotation-plan/save
+POST /api/vwic/rotation-plan-week
+POST /api/vwic/rotation-plan-week/export
 ```
 
 ### Sick Leave
@@ -187,8 +200,7 @@ GET /api/alcalendar?from=&to=&teamLead=
 
 ### AL Planning
 ```
-GET  /api/alplanning?year=&teamLead=
-POST /api/alplanning
+POST /api/wic/al-planning
 ```
 
 ### Attendance
@@ -198,8 +210,8 @@ GET /api/attendance?from=&to=&country=&location=
 
 ### Overview
 ```
-GET /api/overview?date=&teamLead=
-GET /api/overview/{employeeId}?date=
+GET /api/overview/detail?date=&teamLead=
+GET /api/overview/wic-status?date=
 ```
 
 ### Breaks
@@ -227,10 +239,13 @@ DELETE /api/pipeline/{id}
 
 ### WIC Schedule (opening hours)
 ```
-GET    /api/wic-schedule?locationCode=
-POST   /api/wic-schedule
-PATCH  /api/wic-schedule/{id}
-DELETE /api/wic-schedule/{id}
+GET    /api/wicschedule/agents
+GET    /api/wicschedule/opening-hours
+PATCH  /api/wicschedule/opening-hours/{locationCode}/{dow}/min-required
+POST   /api/wicschedule/opening-hours/{locationCode}/version
+GET    /api/wicschedule/closed-day-duties
+POST   /api/wicschedule/opening-hours/{locationCode}/cleanup-closed-days
+GET    /api/wicschedule/export/agents/csv
 ```
 
 ### Training
@@ -245,23 +260,24 @@ DELETE /api/training/sessions/{id}
 
 ### Substitution
 ```
-GET  /api/substitution?locationCode=&date=
-POST /api/substitution
+GET  /api/wic/substitutes
+POST /api/wic/substitutes/accept
 ```
 
 ### Backup
 ```
-GET /api/backup?date=&locationCode=
+GET /api/wic/backup
 ```
 
 ### Reachability
 ```
-GET /api/reachability?city=
+GET /api/wic/reachability
+GET /api/wic/reachability/sanity
 ```
 
 ### What-If
 ```
-GET /api/whatif?date=&locationCode=&employeeId=
+GET /api/wic/whatif
 ```
 
 ### Health

@@ -10,7 +10,7 @@ Full rules and definition of done: **[DEPLOYMENT_AND_VERIFICATION.md](DEPLOYMENT
 
 Use the existing build/deploy script — do not invent a new pipeline:
 ```
-C:\GSDDashboard\PS1_19_FinalBuildVerify.ps1
+C:\GSDDashboard_secure\PS1_19_FinalBuildVerify.ps1
 ```
 
 

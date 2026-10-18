@@ -40,7 +40,7 @@ Tunnels expire every 4 days and auto-restart via Task Scheduler.
 
 | Requirement | Version | Notes |
 |-------------|---------|-------|
-| .NET SDK | 8.0+ | Backend runtime |
+| .NET SDK | 10.0.204 (also 8.0.425) | Backend runtime; the live DLL is built with 10.0.204 |
 | Node.js | 20+ | Frontend build |
 | SQL Server Express | 2022 | Must run at `localhost\SQLEXPRESS` |
 | Windows Authentication | — | Required for SQL Server connection |
@@ -51,7 +51,7 @@ Tunnels expire every 4 days and auto-restart via Task Scheduler.
 ## Deploy (Build + Verify)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File C:\GSDDashboard\PS1_19_FinalBuildVerify.ps1
+powershell -ExecutionPolicy Bypass -File C:\GSDDashboard_secure\PS1_19_FinalBuildVerify.ps1
 ```
 
 This script first creates the **watchdog deploy sentinel** (`C:\HealthCheck\DEPLOY_IN_PROGRESS`) so the watchdog cannot relaunch the old exe mid-build, then builds the React frontend, copies the output to `Backend/wwwroot/`, builds the backend, starts the server, and runs smoke tests on all key endpoints. A `finally` block always removes the sentinel when the script ends.
@@ -74,7 +74,7 @@ Skip step 1 and the watchdog (`C:\HealthCheck\watchdog_gsd_backend.ps1`) will re
 ### Backend
 
 ```powershell
-cd C:\GSDDashboard\Backend
+cd C:\GSDDashboard_secure\Backend
 dotnet run --configuration Release
 ```
 
@@ -83,7 +83,7 @@ API available at http://localhost:5000. Swagger at http://localhost:5000/swagger
 ### Frontend (dev mode only)
 
 ```powershell
-cd C:\GSDDashboard\Frontend
+cd C:\GSDDashboard_secure\Frontend
 npm install
 npm run dev
 ```
@@ -116,20 +116,24 @@ FastAPI kiosk server at http://localhost:8000.
 }
 ```
 
-### Frontend (`Frontend/.env`)
+### Frontend (`Frontend/.env`, gitignored)
 
 ```env
-VITE_API_BASE_URL=https://8nh5k5g1-5000.euw.devtunnels.ms
+VITE_KIOSK_API_URL=...   # kiosk server URL
+VITE_CARTO_KEY=...       # map tile key
 ```
 
-Set this to the current tunnel URL when accessing via tunnel. Omit for local development (defaults to `http://localhost:5000`).
+`src/api/client.ts` also reads an optional `VITE_API_BASE_URL` to override the
+API origin; omit it for local development (defaults to the same origin, which the
+Vite dev server proxies to `http://localhost:5000`). `Frontend/.env.example`
+lists the expected keys (names only, values empty).
 
 ---
 
 ## Project Structure
 
 ```
-C:\GSDDashboard\
+C:\GSDDashboard_secure\
 ├── Backend/
 │   ├── Program.cs              # Entry point + all API route registrations (Minimal API)
 │   ├── GSDContext.cs           # EF Core DbContext

@@ -84,7 +84,7 @@ Only report success when this output confirms the new content.
 The canonical build+deploy script is:
 
 ```
-C:\GSDDashboard\PS1_19_FinalBuildVerify.ps1
+C:\GSDDashboard_secure\PS1_19_FinalBuildVerify.ps1
 ```
 
 Do not invent a new deploy process. This script: **creates the watchdog
@@ -97,7 +97,7 @@ the single supervisor that brings the final exe up.
 For a quick frontend-only rebuild (no C# changes):
 
 ```powershell
-cd C:\GSDDashboard\Frontend
+cd C:\GSDDashboard_secure\Frontend
 npm run build
 # No restart needed — backend serves wwwroot live from disk
 ```
@@ -127,7 +127,7 @@ Backend changes (`.cs` files) require:
    ```
 2. Build the backend:
    ```
-   cd C:\GSDDashboard\Backend
+   cd C:\GSDDashboard_secure\Backend
    dotnet build --configuration Release
    ```
 3. Restart the scheduled task (watchdog auto-restarts the EXE):
@@ -138,7 +138,7 @@ Backend changes (`.cs` files) require:
 5. Verify the relevant API endpoint returns the expected response.
 
 The watchdog script (`C:\HealthCheck\watchdog_gsd_backend.ps1`) runs the EXE
-with working directory `C:\GSDDashboard\Backend`, so `Backend/wwwroot` is always
+with working directory `C:\GSDDashboard_secure\Backend`, so `Backend/wwwroot` is always
 the correct static-files root.
 
 ---
