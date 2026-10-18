@@ -43,3 +43,4 @@ task-backups/
 Tools/**/bin/
 Tools/**/obj/
 .env
+appsettings.Local.json

@@ -84,3 +84,50 @@ section (`PulseRuntimeConfiguration.Load` throws).
 - Anonymous-read closure on the kiosk side (dan2/dan3 flags such as
   `anon_identifiers`, `session_auth`, `supervisor_auth`) is a separate ShiftKiosk
   change, tracked in `KIOSK_HARDENING_DEPLOY_NOTE.md` and the kiosk rollout doc.
+
+## General RBAC — current state and enabling plan
+
+**Current state:** `RbacMiddleware` (`Backend/RbacMiddleware.cs`) is a default-deny
+gate for `/api/*`, controlled by `Auth:EnforceAuthorization` in
+`Backend/appsettings.json`, which is **`false`** (rollout phase). While `false`
+the middleware is a no-op: login works but nothing is blocked. The only always-on
+authorization today is the kiosk proxy role gate above.
+
+**Rules once `Auth:EnforceAuthorization=true`:**
+
+| Caller | Result |
+|---|---|
+| non-`/api` paths (`/health`, static files, SPA) | untouched |
+| `/api/auth/login`, `/api/debug/client-error` | anonymous allow-list (both rate-limited) |
+| unauthenticated `/api/*` | **401** |
+| DEV | unrestricted, bypasses everything |
+| `/api/admin/*` | DEV only, **403** otherwise |
+| TEAM_LEAD / RTM | unrestricted read/write on functional endpoints |
+| AGENT | GET allow-list scoped to their own `EmployeeId` (own record, own timeline, own AL balance, own-filtered lists, own WIC coverage); every write → **403** |
+
+**Tests:** `Backend.Tests/RbacMiddlewareTests.cs` asserts anonymous 401, the
+allow-list, DEV/`/api/admin` rules, TEAM_LEAD/RTM, AGENT own-data-only / no-writes,
+unknown-role 403, and the no-op when the flag is `false` — in an isolated host with
+no database.
+
+**Plan to enable (do NOT flip in production config without this):**
+
+1. Prove a DEV login over **both** the https devtunnel URL and
+   `http://localhost:5000` (cookie `SecurePolicy=SameAsRequest` must work on both).
+2. Verify at least one ACTIVE DEV row with a non-empty `Kid` exists in the
+   production `AppUserRoles` table (the startup lockout guard already enforces
+   this).
+3. Flip `Auth:EnforceAuthorization` to `true`, restart, and smoke-test each role:
+   anonymous 401, DEV full access, RTM/TEAM_LEAD functional access, AGENT own-data
+   only, `/api/admin` 403 for non-DEV.
+4. Watch the `RBAC` logger for unexpected 403s before a full rollout.
+
+**Risks:**
+
+- **Lockout:** with zero active DEV rows the app refuses to start (hard guard).
+- **Agent breakage:** any endpoint an AGENT legitimately needs but that is not in
+  the `AgentAllowed` allow-list will 403 — review `AgentAllowed` before enabling.
+- **CORS/origin:** the SPA is served same-origin on port 5000, so enabling RBAC does
+  not depend on CORS, but cross-origin dev (localhost:5173) must keep the dev
+  origins in `appsettings.Development.json`.
+- **Kiosk proxy** is independent: it stays enforced regardless of this flag.

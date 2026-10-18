@@ -36,6 +36,11 @@ using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
+if (builder.Environment.IsDevelopment())
+{
+    // Non-committed local configuration (AppUserRoles:* seed). See .gitignore.
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+}
 var runtimeConfigPath = PulseRuntimeConfiguration.Load(builder.Configuration);
 Console.WriteLine($"Pulse runtime configuration loaded: {runtimeConfigPath}; service credential/device present; HTTP loopback upstream.");
 if (builder.Configuration.GetValue<bool>("Pulse:ConfigPreflight"))
@@ -161,10 +166,12 @@ builder.Services.AddSwaggerGen(c =>
     c.CustomSchemaIds(t => t.FullName);
 });
 
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+        policy.WithOrigins(allowedOrigins).AllowAnyMethod().AllowAnyHeader());
 });
 
 var app = builder.Build();
@@ -409,32 +416,41 @@ app.UseDefaultFiles();
 
     // Seed: DEV + RTMs (idempotent). These KIDs exist in NEITHER Employees.PrimaryKid
     // NOR Employees.SecondaryKid — AppUserRoles is their only login path (rule a).
-    db.Database.ExecuteSqlRaw("""
-        IF NOT EXISTS (SELECT 1 FROM AppUserRoles WHERE Kid = 'S69307')
-            INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
-            VALUES ('S69307', 'DEV', '9074466', 'Stojnic Nebojsa', 1);
-        IF NOT EXISTS (SELECT 1 FROM AppUserRoles WHERE Kid = 'S60028')
-            INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
-            VALUES ('S60028', 'RTM', NULL, 'Silvija Angelova', 1);
-        IF NOT EXISTS (SELECT 1 FROM AppUserRoles WHERE Kid = 'Y6525')
-            INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
-            VALUES ('Y6525', 'RTM', NULL, 'Yiting Qiang', 1);
-    """);
-
-    // TEAM_LEAD placeholders: Kid = '' AND IsActive = 0 → can NEVER authenticate.
-    // Fill Kid + IsActive = 1 once the real KIDs are provided (see documentation/auth_rbac.md).
-    var teamLeads = new[]
+    if (builder.Environment.IsDevelopment())
     {
-        "Tobias Rossberg", "Delia Panaitescu", "Oliver Schleusen",
-        "Karlo Coric", "Ion Ciuceanu", "Jaroslaw Brzeszkiewicz",
-    };
-    foreach (var name in teamLeads)
-        db.Database.ExecuteSqlRaw(
-            """
-            IF NOT EXISTS (SELECT 1 FROM AppUserRoles WHERE Role = 'TEAM_LEAD' AND DisplayName = {0})
-                INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
-                VALUES ('', 'TEAM_LEAD', NULL, {0}, 0);
-            """, name);
+        // Development seed: DEV + RTM + TEAM_LEAD placeholders. Values come from
+        // non-committed configuration (AppUserRoles:*) in appsettings.Local.json,
+        // so no login identifier or employee name is hard-coded in source.
+        // Production does NOT seed these rows; they are managed in the database.
+        var seedUsers = builder.Configuration.GetSection("AppUserRoles:SeedUsers").GetChildren()
+            .Select(x => new
+            {
+                Kid         = x["Kid"] ?? "",
+                Role        = x["Role"] ?? "",
+                EmployeeId  = x["EmployeeId"],
+                DisplayName = x["DisplayName"] ?? "",
+            })
+            .ToList();
+        foreach (var u in seedUsers)
+            db.Database.ExecuteSqlRaw(
+                """
+                IF NOT EXISTS (SELECT 1 FROM AppUserRoles WHERE Kid = {0})
+                    INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
+                    VALUES ({0}, {1}, {2}, {3}, 1);
+                """, u.Kid, u.Role, u.EmployeeId!, u.DisplayName);
+
+        // TEAM_LEAD placeholders: Kid = '' AND IsActive = 0 -> can NEVER authenticate.
+        // Fill Kid + IsActive = 1 once the real KIDs are provided (see documentation/auth_rbac.md).
+        var teamLeads = builder.Configuration.GetSection("AppUserRoles:TeamLeads").Get<string[]>()
+            ?? Array.Empty<string>();
+        foreach (var name in teamLeads)
+            db.Database.ExecuteSqlRaw(
+                """
+                IF NOT EXISTS (SELECT 1 FROM AppUserRoles WHERE Role = 'TEAM_LEAD' AND DisplayName = {0})
+                    INSERT INTO AppUserRoles (Kid, Role, EmployeeId, DisplayName, IsActive)
+                    VALUES ('', 'TEAM_LEAD', NULL, {0}, 0);
+                """, name);
+    }
 
     // Hard invariant: an AGENT session must always carry a real employeeId.
     var badAgents = db.Database
