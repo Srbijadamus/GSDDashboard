@@ -286,7 +286,7 @@ export default function BreakPlanner() {
   const startMut  = useMutation({ mutationFn: (id: number) => post(`/api/breaks/${id}/start`),  onSuccess: invalidate })
   const endMut    = useMutation({ mutationFn: (id: number) => post(`/api/breaks/${id}/end`),    onSuccess: invalidate })
   const cancelMut = useMutation({ mutationFn: (id: number) => post(`/api/breaks/${id}/cancel`), onSuccess: invalidate })
-  const manualMut = useMutation({ mutationFn: (body: any)  => post("/api/breaks/manual", body), onSuccess: () => { setShowManual(false); invalidate() } })
+  const manualMut = useMutation({ mutationFn: (body: unknown)  => post("/api/breaks/manual", body), onSuccess: () => { setShowManual(false); invalidate() } })
 
   const now = nowHHMM()
   const nowMin = timeToMin(now)

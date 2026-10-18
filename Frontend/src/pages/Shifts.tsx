@@ -4,7 +4,6 @@ import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { api, apiFetch } from "../api/client"
 import { DownloadButtons } from "../components/DownloadButtons"
-// @ts-ignore
 import CoverageBar from "./CoverageBar"
 import { MoreVertical, Pencil, Trash2, UserMinus, ChevronUp, ChevronDown, AlertTriangle } from "lucide-react"
 import { maxFutureDateStr } from "../constants"
@@ -413,8 +412,8 @@ function ShiftCell({ shift, onUpdate, onSwapDone }: {
       } as any)
       setSwapStep("idle"); setOpen(false)
       onSwapDone?.()
-    } catch (e: any) {
-      alert(e?.message ?? "Swap failed")
+    } catch (e: unknown) {
+      alert((e as Error)?.message ?? "Swap failed")
     } finally { setSwapping(false) }
   }
 

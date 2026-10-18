@@ -92,7 +92,7 @@ function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved:
     try {
       await api.sickLeave.create({ employeeId, startDate, endDate, type, notes })
       onSaved(); onClose()
-    } catch (err: any) { setError(err?.message || "Fehler beim Speichern") }
+    } catch (err: unknown) { setError((err as Error)?.message || "Fehler beim Speichern") }
     finally { setSaving(false) }
   }
   const inpCls = "bg-sunken border border-line-subtle text-ink py-2 px-3 rounded-md text-[13px] outline-none w-full"
@@ -171,7 +171,7 @@ function EditSickLeaveModal({ id, entry, onClose, onSaved }: { id: number; entry
     try {
       await api.sickLeave.patch(id, { startDate: firstDay, endDate: lastDay || "2099-12-31", notes: comments })
       onSaved(); onClose()
-    } catch (err: any) { setError(err?.message || "Fehler beim Speichern") }
+    } catch (err: unknown) { setError((err as Error)?.message || "Fehler beim Speichern") }
     finally { setSaving(false) }
   }
 
@@ -230,7 +230,7 @@ function DeleteSickLeaveModal({ id, entry, onClose, onDeleted }: { id: number; e
     try {
       await api.sickLeave.delete(id)
       onDeleted(); onClose()
-    } catch (err: any) { setError(err?.message || "Fehler beim Loeschen") }
+    } catch (err: unknown) { setError((err as Error)?.message || "Fehler beim Loeschen") }
     finally { setDeleting(false) }
   }
 

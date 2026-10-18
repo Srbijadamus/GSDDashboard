@@ -63,8 +63,8 @@ export const api = {
     downloadToday: () => downloadExcel(`/api/sickleave/download?from=${today()}&to=${today()}`, `SickLeave_${today()}.xlsx`),
     download7:     () => downloadExcel(`/api/sickleave/download?from=${daysAgo(7)}&to=${today()}`, `SickLeave_7days.xlsx`),
     download30:    () => downloadExcel(`/api/sickleave/download?from=${daysAgo(30)}&to=${today()}`, `SickLeave_30days.xlsx`),
-    create:        (body: any)             => apiFetch<any>("/api/sickleave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-    patch:         (id: number, body: any)  => apiFetch<any>(`/api/sickleave/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    create:        (body: unknown)             => apiFetch<any>("/api/sickleave", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    patch:         (id: number, body: unknown)  => apiFetch<any>(`/api/sickleave/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     remove:        (id: number)             => fetch(`${API_BASE}/api/sickleave/${id}`, { method: "DELETE" }),
     delete: async (id: number) => {
       const res = await fetch(`${API_BASE}/api/sickleave/${id}`, { method: "DELETE" })
@@ -95,11 +95,11 @@ export const api = {
   },
   breaks: {
     get:          (date?: string)  => apiFetch<any[]>(`/api/breaks${date ? "?date=" + date : ""}`),
-    distribute:   (body: any)      => apiFetch<any>("/api/breaks/auto-distribute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    distribute:   (body: unknown)      => apiFetch<any>("/api/breaks/auto-distribute", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     start:        (id: number)     => apiFetch<any>(`/api/breaks/${id}/start`,  { method: "POST" }),
     end:          (id: number)     => apiFetch<any>(`/api/breaks/${id}/end`,    { method: "POST" }),
     cancel:       (id: number)     => apiFetch<any>(`/api/breaks/${id}/cancel`, { method: "POST" }),
-    manual:       (body: any)      => apiFetch<any>("/api/breaks/manual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    manual:       (body: unknown)      => apiFetch<any>("/api/breaks/manual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   },
   attendance: {
     get:          (params: string) => apiFetch<any[]>(`/api/attendance?${params}`),
@@ -119,8 +119,8 @@ export const api = {
   },
   boList: {
     get:    (date: string) => apiFetch<any[]>(`/api/bo-list?date=${date}`),
-    create: (body: any)    => apiFetch<any>("/api/bo-list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-    update: (id: number, body: any) => apiFetch<any>(`/api/bo-list/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    create: (body: unknown)    => apiFetch<any>("/api/bo-list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    update: (id: number, body: unknown) => apiFetch<any>(`/api/bo-list/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     remove: (id: number)   => fetch(`${API_BASE}/api/bo-list/${id}`, { method: "DELETE" }),
   },
 }

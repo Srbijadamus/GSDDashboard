@@ -464,8 +464,8 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
       setChangeNote("")
       qc.invalidateQueries({ queryKey: ["wic-opening-hours"] })
       qc.invalidateQueries({ queryKey: ["wic-forecast"] })
-    } catch (e: any) {
-      setError(e?.message ?? "Save failed")
+    } catch (e: unknown) {
+      setError((e as Error)?.message ?? "Save failed")
     } finally {
       setSaving(false)
     }
@@ -731,8 +731,8 @@ function MinRequiredEditor({ locationCode }: { locationCode: string }) {
       qc.invalidateQueries({ queryKey: ["wic-opening-hours"] })
       qc.invalidateQueries({ queryKey: ["wic-forecast"] })
       setEditing(prev => { const n = { ...prev }; delete n[dow]; return n })
-    } catch (e: any) {
-      setSaveError(e?.message ?? "Save failed")
+    } catch (e: unknown) {
+      setSaveError((e as Error)?.message ?? "Save failed")
     } finally { setSaving(null) }
   }
 

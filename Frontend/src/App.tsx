@@ -10,15 +10,12 @@ import Employees from "./pages/Employees"
 import SickLeave from "./pages/SickLeave"
 import Vacations from "./pages/Vacations"
 import WicLocations from "./pages/WicLocations"
-// @ts-ignore
 import WicShifts from "./pages/WICShifts/index"
-// @ts-ignore
 import Pipeline from "./pages/Pipeline"
 import Rollout from "./pages/Rollout"
 import Training from "./pages/Training"
 import WicAttendance from "./pages/WicAttendance"
 import RemoteAttendance from "./pages/RemoteAttendance"
-// @ts-ignore
 import WicSchedule from "./pages/WicSchedule"
 import Shifts from "./pages/Shifts"
 import Roster from "./pages/Roster"

@@ -96,8 +96,8 @@ export default function Training() {
       if (data && data.warning) setWarning(data.warning); else setWarning("")
       const slots = Array.isArray(data) ? data : (data.slots ?? [])
       setSuggestions(slots)
-    } catch (err: any) {
-      setSuggestError(err?.message ?? "Network error — could not reach the server.")
+    } catch (err: unknown) {
+      setSuggestError((err as Error)?.message ?? "Network error — could not reach the server.")
     }
     setSuggesting(false)
     setHasSuggested(true)
