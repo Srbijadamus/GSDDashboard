@@ -11,6 +11,9 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.32" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="ClosedXML" Version="0.102.2" />
+    <!-- B7 (Features:IcsExport): MIT-licensed ICS writer. 5.2.3 is the latest stable
+         (net6.0/netstandard2.0 targets, fully supported on net8.0). -->
+    <PackageReference Include="Ical.Net" Version="5.2.3" />
     <!-- Explicit override of the vulnerable transitive System.IO.Packaging 6.0.0
          pulled by ClosedXML -> DocumentFormat.OpenXml (HIGH: GHSA-f32c-w444-8ppv,
          GHSA-qj66-m88j-hmgj). Same major (6.x), patched patch release. -->

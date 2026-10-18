@@ -8,6 +8,7 @@ import CoverageBar from "./CoverageBar"
 import { MoreVertical, Pencil, Trash2, UserMinus, ChevronUp, ChevronDown, AlertTriangle } from "lucide-react"
 import { maxFutureDateStr } from "../constants"
 import { berlinStamp } from "../utils/berlinTime"
+import { useFeatures } from "../utils/useFeatures"
 import { AddVacationModal } from "./Vacations"
 
 const OVERRIDE_CONFIRM_TYPES = ["OFF_WEEKEND", "PH"]
@@ -589,8 +590,35 @@ function ContextMenu({ onEdit, onDelete, onRemove, onClose }: {
   )
 }
 
+interface AbsenceStripDay { date: string; urlaub: string[]; krank: string[] }
+
+function AbsenceChip({ urlaub, krank, active, onClick, t }: {
+  urlaub: number; krank: number; active: boolean; onClick: () => void; t: (k: string) => string
+}) {
+  if (urlaub === 0 && krank === 0) {
+    return <span className="text-ink-soft" style={{ fontSize: 9, opacity: 0.55 }}>·</span>
+  }
+  const parts: string[] = []
+  if (urlaub > 0) parts.push(`${urlaub} ${t("shifts.absenceStrip.urlaub")}`)
+  if (krank > 0) parts.push(`${krank} ${t("shifts.absenceStrip.krank")}`)
+  return (
+    <button type="button" onClick={onClick} title={t("shifts.absenceStrip.filterTitle")}
+      className="font-mono"
+      style={{
+        padding: "1px 7px", borderRadius: 999, fontSize: 10, cursor: "pointer",
+        whiteSpace: "nowrap",
+        background: active ? "rgb(var(--st-info-solid))" : "rgb(var(--st-info-bg))",
+        color: active ? "#fff" : "rgb(var(--st-info-fg))",
+        border: `1px solid ${active ? "rgb(var(--st-info-solid))" : "rgb(var(--st-info-bd))"}`,
+      }}>
+      {parts.join(" · ")}
+    </button>
+  )
+}
+
 export default function Shifts() {
   const { t } = useTranslation()
+  const { absenceStrip } = useFeatures()
   const qc = useQueryClient()
   const today = new Date()
 
@@ -602,6 +630,7 @@ export default function Shifts() {
   const [startDate,  setStartDate]  = useState(today.toISOString().split("T")[0])
   const [order,      setOrder]      = useState<string[]>([])
   const [contextEmp, setContextEmp] = useState<{emp:any;idx:number} | null>(null)
+  const [absenceFilter, setAbsenceFilter] = useState<{ date: string; ids: Set<string> } | null>(null)
 
   const dragIdx = useRef<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
@@ -632,6 +661,21 @@ export default function Shifts() {
     queryFn: () => api.shifts.get(params)
   })
 
+  const { data: absenceStripData } = useQuery({
+    queryKey: ["absence-strip", from, to],
+    queryFn: () => apiFetch<AbsenceStripDay[]>(`/api/vacations/absence-strip?from=${from}&to=${to}`),
+    enabled: absenceStrip,
+  })
+
+  const stripByDate: Record<string, { urlaub: number; krank: number; ids: string[] }> = {}
+  ;(absenceStripData ?? []).forEach((d) => {
+    stripByDate[d.date] = { urlaub: d.urlaub.length, krank: d.krank.length, ids: [...d.urlaub, ...d.krank] }
+  })
+
+  const toggleAbsenceFilter = (date: string, ids: string[]) => {
+    setAbsenceFilter(prev => (prev?.date === date ? null : { date, ids: new Set(ids) }))
+  }
+
   const byEmployee: Record<string, { emp:any; shifts:Record<string,any> }> = {}
   rows?.forEach((s: any) => {
     if (!byEmployee[s.employeeId]) {
@@ -646,6 +690,7 @@ export default function Shifts() {
   let empList = Object.values(byEmployee)
   if (search)  empList = empList.filter(({ emp }) => emp.name?.toLowerCase().includes(search.toLowerCase()) || emp.id?.toString().includes(search))
   if (empType) empList = empList.filter(({ emp }) => emp.engagement === empType)
+  if (absenceFilter) empList = empList.filter(({ emp }) => absenceFilter.ids.has(emp.id))
 
   const orderedEmps = order.length > 0 ? order.map(id => byEmployee[id]).filter(Boolean) : empList
 
@@ -937,6 +982,28 @@ export default function Shifts() {
       <div id="shifts-scroll-bot" style={{ overflowX:"auto" }} onScroll={e => { const t = document.getElementById("shifts-scroll-top"); if(t) t.scrollLeft = e.currentTarget.scrollLeft }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
             <thead>
+              {absenceStrip && (
+                <tr className="bg-sunken">
+                  <th style={{ width: 24, padding: "6px 4px" }} />
+                  <th style={{ padding: "6px 10px", minWidth: 130, position: "sticky", left: 0, zIndex: 2, background: "rgb(var(--surface-sunken))", borderBottom: "1px solid rgb(var(--border-subtle))" }} />
+                  <th style={{ padding: "6px 10px", minWidth: 70, borderBottom: "1px solid rgb(var(--border-subtle))" }} />
+                  <th style={{ padding: "6px 10px", minWidth: 120, borderBottom: "1px solid rgb(var(--border-subtle))" }} />
+                  {dates.map(d => {
+                    const strip = stripByDate[d]
+                    const urlaub = strip?.urlaub ?? 0
+                    const krank = strip?.krank ?? 0
+                    return (
+                      <th key={d} style={{ padding: "4px", textAlign: "center", borderLeft: "1px solid rgb(var(--border-subtle))", borderBottom: "1px solid rgb(var(--border-subtle))", minWidth: 90 }}>
+                        <AbsenceChip urlaub={urlaub} krank={krank}
+                          active={absenceFilter?.date === d}
+                          onClick={() => toggleAbsenceFilter(d, strip?.ids ?? [])}
+                          t={t} />
+                      </th>
+                    )
+                  })}
+                  <th style={{ width: 30, borderBottom: "1px solid rgb(var(--border-subtle))" }} />
+                </tr>
+              )}
               <tr className="bg-sunken">
                 <th className="border-b border-line-subtle" style={{ width:24, padding:"8px 4px" }} />
                 <th className="text-ink-soft border-b border-line-subtle bg-sunken" style={{ padding:"8px 10px", textAlign:"left", fontSize:10, fontWeight:500,

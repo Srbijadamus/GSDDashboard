@@ -20,6 +20,14 @@ public record DailyLeaveCountDto(
     string Date, int MaxLeave, int TotalOff, int AlCount, int SlCount, int Remaining, bool IsFull
 );
 
+// B4 (Features:AbsenceStrip): one day of the strip above the weekly Shift Plan.
+// Urlaub = employees on annual leave that day (Vacations), Krank = employees on sick
+// leave that day (SickLeaves). Ids only — the counts are the chip labels; the ids are
+// what the client uses to filter the plan to those people.
+public record AbsenceStripDayDto(
+    string Date, List<string> Urlaub, List<string> Krank
+);
+
 public class VacationService
 {
     private readonly GSDContext _db;
@@ -95,6 +103,53 @@ public class VacationService
             int slCount = sickLeaves.Count(s => s.FirstDay <= d && s.LastDay >= d);
             int total = alCount + slCount;
             result.Add(new DailyLeaveCountDto(d.ToString("yyyy-MM-dd"), maxLeave, total, alCount, slCount, Math.Max(0, maxLeave - total), total >= maxLeave));
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// B4 (Features:AbsenceStrip). Per-day, from the existing Vacations/SickLeaves tables:
+    /// the employees on annual leave ("Urlaub") and on sick leave ("krank") for each date in
+    /// [from, to]. Only ACTIVE employees are reported — the Shift Plan is a roster of active
+    /// people, so a leave row for someone who has left must not inflate the chip count.
+    /// The window is clamped to 31 days to match the plan's largest (30d) view.
+    /// </summary>
+    public async Task<List<AbsenceStripDayDto>> GetAbsenceStripAsync(string? from, string? to)
+    {
+        var fromDate = from != null && DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTime.Today);
+        var toDate   = to   != null && DateOnly.TryParse(to,   out var td) ? td : fromDate.AddDays(6);
+        if (toDate < fromDate) toDate = fromDate;
+        if (toDate > fromDate.AddDays(31)) toDate = fromDate.AddDays(31);
+
+        var activeIds = await _db.Employees
+            .Where(e => e.IsActive)
+            .Select(e => e.EmployeeId)
+            .ToListAsync();
+        var active = activeIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var vacations = await _db.Vacations
+            .Where(v => v.EmployeeId != null && v.FirstDay <= toDate && v.LastDay >= fromDate)
+            .Select(v => new { v.EmployeeId, v.FirstDay, v.LastDay })
+            .ToListAsync();
+        var sickLeaves = await _db.SickLeaves
+            .Where(s => s.EmployeeId != null && s.FirstDay <= toDate && s.LastDay >= fromDate)
+            .Select(s => new { s.EmployeeId, s.FirstDay, s.LastDay })
+            .ToListAsync();
+
+        var result = new List<AbsenceStripDayDto>();
+        for (var d = fromDate; d <= toDate; d = d.AddDays(1))
+        {
+            var urlaub = vacations
+                .Where(v => v.EmployeeId != null && active.Contains(v.EmployeeId) && v.FirstDay <= d && v.LastDay >= d)
+                .Select(v => v.EmployeeId!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var krank = sickLeaves
+                .Where(s => s.EmployeeId != null && active.Contains(s.EmployeeId) && s.FirstDay <= d && s.LastDay >= d)
+                .Select(s => s.EmployeeId!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            result.Add(new AbsenceStripDayDto(d.ToString("yyyy-MM-dd"), urlaub, krank));
         }
         return result;
     }
@@ -279,6 +334,9 @@ public static class VacationEndpointMapper
             var t = to   ?? DateTime.Today.AddDays(13).ToString("yyyy-MM-dd");
             return Results.Ok(await svc.GetLeaveAvailabilityAsync(f, t, maxLeave ?? 8));
         });
+
+        grp.MapGet("/absence-strip", async (string? from, string? to, VacationService svc) =>
+            Results.Ok(await svc.GetAbsenceStripAsync(from, to)));
 
         grp.MapPost("/", async (CreateVacationDto dto, VacationService svc) =>
         {

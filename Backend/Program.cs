@@ -29,6 +29,7 @@ using GSDDashboard.API.Modules.Assistant;
 using GSDDashboard.API.Modules.Admin;
 using GSDDashboard.API.Modules.HrExport;
 using GSDDashboard.API.Modules.Auth;
+using GSDDashboard.API.Modules.MyShifts;
 using GSDDashboard.API.Middleware;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -751,6 +752,7 @@ app.MapWicMigrationEndpoints();
 app.MapDemoDataAdminEndpoints();
 app.MapHrExportEndpoints();
 app.MapFeaturesEndpoints();
+app.MapMyEndpoints();
 
 // Manual one-shot cleanup: removes WicShiftEntries rows where SupportLocation IS NULL
 // and a non-NULL sibling exists for the same (EmployeeId, ShiftDate).

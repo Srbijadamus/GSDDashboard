@@ -13,6 +13,10 @@ public sealed class FeaturesOptions
     public bool OverviewV2 { get; set; }
     public bool OverviewGroupingV21 { get; set; }
     public bool WhatsNew { get; set; }
+    // B4: per-day "3 Urlaub · 1 krank" chips above the weekly Shift Plan.
+    public bool AbsenceStrip { get; set; }
+    // B7: "Export calendar" (ICS) on My View for the logged-in user's own shifts.
+    public bool IcsExport { get; set; }
 }
 
 public static class FeaturesEndpointMapper
@@ -26,7 +30,7 @@ public static class FeaturesEndpointMapper
             if (ctx.User.Identity?.IsAuthenticated != true)
                 return Results.Json(new { error = "Authentication required" }, statusCode: StatusCodes.Status401Unauthorized);
             var f = monitor.CurrentValue;
-            return Results.Ok(new { overviewV2 = f.OverviewV2, overviewGroupingV21 = f.OverviewGroupingV21, whatsNew = f.WhatsNew });
+            return Results.Ok(new { overviewV2 = f.OverviewV2, overviewGroupingV21 = f.OverviewGroupingV21, whatsNew = f.WhatsNew, absenceStrip = f.AbsenceStrip, icsExport = f.IcsExport });
         }).WithTags("Features");
     }
 }
