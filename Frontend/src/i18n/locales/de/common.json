@@ -941,5 +941,18 @@
     "body": "Abdeckungslücken sind jetzt nach Entscheidung gruppiert — prüfen Sie einen ganzen Zeitraum auf einmal und weisen Sie einen verfügbaren Mitarbeiter mit einem Klick mehreren Tagen zu. Gruppen brechen nur bei Status- oder Kandidatenwechsel, so bleibt eine ganze Woche eine Entscheidung.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
+  },
+  "rules": {
+    "title": "Regelwarnungen",
+    "R1": "Überschneidende Schicht ({{times}})",
+    "R2": { "SL": "Schicht überschneidet sich mit Krankmeldung", "AL": "Schicht überschneidet sich mit Urlaub" },
+    "R3": "Am selben Tag {{locations}} WIC-Standorten zugewiesen",
+    "R4": "Schicht überschneidet sich mit einer Schulung",
+    "R5": "Nur {{hours}}h Ruhezeit zwischen Schichten (mindestens 11h)",
+    "R6": "{{days}} aufeinanderfolgende Arbeitstage (maximal 6)",
+    "DATA_INVALID": "Nicht lesbare Schichtzeit ({{field}})",
+    "saveAnyway": "Trotzdem speichern",
+    "cancel": "Abbrechen",
+    "field": { "start": "Start", "end": "Ende" }
   }
 }

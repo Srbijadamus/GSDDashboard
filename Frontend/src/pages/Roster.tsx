@@ -2,9 +2,11 @@ import { useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { CalendarPlus, Trash2, Eye, Play, CheckCircle2, AlertCircle } from "lucide-react"
+import { CalendarPlus, Trash2, Eye, Play, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react"
 import { useAuth } from "../auth/AuthContext"
 import { RosterApiError, parseRosterError, rosterErrorText } from "../utils/rosterErrors"
+import { useFeatures } from "../utils/useFeatures"
+import { ruleWarningText, type RuleWarning, type RulesResponse } from "../utils/ruleWarnings"
 
 // ── Types (mirror the records in Backend/RosterService.cs) ────────────────────
 
@@ -184,6 +186,7 @@ async function getJson<T>(url: string): Promise<T> {
 function RosterInner() {
   const qc = useQueryClient()
   const { t } = useTranslation()
+  const { ruleWarnings } = useFeatures()
   const today = new Date().toISOString().slice(0, 10)
   // Deep-link support: /roster?employeeId=X preselects the employee (used by the
   // missing-roster warning on the Overview page).
@@ -206,6 +209,7 @@ function RosterInner() {
   // "a main centre was set" (or deliberately was NOT) can never hide inside the
   // batch summary text.
   const [mainNotice, setMainNotice] = useState<{ text: string; warn: boolean } | null>(null)
+  const [previewWarnings, setPreviewWarnings] = useState<RuleWarning[]>([])
 
   const { data: employees = [] } = useQuery<Employee[]>({
     queryKey: ["employees-active"],
@@ -258,8 +262,29 @@ function RosterInner() {
       const p = await postJson<PreviewResult>("/api/roster/preview", requestBody)
       setPreview(p)
       setPreviewKey(formKey)
+      // Rule warnings for the generated rows (Feature:RuleWarnings). Each generated
+      // day is validated as a proposed shift; a rules failure never breaks the preview.
+      if (ruleWarnings) {
+        try {
+          const ws: RuleWarning[] = []
+          for (const r of p.rows ?? []) {
+            if (!r.shiftStart || !r.shiftEnd) continue
+            const st = r.kind === "WIC_DUTY" || r.kind === "WIC" ? "WIC_DUTY" : "WORKING"
+            const res = await postJson<RulesResponse>("/api/rules/validate", {
+              from: dateFrom, to: dateTo,
+              proposed: { employeeId, date: r.date, shiftType: st, start: r.shiftStart, end: r.shiftEnd },
+            })
+            for (const w of res?.people?.[0]?.warnings ?? []) ws.push(w)
+          }
+          const seen = new Set<string>()
+          setPreviewWarnings(ws.filter(w => { const k = `${w.code}|${w.date}`; if (seen.has(k)) return false; seen.add(k); return true }))
+        } catch { setPreviewWarnings([]) }
+      } else {
+        setPreviewWarnings([])
+      }
     } catch (e) {
       setPreview(null); setPreviewKey("")
+      setPreviewWarnings([])
       setError(rosterErrorText(e, t))
     } finally { setBusy(null) }
   }
@@ -312,6 +337,7 @@ function RosterInner() {
           : ""))
       setMainNotice(mainNoticeFor(g))
       setPreview(null); setPreviewKey("")
+      setPreviewWarnings([])
       qc.invalidateQueries({ queryKey: ["roster-batches"] })
     } catch (e) { setError(rosterErrorText(e, t)) }
     finally { setBusy(null) }
@@ -518,6 +544,20 @@ function RosterInner() {
             <span>First: <strong>{preview.firstDate ?? "—"}</strong></span>
             <span>Last: <strong>{preview.lastDate ?? "—"}</strong></span>
           </div>
+          {previewWarnings.length > 0 && (
+            <div className="bg-warn-bg border border-warn-bd" style={{ borderRadius:6, padding:"10px 14px", marginTop:10 }}>
+              <div className="text-warn-fg" style={{ fontSize:11, fontWeight:600, marginBottom:6 }}>
+                <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> {t("rules.title")} ({previewWarnings.length})
+              </div>
+              <ul style={{ margin:0, paddingLeft:16, fontSize:11, lineHeight:1.6 }}>
+                {previewWarnings.map((w, i) => (
+                  <li key={i} className="text-ink-muted">
+                    <span className="font-mono font-bold text-warn-fg" style={{ fontSize:10 }}>{w.code}</span> {ruleWarningText(w, t)} <span className="text-ink-soft font-mono">({w.date})</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {/* Permanent MAIN WIC status — never changed silently, so the preview
               says up front what will (or will not) happen to the agent's home
               centre before Generate is even clickable. */}

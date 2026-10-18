@@ -2,6 +2,8 @@
 // a devtunnel URL, or anywhere else — the fetch just targets the same origin
 // the page was loaded from. Only set VITE_API_BASE_URL if the API is
 // genuinely on a different, CORS/auth-open origin than the frontend.
+import type { RulesResponse } from "../utils/ruleWarnings"
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ""
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -122,6 +124,10 @@ export const api = {
     create: (body: unknown)    => apiFetch<any>("/api/bo-list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     update: (id: number, body: unknown) => apiFetch<any>(`/api/bo-list/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     remove: (id: number)   => fetch(`${API_BASE}/api/bo-list/${id}`, { method: "DELETE" }),
+  },
+  rules: {
+    week:     (params: string) => apiFetch<RulesResponse>(`/api/rules/week?${params}`),
+    validate: (body: unknown)  => apiFetch<RulesResponse>("/api/rules/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   },
 }
 
