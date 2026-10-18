@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useQuery } from "@tanstack/react-query"
 import { apiFetch } from "../../api/client"
-import { manualStatusOf, needsAnyway, type ManualStatus, type ManualShiftRow } from "../../utils/manualAssign"
+import { manualStatusOf, needsAnyway, isSick, type ManualStatus, type ManualShiftRow } from "../../utils/manualAssign"
 import type { GapGroupV21 } from "../../utils/groupGaps"
 
 interface Employee {
@@ -77,8 +77,9 @@ export function AssignManuallyModal({ group, onClose, onAssigned }: Props) {
   const selectedDates = pickDays ? allDates.filter(d => picked.has(d)) : allDates
   const selected = employees.find(e => e.employeeId === selectedId) ?? null
 
-  const anyBlocked = selected != null &&
-    selectedDates.some(d => needsAnyway(statusFor(selected.employeeId, d)))
+  const statuses = selected ? selectedDates.map(d => statusFor(selected.employeeId, d)) : []
+  const hasSick = statuses.some(s => isSick(s))
+  const anyBlocked = statuses.some(s => needsAnyway(s))
 
   function toggleDay(d: string) {
     setPicked(prev => {
@@ -197,7 +198,9 @@ export function AssignManuallyModal({ group, onClose, onAssigned }: Props) {
         {selected && (
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 12, paddingTop: 10, borderTop: "1px solid rgb(var(--border-subtle))" }}>
             <button onClick={onClose} style={{ padding: "7px 14px", borderRadius: 6, fontSize: 12, border: "1px solid rgb(var(--border-default))", background: "transparent", color: "rgb(var(--text-secondary))", cursor: "pointer" }}>{p("cancel")}</button>
-            {anyBlocked ? (
+            {hasSick ? (
+              <button disabled style={{ padding: "7px 14px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "not-allowed", background: "rgb(var(--st-crit-solid))", color: "#fff", opacity: 0.7 }}>{p("sickCannotAssign")}</button>
+            ) : anyBlocked ? (
               <button disabled={busy || selectedDates.length === 0} onClick={() => assign(true)} style={{ padding: "7px 14px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--st-warn-solid))", color: "#fff" }}>{p("assignAnyway")}</button>
             ) : (
               <button disabled={busy || selectedDates.length === 0} onClick={() => assign(false)} style={{ padding: "7px 14px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--ov2-assign-bg))", color: "rgb(var(--ov2-assign-fg))" }}>{p("assign")}</button>

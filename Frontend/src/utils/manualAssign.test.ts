@@ -1,4 +1,4 @@
-import { manualStatusOf, needsAnyway, type ManualShiftRow } from "./manualAssign.js"
+import { manualStatusOf, needsAnyway, isSick, type ManualShiftRow } from "./manualAssign.js"
 import assert from "node:assert/strict"
 
 function row(p: Partial<ManualShiftRow> & { employeeId: string; shiftDate: string; shiftType: string }): ManualShiftRow {
@@ -54,9 +54,17 @@ function row(p: Partial<ManualShiftRow> & { employeeId: string; shiftDate: strin
   assert.equal(needsAnyway("rosteredNoTask"), false)
   assert.equal(needsAnyway("bo"), false)
   assert.equal(needsAnyway("annualLeave"), true)
-  assert.equal(needsAnyway("sick"), true)
   assert.equal(needsAnyway("otherWic"), true)
   assert.equal(needsAnyway("training"), true)
+  // Sick leave is never assignable — not even "Assign anyway".
+  assert.equal(needsAnyway("sick"), false)
+}
+
+// isSick
+{
+  assert.equal(isSick("sick"), true)
+  assert.equal(isSick("annualLeave"), false)
+  assert.equal(isSick("free"), false)
 }
 
 console.log("manualAssign tests OK")

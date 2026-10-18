@@ -43,7 +43,14 @@ export function manualStatusOf(row: ManualShiftRow | undefined): ManualStatus {
   return "rosteredNoTask"
 }
 
-/** The statuses whose assignment needs an explicit "Assign anyway" confirmation. */
+/** The statuses whose assignment needs an explicit "Assign anyway" confirmation.
+ *  Sick leave is deliberately NOT here: it is never assignable, with or without
+ *  a confirmation — see {@link isSick}. */
 export function needsAnyway(status: ManualStatus): boolean {
-  return status === "annualLeave" || status === "sick" || status === "otherWic" || status === "training"
+  return status === "annualLeave" || status === "otherWic" || status === "training"
+}
+
+/** Sick leave can never be overwritten (not even "Assign anyway"). */
+export function isSick(status: ManualStatus): boolean {
+  return status === "sick"
 }

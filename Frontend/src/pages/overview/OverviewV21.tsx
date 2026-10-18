@@ -59,6 +59,8 @@ function OtherOptions({ group, onFindSubstitute, onAssigned }: { group: GapGroup
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const firstDate = group.days[0].date
+  // "19.10." from "2026-10-19" — the assignment always targets only the group's first day.
+  const dayLabel = `${firstDate.slice(8, 10)}.${firstDate.slice(5, 7)}.`
 
   const { data, isLoading } = useQuery<OtherOptionSub[]>({
     queryKey: ["subs-other-options", group.locationCode, firstDate],
@@ -88,7 +90,7 @@ function OtherOptions({ group, onFindSubstitute, onAssigned }: { group: GapGroup
 
   return (
     <div style={{ border: "1px solid rgb(var(--ov2-suggest-border))", background: "rgb(var(--ov2-suggest-bg))", borderRadius: 8, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: "rgb(var(--text-secondary))" }}>{t("overviewV21.otherOptions")}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: "rgb(var(--text-secondary))" }}>{t("overviewV21.otherOptions")} <span style={{ fontWeight: 400, opacity: .8 }}>{t("overviewV21.forDate", { date: dayLabel })}</span></span>
       {error && <span style={{ fontSize: 12, color: "rgb(var(--st-crit-fg))" }}>{error}</span>}
       {isLoading ? (
         <div className="skeleton" style={{ height: 28, borderRadius: 6 }} />
@@ -101,7 +103,7 @@ function OtherOptions({ group, onFindSubstitute, onAssigned }: { group: GapGroup
         <div key={s.employeeId} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 12, color: "rgb(var(--text-primary))" }}><strong>{s.fullName}</strong></span>
           <span style={{ fontSize: 12, color: "rgb(var(--text-tertiary))" }}>{s.sourceType}</span>
-          <button disabled={busyId === s.employeeId} onClick={() => assign(s)} style={{ marginLeft: "auto", padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--ov2-assign-bg))", color: "rgb(var(--ov2-assign-fg))" }}>{t("overviewV2.confirm.confirm")}</button>
+          <button disabled={busyId === s.employeeId} onClick={() => assign(s)} style={{ marginLeft: "auto", padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--ov2-assign-bg))", color: "rgb(var(--ov2-assign-fg))" }}>{t("overviewV2.confirm.confirm")} · {t("overviewV21.forDate", { date: dayLabel })}</button>
         </div>
       ))}
     </div>

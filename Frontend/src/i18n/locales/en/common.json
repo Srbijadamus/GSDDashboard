@@ -942,6 +942,7 @@
     "weekWarning": "The candidate has another task on these days.",
     "onlyOneOption": "Only 1 option",
     "otherOptions": "Other options",
+    "forDate": "for {{date}}",
     "escalate": "No one available – escalate",
     "assignManually": "Assign manually",
     "manual": {
@@ -950,6 +951,7 @@
       "allDays": "All {{count}} days",
       "pickDays": "Pick days",
       "assignAnyway": "Assign anyway",
+      "sickCannotAssign": "Sick leave – cannot assign",
       "assign": "Assign",
       "cancel": "Cancel",
       "empty": "No employees found",

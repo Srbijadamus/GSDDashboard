@@ -822,15 +822,18 @@ public class WicShiftService
         // etc. (AvailabilityResolver.BlockingAbsenceTypes, shared with WicCardsService), nor
         // TRAINING, nor a WORKING shift explicitly tasked VWIC — same "unavailable" set the
         // permanent WIC-priority rule uses (RosterService.IsProtectedFromOverwrite).
-        // A human "Assign anyway" (AssignAnyway=true, manualActor != null) overrides this for
-        // the Overview v2 manual add; automatic writers never pass AssignAnyway.
-        if (shift != null && !(req.AssignAnyway && manualActor != null))
+        // A human "Assign anyway" (AssignAnyway=true, manualActor != null) overrides every
+        // blocking type EXCEPT sick leave (SL): SL is never overwritten, not even with
+        // AssignAnyway — the sick day is untouchable.
+        if (shift != null)
         {
             bool isBlocked = AvailabilityResolver.BlockingAbsenceTypes.Contains(shift.ShiftType ?? "") ||
                 string.Equals(shift.ShiftType, ShiftTypes.Training, StringComparison.OrdinalIgnoreCase) ||
                 (string.Equals(shift.ShiftType, ShiftTypes.Working, StringComparison.OrdinalIgnoreCase) &&
                  string.Equals(shift.AgentTask, "VWIC", StringComparison.OrdinalIgnoreCase));
-            if (isBlocked)
+            bool isSick = string.Equals(shift.ShiftType, ShiftTypes.SickLeave, StringComparison.OrdinalIgnoreCase);
+            bool overrideAllowed = req.AssignAnyway && manualActor != null;
+            if (isBlocked && (isSick || !overrideAllowed))
                 return Results.Ok(new
                 {
                     success    = true,
@@ -841,6 +844,11 @@ public class WicShiftService
                     shiftType  = shift.ShiftType,
                     date       = date.ToString("yyyy-MM-dd"),
                 });
+            // Record the pre-overwrite value in the existing PreviousStatus audit column
+            // (ShiftSyncService reverts restore it the same way), so a human AssignAnyway
+            // override of a blocking absence can be undone. No schema change.
+            if (isBlocked && overrideAllowed)
+                shift.PreviousStatus = shift.ShiftType;
         }
 
         if (shift != null)
@@ -1327,7 +1335,17 @@ public static class WicEndpointMapper
             await svc.CreateShiftAsync(req, db, validationSvc, ResolveManualActor(ctx)));
 
         grp.MapPost("/assignments", async (CreateAssignmentRequest req, GSDContext db, WicShiftService svc, HttpContext ctx) =>
-            await svc.CreateAssignmentAsync(req, db, manualActor: ResolveManualActor(ctx)));
+        {
+            // "Assign anyway" is a role-gated override, enforced HERE — not by RbacMiddleware —
+            // so it holds even while Auth:EnforceAuthorization is off (rollout phase).
+            // DEV/RTM/TEAM_LEAD only; AGENT 403; anonymous 401.
+            if (req.AssignAnyway)
+            {
+                var denied = CheckAssignAnywayAccess(ctx);
+                if (denied != null) return denied;
+            }
+            return await svc.CreateAssignmentAsync(req, db, manualActor: ResolveManualActor(ctx));
+        });
 
         // Move-to-GSD is an interactive team-lead action (the WIC Shifts kebab menu,
         // WIC Attendance agent chip, WIC Schedule and the Assign-Agent dialog). It obeys
@@ -1361,5 +1379,23 @@ public static class WicEndpointMapper
             return await svc.MoveToGsdAsync(
                 req.EmployeeId, dateFrom, dateTo, req.SkipWeekends, db, ResolveManualActor(ctx));
         });
+    }
+
+    /// <summary>
+    /// Role gate for the "Assign anyway" override. Enforced at the endpoint — not by
+    /// RbacMiddleware — so it holds even while Auth:EnforceAuthorization is false.
+    /// Mirrors ShiftEndpointMapper.CheckManualAccess: DEV/RTM/TEAM_LEAD pass (null),
+    /// anonymous → 401, AGENT/other → 403.
+    /// </summary>
+    internal static IResult? CheckAssignAnywayAccess(HttpContext ctx)
+    {
+        if (ctx.User.Identity?.IsAuthenticated != true)
+            return Results.Json(new { error = "Authentication required" }, statusCode: StatusCodes.Status401Unauthorized);
+        var role = ctx.User.FindFirst(AuthClaims.Role)?.Value;
+        var actor = ctx.User.FindFirst(AuthClaims.Kid)?.Value;
+        if (role is AppRoles.Dev or AppRoles.Rtm or AppRoles.TeamLead &&
+            !string.IsNullOrWhiteSpace(actor) && actor.Length <= 100)
+            return null;
+        return Results.Json(new { error = "Forbidden" }, statusCode: StatusCodes.Status403Forbidden);
     }
 }
