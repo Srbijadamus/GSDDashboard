@@ -178,7 +178,44 @@ const candidate = (id: string) => ({ employeeId: id, fullName: "Candidate " + id
 {
   const c = { employeeId: "C1", fullName: "Candidate C1", assignmentType: "", status: "NONE", taskLabel: "" }
   const g = groupGapsV21([gap({ date: "2026-11-02", locationCode: "HAN", availableFloaters: [c] })])
-  assert.equal(g[0].candidateSourceType, "")
+  assert.equal(g[0].candidates.length, 1)
+  assert.equal(g[0].candidates[0].sourceType, "")
+}
+
+// (g) 0 / 1 / 3 candidates
+{
+  const c1 = candidate("C1"), c2 = candidate("C2"), c3 = candidate("C3")
+  const zero = groupGapsV21([gap({ date: "2026-11-02", locationCode: "A", availableFloaters: [] })])
+  assert.equal(zero[0].candidates.length, 0)
+  const one = groupGapsV21([gap({ date: "2026-11-02", locationCode: "A", availableFloaters: [c1] })])
+  assert.equal(one[0].candidates.length, 1)
+  const three = groupGapsV21([gap({ date: "2026-11-02", locationCode: "A", availableFloaters: [c1, c2, c3] })])
+  assert.equal(three[0].candidates.length, 3)
+  assert.deepEqual(three[0].candidates.map(c => c.employeeId), ["C1", "C2", "C3"])
+}
+
+// (h) a candidate available only some days -> partial availableDates (second candidate)
+{
+  const c1 = candidate("C1"), c2 = candidate("C2")
+  const g = groupGapsV21([
+    gap({ date: "2026-11-02", locationCode: "A", availableFloaters: [c1, c2] }),
+    gap({ date: "2026-11-03", locationCode: "A", availableFloaters: [c1] }),
+    gap({ date: "2026-11-04", locationCode: "A", availableFloaters: [c1] }),
+  ])
+  assert.equal(g[0].candidates.length, 2)
+  assert.equal(g[0].candidates[0].availableDates.length, 3)  // C1 (first) all days
+  assert.equal(g[0].candidates[1].availableDates.length, 1)  // C2 only day 1
+}
+
+// (i) candidate source ("odakle") from taskLabel / sourceLocation
+{
+  const a = { employeeId: "C1", fullName: "C1", assignmentType: "REGIONAL", status: "WIC_DUTY", taskLabel: "WIC Recklinghausen" }
+  const b = { employeeId: "C2", fullName: "C2", assignmentType: "REGIONAL", status: "WORKING", taskLabel: "", sourceLocation: "Recklinghausen" }
+  const c = { employeeId: "C3", fullName: "C3", assignmentType: "REGIONAL", status: "WORKING", taskLabel: "" }
+  const g = groupGapsV21([gap({ date: "2026-11-02", locationCode: "A", availableFloaters: [a, b, c] })])
+  assert.equal(g[0].candidates[0].source, "WIC Recklinghausen")
+  assert.equal(g[0].candidates[1].source, "WIC Recklinghausen")
+  assert.equal(g[0].candidates[2].source, "rostered, no task")
 }
 
 console.log("groupGapsV21: all tests passed")

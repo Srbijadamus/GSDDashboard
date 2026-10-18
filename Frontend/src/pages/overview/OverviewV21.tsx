@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { groupGapsV21, reasonOf, type CoverageGap, type GapGroupV21, type ReasonCode } from "../../utils/groupGaps"
+import { groupGapsV21, reasonOf, type CoverageGap, type GapGroupV21, type CandidateV21, type ReasonCode } from "../../utils/groupGaps"
 import { postSubstituteAccept, substituteAcceptErrorText } from "../../utils/substituteAccept"
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   heatDates: string[]
   today: string
   absentToday: number | null
+  onFindSubstitute: (args: { locationCode: string; date: string; displayName: string }) => void
 }
 
 const REASON_TOKEN: Record<ReasonCode, string> = {
@@ -30,11 +31,9 @@ const REASON_FG: Record<ReasonCode, string> = {
 function shortCode(city: string): string {
   return city.replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase()
 }
-
 function initials(name: string): string {
   return name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() ?? "").join("")
 }
-
 function fmtRange(from: string, to: string): string {
   const f = new Date(from), t = new Date(to)
   const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -43,11 +42,12 @@ function fmtRange(from: string, to: string): string {
   return from === to ? fKey : `${fKey} – ${tKey}`
 }
 
-export function OverviewV21({ gaps, heatDates, today, absentToday }: Props) {
+export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstitute }: Props) {
   const { t } = useTranslation()
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
-  const [confirm, setConfirm] = useState<{ group: GapGroupV21; dates: string[] } | null>(null)
+  const [confirm, setConfirm] = useState<{ group: GapGroupV21; candidate: CandidateV21; dates: string[] } | null>(null)
   const [openGroup, setOpenGroup] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ ok: string[]; failed: Record<string, string> } | null>(null)
 
@@ -67,15 +67,15 @@ export function OverviewV21({ gaps, heatDates, today, absentToday }: Props) {
     return m
   }, [gaps])
 
-  async function doAssign(group: GapGroupV21, dates: string[]) {
-    if (!group.candidateId || !group.candidateSourceType) return
+  async function doAssign(group: GapGroupV21, candidate: CandidateV21, dates: string[]) {
+    if (!candidate.sourceType) return
     setBusy(true)
     setResult(null)
     const ok: string[] = []
     const failed: Record<string, string> = {}
     for (const d of dates) {
       try {
-        await postSubstituteAccept({ employeeId: group.candidateId, locationCode: group.locationCode, date: d, sourceType: group.candidateSourceType })
+        await postSubstituteAccept({ employeeId: candidate.employeeId, locationCode: group.locationCode, date: d, sourceType: candidate.sourceType })
         ok.push(d)
       } catch (e) {
         failed[d] = substituteAcceptErrorText(e, t)
@@ -119,9 +119,11 @@ export function OverviewV21({ gaps, heatDates, today, absentToday }: Props) {
         {filtered.length === 0 && (
           <div style={{ padding: 20, textAlign: "center", color: "rgb(var(--text-tertiary))", fontSize: 13 }}>{selectedDay ? t("overviewV2.emptyFiltered") : t("overviewV2.empty")}</div>
         )}
-        {filtered.map((grp) => {
+        {filtered.map(grp => {
           const key = `${grp.locationCode}-${grp.from}`
           const open = openGroup === key
+          const needed = Math.max(0, grp.days[0].required - grp.days[0].present)
+          const visibleCandidates = expanded[key] ? grp.candidates : grp.candidates.slice(0, 3)
           return (
             <div key={key} style={{ border: "1px solid rgb(var(--border-subtle))", borderRadius: 10, overflow: "hidden", background: "rgb(var(--surface-raised))" }}>
               <div style={{ display: "flex" }}>
@@ -134,13 +136,10 @@ export function OverviewV21({ gaps, heatDates, today, absentToday }: Props) {
                     <span style={{ fontSize: 12, color: "rgb(var(--text-secondary))" }}>{fmtRange(grp.from, grp.to)}</span>
                     <span style={{ fontSize: 12, color: "rgb(var(--text-tertiary))" }}>{t("overviewV2.days", { count: grp.dayCount })}</span>
                     <span style={{ fontFamily: "monospace", fontSize: 12, color: "rgb(var(--text-secondary))" }}>{grp.timeVaries ? t("overviewV21.differentHours") : grp.time}</span>
+                    <span style={{ fontSize: 12, color: "rgb(var(--text-secondary))" }}>{grp.days[0].present}/{grp.days[0].required}</span>
+                    {needed > 0 && <span style={{ fontSize: 12, fontWeight: 600, color: "rgb(var(--st-warn-fg))" }}>{t("overviewV21.needsMore", { count: needed })}</span>}
                     <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{ display: "flex", gap: 2, width: 40 }}>
-                        {Array.from({ length: Math.max(grp.days[0].required, 1) }).map((_, j) => (
-                          <span key={j} style={{ height: 8, flex: 1, borderRadius: 2, background: j < grp.days[0].present ? "rgb(var(--st-good-solid))" : "rgb(var(--surface-sunken))" }} />
-                        ))}
-                      </div>
-                      <span style={{ fontSize: 12, color: "rgb(var(--text-secondary))" }}>{grp.days[0].present}/{grp.days[0].required}</span>
+                      <button onClick={() => onFindSubstitute({ locationCode: grp.locationCode, date: grp.days[0].date, displayName: grp.displayName })} style={{ fontSize: 11, border: "1px solid rgb(var(--border-default))", background: "transparent", color: "rgb(var(--text-secondary))", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>{t("overviewV21.findSubstitute")}</button>
                       <button onClick={() => setOpenGroup(open ? null : key)} style={{ fontSize: 11, border: "1px solid rgb(var(--border-default))", background: "transparent", color: "rgb(var(--text-secondary))", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>{open ? t("overviewV21.hideDays") : t("overviewV21.showDays", { count: grp.dayCount })}</button>
                     </div>
                   </div>
@@ -161,40 +160,52 @@ export function OverviewV21({ gaps, heatDates, today, absentToday }: Props) {
                     </div>
                   )}
 
-                  {grp.candidateId && (
+                  {grp.candidates.length === 0 ? (
+                    <div style={{ border: `1px solid rgb(var(--ov2-suggest-border))`, background: "rgb(var(--ov2-suggest-bg))", borderRadius: 8, padding: "8px 10px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 12, color: "rgb(var(--text-secondary))" }}>{t("overviewV21.noOneAvailable")}</span>
+                      <button onClick={() => onFindSubstitute({ locationCode: grp.locationCode, date: grp.days[0].date, displayName: grp.displayName })} style={{ marginLeft: "auto", padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--action-solid))", color: "rgb(var(--action-fg))" }}>{t("overviewV21.findSubstitute")}</button>
+                    </div>
+                  ) : (
                     <div style={{ border: `1px solid rgb(var(--ov2-suggest-border))`, background: "rgb(var(--ov2-suggest-bg))", borderRadius: 8, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 12, color: "rgb(var(--text-primary))" }}>
-                          <strong>{t("overviewV2.suggested")}:</strong> {grp.candidateName}
-                          <span style={{ color: "rgb(var(--text-tertiary))" }}> · {grp.candidateAvailableDates.length === grp.dayCount ? t("overviewV2.availableAllDays") : t("overviewV2.availableXDays", { count: grp.candidateAvailableDates.length })}</span>
-                        </span>
-                        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                          {!grp.candidateSourceType ? (
-                            <span style={{ fontSize: 12, color: "rgb(var(--st-warn-fg))" }}>{t("overviewV21.noSourceType")}</span>
-                          ) : (
-                            <>
-                              <button onClick={() => setConfirm({ group: grp, dates: grp.days.map(d => d.date) })} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 12, border: "1px solid rgb(var(--border-default))", background: "transparent", color: "rgb(var(--text-secondary))", cursor: "pointer" }}>{t("overviewV2.pickDays")}</button>
-                              <button onClick={() => setConfirm({ group: grp, dates: grp.candidateAvailableDates })} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--ov2-assign-bg))", color: "rgb(var(--ov2-assign-fg))" }}>
-                                {grp.candidateAvailableDates.length === grp.dayCount ? t("overviewV2.assignAll", { count: grp.dayCount }) : t("overviewV2.assignX", { count: grp.candidateAvailableDates.length })}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
+                      {visibleCandidates.map(c => {
+                        const all = c.availableDates.length === grp.dayCount
+                        const x = c.availableDates.length
+                        return (
+                          <div key={c.employeeId} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 12, color: "rgb(var(--text-primary))" }}><strong>{c.fullName}</strong></span>
+                            <span style={{ fontSize: 12, color: "rgb(var(--text-tertiary))" }}>{c.source}</span>
+                            <span style={{ fontSize: 12, color: "rgb(var(--text-secondary))" }}>{t("overviewV21.availableXOfN", { x, n: grp.dayCount })}</span>
+                            <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                              {!c.sourceType ? (
+                                <span style={{ fontSize: 12, color: "rgb(var(--st-warn-fg))" }}>{t("overviewV21.noSourceType")}</span>
+                              ) : (
+                                <button onClick={() => setConfirm({ group: grp, candidate: c, dates: c.availableDates })} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--ov2-assign-bg))", color: "rgb(var(--ov2-assign-fg))" }}>
+                                  {all ? t("overviewV2.assignAll", { count: grp.dayCount }) : t("overviewV2.assignX", { count: x })}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {grp.candidates.length > 3 && (
+                        <button onClick={() => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))} style={{ alignSelf: "flex-start", fontSize: 11, border: "none", background: "transparent", color: "rgb(var(--focus-ring))", cursor: "pointer", padding: 0 }}>
+                          {expanded[key] ? t("overviewV21.showLess") : t("overviewV21.showAll", { count: grp.candidates.length - 3 })}
+                        </button>
+                      )}
                     </div>
                   )}
 
                   {open && (
                     <div style={{ borderTop: "1px solid rgb(var(--border-subtle))", paddingTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
                       {grp.days.map(d => (
-                        <div key={d.date} style={{ fontSize: 12, display: "flex", gap: 10, alignItems: "center", color: "rgb(var(--text-secondary))" }}>
+                        <div key={d.date} style={{ fontSize: 12, display: "flex", gap: 10, alignItems: "center", color: "rgb(var(--text-secondary))", flexWrap: "wrap" }}>
                           <span style={{ fontFamily: "monospace" }}>{d.date}</span>
                           <span style={{ fontFamily: "monospace" }}>{d.time || "—"}</span>
                           <span>{d.present}/{d.required}</span>
                           <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                             {d.agents.map((a, j) => { const rc = reasonOf(a); return <span key={j} style={{ padding: "0 6px", borderRadius: 999, background: REASON_TOKEN[rc], color: REASON_FG[rc], fontSize: 10 }}>{a.fullName} · {t(`overviewV2.reason.${rc}`)}</span> })}
                           </span>
-                          {d.candidateAvailable && <span style={{ color: "rgb(var(--st-good-fg))" }}>{t("overviewV21.candidateAvailable")}</span>}
+                          <button onClick={() => onFindSubstitute({ locationCode: grp.locationCode, date: d.date, displayName: grp.displayName })} style={{ fontSize: 10, border: "1px solid rgb(var(--border-default))", background: "transparent", color: "rgb(var(--text-secondary))", borderRadius: 4, padding: "1px 6px", cursor: "pointer" }}>{t("overviewV21.findSubstitute")}</button>
                         </div>
                       ))}
                     </div>
@@ -209,13 +220,13 @@ export function OverviewV21({ gaps, heatDates, today, absentToday }: Props) {
       {confirm && (
         <div style={{ position: "fixed", inset: 0, background: "rgb(var(--surface-scrim) / .5)", display: "grid", placeItems: "center", zIndex: 50 }}>
           <div style={{ background: "rgb(var(--surface-overlay))", border: "1px solid rgb(var(--border-default))", borderRadius: 12, padding: 18, maxWidth: 420, width: "100%" }}>
-            <h3 style={{ fontSize: 15, margin: "0 0 8px" }}>{t("overviewV2.confirm.title", { name: confirm.group.candidateName })}</h3>
+            <h3 style={{ fontSize: 15, margin: "0 0 8px" }}>{t("overviewV2.confirm.title", { name: confirm.candidate.fullName })}</h3>
             <div style={{ maxHeight: 160, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
               {confirm.dates.map(d => <div key={d} style={{ fontSize: 13 }}>{d} · {confirm.group.displayName}</div>)}
             </div>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button onClick={() => setConfirm(null)} style={{ padding: "6px 12px", borderRadius: 6, fontSize: 13, border: "1px solid rgb(var(--border-default))", background: "transparent", color: "rgb(var(--text-secondary))", cursor: "pointer" }}>{t("overviewV2.cancel")}</button>
-              <button disabled={busy} onClick={() => doAssign(confirm.group, confirm.dates)} style={{ padding: "6px 12px", borderRadius: 6, fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--ov2-assign-bg))", color: "rgb(var(--ov2-assign-fg))" }}>{t("overviewV2.confirm.confirm")}</button>
+              <button disabled={busy} onClick={() => doAssign(confirm.group, confirm.candidate, confirm.dates)} style={{ padding: "6px 12px", borderRadius: 6, fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--ov2-assign-bg))", color: "rgb(var(--ov2-assign-fg))" }}>{t("overviewV2.confirm.confirm")}</button>
             </div>
           </div>
         </div>

@@ -928,7 +928,13 @@
     "hideDays": "Tage ausblenden",
     "varies": "variiert",
     "candidateAvailable": "verfügbar",
-    "noSourceType": "Kein Quelltyp — Zuweisung nicht verfügbar"
+    "noSourceType": "Kein Quelltyp — Zuweisung nicht verfügbar",
+    "showAll": "Alle anzeigen ({{count}})",
+    "showLess": "Weniger anzeigen",
+    "findSubstitute": "Vertretung suchen",
+    "noOneAvailable": "Niemand verfügbar",
+    "needsMore": "noch {{count}} benötigt",
+    "availableXOfN": "{{x}} von {{n}} Tagen"
   },
   "whatsNew": {
     "title": "Was ist neu",

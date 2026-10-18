@@ -10,6 +10,7 @@ export interface GapAgent {
   assignmentType: string // MAIN | BACKUP | REGIONAL
   status: string         // absence reason (raw ShiftType) or "NONE"
   taskLabel: string
+  sourceLocation?: string | null
 }
 
 export interface CoverageGap {
@@ -185,6 +186,25 @@ export interface GapAgentV21 {
   varies: boolean
 }
 
+/** A suggested (available) candidate for a group, with where they are now and
+ *  the days of the group they can cover. */
+export interface CandidateV21 {
+  employeeId: string
+  fullName: string
+  source: string      // "WIC Recklinghausen", "rostered, no task", "BO", …
+  sourceType: string  // assignmentType, used as the accept SourceType ("" = disabled)
+  availableDates: string[]
+}
+
+/** Where the candidate currently is ("odakle"): the task label when present,
+ *  else the home WIC centre, else "rostered, no task". */
+export function sourceOf(f: GapAgent): string {
+  const task = (f.taskLabel ?? "").trim()
+  if (task) return task
+  if (f.sourceLocation) return `WIC ${f.sourceLocation}`
+  return "rostered, no task"
+}
+
 export interface GapGroupV21 {
   locationCode: string
   displayName: string
@@ -197,10 +217,8 @@ export interface GapGroupV21 {
   timeVaries: boolean
   days: GapDayV21[]
   agents: GapAgentV21[]
-  candidateId: string | null
-  candidateName: string | null
-  candidateSourceType: string   // "" = no source type (assign disabled)
-  candidateAvailableDates: string[]
+  candidateId: string | null   // first candidate (the grouping key)
+  candidates: CandidateV21[]   // ALL available candidates, in API order
 }
 
 /** v2.1 grouping key: location + status + first suggested candidate (or none).
@@ -253,12 +271,22 @@ export function groupGapsV21(gaps: CoverageGap[]): GapGroupV21[] {
       varies: v.reasons.size > 1,
     }))
 
-    const floater = first.availableFloaters?.[0] ?? null
-    const candidateId = floater ? (floater.employeeId ?? floater.fullName) : null
-    const candidateSourceType = floater?.assignmentType ?? ""
-    const candidateAvailableDates = floater
-      ? items.filter(g => g.availableFloaters.some(f => (f.employeeId ?? f.fullName) === candidateId)).map(g => g.date)
-      : []
+    const firstFloater = first.availableFloaters?.[0] ?? null
+    const candidateId = firstFloater ? (firstFloater.employeeId ?? firstFloater.fullName) : null
+
+    // ALL candidates: union of availableFloaters across days, in first-seen order
+    // (the same order the API / old screen already returns them in).
+    const candMap = new Map<string, CandidateV21>()
+    for (const g of items) {
+      for (const f of g.availableFloaters ?? []) {
+        const id = f.employeeId ?? f.fullName
+        if (!candMap.has(id)) {
+          candMap.set(id, { employeeId: id, fullName: f.fullName, source: sourceOf(f), sourceType: f.assignmentType ?? "", availableDates: [] })
+        }
+        candMap.get(id)!.availableDates.push(g.date)
+      }
+    }
+    const candidates = [...candMap.values()]
 
     const days: GapDayV21[] = items.map(g => ({
       date: g.date,
@@ -266,7 +294,7 @@ export function groupGapsV21(gaps: CoverageGap[]): GapGroupV21[] {
       present: g.present,
       required: g.required,
       agents: g.assignedAgents,
-      candidateAvailable: floater ? g.availableFloaters.some(f => (f.employeeId ?? f.fullName) === candidateId) : false,
+      candidateAvailable: firstFloater ? g.availableFloaters.some(f => (f.employeeId ?? f.fullName) === candidateId) : false,
     }))
 
     return {
@@ -282,9 +310,7 @@ export function groupGapsV21(gaps: CoverageGap[]): GapGroupV21[] {
       days,
       agents,
       candidateId,
-      candidateName: floater?.fullName ?? null,
-      candidateSourceType,
-      candidateAvailableDates,
+      candidates,
     }
   })
 }

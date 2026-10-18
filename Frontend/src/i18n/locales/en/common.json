@@ -928,7 +928,13 @@
     "hideDays": "Hide days",
     "varies": "varies",
     "candidateAvailable": "available",
-    "noSourceType": "No source type — assign unavailable"
+    "noSourceType": "No source type — assign unavailable",
+    "showAll": "Show all ({{count}})",
+    "showLess": "Show less",
+    "findSubstitute": "Find substitute",
+    "noOneAvailable": "No one available",
+    "needsMore": "needs {{count}} more",
+    "availableXOfN": "{{x}} of {{n}} days"
   },
   "whatsNew": {
     "title": "What's new",

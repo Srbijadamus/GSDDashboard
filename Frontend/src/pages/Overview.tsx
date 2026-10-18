@@ -1245,7 +1245,7 @@ export default function Overview() {
 
       {/* ── WIC coverage-gaps — V2 (grouped) or legacy (banner + Coverage Risk) ── */}
       {overviewV2 ? (overviewGroupingV21 ? (
-        <OverviewV21 gaps={coverageGaps} heatDates={heatDates} today={today} absentToday={absentToday} />
+        <OverviewV21 gaps={coverageGaps} heatDates={heatDates} today={today} absentToday={absentToday} onFindSubstitute={args => { setSheetCell(args); setSheetOpen(true) }} />
       ) : (
         <OverviewV2 gaps={coverageGaps} heatDates={heatDates} today={today} absentToday={absentToday} />
       )) : (
