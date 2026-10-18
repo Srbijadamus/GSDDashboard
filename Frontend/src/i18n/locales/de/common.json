@@ -922,9 +922,18 @@
       "other": "sonstiges"
     }
   },
+  "overviewV21": {
+    "differentHours": "Unterschiedliche Zeiten",
+    "showDays": "{{count}} Tage anzeigen",
+    "hideDays": "Tage ausblenden",
+    "varies": "variiert",
+    "candidateAvailable": "verfügbar",
+    "noSourceType": "Kein Quelltyp — Zuweisung nicht verfügbar"
+  },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Abdeckungslücken sind jetzt nach Entscheidung gruppiert: den ganzen Zeitraum auf einmal prüfen und einen verfügbaren Mitarbeiter mit einem Klick mehreren Tagen zuweisen.",
+    "body": "Abdeckungslücken sind jetzt nach Entscheidung gruppiert — prüfen Sie einen ganzen Zeitraum auf einmal und weisen Sie einen verfügbaren Mitarbeiter mit einem Klick mehreren Tagen zu. Gruppen brechen nur bei Status- oder Kandidatenwechsel, so bleibt eine ganze Woche eine Entscheidung.",
+    "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }
 }

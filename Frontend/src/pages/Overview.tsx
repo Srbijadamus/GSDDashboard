@@ -24,6 +24,7 @@ import { ExceptionList } from "./overview/ExceptionList"
 import NewShiftModal from "./WICShifts/NewShiftModal"
 import { useFeatures } from "../utils/useFeatures"
 import { OverviewV2 } from "./overview/OverviewV2"
+import { OverviewV21 } from "./overview/OverviewV21"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1217,7 +1218,7 @@ export default function Overview() {
     setSheetOpen(true)
   }
 
-  const { overviewV2 } = useFeatures()
+  const { overviewV2, overviewGroupingV21 } = useFeatures()
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -1243,9 +1244,11 @@ export default function Overview() {
       <AlTrackerConflictBanner />
 
       {/* ── WIC coverage-gaps — V2 (grouped) or legacy (banner + Coverage Risk) ── */}
-      {overviewV2 ? (
-        <OverviewV2 gaps={coverageGaps} heatDates={heatDates} today={today} absentToday={absentToday} />
+      {overviewV2 ? (overviewGroupingV21 ? (
+        <OverviewV21 gaps={coverageGaps} heatDates={heatDates} today={today} absentToday={absentToday} />
       ) : (
+        <OverviewV2 gaps={coverageGaps} heatDates={heatDates} today={today} absentToday={absentToday} />
+      )) : (
       <>
       <WicCoverageGapsBanner
         horizon={horizon}

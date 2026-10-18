@@ -2,6 +2,7 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Search, LogOut } from 'lucide-react'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { WHATS_NEW_OPEN_EVENT } from '../components/WhatsNew'
 import { NAV_GROUPS, AGENT_NAV } from './navItems'
 import { useAuth } from '../auth/AuthContext'
 import { HORIZON_OPTIONS, DEFAULT_HORIZON } from '../utils/wicHorizon'
@@ -127,6 +128,16 @@ export function Topbar({ onOpenCmd }: TopbarProps) {
         )}
 
         <div className="h-5 w-px bg-line-subtle mx-1" />
+        {!isAgent && (
+          <button
+            onClick={() => window.dispatchEvent(new Event(WHATS_NEW_OPEN_EVENT))}
+            aria-label={t('whatsNew.menu')}
+            title={t('whatsNew.menu')}
+            className="h-8 px-2 rounded-md flex items-center justify-center text-xs font-medium text-ink-muted hover:bg-hovered transition-colors duration-fast"
+          >
+            {t('whatsNew.menu')}
+          </button>
+        )}
         <LangToggle />
         <ThemeToggle />
       </div>

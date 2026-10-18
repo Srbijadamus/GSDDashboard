@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext"
 
 interface FeaturesResponse {
   overviewV2: boolean
+  overviewGroupingV21: boolean
   whatsNew: boolean
 }
 
@@ -28,11 +29,12 @@ export function useFeatures() {
   })
 
   const serverOverviewV2 = data?.overviewV2 ?? false
+  const serverOverviewGroupingV21 = data?.overviewGroupingV21 ?? false
   const whatsNew = data?.whatsNew ?? false
 
   const kid = session?.kid ?? "anon"
   const override = readLocal(`pulse.overviewV2.${kid}`)
   const overviewV2 = serverOverviewV2 && override !== "old"
 
-  return { overviewV2, whatsNew, serverOverviewV2 }
+  return { overviewV2, overviewGroupingV21: serverOverviewGroupingV21, whatsNew, serverOverviewV2 }
 }

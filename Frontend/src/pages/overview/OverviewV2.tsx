@@ -83,7 +83,7 @@ export function OverviewV2({ gaps, heatDates, today, absentToday }: Props) {
     const failed: Record<string, string> = {}
     for (const d of dates) {
       try {
-        await postSubstituteAccept({ employeeId: s.employeeId, locationCode: group.locationCode, date: d, sourceType: s.assignmentType })
+        await postSubstituteAccept({ employeeId: s.employeeId, locationCode: group.locationCode, date: d, sourceType: s.sourceType })
         ok.push(d)
       } catch (e) {
         failed[d] = substituteAcceptErrorText(e, t)
@@ -219,12 +219,18 @@ export function OverviewV2({ gaps, heatDates, today, absentToday }: Props) {
                             <span style={{ color: "rgb(var(--text-tertiary))" }}> · {all ? t("overviewV2.availableAllDays") : t("overviewV2.availableXDays", { count: s.availableDates.length })}</span>
                           </span>
                           <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                            {!s.sourceType ? (
+                              <span style={{ fontSize: 12, color: "rgb(var(--st-warn-fg))" }}>{t("overviewV21.noSourceType")}</span>
+                            ) : (
+                            <>
                             <button onClick={() => setConfirm({ group: grp, suggestion: s, target: grp.days })} style={{ padding: "4px 10px", borderRadius: 6, fontSize: 12, border: "1px solid rgb(var(--border-default))", background: "transparent", color: "rgb(var(--text-secondary))", cursor: "pointer" }}>
                               {t("overviewV2.pickDays")}
                             </button>
                             <button onClick={() => setConfirm({ group: grp, suggestion: s, target: s.availableDates })} style={{ padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--ov2-assign-bg))", color: "rgb(var(--ov2-assign-fg))" }}>
                               {all ? t("overviewV2.assignAll", { count: grp.dayCount }) : t("overviewV2.assignX", { count: s.availableDates.length })}
                             </button>
+                            </>
+                            )}
                           </div>
                         </div>
                       )

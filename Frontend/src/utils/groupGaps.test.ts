@@ -1,4 +1,4 @@
-import { groupGaps, type CoverageGap } from "./groupGaps.js"
+import { groupGaps, groupGapsV21, type CoverageGap } from "./groupGaps.js"
 import assert from "node:assert/strict"
 
 function gap(p: Partial<CoverageGap> & { date: string; locationCode: string }): CoverageGap {
@@ -100,3 +100,85 @@ function gap(p: Partial<CoverageGap> & { date: string; locationCode: string }): 
 }
 
 console.log("groupGaps: all tests passed")
+
+// ── v2.1 grouping tests ──────────────────────────────────────────────────────
+
+const candidate = (id: string) => ({ employeeId: id, fullName: "Candidate " + id, assignmentType: "REGIONAL", status: "NONE", taskLabel: "" })
+
+// (a) 5 days, same candidate, different hours -> 1 group, time varies
+{
+  const c = candidate("C1")
+  const g = groupGapsV21([
+    gap({ date: "2026-11-02", locationCode: "HAN", openTime: "08:00", closeTime: "16:00", availableFloaters: [c] }),
+    gap({ date: "2026-11-03", locationCode: "HAN", openTime: "09:00", closeTime: "17:00", availableFloaters: [c] }),
+    gap({ date: "2026-11-04", locationCode: "HAN", openTime: "10:00", closeTime: "18:00", availableFloaters: [c] }),
+    gap({ date: "2026-11-05", locationCode: "HAN", openTime: "11:00", closeTime: "19:00", availableFloaters: [c] }),
+    gap({ date: "2026-11-06", locationCode: "HAN", openTime: "12:00", closeTime: "20:00", availableFloaters: [c] }),
+  ])
+  assert.equal(g.length, 1)
+  assert.equal(g[0].dayCount, 5)
+  assert.equal(g[0].timeVaries, true)
+  assert.equal(g[0].time, "")
+}
+
+// (b) same candidate, backup's reason changes (BO <-> other WIC) -> 1 group, "varies"
+{
+  const c = candidate("C1")
+  const backup = (status: string, taskLabel: string) => ({ employeeId: "B1", fullName: "Backup", assignmentType: "BACKUP", status, taskLabel })
+  const g = groupGapsV21([
+    gap({ date: "2026-11-02", locationCode: "HAN", assignedAgents: [backup("BO", "BO")], availableFloaters: [c] }),
+    gap({ date: "2026-11-03", locationCode: "HAN", assignedAgents: [backup("WIC_DUTY", "WIC Centre")], availableFloaters: [c] }),
+  ])
+  assert.equal(g.length, 1)
+  const b = g[0].agents.find(a => a.employeeId === "B1")
+  assert.ok(b)
+  assert.equal(b!.varies, true)
+  assert.equal(b!.reason, "varies")
+}
+
+// (c) status change breaks the group
+{
+  const c = candidate("C1")
+  const g = groupGapsV21([
+    gap({ date: "2026-11-02", locationCode: "HAN", present: 0, required: 2, availableFloaters: [c] }),
+    gap({ date: "2026-11-03", locationCode: "HAN", present: 1, required: 2, availableFloaters: [c] }),
+  ])
+  assert.equal(g.length, 2)
+  assert.equal(g[0].status, "UNCOVERED")
+  assert.equal(g[1].status, "PARTIAL")
+}
+
+// (d) candidate change breaks the group
+{
+  const c1 = candidate("C1")
+  const c2 = candidate("C2")
+  const g = groupGapsV21([
+    gap({ date: "2026-11-02", locationCode: "HAN", availableFloaters: [c1] }),
+    gap({ date: "2026-11-03", locationCode: "HAN", availableFloaters: [c2] }),
+  ])
+  assert.equal(g.length, 2)
+}
+
+// (e) sum of days in groups == gap count
+{
+  const c = candidate("C1")
+  const inputs = [
+    gap({ date: "2026-11-02", locationCode: "A", availableFloaters: [c] }),
+    gap({ date: "2026-11-03", locationCode: "A", availableFloaters: [c] }),
+    gap({ date: "2026-11-04", locationCode: "A", availableFloaters: [c] }),
+    gap({ date: "2026-11-02", locationCode: "B", availableFloaters: [c] }),
+    gap({ date: "2026-11-09", locationCode: "A", availableFloaters: [c] }), // after a status? no — same key, but 11-09 is not consecutive with 11-04 in a different way
+  ]
+  const g = groupGapsV21(inputs)
+  const sum = g.reduce((s, x) => s + x.days.length, 0)
+  assert.equal(sum, inputs.length)
+}
+
+// (f) candidate with no assignmentType -> empty sourceType
+{
+  const c = { employeeId: "C1", fullName: "Candidate C1", assignmentType: "", status: "NONE", taskLabel: "" }
+  const g = groupGapsV21([gap({ date: "2026-11-02", locationCode: "HAN", availableFloaters: [c] })])
+  assert.equal(g[0].candidateSourceType, "")
+}
+
+console.log("groupGapsV21: all tests passed")

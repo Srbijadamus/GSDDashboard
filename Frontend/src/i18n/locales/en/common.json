@@ -922,9 +922,18 @@
       "other": "other"
     }
   },
+  "overviewV21": {
+    "differentHours": "Different hours",
+    "showDays": "Show {{count}} days",
+    "hideDays": "Hide days",
+    "varies": "varies",
+    "candidateAvailable": "available",
+    "noSourceType": "No source type — assign unavailable"
+  },
   "whatsNew": {
     "title": "What's new",
-    "body": "Coverage gaps are now grouped by decision: review the whole period at once and assign an available agent to several days in one click.",
+    "body": "Coverage gaps are now grouped by decision — review a whole period at once and assign an available agent to several days in one click. Groups only break when the status or the suggested agent changes, so a full week stays one decision.",
+    "menu": "What's new",
     "dismiss": "Got it"
   }
 }
