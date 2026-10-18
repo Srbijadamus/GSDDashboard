@@ -6,11 +6,15 @@
     <RootNamespace>GSDDashboard.API</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.32" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.32" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.32" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="ClosedXML" Version="0.102.2" />
+    <!-- Explicit override of the vulnerable transitive System.IO.Packaging 6.0.0
+         pulled by ClosedXML -> DocumentFormat.OpenXml (HIGH: GHSA-f32c-w444-8ppv,
+         GHSA-qj66-m88j-hmgj). Same major (6.x), patched patch release. -->
+    <PackageReference Include="System.IO.Packaging" Version="6.0.2" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.12" />
   </ItemGroup>
   <ItemGroup>
