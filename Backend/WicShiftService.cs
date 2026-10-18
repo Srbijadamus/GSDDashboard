@@ -1336,6 +1336,13 @@ public static class WicEndpointMapper
 
         grp.MapPost("/assignments", async (CreateAssignmentRequest req, GSDContext db, WicShiftService svc, HttpContext ctx) =>
         {
+            // Anonymous always 401 — even while Auth:EnforceAuthorization is off (the RBAC
+            // middleware is a rollout no-op, so the endpoint must not rely on it). Every
+            // authenticated role proceeds exactly as before; the AssignAnyway gate below
+            // remains the only role restriction.
+            if (ctx.User.Identity?.IsAuthenticated != true)
+                return Results.Json(new { error = "Authentication required" }, statusCode: StatusCodes.Status401Unauthorized);
+
             // "Assign anyway" is a role-gated override, enforced HERE — not by RbacMiddleware —
             // so it holds even while Auth:EnforceAuthorization is off (rollout phase).
             // DEV/RTM/TEAM_LEAD only; AGENT 403; anonymous 401.
