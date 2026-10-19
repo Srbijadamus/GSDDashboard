@@ -133,10 +133,13 @@ export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstit
   const dayStatus = useMemo(() => {
     const m = new Map<string, { uncovered: number; partial: number }>()
     for (const g of gaps) {
-      const e = m.get(g.date) ?? { uncovered: 0, partial: 0 }
+      // Normalize the day key to YYYY-MM-DD (first 10 chars) so the strip key and
+      // the gap date always compare equal ("2026-11-02T00:00:00" == "2026-11-02").
+      const key = String(g.date ?? "").slice(0, 10)
+      const e = m.get(key) ?? { uncovered: 0, partial: 0 }
       if (g.present === 0) e.uncovered++
       else e.partial++
-      m.set(g.date, e)
+      m.set(key, e)
     }
     return m
   }, [gaps])
@@ -172,7 +175,9 @@ export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstit
 
       <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 6 }}>
         {heatDates.map(d => {
-          const st = dayStatus.get(d)
+          // Same normalized key on the other side of the comparison.
+          const key = String(d).slice(0, 10)
+          const st = dayStatus.get(key)
           const total = (st?.uncovered ?? 0) + (st?.partial ?? 0)
           const hasUncovered = (st?.uncovered ?? 0) > 0
           const isToday = d === today

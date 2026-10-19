@@ -1194,7 +1194,7 @@ export default function Overview() {
 
   // ── Heatmap dates (unchanged) ─────────────────────────────────────────────────
   const heatDates = Array.from({ length: horizon }, (_, i) => {
-    const d = new Date(today); d.setDate(d.getDate() + i); return d.toISOString().split("T")[0]
+    const d = new Date(today); d.setDate(d.getDate() + i); return String(d.toISOString().split("T")[0]).slice(0, 10)
   })
 
   const dayLabel = (d: string) => {
