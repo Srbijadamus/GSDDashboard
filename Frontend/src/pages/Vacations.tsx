@@ -541,6 +541,13 @@ export default function Vacations() {
     queryFn: () => api.vacations.get(`year=2026${sheet ? "&sheet=" + sheet : ""}`)
   })
 
+  const activeArr = (active as any[]) ?? []
+  const activeFull = activeArr.filter(a => !a.isHalfDay).length
+  const activeHalf = activeArr.filter(a => a.isHalfDay).length
+  const onAlTodayValue = activeHalf > 0
+    ? `${activeFull} ${t("vacations.halfDaysSuffix", { count: activeHalf })}`
+    : String(activeFull)
+
   const grouped = useMemo(() => {
     if (!data) return []
     const map = new Map<string, { name: string; teamLead: string; periods: any[] }>()
@@ -685,9 +692,9 @@ export default function Vacations() {
 
           <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12 }}>
             {[
-              { label:"On AL Today",     value:(active as any[])?.length ?? 0, colorCls:"text-good-fg" },
-              { label:"Upcoming 7 Days", value:(upcoming as any[])?.length ?? 0, colorCls:"text-info-fg" },
-              { label:"Employees",       value:grouped.length,                  colorCls:"text-ink" },
+              { label:"On AL Today",     value:onAlTodayValue,                          colorCls:"text-good-fg" },
+              { label:"Upcoming 7 Days", value:(upcoming as any[])?.length ?? 0,        colorCls:"text-info-fg" },
+              { label:"Employees",       value:grouped.length,                          colorCls:"text-ink" },
             ].map(s => (
               <div key={s.label} className="bg-raised border border-line-subtle" style={{ borderRadius:8, padding:"16px 20px" }}>
                 <div className="text-ink-soft" style={{ fontSize:10, textTransform:"uppercase", letterSpacing:".08em", marginBottom:6 }}>{s.label}</div>
@@ -701,13 +708,13 @@ export default function Vacations() {
               <div className="text-ink-soft" style={{ fontSize:10, textTransform:"uppercase", letterSpacing:".07em", marginBottom:10 }}>
                 Starting next 7 days
               </div>
-              {(upcoming as any[]).map((v: any) => (
-                <div key={v.id} className="border-b border-line-subtle" style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+              {(upcoming as any[]).map((v: any, i: number) => (
+                <div key={`${v.employeeId}-${v.firstDay}-${i}`} className="border-b border-line-subtle" style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
                   padding:"5px 0", fontSize:12 }}>
                   <span className="font-mono text-ink-soft" style={{ fontSize:11 }}>{v.employeeId}</span>
-                  <span className="text-ink-muted">{v.firstName} {v.lastName}</span>
-                  <span className="font-mono text-info-fg" style={{ fontSize:11 }}>{v.firstDay} → {v.lastDay}</span>
-                  <span className="font-mono text-ink-soft" style={{ fontSize:11 }}>{v.workDaysNet}d</span>
+                  <span className="text-ink-muted">{v.fullName}</span>
+                  <span className="font-mono text-info-fg" style={{ fontSize:11 }}>{v.firstDay}{v.lastDay && v.lastDay !== v.firstDay ? ` → ${v.lastDay}` : ""}</span>
+                  <span className="font-mono text-ink-soft" style={{ fontSize:11 }}>{v.isHalfDay ? "½d" : ""}</span>
                 </div>
               ))}
             </div>

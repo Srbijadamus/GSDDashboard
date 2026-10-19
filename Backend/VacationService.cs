@@ -20,6 +20,12 @@ public record DailyLeaveCountDto(
     string Date, int MaxLeave, int TotalOff, int AlCount, int SlCount, int Remaining, bool IsFull
 );
 
+// One employee on AL for a single date (full or half), for the "On AL today" card.
+public record VacationActiveDto(string EmployeeId, string? FullName, bool IsHalfDay);
+
+// One AL period starting in the upcoming window (full or half), for the "Upcoming 7 days" list.
+public record VacationUpcomingDto(string EmployeeId, string? FullName, string FirstDay, string LastDay, bool IsHalfDay);
+
 public class VacationService
 {
     private readonly GSDContext _db;
@@ -53,29 +59,41 @@ public class VacationService
             .ToList();
     }
 
-    public async Task<List<VacationDto>> GetActiveOnDateAsync(DateOnly date)
+    public async Task<List<VacationActiveDto>> GetActiveOnDateAsync(DateOnly date)
     {
-        var rows = await _db.Vacations
-            .Where(v => v.FirstDay <= date && v.LastDay >= date)
-            .OrderBy(v => v.LastName)
-            .ToListAsync();
-        return rows.Select(v => Map(v)).ToList();
+        // The shared union rule (Shift Plan OR AL Tracker, with the manual-duty override
+        // and the rejected/cancelled + inactive/resigned exclusions) — the same source the
+        // Overview "Absent today" AL count reads, so the two views can never disagree.
+        var result = await AvailabilityResolver.GetAlOnDateAsync(_db, date);
+        var names = await NamesForAsync(result.People.Select(p => p.EmployeeId).Distinct().ToList());
+        return result.People
+            .Select(p => new VacationActiveDto(
+                p.EmployeeId, names.TryGetValue(p.EmployeeId, out var n) ? n : null, p.IsHalfDay))
+            .ToList();
     }
 
-    public async Task<List<VacationDto>> GetUpcomingAsync(int days)
+    public async Task<List<VacationUpcomingDto>> GetUpcomingAsync(int days)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
         var future = today.AddDays(days);
-        var rows = await _db.Vacations
-            .Where(v => v.FirstDay >= today && v.FirstDay <= future)
-            .OrderBy(v => v.FirstDay)
-            .ToListAsync();
-        var empIds = rows.Select(r => r.EmployeeId).Where(x => x != null).Distinct().ToList();
-        var empMap = await _db.Employees.Where(e => empIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
-        return rows
-            .Where(v => v.EmployeeId != null && empMap.ContainsKey(v.EmployeeId))
-            .Select(v => Map(v, empMap[v.EmployeeId!]))
+        var starts = await AvailabilityResolver.GetAlStartingAsync(_db, today, future);
+        var names = await NamesForAsync(starts.Select(s => s.EmployeeId).Distinct().ToList());
+        return starts
+            .Select(s => new VacationUpcomingDto(
+                s.EmployeeId,
+                names.TryGetValue(s.EmployeeId, out var n) ? n : null,
+                s.FirstDay.ToString("yyyy-MM-dd"),
+                s.LastDay.ToString("yyyy-MM-dd"),
+                s.IsHalfDay))
             .ToList();
+    }
+
+    private async Task<Dictionary<string, string?>> NamesForAsync(List<string> empIds)
+    {
+        if (empIds.Count == 0) return new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        return await _db.Employees
+            .Where(e => empIds.Contains(e.EmployeeId))
+            .ToDictionaryAsync(e => e.EmployeeId, e => e.FullName);
     }
 
 

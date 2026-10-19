@@ -73,6 +73,23 @@ public static class AlTrackerOverrides
     public static bool IgnoresTrackerEntry(ShiftEntry? dayRow) => IsManualNonAbsenceDuty(dayRow);
 
     /// <summary>
+    /// A tracker row whose status marks it as refused or withdrawn is NOT leave. The live
+    /// tracker leaves <c>ApprovedDenied</c> null (unset = approved); only an explicit
+    /// denial/cancellation string suppresses the day. Same single definition every reader
+    /// uses, so a rejected entry can never reappear as an absence in another view.
+    /// </summary>
+    public static bool IsRejectedOrCancelled(string? approvedDenied)
+    {
+        if (string.IsNullOrWhiteSpace(approvedDenied)) return false;
+        var v = approvedDenied.Trim();
+        return v.Contains("denied", StringComparison.OrdinalIgnoreCase)
+            || v.Contains("rejected", StringComparison.OrdinalIgnoreCase)
+            || v.Contains("cancel", StringComparison.OrdinalIgnoreCase)
+            || v.Contains("declined", StringComparison.OrdinalIgnoreCase)
+            || v.Contains("storno", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// The one resolver every reader uses. Given the day's <c>Vacations</c> rows and the
     /// day's best <c>ShiftEntries</c> row per employee, returns the tracker entries to ignore
     /// and the conflicts to warn about. Pure — no database access — so a caller that already

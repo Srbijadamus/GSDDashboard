@@ -529,6 +529,8 @@
   "vacations": {
     "fullDay": "Ganzer Tag",
     "halfDay": "Halber Tag",
+    "halfDaysSuffix_one": "(+{{count}} halber Tag)",
+    "halfDaysSuffix_other": "(+{{count}} halbe Tage)",
     "addAl": "+ AL eintragen",
     "addOl": "+ Sonstige Freistellung eintragen",
     "addAlTitle": "Urlaub eintragen (AL)",

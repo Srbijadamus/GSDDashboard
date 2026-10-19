@@ -359,4 +359,199 @@ public class AvailabilityResolver
         }
         return result;
     }
+
+    /// <summary>One employee on AL for a single date, full or half day.</summary>
+    public sealed record AlPersonOnDate(string EmployeeId, bool IsHalfDay);
+
+    /// <summary>The unified "who is on AL on this date" answer, full and half split.</summary>
+    public sealed record AlOnDateResult(DateOnly Date, IReadOnlyList<AlPersonOnDate> People)
+    {
+        public int FullCount => People.Count(p => !p.IsHalfDay);
+        public int HalfCount => People.Count(p => p.IsHalfDay);
+        public int TotalCount => People.Count;
+    }
+
+    /// <summary>One AL period that starts inside a window, full or half day.</summary>
+    public sealed record AlStartPeriod(string EmployeeId, DateOnly FirstDay, DateOnly LastDay, bool IsHalfDay);
+
+    /// <summary>
+    /// THE SINGLE "on AL" RULE for the people lists (Vacations "On AL today" and Overview
+    /// "Absent today" AL). Both views call this, so they can never disagree again.
+    ///
+    /// AL in the Shift Plan OR the AL Tracker = AL, with these exclusions, none of which
+    /// is a new rule — each reuses the existing common predicate:
+    ///   * a manual RTM duty in the Shift Plan wins over the tracker
+    ///     (<see cref="AlTrackerOverrides.IsManualNonAbsenceDuty"/>, via
+    ///     <see cref="AlTrackerOverrides.Resolve"/>);
+    ///   * a rejected/cancelled tracker row is not leave
+    ///     (<see cref="AlTrackerOverrides.IsRejectedOrCancelled"/>);
+    ///   * an inactive or resigned employee is not counted
+    ///     (<see cref="SubstituteEligibility.HasLeft"/>);
+    ///   * a HALF_AL day is reported separately from a full AL day, so a caller can show
+    ///     "x (+y half days)".
+    ///
+    /// The AL Tracker (<c>Vacations</c>) is never changed and nothing is deleted.
+    /// </summary>
+    public static async Task<AlOnDateResult> GetAlOnDateAsync(GSDContext db, DateOnly date)
+    {
+        var employees = (await db.Employees.Where(e => e.IsActive).ToListAsync())
+            .Where(e => !TestAccounts.IsExcluded(e.EmployeeId)).ToList();
+        var empIds = employees.Select(e => e.EmployeeId).ToList();
+
+        var resignedRows = await db.ShiftEntries
+            .Where(s => empIds.Contains(s.EmployeeId)
+                     && s.ShiftType == SubstituteEligibility.Resigned
+                     && s.ShiftDate <= date)
+            .ToListAsync();
+        var resignedFrom = SubstituteEligibility.EarliestResignedByEmployee(resignedRows);
+
+        var trackerRows = await db.Vacations
+            .Where(v => v.EmployeeId != null
+                     && empIds.Contains(v.EmployeeId)
+                     && v.FirstDay <= date && v.LastDay >= date)
+            .ToListAsync();
+
+        var shiftRows = await db.ShiftEntries
+            .Where(s => empIds.Contains(s.EmployeeId) && s.ShiftDate == date)
+            .ToListAsync();
+
+        var shiftByEmp = shiftRows
+            .GroupBy(s => s.EmployeeId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var bestByEmp = shiftByEmp.ToDictionary(
+            kv => kv.Key,
+            kv => (ShiftEntry?)ShiftDuplicateResolver.BestShiftEntry(kv.Value),
+            StringComparer.OrdinalIgnoreCase);
+
+        var (ignoredTrackerIds, _) = AlTrackerOverrides.Resolve(date, trackerRows, bestByEmp);
+
+        var trackerByEmp = trackerRows
+            .Where(v => !ignoredTrackerIds.Contains(v.Id))
+            .Where(v => !AlTrackerOverrides.IsRejectedOrCancelled(v.ApprovedDenied))
+            .GroupBy(v => v.EmployeeId!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var people = new List<AlPersonOnDate>();
+        foreach (var emp in employees)
+        {
+            if (SubstituteEligibility.HasLeft(emp, date, resignedFrom)) continue;
+
+            if (!shiftByEmp.TryGetValue(emp.EmployeeId, out var dayRows)) dayRows = new List<ShiftEntry>();
+
+            // Manual RTM duty (a non-absence decision) wins over the tracker.
+            if (dayRows.Any(AlTrackerOverrides.IsManualNonAbsenceDuty)) continue;
+
+            var best = dayRows.Count > 0 ? ShiftDuplicateResolver.BestShiftEntry(dayRows) : null;
+            var type = best?.ShiftType ?? "";
+            if (string.Equals(type, ShiftTypes.AnnualLeave, StringComparison.OrdinalIgnoreCase))
+            {
+                people.Add(new AlPersonOnDate(emp.EmployeeId, false));
+                continue;
+            }
+            if (string.Equals(type, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase))
+            {
+                people.Add(new AlPersonOnDate(emp.EmployeeId, true));
+                continue;
+            }
+
+            // No AL in the Shift Plan — a non-rejected tracker entry still means AL.
+            if (trackerByEmp.TryGetValue(emp.EmployeeId, out var trackers) && trackers.Count > 0)
+                people.Add(new AlPersonOnDate(emp.EmployeeId, trackers.Any(IsHalfDayTrackerEntry)));
+        }
+
+        return new AlOnDateResult(date, people.OrderBy(p => p.EmployeeId, StringComparer.OrdinalIgnoreCase).ToList());
+    }
+
+    private static bool IsHalfDayTrackerEntry(Vacation v) =>
+        v.WorkDaysNet.HasValue && v.WorkDaysNet.Value == 0.5m;
+
+    /// <summary>
+    /// The same "on AL" rule applied to starts: every AL period (full or half) that begins
+    /// inside <c>[startDate, endDate]</c>, from the Shift Plan OR the AL Tracker. Used by
+    /// the Vacations "Upcoming 7 days" list. Reuses the same predicates as
+    /// <see cref="GetAlOnDateAsync"/> so the exclusions can never drift.
+    /// </summary>
+    public static async Task<List<AlStartPeriod>> GetAlStartingAsync(GSDContext db, DateOnly startDate, DateOnly endDate)
+    {
+        var employees = (await db.Employees.Where(e => e.IsActive).ToListAsync())
+            .Where(e => !TestAccounts.IsExcluded(e.EmployeeId)).ToList();
+        var empIds = employees.Select(e => e.EmployeeId).ToList();
+        var empById = employees.ToDictionary(e => e.EmployeeId, StringComparer.OrdinalIgnoreCase);
+
+        var resignedRows = await db.ShiftEntries
+            .Where(s => empIds.Contains(s.EmployeeId)
+                     && s.ShiftType == SubstituteEligibility.Resigned
+                     && s.ShiftDate <= endDate)
+            .ToListAsync();
+        var resignedFrom = SubstituteEligibility.EarliestResignedByEmployee(resignedRows);
+
+        var trackerRows = await db.Vacations
+            .Where(v => v.EmployeeId != null
+                     && empIds.Contains(v.EmployeeId)
+                     && v.FirstDay >= startDate && v.FirstDay <= endDate)
+            .ToListAsync();
+
+        // One day before the window so a "start" is detectable (previous day not AL).
+        var shiftRows = await db.ShiftEntries
+            .Where(s => empIds.Contains(s.EmployeeId)
+                     && s.ShiftDate >= startDate.AddDays(-1) && s.ShiftDate <= endDate)
+            .ToListAsync();
+        var shiftByEmpDate = shiftRows
+            .GroupBy(s => (s.EmployeeId, s.ShiftDate))
+            .ToDictionary(g => g.Key, g => ShiftDuplicateResolver.BestShiftEntry(g));
+
+        var result = new List<AlStartPeriod>();
+        var seenStart = new HashSet<(string EmployeeId, DateOnly Day)>();
+
+        // 1. Tracker starts, honouring a manual RTM duty on the start day and rejections.
+        foreach (var v in trackerRows)
+        {
+            if (v.EmployeeId == null) continue;
+            if (!empById.TryGetValue(v.EmployeeId, out var emp)) continue;
+            if (SubstituteEligibility.HasLeft(emp, v.FirstDay, resignedFrom)) continue;
+            if (AlTrackerOverrides.IsRejectedOrCancelled(v.ApprovedDenied)) continue;
+            shiftByEmpDate.TryGetValue((v.EmployeeId, v.FirstDay), out var startRow);
+            if (AlTrackerOverrides.IsManualNonAbsenceDuty(startRow)) continue;
+
+            var half = v.WorkDaysNet.HasValue && v.WorkDaysNet.Value == 0.5m;
+            result.Add(new AlStartPeriod(v.EmployeeId, v.FirstDay, v.LastDay, half));
+            seenStart.Add((v.EmployeeId, v.FirstDay));
+        }
+
+        // 2. Shift-Plan-only starts: an AL/HALF_AL day in the window whose previous day is
+        //    not AL, and which no tracker entry already reports as a start.
+        foreach (var emp in employees)
+        {
+            if (SubstituteEligibility.HasLeft(emp, endDate, resignedFrom)) continue;
+
+            var alDays = new SortedSet<DateOnly>();
+            for (var d = startDate; d <= endDate; d = d.AddDays(1))
+            {
+                shiftByEmpDate.TryGetValue((emp.EmployeeId, d), out var row);
+                if (row != null &&
+                    (string.Equals(row.ShiftType, ShiftTypes.AnnualLeave, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(row.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase)))
+                    alDays.Add(d);
+            }
+
+            foreach (var d in alDays)
+            {
+                if (alDays.Contains(d.AddDays(-1))) continue;               // continuation, not a start
+                if (seenStart.Contains((emp.EmployeeId, d))) continue;      // already a tracker start
+
+                var last = d;
+                while (alDays.Contains(last.AddDays(1))) last = last.AddDays(1);
+                shiftByEmpDate.TryGetValue((emp.EmployeeId, d), out var startRow);
+                var half = startRow != null &&
+                           string.Equals(startRow.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase);
+                result.Add(new AlStartPeriod(emp.EmployeeId, d, last, half));
+            }
+        }
+
+        return result
+            .OrderBy(r => r.FirstDay)
+            .ThenBy(r => r.EmployeeId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 }

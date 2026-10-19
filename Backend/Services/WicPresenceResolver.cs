@@ -122,6 +122,13 @@ public static class WicPresenceResolver
     /// <c>_ =&gt; false</c> when the caller has no SickLeaves data loaded — ShiftSyncService
     /// normally also writes ShiftType=SL, so absences are still caught by the ShiftEntry.
     /// </param>
+    /// <param name="strictOnSite">
+    /// Score signal 1 the way WIC Attendance does (<c>/api/wic/open</c> and
+    /// <c>/api/wic/cards</c>): an on-site agent's ShiftEntries ShiftType is authoritative, so a
+    /// WORKING row is not WIC duty even when its stale AgentTask still names the centre. Only
+    /// the gap endpoint passes this, so its per-day gap matches WIC Attendance; the forecast
+    /// and briefing keep the location-aware flipped-ShiftType reading.
+    /// </param>
     public static WicPresence Resolve(
         WicLocation loc,
         DateOnly date,
@@ -130,7 +137,8 @@ public static class WicPresenceResolver
         IEnumerable<ShiftEntry> candidateDutyRows,
         Func<string, bool> isSick,
         WicBackOfficePriority.WicAssignmentIndex? assignments = null,
-        IEnumerable<WicOpeningHour>? openingHours = null)
+        IEnumerable<WicOpeningHour>? openingHours = null,
+        bool strictOnSite = false)
     {
         var agents = new List<WicPresentAgent>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -150,8 +158,14 @@ public static class WicPresenceResolver
             // (GetOnSiteWicContribution — RTM 2026-10-15, requirement 1), and an AUTOMATIC
             // back-office day whose agent has an active WIC assignment counts too (owner
             // rule 2026-10-15: WIC has priority over BO).
-            var contribution = AvailabilityResolver.GetOnSiteWicContribution(
-                isSick(w.EmployeeId), sh, loc, assignments, openingHours);
+            //
+            // strictOnSite (the gap endpoint) reads the ShiftType strictly instead, so a
+            // WORKING row with a stale centre name is NOT WIC cover — the same evaluation
+            // WIC Attendance uses.
+            var contribution = strictOnSite
+                ? AvailabilityResolver.GetOnSiteWicContribution(isSick(w.EmployeeId), sh)
+                : AvailabilityResolver.GetOnSiteWicContribution(
+                    isSick(w.EmployeeId), sh, loc, assignments, openingHours);
             agents.Add(new WicPresentAgent(w.EmployeeId, contribution, HasOnSiteRow: true, sh, w));
         }
 

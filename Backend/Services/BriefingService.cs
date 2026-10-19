@@ -115,7 +115,10 @@ public class BriefingService
         // a NON-absence type suppresses the day's AL-tracker row, so "Absent today" must not
         // report someone the Shift Plan says is on duty.
         var (ignoredAlIds, _) = AlTrackerOverrides.Resolve(date, vacToday, todayBestByEmp);
-        var effectiveVacToday = vacToday.Where(v => !ignoredAlIds.Contains(v.Id)).ToList();
+        var effectiveVacToday = vacToday
+            .Where(v => !ignoredAlIds.Contains(v.Id))
+            .Where(v => !AlTrackerOverrides.IsRejectedOrCancelled(v.ApprovedDenied))
+            .ToList();
         // "Absent today" is a people list, so it uses AbsenceFeedTypes rather than
         // FullAbsenceTypes: RESIGNED is excluded on purpose (the agent has left, they are
         // not absent), HALF_AL is included (half a day away is still an absence). Coverage
@@ -190,6 +193,34 @@ public class BriefingService
                     first.ToString("yyyy-MM-dd"), last.ToString("yyyy-MM-dd"),
                     total, soFar);
             }).OrderBy(a => a.FullName).ToList();
+
+        // ── Tracker-only AL (union rule, the same source as Vacations "On AL today") ──
+        // absenceShifts covers the Shift-Plan side. A non-rejected AL-tracker entry whose
+        // employee has NO AL/HALF_AL ShiftEntry today must still appear in "Absent today",
+        // so this list and the Vacations page read the exact same AL set.
+        var alAbsentIds = absences
+            .Where(a => string.Equals(a.ShiftType, ShiftTypes.AnnualLeave, StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(a.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase))
+            .Select(a => a.EmployeeId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var unionAl = await AvailabilityResolver.GetAlOnDateAsync(_db, date);
+        foreach (var p in unionAl.People)
+        {
+            if (alAbsentIds.Contains(p.EmployeeId)) continue;
+            if (!empById.TryGetValue(p.EmployeeId, out var emp)) continue;
+
+            vacByEmp.TryGetValue(p.EmployeeId, out var vac);
+            var first = vac?.FirstDay ?? date;
+            var last  = vac?.LastDay  ?? date;
+            absences.Add(new BriefingAbsenceDto(
+                p.EmployeeId, emp.FullName, emp.TeamLeadName,
+                p.IsHalfDay ? ShiftTypes.HalfAL : ShiftTypes.AnnualLeave,
+                ResolveWicDisplay(p.EmployeeId),
+                first.ToString("yyyy-MM-dd"), last.ToString("yyyy-MM-dd"),
+                last.DayNumber - first.DayNumber + 1,
+                date.DayNumber - first.DayNumber + 1));
+        }
+        absences = absences.OrderBy(a => a.FullName).ToList();
 
         // ── Gaps today ────────────────────────────────────────────────────────
         int todayDow = (int)date.DayOfWeek;

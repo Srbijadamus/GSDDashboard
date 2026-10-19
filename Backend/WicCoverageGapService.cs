@@ -397,7 +397,11 @@ public class WicCoverageGapService
                 loc, date, onSiteEntries, shiftByEmpDate, wicDutyEntries,
                 empId => sickLeaves.Any(sl =>
                     sl.EmployeeId == empId && sl.FirstDay <= date && sl.LastDay >= date),
-                boIndex, allHours);
+                boIndex, allHours,
+                // The gap list must agree with WIC Attendance (/api/wic/cards, /api/wic/open):
+                // an on-site agent whose ShiftEntries row is WORKING is not WIC cover, even
+                // when a stale centre name remains in AgentTask. See strictOnSite.
+                strictOnSite: true);
             presenceCache[(loc.Id, date)] = presence;
             return presence;
         }

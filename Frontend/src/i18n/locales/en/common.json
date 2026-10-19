@@ -529,6 +529,8 @@
   "vacations": {
     "fullDay": "Full day",
     "halfDay": "Half day",
+    "halfDaysSuffix_one": "(+{{count}} half day)",
+    "halfDaysSuffix_other": "(+{{count}} half days)",
     "addAl": "+ Add AL",
     "addOl": "+ Add OL",
     "addAlTitle": "Add Vacation (AL)",
