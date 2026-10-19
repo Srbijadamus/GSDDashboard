@@ -1,6 +1,6 @@
 ﻿{
     "LiveRoot":  "C:\\GSDDashboard",
-    "CreatedAtUtc":  "2026-10-19T14:15:56.8704978Z",
+    "CreatedAtUtc":  "2026-10-19T14:41:42.9435930Z",
     "Live":  [
                  {
                      "Path":  "Backend.Tests/ALBalanceEligibleDaysTests.cs",
@@ -1742,7 +1742,7 @@
                       },
                       {
                           "Path":  "Frontend/src/pages/Overview.tsx",
-                          "Hash":  "38C6C1EF39FB266E98DFED5F4DD6CFE64B615EF5A9EA5190DF3A1843426208E8"
+                          "Hash":  "D623402F494BB0D4DCC6914136489BEC23FDF3891B1AD226A45630A6822E04CD"
                       },
                       {
                           "Path":  "Frontend/src/pages/overview/AssignManuallyModal.tsx",
