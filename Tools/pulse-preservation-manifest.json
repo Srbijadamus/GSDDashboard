@@ -1,6 +1,6 @@
 ﻿{
     "LiveRoot":  "C:\\GSDDashboard",
-    "CreatedAtUtc":  "2026-10-16T08:48:24.1281032Z",
+    "CreatedAtUtc":  "2026-10-19T11:34:43.9554009Z",
     "Live":  [
                  {
                      "Path":  "Backend.Tests/ALBalanceEligibleDaysTests.cs",
@@ -1046,7 +1046,7 @@
                       },
                       {
                           "Path":  "Backend.Tests/WicOnlyCandidatesTests.cs",
-                          "Hash":  "3E2C9FC14DFF0399545C54240360B5E36E5C54060FA82CC048D16469CB8B8436"
+                          "Hash":  "9A0E694E22ACFAAEC18BBC4075BADF67B493E09CE103CB40AC3FED7C1929CDC4"
                       },
                       {
                           "Path":  "Backend.Tests/WicPresenceUnificationTests.cs",
@@ -1354,7 +1354,7 @@
                       },
                       {
                           "Path":  "Backend/Services/SubstitutionService.cs",
-                          "Hash":  "2CEB9F0AB96C83D7B3307301A90C6924B80D5EA4797A03F1F523003E1DA933A9"
+                          "Hash":  "584A055298639064BA639F58290D34E304CC2A62894980F7F9DADA34D0AC70C7"
                       },
                       {
                           "Path":  "Backend/Services/TestAccounts.cs",
@@ -1762,7 +1762,7 @@
                       },
                       {
                           "Path":  "Frontend/src/pages/overview/OverviewV21.tsx",
-                          "Hash":  "1D05D3A6E4EAC445085183C94A88C31D726278ED8089345A3C8E140FFA555729"
+                          "Hash":  "E82B07EBC159DCD01BFA3FF546AD4CEFF3DE6A523A10FC08022B66A2C579B14A"
                       },
                       {
                           "Path":  "Frontend/src/pages/Pipeline.tsx",
