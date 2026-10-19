@@ -93,6 +93,22 @@ The operations command centre, read-only apart from substitution acceptance.
 > pane inside Overview. There is **no Hours Report page** in Pulse at all; the closest surfaces are
 > `/export` (HR Export) and the per-page download buttons. See §4.
 
+> **Day strip (the 28-day forecast strip) — resolved defect (2026-10-19).** The per-day cells
+> stopped showing their red/orange coverage badge even though gaps existed (the banner and the
+> cards were correct). The cause was **not the data** — `dayStatus`/`heatDates`, the key
+> normalization, the CSS tokens and the deploy were all correct. The badge `<span>` rendered
+> correctly (height 12px, `background rgb(229,72,77)`, text = count) but was **clipped**: the cell
+> `<button>` had a fixed `height: 44` shorter than its content (~67px because of the day+date
+> line-height), so the 12px bar fell below the button; the strip container's `overflowX:"auto"`
+> makes `overflow-y` auto and cuts the overflow. Evidence: `bar.bottom=480 > strip.bottom=472`,
+> `scrollH=69 > clientH=50`. Fix: `Frontend/src/pages/overview/OverviewV21.tsx:187` `height:44` →
+> `minHeight` (the cell grows with its content; commit `577f0d2`). Note: commit `7367731`
+> (the `slice(0,10)` key normalization) was **not** the cause — the keys already matched. Debug for
+> next time: each cell's `title` encodes `dayStatus` (`${date}: X uncovered, Y partial`);
+> `getComputedStyle` + `getBoundingClientRect` on the badge `<span>` show the real
+> height/colour/clip. Always verify in a **clean browser load** (closed tab or Incognito), not in
+> SPA navigation.
+
 ### Shift Plan — `/shifts` (`pages/Shifts.tsx`)
 
 The full shift grid: all agents × all dates, colour-coded by shift type. Read **and** write.

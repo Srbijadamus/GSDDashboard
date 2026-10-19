@@ -29,6 +29,15 @@
 - **`ExcludedEmployeeIds` in `Backend\Services\TestAccounts.cs` must never be empty:**
   EF Core does not translate `Contains` over an empty collection. Keep a sentinel entry
   such as `"__no_test_account__"`.
+- **Frontend is served from TWO static roots** — `C:\GSDDashboard\Backend\wwwroot` **and**
+  `C:\GSDDashboard\Backend\bin\Release\net8.0\wwwroot`. Copying by hand into only ONE root does
+  **not** reach the browser (the app serves from the other one). Always deploy the frontend
+  through `C:\PulseOps\Deploy-Pulse.ps1`, which copies `wwwroot` into BOTH roots.
+- **Cache is NOT the cause of "frontend does not reach the browser".** `index.html` is served
+  with `Cache-Control: no-cache, no-store, must-revalidate` (+ `Pragma`/`Expires`) and the
+  `/assets/*` files are content-hashed and served `immutable` (`Backend/Program.cs:692-712`);
+  there is no service worker. If the browser still shows an old bundle, first verify the NEW
+  hash bundle actually exists in BOTH static roots — not whether it is cached.
 
 **State recorded on 2026-10-03, supplied by the operator, not rechecked here.**
 This is an operator runbook for a later authorized maintenance window.
