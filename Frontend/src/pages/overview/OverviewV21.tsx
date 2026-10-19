@@ -66,7 +66,7 @@ function OtherOptions({ group, onFindSubstitute, onAssigned }: { group: GapGroup
     queryKey: ["subs-other-options", group.locationCode, firstDate],
     queryFn: async () => {
       const r = await apiFetch<{ days: Array<{ candidates: OtherOptionSub[] }> }>(
-        `/api/wic/substitutes?locationCode=${encodeURIComponent(group.locationCode)}&date=${firstDate}&horizon=1`
+        `/api/wic/substitutes?locationCode=${encodeURIComponent(group.locationCode)}&date=${firstDate}&horizon=1&wicOnly=true`
       )
       return r.days?.[0]?.candidates ?? []
     },

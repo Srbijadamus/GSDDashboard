@@ -957,6 +957,7 @@
       "assign": "Assign",
       "cancel": "Cancel",
       "empty": "No employees found",
+      "showAllEmployees": "Show all employees",
       "status": {
         "free": "free",
         "rosteredNoTask": "rostered, no task",

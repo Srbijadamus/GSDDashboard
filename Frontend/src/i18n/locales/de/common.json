@@ -957,6 +957,7 @@
       "assign": "Zuweisen",
       "cancel": "Abbrechen",
       "empty": "Keine Mitarbeiter gefunden",
+      "showAllEmployees": "Alle Mitarbeiter anzeigen",
       "status": {
         "free": "frei",
         "rosteredNoTask": "eingeteilt, ohne Aufgabe",

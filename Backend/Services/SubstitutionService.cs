@@ -101,7 +101,8 @@ public class SubstitutionService
         string locationCode,
         string? dateStr,
         int horizon = 1,
-        IReadOnlyList<string>? explicitAbsentIds = null)
+        IReadOnlyList<string>? explicitAbsentIds = null,
+        bool wicOnly = false)
     {
         horizon = Math.Clamp(horizon, 1, 7);
         var startDate = dateStr != null && DateOnly.TryParse(dateStr, out var pd)
@@ -555,6 +556,30 @@ public class SubstitutionService
                     GetAbsences(emp.EmployeeId)));
             }
 
+            // ── (wicOnly) Narrow the pool to real WIC agents ───────────────────
+            // The Overview "Other options" card passes wicOnly=true so it offers only
+            // employees who actually hold a WIC assignment — an SSP / Voice backlog
+            // agent without one was offered and never moved to WIC. Agents assigned to
+            // THIS centre (MAIN/BACKUP/REGIONAL) sort first, then other WIC agents,
+            // each group keeping the existing Score order.
+            if (wicOnly)
+            {
+                var wicAgentNames = allAssignments
+                    .Select(a => a.EmployeeName)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var centreAssignedNames = allAssignments
+                    .Where(a => (a.LocationCode == locationCode || a.LocationCode == loc.LocationCodeLegacy)
+                                && a.AssignmentType is "MAIN" or "BACKUP" or "REGIONAL")
+                    .Select(a => a.EmployeeName)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                candidates = candidates
+                    .Where(c => wicAgentNames.Contains(c.FullName))
+                    .OrderByDescending(c => centreAssignedNames.Contains(c.FullName))
+                    .ThenByDescending(c => Score(c))
+                    .ToList();
+            }
+
             // ── Score and rank ────────────────────────────────────────────────
             candidates = candidates
                 .OrderByDescending(c => Score(c))
@@ -685,6 +710,7 @@ public static class SubstitutionEndpointMapper
             string? date,
             int? horizon,
             string? absentIds,
+            bool? wicOnly,
             SubstitutionService svc) =>
         {
             List<string>? parsedIds = absentIds != null
@@ -694,7 +720,7 @@ public static class SubstitutionEndpointMapper
                            .ToList()
                 : null;
 
-            var result = await svc.GetSubstitutesAsync(locationCode, date, horizon ?? 1, parsedIds);
+            var result = await svc.GetSubstitutesAsync(locationCode, date, horizon ?? 1, parsedIds, wicOnly ?? false);
             return result == null
                 ? Results.NotFound(new { error = $"Location '{locationCode}' not found or inactive." })
                 : Results.Ok(result);

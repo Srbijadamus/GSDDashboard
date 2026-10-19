@@ -171,6 +171,10 @@ paths:
     get:
       tags: [WIC]
       summary: Assign candidates
+  /api/wic/manual-candidates:
+    get:
+      tags: [WIC]
+      summary: WIC-only manual assign candidates
   /api/wic/coverage-gaps:
     get:
       tags: [WIC]
