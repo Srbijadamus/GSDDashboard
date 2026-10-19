@@ -62,6 +62,7 @@ builder.Services.AddScoped<WicShiftService>();
 builder.Services.AddScoped<WicCardsService>();
 builder.Services.AddScoped<WicCoverageGapService>();
 builder.Services.AddScoped<WicAssignCandidatesService>();
+builder.Services.AddScoped<WicManualCandidatesService>();
 builder.Services.AddScoped<VwicService>();
 builder.Services.AddScoped<BreakService>();
 builder.Services.AddScoped<SickLeaveService>();

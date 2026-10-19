@@ -38,10 +38,21 @@ export function AssignManuallyModal({ group, onClose, onAssigned }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<number | null>(null)
+  const [showAll, setShowAll] = useState(false)
 
   const { data: employees = [] } = useQuery<Employee[]>({
     queryKey: ["employees-active", allDates[0]],
     queryFn: () => apiFetch<Employee[]>("/api/employees?active=true"),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // WIC-only list (centre first, then other WIC agents) — the dialog's default view.
+  const { data: wicOnly = [] } = useQuery<Employee[]>({
+    queryKey: ["wic-manual-candidates", group.locationCode],
+    queryFn: async () => {
+      const r = await apiFetch<{ candidates: Employee[] }>(`/api/wic/manual-candidates?locationCode=${encodeURIComponent(group.locationCode)}`)
+      return r.candidates ?? []
+    },
     staleTime: 5 * 60 * 1000,
   })
 
@@ -66,13 +77,17 @@ export function AssignManuallyModal({ group, onClose, onAssigned }: Props) {
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const list = employees.filter(e => {
-      if (!q) return true
-      const name = (e.fullName ?? "").toLowerCase()
-      return name.includes(q) || e.employeeId.toLowerCase().includes(q)
-    })
-    return list.slice(0, 100)
-  }, [employees, query])
+    if (q) {
+      // Search still finds EVERY active employee, regardless of WIC assignment.
+      return employees.filter(e => {
+        const name = (e.fullName ?? "").toLowerCase()
+        return name.includes(q) || e.employeeId.toLowerCase().includes(q)
+      }).slice(0, 100)
+    }
+    // Default: only real WIC agents (centre first, then other WIC). The "Show all
+    // employees" toggle widens this to every active employee.
+    return (showAll ? employees : wicOnly).slice(0, 100)
+  }, [employees, wicOnly, query, showAll])
 
   const selectedDates = pickDays ? allDates.filter(d => picked.has(d)) : allDates
   const selected = employees.find(e => e.employeeId === selectedId) ?? null
@@ -167,6 +182,7 @@ export function AssignManuallyModal({ group, onClose, onAssigned }: Props) {
               ))}
             </span>
           )}
+          <button onClick={() => setShowAll(s => !s)} style={{ marginLeft: "auto", padding: "4px 10px", borderRadius: 6, fontSize: 11, border: showAll ? "none" : "1px solid rgb(var(--border-default))", background: showAll ? "rgb(var(--action-solid))" : "transparent", color: showAll ? "rgb(var(--action-fg))" : "rgb(var(--text-secondary))", cursor: "pointer" }}>{p("showAllEmployees")}</button>
         </div>
 
         <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>

@@ -1,4 +1,5 @@
 using GSDDashboard.API.Data;
+using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Roster;
 using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
@@ -98,6 +99,79 @@ public class WicAssignCandidatesService
     }
 }
 
+// ── Manual candidates (GET /api/wic/manual-candidates) ──────────────────────
+// Feeds the Overview v2 "Assign manually" dialog default list: ONLY employees who
+// hold an active WicAgentAssignments row, ordered so the centre's own agents come
+// first (MAIN, then BACKUP, then REGIONAL) and every other WIC agent follows.
+// An SSP / Voice backlog agent without a WIC assignment is never offered here.
+public record WicManualCandidate(
+    string EmployeeId, string FullName, string Category, string? AssignmentType);
+
+public record WicManualCandidatesResult(
+    string LocationCode, string DisplayName, List<WicManualCandidate> Candidates);
+
+public class WicManualCandidatesService
+{
+    private readonly GSDContext _db;
+    public WicManualCandidatesService(GSDContext db) => _db = db;
+
+    public async Task<WicManualCandidatesResult?> GetCandidatesAsync(string locationCode)
+    {
+        var loc = await _db.WicLocations.FirstOrDefaultAsync(l => l.LocationCode == locationCode && l.IsActive);
+        if (loc == null) return null;
+
+        var allAssignments = await _db.WicAgentAssignments.Where(a => a.IsActive).ToListAsync();
+
+        bool centreMatch(WicAgentAssignment a) =>
+            string.Equals(a.LocationCode, loc.LocationCode, StringComparison.OrdinalIgnoreCase) ||
+            (loc.LocationCodeLegacy != null &&
+             string.Equals(a.LocationCode, loc.LocationCodeLegacy, StringComparison.OrdinalIgnoreCase));
+
+        var centreByName = allAssignments
+            .Where(a => centreMatch(a) && a.AssignmentType is "MAIN" or "BACKUP" or "REGIONAL")
+            .GroupBy(a => a.EmployeeName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var centreNames = centreByName.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var otherByName = allAssignments
+            .Where(a => !centreNames.Contains(a.EmployeeName))
+            .GroupBy(a => a.EmployeeName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var employees = await _db.Employees.Where(e => e.IsActive).ToListAsync();
+        var empByName = employees
+            .Where(e => e.FullName != null)
+            .GroupBy(e => e.FullName!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        int typeRank(string? t) => t switch { "MAIN" => 0, "BACKUP" => 1, "REGIONAL" => 2, _ => 3 };
+
+        var centreCandidates = centreByName
+            .Where(kv => empByName.ContainsKey(kv.Key))
+            .OrderBy(kv => typeRank(kv.Value.AssignmentType))
+            .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv =>
+            {
+                var emp = empByName[kv.Key];
+                return new WicManualCandidate(emp.EmployeeId, emp.FullName ?? emp.EmployeeId, "CENTRE", kv.Value.AssignmentType);
+            })
+            .ToList();
+
+        var otherCandidates = otherByName
+            .Where(kv => empByName.ContainsKey(kv.Key))
+            .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv =>
+            {
+                var emp = empByName[kv.Key];
+                return new WicManualCandidate(emp.EmployeeId, emp.FullName ?? emp.EmployeeId, "OTHER_WIC", kv.Value.AssignmentType);
+            })
+            .ToList();
+
+        return new WicManualCandidatesResult(
+            loc.LocationCode, loc.DisplayName, centreCandidates.Concat(otherCandidates).ToList());
+    }
+}
+
 public static class WicAssignCandidatesEndpointMapper
 {
     public static void MapWicAssignCandidatesEndpoints(this WebApplication app)
@@ -115,6 +189,20 @@ public static class WicAssignCandidatesEndpointMapper
                 return Results.BadRequest(new { error = "Invalid date format. Expected yyyy-MM-dd." });
 
             var result = await svc.GetCandidatesAsync(locationCode, d);
+            return result == null
+                ? Results.NotFound(new { error = "Unknown or inactive WIC location" })
+                : Results.Ok(result);
+        });
+
+        // Same role gate. Returns the ordered WIC-only list for the "Assign manually"
+        // dialog default view (centre first, then other WIC agents).
+        grp.MapGet("/manual-candidates", async (string? locationCode, HttpContext ctx, WicManualCandidatesService svc) =>
+        {
+            if (RosterAccess.DenyResult(ctx) is { } deny) return deny;
+            if (string.IsNullOrWhiteSpace(locationCode))
+                return Results.BadRequest(new { error = "locationCode is required" });
+
+            var result = await svc.GetCandidatesAsync(locationCode);
             return result == null
                 ? Results.NotFound(new { error = "Unknown or inactive WIC location" })
                 : Results.Ok(result);
