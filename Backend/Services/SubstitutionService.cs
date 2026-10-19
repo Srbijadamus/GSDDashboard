@@ -26,7 +26,8 @@ public record SubstituteCandidate(
     string OneLineReason,
     string? ContactEmail,       // null — no email field on Employees
     int LoadScore,              // 30-day rolling substitution count from SubstitutionHistory; 0 if table empty
-    List<UpcomingAbsence> UpcomingAbsences
+    List<UpcomingAbsence> UpcomingAbsences,
+    string? WicAssignment = null // display-only: "<tier> <centre>" e.g. "BACKUP Mülheim", "+N" for further centres
 );
 
 public record DaySubstitutionResult(
@@ -208,6 +209,40 @@ public class SubstitutionService
                     result.Add(new UpcomingAbsence(d.ToString("yyyy-MM-dd"), d.ToString("yyyy-MM-dd"), sh.ShiftType));
             }
             return [.. result.OrderBy(a => a.From)];
+        }
+
+        // Display-only WIC assignment label ("<tier> <centre>", e.g. "BACKUP Mülheim").
+        // The assignment at THIS centre is shown first; any further active MAIN/BACKUP/
+        // REGIONAL assignments collapse to "+N". Never affects the candidate pool or order.
+        string? WicAssignmentLabel(Employee emp)
+        {
+            if (string.IsNullOrWhiteSpace(emp.FullName)) return null;
+            var assign = allAssignments
+                .Where(a => a.IsActive
+                         && a.AssignmentType is "MAIN" or "BACKUP" or "REGIONAL"
+                         && string.Equals(a.EmployeeName, emp.FullName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (assign.Count == 0) return null;
+
+            WicLocation? Resolve(string code) =>
+                locByCode.TryGetValue(code, out var l) ? l
+                : locByLegacyCode.TryGetValue(code, out var l2) ? l2 : null;
+
+            var here = assign.FirstOrDefault(a =>
+                string.Equals(a.LocationCode, locationCode, StringComparison.OrdinalIgnoreCase) ||
+                (loc.LocationCodeLegacy != null &&
+                 string.Equals(a.LocationCode, loc.LocationCodeLegacy, StringComparison.OrdinalIgnoreCase)));
+            var ordered = new List<WicAgentAssignment>();
+            if (here != null) ordered.Add(here);
+            ordered.AddRange(assign.Where(a => a != here));
+
+            var primary = ordered[0];
+            var centre = Resolve(primary.LocationCode);
+            var name = centre?.DisplayName ?? centre?.City ?? primary.LocationCode;
+            var label = $"{primary.AssignmentType} {name}";
+            var extra = ordered.Count - 1;
+            if (extra > 0) label += $" +{extra}";
+            return label;
         }
 
         var days = new List<DaySubstitutionResult>();
@@ -583,6 +618,16 @@ public class SubstitutionService
             // ── Score and rank ────────────────────────────────────────────────
             candidates = candidates
                 .OrderByDescending(c => Score(c))
+                .ToList();
+
+            // Display-only WIC assignment label — the candidate pool and its order are
+            // untouched; this only fills the field the Overview "Other options" card shows.
+            candidates = candidates
+                .Select(c =>
+                {
+                    empById.TryGetValue(c.EmployeeId, out var emp);
+                    return c with { WicAssignment = emp != null ? WicAssignmentLabel(emp) : null };
+                })
                 .ToList();
 
             string? bestPickId = null;

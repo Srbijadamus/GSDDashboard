@@ -50,6 +50,7 @@ interface OtherOptionSub {
   employeeId: string
   fullName: string
   sourceType: string
+  wicAssignment?: string | null
 }
 
 /** "Other options" (Overview v2 point 1): the first 5 entries of the existing
@@ -102,7 +103,7 @@ function OtherOptions({ group, onFindSubstitute, onAssigned }: { group: GapGroup
       ) : subs.map(s => (
         <div key={s.employeeId} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 12, color: "rgb(var(--text-primary))" }}><strong>{s.fullName}</strong></span>
-          <span style={{ fontSize: 12, color: "rgb(var(--text-tertiary))" }}>{s.sourceType}</span>
+          <span style={{ fontSize: 12, color: "rgb(var(--text-tertiary))" }}>{s.wicAssignment ?? s.sourceType}</span>
           <button disabled={busyId === s.employeeId} onClick={() => assign(s)} style={{ marginLeft: "auto", padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: "rgb(var(--ov2-assign-bg))", color: "rgb(var(--ov2-assign-fg))" }}>{t("overviewV2.confirm.confirm")} · {t("overviewV21.forDate", { date: dayLabel })}</button>
         </div>
       ))}

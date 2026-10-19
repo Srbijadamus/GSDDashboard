@@ -176,4 +176,40 @@ public class WicOnlyCandidatesTests
         Assert.Contains("S1", ids);
         Assert.Contains("V1", ids);
     }
+
+    // ── WicAssignment display label ("<tier> <centre>", "+N" for extra centres) ──
+
+    [Fact]
+    public async Task Substitutes_WicAssignment_IsTierCentre_PlusNForExtraCentres()
+    {
+        var provider = NewProvider(Guid.NewGuid().ToString());
+        var scope = provider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GSDContext>();
+
+        db.WicLocations.Add(new WicLocation { LocationCode = Code, DisplayName = "Testtown", City = "Testtown", MinAgentsRequired = 1, IsActive = true });
+        db.WicLocations.Add(new WicLocation { LocationCode = OtherCode, DisplayName = "Othertown", City = "Othertown", MinAgentsRequired = 1, IsActive = true });
+        db.WicOpeningHours.Add(new WicOpeningHour { LocationCode = Code, DayOfWeek = (int)Date.DayOfWeek, OpenTime = "08:00", CloseTime = "17:00" });
+
+        // "Backup Agent" holds BACKUP at THIS centre and MAIN at another centre.
+        db.WicAgentAssignments.Add(new WicAgentAssignment { LocationCode = Code, EmployeeName = "Backup Agent", AssignmentType = "BACKUP", IsActive = true });
+        db.WicAgentAssignments.Add(new WicAgentAssignment { LocationCode = OtherCode, EmployeeName = "Backup Agent", AssignmentType = "MAIN", IsActive = true });
+        // "Other Wic Agent" holds a single assignment at another centre.
+        db.WicAgentAssignments.Add(new WicAgentAssignment { LocationCode = OtherCode, EmployeeName = "Other Wic Agent", AssignmentType = "MAIN", IsActive = true });
+
+        db.Employees.Add(Emp("B1", "Backup Agent"));
+        db.Employees.Add(Emp("O1", "Other Wic Agent"));
+        await db.SaveChangesAsync();
+
+        var svc = new SubstitutionService(
+            db, new ReachabilityService(scope.ServiceProvider.GetRequiredService<IServiceScopeFactory>()),
+            new CoverageEvaluator(db), NullLogger<SubstitutionService>.Instance);
+
+        var result = await svc.GetSubstitutesAsync(Code, Date.ToString("yyyy-MM-dd"), 1, null, wicOnly: true);
+        var day = Assert.Single(result!.Days);
+
+        // The THIS-centre assignment leads, then "+1" for the remaining assignment.
+        Assert.Equal("BACKUP Testtown +1", day.Candidates.First(c => c.EmployeeId == "B1").WicAssignment);
+        // A single assignment renders as plain "<tier> <centre>".
+        Assert.Equal("MAIN Othertown", day.Candidates.First(c => c.EmployeeId == "O1").WicAssignment);
+    }
 }
