@@ -1060,7 +1060,13 @@ export default function Overview() {
   // horizon (topbar "90d" and the banner's "View 90 days" both set it). The old
   // Math.min(30, …) silently collapsed the restored 90-day view back to 30.
   const horizon = parseHorizon(searchParams.get("horizon"))
-  const today = new Date().toISOString().split("T")[0]
+  // Local day key ("YYYY-MM-DD"), NOT toISOString: in a positive-offset timezone
+  // (Europe/Berlin, UTC+2) toISOString is UTC and returns the previous day around
+  // local midnight, so the strip key no longer matches the gap date.
+  const today = (() => {
+    const n = new Date()
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`
+  })()
   // The ONLY WIC coverage-gap source on this page: the banner and the Coverage Risk
   // list below both read this one response, so their numbers cannot diverge.
   const coverageAllowed = session != null && ["RTM", "TEAM_LEAD", "DEV"].includes(session.role)
@@ -1194,7 +1200,9 @@ export default function Overview() {
 
   // ── Heatmap dates (unchanged) ─────────────────────────────────────────────────
   const heatDates = Array.from({ length: horizon }, (_, i) => {
-    const d = new Date(today); d.setDate(d.getDate() + i); return d.toISOString().split("T")[0]
+    const d = new Date(today); d.setDate(d.getDate() + i)
+    // Local day key, same as `today` — never toISOString (see the today comment).
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
   })
 
   const dayLabel = (d: string) => {
