@@ -39,6 +39,34 @@
   there is no service worker. If the browser still shows an old bundle, first verify the NEW
   hash bundle actually exists in BOTH static roots — not whether it is cached.
 
+### Resolved incident 2026-10-20: Pulse "Kiosk offline" — stale .NET runtime, not config/token
+
+**Symptom:** Pulse WIC Attendance showed "Kiosk offline" and 0 check-ins on every location;
+`/api/kiosk/attendance` returned an empty `500` (`Content-Length: 0`).
+
+**Not a config/token problem:** `Kiosk.ServiceToken` was valid (length 43), `BaseUrl`
+`http://localhost:8000` correct; the runtime config comes from
+`C:\ProgramData\PulseBackend\backend.json` via `PULSE_RUNTIME_CONFIG`. A direct call to the
+kiosk with that token returned 200.
+
+**Real cause:** the running Pulse process had **.NET 8.0.31** in memory, and that runtime
+version had since been **deleted** (only 8.0.32 remained). On the kiosk-proxy exception,
+`ExceptionHandlerMiddleware` tried to lazy-load
+`Microsoft.AspNetCore.Diagnostics.Abstractions` (8.0.0.0) from the deleted 8.0.31 folder →
+`System.IO.FileNotFoundException` → empty 500. Confirmed in the Windows Event Log (`.NET
+Runtime`, EventId 13, `RequestPath: /api/kiosk/attendance`).
+
+**Fix:** a clean process restart via the `GSDDashboard-Backend` watchdog task (the new process
+loads 8.0.32). No file/config/token change. Snapshot:
+`C:\ProgramData\PulseRollback\kiosk-restart-20261020-091941`. Verification: proxy 200,
+`/health` 200, exactly 1 process.
+
+**Invariant:** never delete an installed .NET runtime version while a process that uses it is
+still running. After every .NET runtime update/cleanup, restart the Pulse backend (via the
+`GSDDashboard-Backend` task) so it loads the current version. A stale/deleted runtime makes the
+first route that throws an exception return an empty 500 — before blaming config/token, check
+the Event Log (`.NET Runtime`, `FileNotFoundException` on a runtime DLL).
+
 **State recorded on 2026-10-03, supplied by the operator, not rechecked here.**
 This is an operator runbook for a later authorized maintenance window.
 **Do not execute live commands during the documentation/package task.**
