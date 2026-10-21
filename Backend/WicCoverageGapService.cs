@@ -428,10 +428,7 @@ public class WicCoverageGapService
         {
             var hours = HoursFor(loc, date);
             if (hours == null || hours.IsClosed) return false;
-            if (nationalHolidays.Contains(date)) return false;
-            var bundesland = loc.Bundesland ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
-            return bundesland == null || !holidays.Any(h =>
-                h.HolidayDate == date && string.Equals(h.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
+            return !HolidayMatcher.IsHoliday(loc, date, holidays);
         }
 
         // ── Consequence of the move (owner decision, 2026-10-16) ────────────────
@@ -632,11 +629,9 @@ public class WicCoverageGapService
     }
 
     // ── Holidays per WIC location (GET /api/wic/holidays) ──────────────────────
-    // Same national + regional matching IsOpenOn uses (line 420-428), not a second
-    // holiday list. A national holiday closes every active location (DE and NL); a
-    // regional holiday closes only the locations whose Bundesland (or PLZ-derived
-    // Bundesland) matches. NL locations have no Bundesland, so they only ever close
-    // on national holidays — there are no Dutch regional rows in PublicHolidays.
+    // Single source of truth is HolidayMatcher (national rows are country-scoped,
+    // regional rows are Bundesland-scoped to DE). IsNational is true only when every
+    // active location is closed; the distinct holiday names on a date are merged.
     public async Task<WicHolidaysResult> GetHolidaysAsync(int? daysParam)
     {
         var days = Math.Clamp(daysParam ?? DefaultDays, 1, 180);
@@ -649,36 +644,23 @@ public class WicCoverageGapService
             .Where(h => h.HolidayDate >= from && h.HolidayDate <= to)
             .ToListAsync();
 
-        var nationalByDate = holidays.Where(h => h.IsNational)
-            .GroupBy(h => h.HolidayDate)
-            .ToDictionary(g => g.Key, g => g.First());
-
         var result = new List<WicHolidayDay>();
         for (var date = from; date <= to; date = date.AddDays(1))
         {
-            if (nationalByDate.TryGetValue(date, out var nat))
-            {
-                result.Add(new WicHolidayDay(date.ToString("yyyy-MM-dd"), nat.Name, true,
-                    locations.Select(l => new WicHolidayLocation(l.LocationCode, l.DisplayName, l.City ?? "", l.Country ?? "")).ToList()));
-                continue;
-            }
-
             var closed = new List<WicHolidayLocation>();
-            string name = "";
             foreach (var loc in locations)
             {
-                var bundesland = loc.Bundesland ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
-                if (bundesland == null) continue;
-                var h = holidays.FirstOrDefault(h => h.HolidayDate == date &&
-                    string.Equals(h.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
-                if (h != null)
-                {
-                    if (name.Length == 0) name = h.Name;
+                if (HolidayMatcher.IsHoliday(loc, date, holidays))
                     closed.Add(new WicHolidayLocation(loc.LocationCode, loc.DisplayName, loc.City ?? "", loc.Country ?? ""));
-                }
             }
-            if (closed.Count > 0)
-                result.Add(new WicHolidayDay(date.ToString("yyyy-MM-dd"), name, false, closed));
+            if (closed.Count == 0) continue;
+
+            var names = holidays.Where(h => h.HolidayDate == date)
+                .Where(h => locations.Any(l => HolidayMatcher.Applies(h, l)))
+                .Select(h => h.Name).Distinct().ToList();
+            var name = names.Count > 0 ? string.Join(" / ", names) : "";
+
+            result.Add(new WicHolidayDay(date.ToString("yyyy-MM-dd"), name, closed.Count == locations.Count, closed));
         }
 
         return new WicHolidaysResult(from.ToString("yyyy-MM-dd"), to.ToString("yyyy-MM-dd"), result);

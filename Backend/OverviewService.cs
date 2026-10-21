@@ -65,7 +65,6 @@ public class OverviewService
         for (var date = startDate; date <= endDate; date = date.AddDays(1))
         {
             int dow = (int)date.DayOfWeek;
-            bool isNationalHoliday = publicHolidays.Any(ph => ph.HolidayDate == date && ph.IsNational);
 
             var dayWicIds = wicEntries
                 .Where(w => w.ShiftDate == date && w.IsOnSite)
@@ -75,12 +74,7 @@ public class OverviewService
             var locSummaries = locations.Select(loc =>
             {
                 var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, dow, date);
-                string? bundesland = loc.Bundesland
-                    ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
-                bool isRegionalHoliday = bundesland != null &&
-                    publicHolidays.Any(ph => ph.HolidayDate == date &&
-                        string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
-                bool isClosed = hours == null || hours.IsClosed || isNationalHoliday || isRegionalHoliday;
+                bool isClosed = hours == null || hours.IsClosed || HolidayMatcher.IsHoliday(loc, date, publicHolidays);
 
                 var dayWic = wicEntries
                     .Where(w => w.ShiftDate == date && w.IsOnSite && WicLocationMatcher.MatchesSupportLocation(w.SupportLocation, loc))

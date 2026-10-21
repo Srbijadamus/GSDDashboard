@@ -529,15 +529,16 @@ The method is called in every bulk-load path: `DashboardService`, `ForecastServi
 ## 4.7 Public Holiday and Regional Holiday Logic
 
 ```
-isNational = publicHolidays.Any(ph => ph.HolidayDate == date && ph.IsNational)
+isNational = holidays.Any(h => h.HolidayDate == date && h.IsNational && CountryOf(h) == loc.Country)
 bundesland = loc.Bundesland ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country)
-isRegional = bundesland != null
-             && publicHolidays.Any(ph => ph.HolidayDate == date
-                                        && ph.Bundesland == bundesland  // case-insensitive)
+isRegional = loc.Country == "DE" && bundesland != null
+             && holidays.Any(h => h.HolidayDate == date
+                                  && h.Bundesland == bundesland)  // OrdinalIgnoreCase
 isClosed = isNational || isRegional || hours == null || hours.IsClosed
+CountryOf(h) = IsNullOrWhiteSpace(h.Country) ? "DE" : h.Country.Trim()
 ```
 
-`PlzBundesland.Get()` is a lookup function that derives the Bundesland from the postal code when `WicLocations.Bundesland` is not set.
+`PlzBundesland.Get()` is a lookup function that derives the Bundesland from the postal code when `WicLocations.Bundesland` is not set. `HolidayMatcher` (`Backend/Services/HolidayMatcher.cs`) is the single source of truth for this matching — `WicCoverageGapService.IsOpenOn`, `GetHolidaysAsync` and `OverviewService` all call it; national rows are country-scoped (a null/empty `Country` means DE, so a `Country='NL'` national row closes only NL locations).
 
 ### Canonical Bundesland format and matching
 

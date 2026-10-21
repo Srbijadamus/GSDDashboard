@@ -1088,6 +1088,12 @@ Procedure (see the 2026-10-21 change log below for the exact shapes):
 4. Take a `SELECT *` backup and write `rollback.sql` from the `OUTPUT inserted.Id` list **before COMMIT**,
    under `C:\PulseOps\backup`.
 
+NL rows: national Dutch holidays are stored with `Country = 'NL'`, `IsNational = 1`,
+`Bundesland = NULL`, and are matched only against NL locations (HolidayMatcher, see BLUEPRINT_LOGIC
+§4.7). Deploy the country-scoped code FIRST, verify it, THEN run the NL INSERT — an NL INSERT before
+the new code is live would make the old code treat those rows as closing every location (an error).
+A prepared, idempotent NL script and its rollback live at `C:\PulseOps\pending\`.
+
 ### Change log 2026-10-21
 
 - **`WicLocations.Bundesland`**: 10 NRW locations `Nordrhein-Westfalen` → `NRW` (backup
