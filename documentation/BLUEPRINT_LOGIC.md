@@ -539,6 +539,24 @@ isClosed = isNational || isRegional || hours == null || hours.IsClosed
 
 `PlzBundesland.Get()` is a lookup function that derives the Bundesland from the postal code when `WicLocations.Bundesland` is not set.
 
+### Canonical Bundesland format and matching
+
+- **Format**: `PublicHolidays.Bundesland` and `WicLocations.Bundesland` hold the full German state names,
+  with one exception — Nordrhein-Westfalen is stored as the abbreviation **`NRW`**. The hardcoded places
+  that depend on `NRW` are `Backend/PublicHolidayService.cs:51` (the `/api/publicholidays/bundeslaender`
+  list) and `Frontend/src/pages/Employees.tsx:13` (the `BUNDESLAENDER` dropdown).
+- **Matching**: regional holidays are matched by exact, case-insensitive string equality —
+  `string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase)` (e.g.
+  `WicCoverageGapService.cs:434` and `:673`, `OverviewService.cs:82`). A value written in any other form
+  (e.g. `Nordrhein-Westfalen`) therefore matches no regional holiday.
+- **Known inconsistency**: `PlzBundesland.cs:54-64` maps the NRW postal-code ranges to
+  `"Nordrhein-Westfalen"` (and `SubstitutionService.cs:77` has the same string in a centroid map). This
+  has no effect while the `WicLocations.Bundesland` columns are populated (they hold `NRW`); the
+  `PlzBundesland` value is corrected together with the next deploy.
+- **NL**: `IsNational=1` closes every active location, DE and NL alike. There are no Dutch rows in
+  `PublicHolidays` (`Country='NL'` / `Koningsdag` / `Tweede …` all count 0), so NL locations only ever
+  close on German national holidays.
+
 ---
 
 ## 4.8 Assistant Router

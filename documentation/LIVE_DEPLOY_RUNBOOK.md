@@ -1072,3 +1072,32 @@ included for national holidays; there are no Dutch regional rows in
 Deploy is a **backend + frontend** change (the backend DLL changed, so a frontend-only static copy is
 NOT sufficient): `dotnet build -c Release` + `npm run build`, then
 `C:\PulseOps\Deploy-Pulse.ps1 -Source "C:\GSDDashboard_secure\Backend\bin\Release\net8.0"`.
+
+## PublicHolidays — yearly maintenance
+
+`PublicHolidays` has **no automated import**: rows are written by hand (there is no seeder in the
+repository; the surrounding tooling is SELECT-only). Fill the next year **before 1 October** of the
+current year — 1 January enters the 90-day horizon around 3 October, and the Overview holiday marking
+(`/api/wic/holidays`) reads from this table.
+
+Procedure (see the 2026-10-21 change log below for the exact shapes):
+1. Copy the previous year's rows as a template and reconcile against the official per-state holiday list.
+2. Verify the Bundesland spelling against `SELECT DISTINCT Bundesland FROM PublicHolidays` — the canonical
+   value is `NRW`, not `Nordrhein-Westfalen` (see BLUEPRINT_LOGIC §4.7).
+3. INSERT idempotently with key `(HolidayDate, ISNULL(Bundesland,''), IsNational)`.
+4. Take a `SELECT *` backup and write `rollback.sql` from the `OUTPUT inserted.Id` list **before COMMIT**,
+   under `C:\PulseOps\backup`.
+
+### Change log 2026-10-21
+
+- **`WicLocations.Bundesland`**: 10 NRW locations `Nordrhein-Westfalen` → `NRW` (backup
+  `C:\PulseOps\backup\wiclocations_bundesland_20261021-122107.csv`, rollback
+  `rollback_bundesland_20261021-122107.sql`).
+- **`PublicHolidays` Id=94 deleted**: the wrong `Reformationstag / Berlin` 2026 row (backup
+  `publicholidays_berlin_reformationstag_20261021-122107.csv`).
+- **`PublicHolidays` 2027**: 36 rows added, `Id` 101–136 (total 2027 = 40 rows, `MIN(Id)=97`,
+  `MAX(Id)=136`); `Mariä Himmelfahrt / Bayern` was carried over from 2026 (a municipality-level partial
+  holiday). Backup `publicholidays_2027_20261021-123621.csv`, rollback
+  `rollback_publicholidays_2027_20261021-123621.sql`.
+- **Known, left as-is**: the 2026 `Mariä Himmelfahrt / Rheinland-Pfalz` row is not carried forward — its
+  date has already passed and it has no future effect.
