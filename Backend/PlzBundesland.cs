@@ -51,17 +51,17 @@ public static class PlzBundesland
         { "21683", "Niedersachsen" }, // Stade
         { "26935", "Niedersachsen" }, // Stadland
 
-        // Nordrhein-Westfalen
-        { "59821", "Nordrhein-Westfalen" }, // Arnsberg
-        { "44139", "Nordrhein-Westfalen" }, // Dortmund
-        { "45131", "Nordrhein-Westfalen" }, // Essen (Brüsseler Platz)
-        { "45143", "Nordrhein-Westfalen" }, // Essen (ThyssenKrupp)
-        { "45476", "Nordrhein-Westfalen" }, // Mülheim
-        { "48163", "Nordrhein-Westfalen" }, // Münster
-        { "41460", "Nordrhein-Westfalen" }, // Neuss
-        { "45661", "Nordrhein-Westfalen" }, // Recklinghausen
-        { "57072", "Nordrhein-Westfalen" }, // Siegen
-        { "46483", "Nordrhein-Westfalen" }, // Wesel
+        // NRW
+        { "59821", "NRW" }, // Arnsberg
+        { "44139", "NRW" }, // Dortmund
+        { "45131", "NRW" }, // Essen (Brüsseler Platz)
+        { "45143", "NRW" }, // Essen (ThyssenKrupp)
+        { "45476", "NRW" }, // Mülheim
+        { "48163", "NRW" }, // Münster
+        { "41460", "NRW" }, // Neuss
+        { "45661", "NRW" }, // Recklinghausen
+        { "57072", "NRW" }, // Siegen
+        { "46483", "NRW" }, // Wesel
 
         // Rheinland-Pfalz
         { "56648", "Rheinland-Pfalz" }, // Saffig

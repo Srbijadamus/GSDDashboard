@@ -74,7 +74,7 @@ public class SubstitutionService
         { "Hessen",                  "50.6521,9.1624"  },
         { "Mecklenburg-Vorpommern",  "53.6127,12.4296" },
         { "Niedersachsen",           "52.6367,9.8451"  },
-        { "Nordrhein-Westfalen",     "51.4332,7.6616"  },
+        { "NRW",                    "51.4332,7.6616"  },
         { "Rheinland-Pfalz",         "49.9129,7.4531"  },
         { "Saarland",                "49.3964,7.0228"  },
         { "Sachsen",                 "51.1045,13.2017" },

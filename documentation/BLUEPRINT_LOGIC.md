@@ -549,10 +549,9 @@ isClosed = isNational || isRegional || hours == null || hours.IsClosed
   `string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase)` (e.g.
   `WicCoverageGapService.cs:434` and `:673`, `OverviewService.cs:82`). A value written in any other form
   (e.g. `Nordrhein-Westfalen`) therefore matches no regional holiday.
-- **Known inconsistency**: `PlzBundesland.cs:54-64` maps the NRW postal-code ranges to
-  `"Nordrhein-Westfalen"` (and `SubstitutionService.cs:77` has the same string in a centroid map). This
-  has no effect while the `WicLocations.Bundesland` columns are populated (they hold `NRW`); the
-  `PlzBundesland` value is corrected together with the next deploy.
+- **Aligned 2026-10-21**: `PlzBundesland.cs` (NRW postal-code ranges) and
+  `SubstitutionService.cs` (`_bundeslandCentroids`) now use the canonical `"NRW"`, matching the
+  database value in both `WicLocations.Bundesland` and `Employees.Bundesland`.
 - **NL**: `IsNational=1` closes every active location, DE and NL alike. There are no Dutch rows in
   `PublicHolidays` (`Country='NL'` / `Koningsdag` / `Tweede …` all count 0), so NL locations only ever
   close on German national holidays.
