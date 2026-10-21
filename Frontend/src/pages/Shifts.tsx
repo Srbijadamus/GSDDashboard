@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { api, apiFetch } from "../api/client"
@@ -625,6 +625,12 @@ export default function Shifts() {
   const from = dates[0]
   const to   = dates[dates.length - 1]
 
+  const { data: holidayData } = useQuery({
+    queryKey: ["wic-holidays-shiftplan", from, days],
+    queryFn: () => apiFetch<{ days: { date: string; name: string; isNational: boolean }[] }>(`/api/wic/holidays?days=${days}&from=${from}`),
+  })
+  const holidaysByDate = useMemo(() => new Map((holidayData?.days ?? []).map(h => [h.date, h])), [holidayData])
+
   const params = `from=${from}&to=${to}${teamLead ? "&teamLead="+teamLead : ""}${role ? "&role="+role : ""}`
 
   const { data: rows, isLoading } = useQuery({
@@ -952,13 +958,14 @@ export default function Shifts() {
                 {dates.map(d => {
                   const we  = isWeekend(d)
                   const tod = isToday(d)
+                  const hol = holidaysByDate.get(d)
                   return (
-                    <th key={d} className="border-b border-line-subtle" style={{
+                    <th key={d} title={hol?.name} className="border-b border-line-subtle" style={{
                       padding:"8px 4px", textAlign:"center", fontSize:10, fontWeight:500,
-                      color: tod ? "rgb(var(--st-info-fg))" : we ? "rgb(var(--text-tertiary))" : "rgb(var(--text-secondary))",
+                      color: tod ? "rgb(var(--st-info-fg))" : hol ? "rgb(var(--st-holiday-fg))" : we ? "rgb(var(--text-tertiary))" : "rgb(var(--text-secondary))",
                       borderLeft:"1px solid rgb(var(--border-subtle))",
                       minWidth:90, whiteSpace:"nowrap",
-                      background: tod ? "rgb(var(--st-info-bg))" : we ? "rgb(var(--surface-sunken))" : "transparent"
+                      background: tod ? "rgb(var(--st-info-bg))" : hol ? "rgb(var(--st-holiday-bg))" : we ? "rgb(var(--surface-sunken))" : "transparent"
                     }}>
                       {dayLabel(d)}
                     </th>

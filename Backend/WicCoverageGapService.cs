@@ -632,10 +632,10 @@ public class WicCoverageGapService
     // Single source of truth is HolidayMatcher (national rows are country-scoped,
     // regional rows are Bundesland-scoped to DE). IsNational is true only when every
     // active location is closed; the distinct holiday names on a date are merged.
-    public async Task<WicHolidaysResult> GetHolidaysAsync(int? daysParam)
+    public async Task<WicHolidaysResult> GetHolidaysAsync(int? daysParam, DateOnly? fromParam = null)
     {
         var days = Math.Clamp(daysParam ?? DefaultDays, 1, 180);
-        var from = DateOnly.FromDateTime(DateTime.Today);
+        var from = fromParam ?? DateOnly.FromDateTime(DateTime.Today);
         var to   = from.AddDays(days - 1);
 
         var locations = await _db.WicLocations.Where(l => l.IsActive)
@@ -681,10 +681,10 @@ public static class WicCoverageGapEndpointMapper
             return Results.Ok(await svc.GetGapsAsync(days));
         });
 
-        grp.MapGet("/holidays", async (int? days, HttpContext ctx, WicCoverageGapService svc) =>
+        grp.MapGet("/holidays", async (int? days, DateOnly? from, HttpContext ctx, WicCoverageGapService svc) =>
         {
             if (RosterAccess.DenyResult(ctx) is { } deny) return deny;
-            return Results.Ok(await svc.GetHolidaysAsync(days));
+            return Results.Ok(await svc.GetHolidaysAsync(days, from));
         });
     }
 }

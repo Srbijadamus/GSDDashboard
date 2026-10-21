@@ -137,6 +137,11 @@ The full shift grid: all agents × all dates, colour-coded by shift type. Read *
 - **Coverage per hour** bar, showing the projected mix of Voice / vWIC / WIC / Backlog / Other /
   AL / Sick / Training / Off by hour, with the below-minimum warning applying only to the Voice
   bucket.
+- **Holiday awareness** (added 2026-10-21): holiday days are marked in the date header with the PH
+  badge colour (`--st-holiday-*`) and a tooltip with the holiday name (from `GET /api/wic/holidays`,
+  which now also accepts `from=`). The coverage minimum is per-team — Voice/Backlog uses the NRW
+  region, WIC duty uses the location's own region (central `HolidayMatcher`); a config key
+  `Coverage:HolidayMin` (default: unset = current behaviour) overrides the Voice minimum on a holiday.
 - Row reordering (buttons and drag-and-drop), Excel download, and a print/PDF view.
 - **Add AL** directly from the grid.
 - Endpoints: `GET /api/shifts`, `GET /api/shifts/coverage`, `POST /api/shifts/validate`,

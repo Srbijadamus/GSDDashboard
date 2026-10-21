@@ -4,6 +4,7 @@ using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Auth;
 using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace GSDDashboard.API.Modules.Shifts;
 
@@ -107,7 +108,8 @@ public record SwapShiftDto(string NewEmployeeId);
 public class ShiftService
 {
     private readonly GSDContext _db;
-    public ShiftService(GSDContext db) => _db = db;
+    private readonly IConfiguration _config;
+    public ShiftService(GSDContext db, IConfiguration config) { _db = db; _config = config; }
 
     /// <summary>
     /// The Shift Plan is a roster of PEOPLE, not of shift rows. It starts from every
@@ -570,6 +572,15 @@ public class ShiftService
         // Per-hour minimum: <08:00 → 1,  08:00–17:00 → 3,  ≥17:00 → 1
         static int MinRequired(int h) => h < 8 ? 1 : h < 17 ? 3 : 1;
 
+        // Holiday minimum override (config key, default = current behaviour). The
+        // Voice/Backlog region is NRW: a national German holiday or an NRW regional
+        // holiday makes the day a holiday for this coverage bar.
+        int? holidayMin = int.TryParse(_config["Coverage:HolidayMin"], out var hm) ? hm : (int?)null;
+        var dateHolidays = await _db.PublicHolidays.Where(h => h.HolidayDate == date).ToListAsync();
+        bool isHoliday = dateHolidays.Any(h =>
+            (h.IsNational && HolidayMatcher.CountryOf(h) == "DE") ||
+            (!h.IsNational && string.Equals(h.Bundesland, "NRW", StringComparison.OrdinalIgnoreCase)));
+
         var shifts = await _db.ShiftEntries
             .Where(s => s.ShiftDate == date)
             .Join(_db.Employees, s => s.EmployeeId, e => e.EmployeeId, (s, e) => new { Shift = s, Employee = e })
@@ -608,7 +619,7 @@ public class ShiftService
                     else other++; // Dispatcher, SME, SSP, or no task/role match — not call-taking capacity
                 }
             }
-            int min = MinRequired(h);
+            int min = isHoliday && holidayMin.HasValue ? holidayMin.Value : MinRequired(h);
             // Threshold reflects real Voice availability only (see feedback: "44 Voice never happened").
             slots.Add(new CoverageSlot(hour, voice, vwic, wic, backlog, other, al, sick, training, off, voice < min, min));
         }

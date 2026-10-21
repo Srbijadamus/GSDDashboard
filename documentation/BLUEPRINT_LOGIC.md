@@ -538,7 +538,10 @@ isClosed = isNational || isRegional || hours == null || hours.IsClosed
 CountryOf(h) = IsNullOrWhiteSpace(h.Country) ? "DE" : h.Country.Trim()
 ```
 
-`PlzBundesland.Get()` is a lookup function that derives the Bundesland from the postal code when `WicLocations.Bundesland` is not set. `HolidayMatcher` (`Backend/Services/HolidayMatcher.cs`) is the single source of truth for this matching — `WicCoverageGapService.IsOpenOn`, `GetHolidaysAsync` and `OverviewService` all call it; national rows are country-scoped (a null/empty `Country` means DE, so a `Country='NL'` national row closes only NL locations).
+`PlzBundesland.Get()` is a lookup function that derives the Bundesland from the postal code when `WicLocations.Bundesland` is not set. `HolidayMatcher` (`Backend/Services/HolidayMatcher.cs`) is the single source of truth for this matching — `WicCoverageGapService.IsOpenOn`, `GetHolidaysAsync` and `OverviewService` all call it; national rows are country-scoped (a null/empty `Country` means DE, so a `Country='NL'` national row closes only NL locations). The Shift
+Plan reuses it too: `ShiftService.GetCoverageAsync` overrides the Voice minimum on a holiday via the
+`Coverage:HolidayMin` config key (unset = current behaviour), and the Shift Plan header marks holiday
+days from `GET /api/wic/holidays`.
 
 ### Canonical Bundesland format and matching
 
