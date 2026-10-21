@@ -1107,3 +1107,7 @@ A prepared, idempotent NL script and its rollback live at `C:\PulseOps\pending\`
   `rollback_publicholidays_2027_20261021-123621.sql`.
 - **Known, left as-is**: the 2026 `Mariä Himmelfahrt / Rheinland-Pfalz` row is not carried forward — its
   date has already passed and it has no future effect.
+- **R1 cleanup (`WicShiftEntries`)**: 9 WIC assignments deleted (1× 2026-11-18, 1× 2026-12-25,
+  7× 2027-01-06) — on-site WIC rows on holiday-closed centres. Backup
+  `C:\PulseOps\backup\r1_assignments_before_20261021-163432.csv`, rollback
+  `rollback_r1_assignments_20261021-163432.sql`.
