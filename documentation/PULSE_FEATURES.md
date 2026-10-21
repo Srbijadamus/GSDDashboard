@@ -90,6 +90,12 @@ The operations command centre, read-only apart from substitution acceptance.
   carries both the gap text and the holiday text. Backed by `GET /api/wic/holidays?days=N` (read-only,
   same RosterAccess gate), which reuses the same national + regional (per-Bundesland) matching as
   coverage-gaps `IsOpenOn`.
+- **Absence reason mapping** (`groupGaps.ts:reasonOf`, duplicated in `OverviewV2.tsx`): each absence
+  shift code maps to exactly one reason — AL/HALF_AL → "annual leave", UL → "unauthorized leave",
+  SL → "sick leave", OL → "other leave", RESIGNED → "resigned", PH → "public holiday",
+  LPH → "local public holiday", OFF → "day off"; OFF_WEEKEND stays "annual leave". A resigned agent
+  can still appear as an assigned (MAIN/BACKUP/REGIONAL) gap agent, but is excluded from floater
+  candidates by `SubstituteEligibility.ResignedOnOrBefore` (`Backend/Services/SubstituteEligibility.cs`).
 - **Missing-roster warning**: active employees with no shift in the next 14 days, and shift rows whose
   employee no longer has an active employee record. Each entry deep-links to the Roster Generator or
   the Employees page. Shown to RTM/TEAM_LEAD/DEV only, and enforced server-side.

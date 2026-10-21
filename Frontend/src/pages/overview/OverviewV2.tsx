@@ -10,14 +10,19 @@ interface Props {
   absentToday: number | null
 }
 
-type ReasonCode = "annual-leave" | "unauthorized-leave" | "sick-leave" | "bo" | "other-wic" | "not-rostered" | "no-task" | "other"
+type ReasonCode = "annual-leave" | "unauthorized-leave" | "sick-leave" | "other-leave" | "resigned" | "public-holiday" | "local-public-holiday" | "day-off" | "bo" | "other-wic" | "not-rostered" | "no-task" | "other"
 
 function reasonOf(a: GapAgent): ReasonCode {
   const s = (a.status ?? "").toUpperCase()
   const task = (a.taskLabel ?? "").toUpperCase()
   if (s === "UL") return "unauthorized-leave"
   if (s === "SL") return "sick-leave"
-  if (["AL", "HALF_AL", "OL", "PH", "LPH", "OFF", "OFF_WEEKEND", "RESIGNED"].includes(s)) return "annual-leave"
+  if (s === "OL") return "other-leave"
+  if (s === "RESIGNED") return "resigned"
+  if (s === "PH") return "public-holiday"
+  if (s === "LPH") return "local-public-holiday"
+  if (s === "OFF") return "day-off"
+  if (["AL", "HALF_AL", "OFF_WEEKEND"].includes(s)) return "annual-leave"
   if (s === "BO" || task === "BO") return "bo"
   if (s === "WIC_DUTY" || task.startsWith("WIC")) return "other-wic"
   if (s === "NONE" || s === "") return "not-rostered"
@@ -29,6 +34,11 @@ const REASON_TOKEN: Record<ReasonCode, string> = {
   "annual-leave": "rgb(var(--ov2-annualleave-bg))",
   "unauthorized-leave": "rgb(var(--ov2-unauthorizedleave-bg))",
   "sick-leave": "rgb(var(--ov2-sickleave-bg))",
+  "other-leave": "rgb(var(--ov2-notrostered-bg))",
+  "resigned": "rgb(var(--ov2-notask-bg))",
+  "public-holiday": "rgb(var(--st-holiday-bg))",
+  "local-public-holiday": "rgb(var(--st-holiday-bg))",
+  "day-off": "rgb(var(--ov2-notask-bg))",
   "bo": "rgb(var(--ov2-bo-bg))",
   "other-wic": "rgb(var(--ov2-otherwic-bg))",
   "not-rostered": "rgb(var(--ov2-notrostered-bg))",
@@ -39,6 +49,11 @@ const REASON_FG: Record<ReasonCode, string> = {
   "annual-leave": "rgb(var(--ov2-annualleave-fg))",
   "unauthorized-leave": "rgb(var(--ov2-unauthorizedleave-fg))",
   "sick-leave": "rgb(var(--ov2-sickleave-fg))",
+  "other-leave": "rgb(var(--ov2-notrostered-fg))",
+  "resigned": "rgb(var(--ov2-notask-fg))",
+  "public-holiday": "rgb(var(--st-holiday-fg))",
+  "local-public-holiday": "rgb(var(--st-holiday-fg))",
+  "day-off": "rgb(var(--ov2-notask-fg))",
   "bo": "rgb(var(--ov2-bo-fg))",
   "other-wic": "rgb(var(--ov2-otherwic-fg))",
   "not-rostered": "rgb(var(--ov2-notrostered-fg))",
