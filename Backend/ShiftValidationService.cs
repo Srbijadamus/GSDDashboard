@@ -49,7 +49,8 @@ public class ShiftValidationService
             // Bundesland spelling in either table must not silently disable
             // this rule the way the 2026 Baden-Württemberg row did.
             var candidatesOnDate = await _db.PublicHolidays.Where(h => h.HolidayDate == date).ToListAsync();
-            var ph = PublicHolidayResolver.Resolve(candidatesOnDate, bundesland);
+            var ph = candidatesOnDate.FirstOrDefault(h => h.IsNational && HolidayMatcher.Applies(h, "DE", bundesland))
+                     ?? candidatesOnDate.FirstOrDefault(h => HolidayMatcher.Applies(h, "DE", bundesland));
 
             if (ph != null && newShiftType != ShiftTypes.PublicHol && newShiftType != ShiftTypes.LocalPH)
             {

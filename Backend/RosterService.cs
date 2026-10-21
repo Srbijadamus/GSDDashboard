@@ -702,7 +702,7 @@ public class RosterService
             .Where(h => h.HolidayDate >= input.From && h.HolidayDate <= input.To)
             .ToListAsync();
         var holidays = holidaysInRange
-            .Where(h => PublicHolidayResolver.Applies(h, input.Emp.Bundesland))
+            .Where(h => HolidayMatcher.Applies(h, "DE", input.Emp.Bundesland))
             .GroupBy(h => h.HolidayDate)
             .ToDictionary(g => g.Key, g => g.First().Name);
 

@@ -118,16 +118,11 @@ public class ForecastService
 
                 var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, dow, date);
 
-                bool isNational = publicHolidays.Any(ph => ph.HolidayDate == date && ph.IsNational);
-                string? bundesland = loc.Bundesland
-                    ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
-                bool isRegional = bundesland != null && publicHolidays.Any(ph =>
-                    ph.HolidayDate == date &&
-                    string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
+                bool isHoliday = HolidayMatcher.IsHoliday(loc, date, publicHolidays);
 
-                bool isClosed = hours == null || hours.IsClosed || isNational || isRegional;
+                bool isClosed = hours == null || hours.IsClosed || isHoliday;
                 string? closedReason = isClosed
-                    ? (isNational || isRegional ? "PUBLIC_HOLIDAY" : "CLOSED_DAY")
+                    ? (isHoliday ? "PUBLIC_HOLIDAY" : "CLOSED_DAY")
                     : null;
 
                 int minReq = hours?.MinRequired ?? loc.MinAgentsRequired ?? 1;

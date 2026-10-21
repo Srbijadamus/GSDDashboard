@@ -251,8 +251,6 @@ public class WicShiftService
         {
             int dow = (int)date.DayOfWeek; // 0=Sun ... 6=Sat
 
-            bool isNationalHoliday = publicHolidays.Any(ph => ph.HolidayDate == date && ph.IsNational);
-
             var dayWicIds = wicEntries
                 .Where(w => w.ShiftDate == date && w.IsOnSite)
                 .Select(w => w.EmployeeId).Distinct().ToList();
@@ -264,15 +262,10 @@ public class WicShiftService
                 // are not picked up early (was plain FirstOrDefault over all rows).
                 var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, dow, date);
 
-                string? bundesland = loc.Bundesland
-                    ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
-                bool isRegionalHoliday = bundesland != null &&
-                    publicHolidays.Any(ph => ph.HolidayDate == date &&
-                        string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
-
-                bool isClosed = hours == null || hours.IsClosed || isNationalHoliday || isRegionalHoliday;
+                bool isHoliday = HolidayMatcher.IsHoliday(loc, date, publicHolidays);
+                bool isClosed = hours == null || hours.IsClosed || isHoliday;
                 string? closedReason = isClosed
-                    ? (isNationalHoliday || isRegionalHoliday ? "PUBLIC_HOLIDAY" : "CLOSED_DAY")
+                    ? (isHoliday ? "PUBLIC_HOLIDAY" : "CLOSED_DAY")
                     : null;
 
                 var intervals = new List<WicOpenIntervalDto>();

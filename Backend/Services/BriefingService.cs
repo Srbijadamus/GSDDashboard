@@ -224,7 +224,6 @@ public class BriefingService
 
         // ── Gaps today ────────────────────────────────────────────────────────
         int todayDow = (int)date.DayOfWeek;
-        bool isNationalToday = publicHolidays.Any(ph => ph.HolidayDate == date && ph.IsNational);
 
         var gapList = new List<BriefingGapDto>();
 
@@ -235,10 +234,7 @@ public class BriefingService
             // closed and skipped) while ForecastService, which passes the legacy code, saw
             // it open. Same overload every other coverage reader uses.
             var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, todayDow, date);
-            string? bundesland = loc.Bundesland ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
-            bool isRegional = bundesland != null && publicHolidays.Any(ph =>
-                ph.HolidayDate == date && string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
-            bool isClosed = hours == null || hours.IsClosed || isNationalToday || isRegional;
+            bool isClosed = hours == null || hours.IsClosed || HolidayMatcher.IsHoliday(loc, date, publicHolidays);
             if (isClosed) continue;
 
             int minReq = hours?.MinRequired ?? loc.MinAgentsRequired ?? 1;
@@ -293,7 +289,6 @@ public class BriefingService
         for (var scanDate = date.AddDays(1); scanDate <= lookaheadEnd && atRiskList.Count < 3; scanDate = scanDate.AddDays(1))
         {
             int scanDow = (int)scanDate.DayOfWeek;
-            bool isNationalScan = publicHolidays.Any(ph => ph.HolidayDate == scanDate && ph.IsNational);
 
             foreach (var loc in locations)
             {
@@ -301,10 +296,7 @@ public class BriefingService
 
                 // (E) locationCodeLegacy included — see the gap loop above.
                 var hours = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy, scanDow, scanDate);
-                string? bundesland = loc.Bundesland ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
-                bool isRegional = bundesland != null && publicHolidays.Any(ph =>
-                    ph.HolidayDate == scanDate && string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
-                bool isClosed = hours == null || hours.IsClosed || isNationalScan || isRegional;
+                bool isClosed = hours == null || hours.IsClosed || HolidayMatcher.IsHoliday(loc, scanDate, publicHolidays);
                 if (isClosed) continue;
 
                 int minReq = hours?.MinRequired ?? loc.MinAgentsRequired ?? 1;

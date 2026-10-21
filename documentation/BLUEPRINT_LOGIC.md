@@ -556,9 +556,44 @@ days from `GET /api/wic/holidays`.
 - **Aligned 2026-10-21**: `PlzBundesland.cs` (NRW postal-code ranges) and
   `SubstitutionService.cs` (`_bundeslandCentroids`) now use the canonical `"NRW"`, matching the
   database value in both `WicLocations.Bundesland` and `Employees.Bundesland`.
-- **NL**: `IsNational=1` closes every active location, DE and NL alike. There are no Dutch rows in
-  `PublicHolidays` (`Country='NL'` / `Koningsdag` / `Tweede …` all count 0), so NL locations only ever
-  close on German national holidays.
+- **NL**: national rows are country-scoped — `IsNational=1` with an empty/NULL `Country` closes only
+  DE locations; there are no Dutch rows in `PublicHolidays` (`Country='NL'` all count 0), so NL
+  locations currently close on no German national holidays (NL rows are prepared, not applied).
+
+### Single Source Of Truth For Holidays
+
+`HolidayMatcher` (`Backend/Services/HolidayMatcher.cs`) is the only place that decides whether a date
+is a holiday, or a location/employee is closed by a holiday. Consumers:
+
+| Service | Method | Usage |
+|---|---|---|
+| WicCoverageGapService | `IsOpenOn` / `GetHolidaysAsync` | `HolidayMatcher.IsHoliday(loc, date, …)` |
+| OverviewService | daily summaries | `HolidayMatcher.IsHoliday(loc, date, …)` |
+| BackupService | day backup | `HolidayMatcher.IsHoliday(loc, date, …)` |
+| ForecastService | forecast | `HolidayMatcher.IsHoliday(loc, date, …)` |
+| BriefingService | gaps / at-risk | `HolidayMatcher.IsHoliday(loc, date, …)` |
+| CoverageEvaluator | coverage classification | `HolidayMatcher.Applies(h, loc)` |
+| SubstitutionService | substitution days | `HolidayMatcher.IsHoliday(loc, date, …)` |
+| WicShiftService | open days | `HolidayMatcher.IsHoliday(loc, date, …)` |
+| RosterService | roster holiday skip | `HolidayMatcher.Applies(h, "DE", emp.Bundesland)` |
+| ShiftValidationService | R7 holiday validation | `HolidayMatcher.Applies(h, "DE", bundesland)` |
+| ShiftService | coverage-per-hour minimum | `HolidayMatcher.Applies(h, "DE", "NRW")` |
+
+Remaining `IsNational`/`Bundesland` reads are **DRUGO** (display/filtering): `PublicHolidayService`
+(DTO mapping), `PublicHolidayResolver` (used only by `PublicHolidayService` for listing), and the
+`GetOpenDates` open-day counting (`WicCoverageGapService.cs:307`, `RosterService.cs:1374`) which uses a
+national-only, country-unaware rule for the NotRecorded summary — left as-is, reported separately.
+
+### Holiday business rules (owner decision 21.10.2026)
+
+- **R1 WIC_CLOSED** — a location's holiday (its country + Bundesland) closes the WIC: nobody is sent
+  there and no gap is produced.
+- **R2 EMPLOYEE_HOLIDAY** — an employee's holiday is their own `Employees.Bundesland`; the day is paid.
+- **R3** — an employee whose Bundesland has a holiday MAY work at an open WIC in a Bundesland without
+  that holiday; such work is paid extra.
+
+These rules are a business reference only; the code is not (yet) aligned to them, and every deviation
+is reported in OPEN_ITEMS_AND_RISKS.md.
 
 ---
 

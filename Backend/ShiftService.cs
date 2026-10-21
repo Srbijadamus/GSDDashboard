@@ -577,9 +577,7 @@ public class ShiftService
         // holiday makes the day a holiday for this coverage bar.
         int? holidayMin = int.TryParse(_config["Coverage:HolidayMin"], out var hm) ? hm : (int?)null;
         var dateHolidays = await _db.PublicHolidays.Where(h => h.HolidayDate == date).ToListAsync();
-        bool isHoliday = dateHolidays.Any(h =>
-            (h.IsNational && HolidayMatcher.CountryOf(h) == "DE") ||
-            (!h.IsNational && string.Equals(h.Bundesland, "NRW", StringComparison.OrdinalIgnoreCase)));
+        bool isHoliday = dateHolidays.Any(h => HolidayMatcher.Applies(h, "DE", "NRW"));
 
         var shifts = await _db.ShiftEntries
             .Where(s => s.ShiftDate == date)

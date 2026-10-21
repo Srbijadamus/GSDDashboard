@@ -83,21 +83,11 @@ public class CoverageEvaluator
         if (hours == null || hours.IsClosed)
             return Classify(true, 0, minRequired, "CLOSED_DAY");
 
-        bool isNational = await _db.PublicHolidays
-            .AnyAsync(ph => ph.HolidayDate == date && ph.IsNational);
-        if (isNational)
-            return Classify(true, 0, minRequired, "NATIONAL_HOLIDAY");
-
-        string? bundesland = loc.Bundesland
-            ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
-        if (bundesland != null)
-        {
-            bool isRegional = await _db.PublicHolidays.AnyAsync(ph =>
-                ph.HolidayDate == date &&
-                string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
-            if (isRegional)
-                return Classify(true, 0, minRequired, $"REGIONAL_HOLIDAY ({bundesland})");
-        }
+        var dateHolidays = await _db.PublicHolidays.Where(h => h.HolidayDate == date).ToListAsync();
+        var holiday = dateHolidays.FirstOrDefault(h => HolidayMatcher.Applies(h, loc));
+        if (holiday != null)
+            return Classify(true, 0, minRequired,
+                holiday.IsNational ? "NATIONAL_HOLIDAY" : $"REGIONAL_HOLIDAY ({holiday.Bundesland})");
 
         var onSiteEntries = await _db.WicShiftEntries
             .Where(w => w.ShiftDate == date && w.IsOnSite)

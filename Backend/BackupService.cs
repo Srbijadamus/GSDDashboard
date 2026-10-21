@@ -131,16 +131,11 @@ public class BackupService
 
             var hours = WicHoursResolver.Resolve(openingHours, locationCode, location.LocationCodeLegacy, dow, date);
 
-            bool isNationalHoliday = publicHolidays.Any(ph => ph.HolidayDate == date && ph.IsNational);
-            string? bundesland = location.Bundesland
-                ?? PlzBundesland.Get(location.LocationCode, location.PostalCode, location.Country);
-            bool isRegionalHoliday = bundesland != null &&
-                publicHolidays.Any(ph => ph.HolidayDate == date &&
-                    string.Equals(ph.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
+            bool isHoliday = HolidayMatcher.IsHoliday(location, date, publicHolidays);
 
-            bool isClosed = hours == null || hours.IsClosed || isNationalHoliday || isRegionalHoliday;
+            bool isClosed = hours == null || hours.IsClosed || isHoliday;
             string? closedReason = isClosed
-                ? (isNationalHoliday || isRegionalHoliday ? "PUBLIC_HOLIDAY" : "CLOSED_DAY")
+                ? (isHoliday ? "PUBLIC_HOLIDAY" : "CLOSED_DAY")
                 : null;
 
             if (isClosed)
