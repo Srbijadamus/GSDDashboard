@@ -981,7 +981,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Abdeckungslücken sind jetzt nach Entscheidung gruppiert — prüfen Sie einen ganzen Zeitraum auf einmal und weisen Sie einen verfügbaren Mitarbeiter mit einem Klick mehreren Tagen zu. Gruppen brechen nur bei Status- oder Kandidatenwechsel, so bleibt eine ganze Woche eine Entscheidung.",
+    "body": "Neu am 20.–21. Oktober: Feiertage erscheinen im Overview-Tagesstreifen pro WIC-Standort (der Tooltip nennt Feiertag und geschlossene Standorte; Lücken haben immer Vorrang). Abwesenheitsgründe sind getrennt — unentschuldigtes Fehlen, Krankmeldung, sonstiger Urlaub, ausgeschieden, Feiertag, regionaler Feiertag, frei. Der Schichtplan markiert Feiertage in der Tagesüberschrift. Feiertage gelten jetzt pro Land (DE und NL), einschließlich niederländischer Feiertage. Die Zuweisung an einen feiertagsbedingt geschlossenen WIC warnt, und der Dienstplangenerator erstellt solche Zuweisungen nicht mehr. Vertretungsvorschläge zeigen die korrekte Entfernung für NRW-Mitarbeiter.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }
