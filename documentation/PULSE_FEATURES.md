@@ -83,10 +83,13 @@ The operations command centre, read-only apart from substitution acceptance.
   `GET /api/wic/substitutes` and can accept a substitute via `POST /api/wic/substitutes/accept`.
 - **28-day forecast strip** and an exception list of today's absences and gaps.
 - **Holiday marking in the day strip** (added 2026-10-21): a day that is a public holiday for at
-  least one WIC location is shown in the PH badge colour (`--st-holiday-*`) with a tooltip naming the
-  holiday and the closed locations; a national holiday (e.g. 25.12) marks the whole day — all 43
-  locations, DE and NL. Backed by `GET /api/wic/holidays?days=N` (read-only, same RosterAccess gate),
-  which reuses the same national + regional (per-Bundesland) matching as coverage-gaps `IsOpenOn`.
+  least one WIC location is shown in the PH badge colour (`--st-holiday-*`, day background/border) with
+  a tooltip naming the holiday and the closed locations; a national holiday (e.g. 25.12) marks the
+  whole day — all 43 locations, DE and NL. **Gaps take priority over the holiday marker**: the badge
+  always shows the gap colour + count when the day has gaps (even on a holiday), and the tooltip
+  carries both the gap text and the holiday text. Backed by `GET /api/wic/holidays?days=N` (read-only,
+  same RosterAccess gate), which reuses the same national + regional (per-Bundesland) matching as
+  coverage-gaps `IsOpenOn`.
 - **Missing-roster warning**: active employees with no shift in the next 14 days, and shift rows whose
   employee no longer has an active employee record. Each entry deep-links to the Roster Generator or
   the Employees page. Shown to RTM/TEAM_LEAD/DEV only, and enforced server-side.

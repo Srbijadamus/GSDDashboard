@@ -205,18 +205,22 @@ export function OverviewV21({ gaps, holidays, heatDates, today, absentToday, onF
           const isToday = d === today
           const isSel = selectedDay === d
           const dt = new Date(d)
-          const holidayTitle = hd
+          const gapTitle = `${d}: ${st?.uncovered ?? 0} uncovered, ${st?.partial ?? 0} partial`
+          const holidayText = hd
             ? `${t("overviewV21.holiday")}: ${hd.name} — ` +
               (hd.isNational
                 ? `${t("overviewV21.holidayAllLocations")} (${hd.locations.length})`
                 : `${t("overviewV21.holidayLocations", { count: hd.locations.length })}: ${hd.locations.map(l => l.city).join(", ")}`)
             : undefined
+          const title = hd
+            ? (total > 0 ? `${gapTitle} — ${holidayText}` : `${d} — ${holidayText}`)
+            : gapTitle
           return (
-            <button key={d} onClick={() => setSelectedDay(isSel ? null : d)} title={holidayTitle ?? `${d}: ${st?.uncovered ?? 0} uncovered, ${st?.partial ?? 0} partial`} style={{ flex: "0 0 34px", minHeight: 44, borderRadius: 6, border: isToday ? "2px solid rgb(var(--focus-ring))" : hd ? "1px solid rgb(var(--st-holiday-bd))" : "1px solid rgb(var(--border-subtle))", background: hd ? "rgb(var(--st-holiday-bg))" : "rgb(var(--surface-raised))", cursor: "pointer", padding: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, outline: isSel ? "2px solid rgb(var(--focus-ring))" : "none" }}>
+            <button key={d} onClick={() => setSelectedDay(isSel ? null : d)} title={title} style={{ flex: "0 0 34px", minHeight: 44, borderRadius: 6, border: isToday ? "2px solid rgb(var(--focus-ring))" : hd ? "1px solid rgb(var(--st-holiday-bd))" : "1px solid rgb(var(--border-subtle))", background: hd ? "rgb(var(--st-holiday-bg))" : "rgb(var(--surface-raised))", cursor: "pointer", padding: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, outline: isSel ? "2px solid rgb(var(--focus-ring))" : "none" }}>
               <span style={{ fontSize: 9, color: hd ? "rgb(var(--st-holiday-fg))" : "rgb(var(--text-tertiary))" }}>{["Su","Mo","Tu","We","Th","Fr","Sa"][dt.getDay()]}</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: hd ? "rgb(var(--st-holiday-fg))" : "rgb(var(--text-primary))" }}>{String(dt.getDate()).padStart(2, "0")}</span>
-              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: 12, borderRadius: 3, background: hd ? "rgb(var(--st-holiday-solid))" : total > 0 ? (hasUncovered ? "rgb(var(--ov2-uncovered-bar))" : "rgb(var(--ov2-partial-bar))") : "rgb(var(--surface-sunken))", color: hd ? "rgb(var(--st-holiday-fg))" : "#fff", fontSize: 8, fontWeight: 700 }}>
-                {hd ? (hd.isNational ? "" : hd.locations.length) : total > 0 ? total : ""}
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: 12, borderRadius: 3, background: total > 0 ? (hasUncovered ? "rgb(var(--ov2-uncovered-bar))" : "rgb(var(--ov2-partial-bar))") : hd ? "rgb(var(--st-holiday-solid))" : "rgb(var(--surface-sunken))", color: total > 0 ? "#fff" : "rgb(var(--st-holiday-fg))", fontSize: 8, fontWeight: 700 }}>
+                {total > 0 ? total : ""}
               </span>
             </button>
           )

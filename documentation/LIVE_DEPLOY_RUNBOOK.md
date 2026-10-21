@@ -1062,8 +1062,11 @@ Added a read-only endpoint `GET /api/wic/holidays?days=N` (RosterAccess-gated) r
 day in the horizon, the public-holiday name and the WIC locations closed by that holiday. It reuses
 the exact national + regional (per-Bundesland) matching `WicCoverageGapService.IsOpenOn` already uses
 — no second holiday list. The Overview day strip (`OverviewV21.tsx`) marks holiday days with the PH
-badge colour (`--st-holiday-*`) and a tooltip (name + closed locations); a national holiday marks the
-whole day. NL locations are included for national holidays; there are no Dutch regional rows in
+badge colour (`--st-holiday-*`, day background/border) and a tooltip (name + closed locations); a
+national holiday marks the whole day. **Gaps take priority over the holiday marker**: the badge always
+shows the gap colour + count when the day has gaps (even on a holiday); the holiday is conveyed by the
+day background/border and the tooltip carries both the gap text and the holiday text. NL locations are
+included for national holidays; there are no Dutch regional rows in
 `PublicHolidays`, so NL-specific holidays are not yet representable.
 
 Deploy is a **backend + frontend** change (the backend DLL changed, so a frontend-only static copy is
