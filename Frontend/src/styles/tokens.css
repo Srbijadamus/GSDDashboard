@@ -204,6 +204,8 @@
   --ov2-partial-fg:    122  74   0;  /* #7A4A00 */
 
   --ov2-annualleave-bg: 226 245 236; --ov2-annualleave-fg:  11  95  67;  /* #E2F5EC / #0B5F43 */
+  --ov2-unauthorizedleave-bg: 252 231 232; --ov2-unauthorizedleave-fg: 155  30  46;  /* #FCE7E8 / #9B1E2E */
+  --ov2-sickleave-bg:        236 232 250; --ov2-sickleave-fg:        94  65 158;  /* #ECE8FA / #5E419E */
   --ov2-bo-bg:          254 241 222; --ov2-bo-fg:          138  75   0;  /* #FEF1DE / #8A4B00 */
   --ov2-otherwic-bg:    231 239 254; --ov2-otherwic-fg:     31  79 176;  /* #E7EFFE / #1F4FB0 */
   --ov2-notrostered-bg: 255 244 219; --ov2-notrostered-fg: 122  74   0;  /* #FFF4DB / #7A4A00 */
@@ -224,6 +226,8 @@
   --ov2-partial-fg:    245 196 107;  /* #F5C46B */
 
   --ov2-annualleave-bg: 19  48  31; --ov2-annualleave-fg: 127 216 168;  /* #13301F / #7FD8A8 */
+  --ov2-unauthorizedleave-bg: 54 27 31; --ov2-unauthorizedleave-fg: 244 151 161;  /* #361B1F / #F497A1 */
+  --ov2-sickleave-bg:        43 34 62; --ov2-sickleave-fg:        180 163 236;  /* #2B223E / #B4A3EC */
   --ov2-bo-bg:          46  36  16; --ov2-bo-fg:         232 194 122;  /* #2E2410 / #E8C27A */
   --ov2-otherwic-bg:    22  40  63; --ov2-otherwic-fg:    141 180 255;  /* #16283F / #8DB4FF */
   --ov2-notrostered-bg: 58  42  14; --ov2-notrostered-fg: 245 196 107;  /* #3A2A0E / #F5C46B */

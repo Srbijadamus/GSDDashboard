@@ -156,12 +156,14 @@ export function groupGaps(gaps: CoverageGap[]): GapGroup[] {
 
 // ── v2.1 — grouping that only breaks on status / suggested-candidate change ──
 
-export type ReasonCode = "annual-leave" | "bo" | "other-wic" | "not-rostered" | "no-task" | "other"
+export type ReasonCode = "annual-leave" | "unauthorized-leave" | "sick-leave" | "bo" | "other-wic" | "not-rostered" | "no-task" | "other"
 
 export function reasonOf(a: GapAgent): ReasonCode {
   const s = (a.status ?? "").toUpperCase()
   const task = (a.taskLabel ?? "").toUpperCase()
-  if (["AL", "HALF_AL", "UL", "OL", "SL", "PH", "LPH", "OFF", "OFF_WEEKEND", "RESIGNED"].includes(s)) return "annual-leave"
+  if (s === "UL") return "unauthorized-leave"
+  if (s === "SL") return "sick-leave"
+  if (["AL", "HALF_AL", "OL", "PH", "LPH", "OFF", "OFF_WEEKEND", "RESIGNED"].includes(s)) return "annual-leave"
   if (s === "BO" || task === "BO") return "bo"
   if (s === "WIC_DUTY" || task.startsWith("WIC")) return "other-wic"
   if (s === "NONE" || s === "") return "not-rostered"

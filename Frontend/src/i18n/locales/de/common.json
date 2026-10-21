@@ -917,6 +917,8 @@
     "assignPartial": "{{ok}} zugewiesen, {{failed}} fehlgeschlagen.",
     "reason": {
       "annual-leave": "Jahresurlaub",
+      "unauthorized-leave": "unentschuldigtes Fehlen",
+      "sick-leave": "Krankmeldung",
       "bo": "BO",
       "other-wic": "anderes WIC",
       "not-rostered": "nicht eingeteilt",
@@ -933,6 +935,9 @@
     "noSourceType": "Kein Quelltyp — Zuweisung nicht verfügbar",
     "showAll": "Alle anzeigen ({{count}})",
     "showLess": "Weniger anzeigen",
+    "holiday": "Feiertag",
+    "holidayAllLocations": "alle Standorte",
+    "holidayLocations": "{{count}} Standorte",
     "findSubstitute": "Vertretung suchen",
     "noOneAvailable": "Niemand verfügbar",
     "needsMore": "noch {{count}} benötigt",

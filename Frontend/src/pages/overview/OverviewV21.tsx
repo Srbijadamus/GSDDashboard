@@ -7,8 +7,23 @@ import { apiFetch } from "../../api/client"
 import { useAuth } from "../../auth/AuthContext"
 import { AssignManuallyModal } from "./AssignManuallyModal"
 
+export interface WicHolidayLocation {
+  locationCode: string
+  displayName: string
+  city: string
+  country: string
+}
+
+export interface WicHolidayDay {
+  date: string
+  name: string
+  isNational: boolean
+  locations: WicHolidayLocation[]
+}
+
 interface Props {
   gaps: CoverageGap[]
+  holidays: WicHolidayDay[]
   heatDates: string[]
   today: string
   absentToday: number | null
@@ -17,6 +32,8 @@ interface Props {
 
 const REASON_TOKEN: Record<ReasonCode, string> = {
   "annual-leave": "rgb(var(--ov2-annualleave-bg))",
+  "unauthorized-leave": "rgb(var(--ov2-unauthorizedleave-bg))",
+  "sick-leave": "rgb(var(--ov2-sickleave-bg))",
   "bo": "rgb(var(--ov2-bo-bg))",
   "other-wic": "rgb(var(--ov2-otherwic-bg))",
   "not-rostered": "rgb(var(--ov2-notrostered-bg))",
@@ -25,6 +42,8 @@ const REASON_TOKEN: Record<ReasonCode, string> = {
 }
 const REASON_FG: Record<ReasonCode, string> = {
   "annual-leave": "rgb(var(--ov2-annualleave-fg))",
+  "unauthorized-leave": "rgb(var(--ov2-unauthorizedleave-fg))",
+  "sick-leave": "rgb(var(--ov2-sickleave-fg))",
   "bo": "rgb(var(--ov2-bo-fg))",
   "other-wic": "rgb(var(--ov2-otherwic-fg))",
   "not-rostered": "rgb(var(--ov2-notrostered-fg))",
@@ -111,7 +130,7 @@ function OtherOptions({ group, onFindSubstitute, onAssigned }: { group: GapGroup
   )
 }
 
-export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstitute }: Props) {
+export function OverviewV21({ gaps, holidays, heatDates, today, absentToday, onFindSubstitute }: Props) {
   const { t } = useTranslation()
   const { session } = useAuth()
   const queryClient = useQueryClient()
@@ -143,6 +162,8 @@ export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstit
     }
     return m
   }, [gaps])
+
+  const holidaysByDate = useMemo(() => new Map(holidays.map(h => [h.date, h])), [holidays])
 
   async function doAssign(group: GapGroupV21, candidate: CandidateV21, dates: string[]) {
     if (!candidate.sourceType) return
@@ -180,15 +201,22 @@ export function OverviewV21({ gaps, heatDates, today, absentToday, onFindSubstit
           const st = dayStatus.get(key)
           const total = (st?.uncovered ?? 0) + (st?.partial ?? 0)
           const hasUncovered = (st?.uncovered ?? 0) > 0
+          const hd = holidaysByDate.get(key)
           const isToday = d === today
           const isSel = selectedDay === d
           const dt = new Date(d)
+          const holidayTitle = hd
+            ? `${t("overviewV21.holiday")}: ${hd.name} — ` +
+              (hd.isNational
+                ? `${t("overviewV21.holidayAllLocations")} (${hd.locations.length})`
+                : `${t("overviewV21.holidayLocations", { count: hd.locations.length })}: ${hd.locations.map(l => l.city).join(", ")}`)
+            : undefined
           return (
-            <button key={d} onClick={() => setSelectedDay(isSel ? null : d)} title={`${d}: ${st?.uncovered ?? 0} uncovered, ${st?.partial ?? 0} partial`} style={{ flex: "0 0 34px", minHeight: 44, borderRadius: 6, border: isToday ? "2px solid rgb(var(--focus-ring))" : "1px solid rgb(var(--border-subtle))", background: "rgb(var(--surface-raised))", cursor: "pointer", padding: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, outline: isSel ? "2px solid rgb(var(--focus-ring))" : "none" }}>
-              <span style={{ fontSize: 9, color: "rgb(var(--text-tertiary))" }}>{["Su","Mo","Tu","We","Th","Fr","Sa"][dt.getDay()]}</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "rgb(var(--text-primary))" }}>{String(dt.getDate()).padStart(2, "0")}</span>
-              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: 12, borderRadius: 3, background: total > 0 ? (hasUncovered ? "rgb(var(--ov2-uncovered-bar))" : "rgb(var(--ov2-partial-bar))") : "rgb(var(--surface-sunken))", color: "#fff", fontSize: 8, fontWeight: 700 }}>
-                {total > 0 ? total : ""}
+            <button key={d} onClick={() => setSelectedDay(isSel ? null : d)} title={holidayTitle ?? `${d}: ${st?.uncovered ?? 0} uncovered, ${st?.partial ?? 0} partial`} style={{ flex: "0 0 34px", minHeight: 44, borderRadius: 6, border: isToday ? "2px solid rgb(var(--focus-ring))" : hd ? "1px solid rgb(var(--st-holiday-bd))" : "1px solid rgb(var(--border-subtle))", background: hd ? "rgb(var(--st-holiday-bg))" : "rgb(var(--surface-raised))", cursor: "pointer", padding: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, outline: isSel ? "2px solid rgb(var(--focus-ring))" : "none" }}>
+              <span style={{ fontSize: 9, color: hd ? "rgb(var(--st-holiday-fg))" : "rgb(var(--text-tertiary))" }}>{["Su","Mo","Tu","We","Th","Fr","Sa"][dt.getDay()]}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: hd ? "rgb(var(--st-holiday-fg))" : "rgb(var(--text-primary))" }}>{String(dt.getDate()).padStart(2, "0")}</span>
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: 12, borderRadius: 3, background: hd ? "rgb(var(--st-holiday-solid))" : total > 0 ? (hasUncovered ? "rgb(var(--ov2-uncovered-bar))" : "rgb(var(--ov2-partial-bar))") : "rgb(var(--surface-sunken))", color: hd ? "rgb(var(--st-holiday-fg))" : "#fff", fontSize: 8, fontWeight: 700 }}>
+                {hd ? (hd.isNational ? "" : hd.locations.length) : total > 0 ? total : ""}
               </span>
             </button>
           )

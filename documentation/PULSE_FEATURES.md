@@ -82,12 +82,17 @@ The operations command centre, read-only apart from substitution acceptance.
   `VITE_CARTO_KEY`. Clicking a marker opens a substitute drawer that calls
   `GET /api/wic/substitutes` and can accept a substitute via `POST /api/wic/substitutes/accept`.
 - **28-day forecast strip** and an exception list of today's absences and gaps.
+- **Holiday marking in the day strip** (added 2026-10-21): a day that is a public holiday for at
+  least one WIC location is shown in the PH badge colour (`--st-holiday-*`) with a tooltip naming the
+  holiday and the closed locations; a national holiday (e.g. 25.12) marks the whole day — all 43
+  locations, DE and NL. Backed by `GET /api/wic/holidays?days=N` (read-only, same RosterAccess gate),
+  which reuses the same national + regional (per-Bundesland) matching as coverage-gaps `IsOpenOn`.
 - **Missing-roster warning**: active employees with no shift in the next 14 days, and shift rows whose
   employee no longer has an active employee record. Each entry deep-links to the Roster Generator or
   the Employees page. Shown to RTM/TEAM_LEAD/DEV only, and enforced server-side.
 - Data: `GET /api/wic/forecast?horizon=28` (refreshed every 10 minutes),
   `GET /api/wic/briefing`, `GET /api/wic/cards?date=`, `GET /api/roster/missing?days=14`,
-  `GET /api/wic/conflicts`, `GET /api/wic/coverage-gaps`.
+  `GET /api/wic/conflicts`, `GET /api/wic/coverage-gaps`, `GET /api/wic/holidays?days=N`.
 
 > **Requester's "mapa" and "Hours Report" items:** the map is **not** a separate page — it is this
 > pane inside Overview. There is **no Hours Report page** in Pulse at all; the closest surfaces are

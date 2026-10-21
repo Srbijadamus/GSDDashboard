@@ -917,6 +917,8 @@
     "assignPartial": "{{ok}} assigned, {{failed}} failed.",
     "reason": {
       "annual-leave": "annual leave",
+      "unauthorized-leave": "unauthorized leave",
+      "sick-leave": "sick leave",
       "bo": "BO",
       "other-wic": "other WIC",
       "not-rostered": "not rostered",
@@ -933,6 +935,9 @@
     "noSourceType": "No source type — assign unavailable",
     "showAll": "Show all ({{count}})",
     "showLess": "Show less",
+    "holiday": "Holiday",
+    "holidayAllLocations": "all locations",
+    "holidayLocations": "{{count}} locations",
     "findSubstitute": "Find substitute",
     "noOneAvailable": "No one available",
     "needsMore": "needs {{count}} more",

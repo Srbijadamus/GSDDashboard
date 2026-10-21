@@ -10,12 +10,14 @@ interface Props {
   absentToday: number | null
 }
 
-type ReasonCode = "annual-leave" | "bo" | "other-wic" | "not-rostered" | "no-task" | "other"
+type ReasonCode = "annual-leave" | "unauthorized-leave" | "sick-leave" | "bo" | "other-wic" | "not-rostered" | "no-task" | "other"
 
 function reasonOf(a: GapAgent): ReasonCode {
   const s = (a.status ?? "").toUpperCase()
   const task = (a.taskLabel ?? "").toUpperCase()
-  if (["AL", "HALF_AL", "UL", "OL", "SL", "PH", "LPH", "OFF", "OFF_WEEKEND", "RESIGNED"].includes(s)) return "annual-leave"
+  if (s === "UL") return "unauthorized-leave"
+  if (s === "SL") return "sick-leave"
+  if (["AL", "HALF_AL", "OL", "PH", "LPH", "OFF", "OFF_WEEKEND", "RESIGNED"].includes(s)) return "annual-leave"
   if (s === "BO" || task === "BO") return "bo"
   if (s === "WIC_DUTY" || task.startsWith("WIC")) return "other-wic"
   if (s === "NONE" || s === "") return "not-rostered"
@@ -25,6 +27,8 @@ function reasonOf(a: GapAgent): ReasonCode {
 
 const REASON_TOKEN: Record<ReasonCode, string> = {
   "annual-leave": "rgb(var(--ov2-annualleave-bg))",
+  "unauthorized-leave": "rgb(var(--ov2-unauthorizedleave-bg))",
+  "sick-leave": "rgb(var(--ov2-sickleave-bg))",
   "bo": "rgb(var(--ov2-bo-bg))",
   "other-wic": "rgb(var(--ov2-otherwic-bg))",
   "not-rostered": "rgb(var(--ov2-notrostered-bg))",
@@ -33,6 +37,8 @@ const REASON_TOKEN: Record<ReasonCode, string> = {
 }
 const REASON_FG: Record<ReasonCode, string> = {
   "annual-leave": "rgb(var(--ov2-annualleave-fg))",
+  "unauthorized-leave": "rgb(var(--ov2-unauthorizedleave-fg))",
+  "sick-leave": "rgb(var(--ov2-sickleave-fg))",
   "bo": "rgb(var(--ov2-bo-fg))",
   "other-wic": "rgb(var(--ov2-otherwic-fg))",
   "not-rostered": "rgb(var(--ov2-notrostered-fg))",

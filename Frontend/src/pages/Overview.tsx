@@ -24,7 +24,7 @@ import { ExceptionList } from "./overview/ExceptionList"
 import NewShiftModal from "./WICShifts/NewShiftModal"
 import { useFeatures } from "../utils/useFeatures"
 import { OverviewV2 } from "./overview/OverviewV2"
-import { OverviewV21 } from "./overview/OverviewV21"
+import { OverviewV21, type WicHolidayDay } from "./overview/OverviewV21"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1145,6 +1145,14 @@ export default function Overview() {
     enabled: coverageAllowed,
     retry: false,
   })
+
+  const { data: holidaysData } = useQuery({
+    queryKey: ["wic-holidays", horizon],
+    queryFn: () => apiFetch<{ days: WicHolidayDay[] }>(`/api/wic/holidays?days=${horizon}`),
+    staleTime: 5 * 60 * 1000,
+    enabled: coverageAllowed,
+    retry: false,
+  })
   if (coverageError) console.warn("[Overview] wic-coverage-gaps check failed — showing neutral state, never a green banner:", coverageError)
   const coverageState = coverageBannerState({
     enabled: coverageAllowed,
@@ -1154,6 +1162,7 @@ export default function Overview() {
     gapCount: coverage?.gaps.length ?? 0,
   })
   const coverageGaps = coverage?.gaps ?? []
+  const holidays = holidaysData?.days ?? []
 
   // ── KPI derivations ───────────────────────────────────────────────────────────
   // null = data not yet loaded (render "—" + "Not available"); 0 = loaded, genuinely zero.
@@ -1245,7 +1254,7 @@ export default function Overview() {
 
       {/* ── WIC coverage-gaps — V2 (grouped) or legacy (banner + Coverage Risk) ── */}
       {overviewV2 ? (overviewGroupingV21 ? (
-        <OverviewV21 gaps={coverageGaps} heatDates={heatDates} today={today} absentToday={absentToday} onFindSubstitute={args => { setSheetCell(args); setSheetOpen(true) }} />
+        <OverviewV21 gaps={coverageGaps} holidays={holidays} heatDates={heatDates} today={today} absentToday={absentToday} onFindSubstitute={args => { setSheetCell(args); setSheetOpen(true) }} />
       ) : (
         <OverviewV2 gaps={coverageGaps} heatDates={heatDates} today={today} absentToday={absentToday} />
       )) : (

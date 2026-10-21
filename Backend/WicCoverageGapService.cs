@@ -95,6 +95,13 @@ public record WicCoverageGapResult(
     List<WicCoverageGapEntry> Gaps, List<WicCoverageSummaryEntry> NotRecorded,
     int CriticalCount, int WarningCount);
 
+public record WicHolidayLocation(string LocationCode, string DisplayName, string City, string Country);
+
+public record WicHolidayDay(
+    string Date, string Name, bool IsNational, List<WicHolidayLocation> Locations);
+
+public record WicHolidaysResult(string From, string To, List<WicHolidayDay> Days);
+
 public class WicCoverageGapService
 {
     private readonly GSDContext _db;
@@ -623,6 +630,59 @@ public class WicCoverageGapService
             allHours);
         return openDates.Count(d => !covered.Contains(d));
     }
+
+    // ── Holidays per WIC location (GET /api/wic/holidays) ──────────────────────
+    // Same national + regional matching IsOpenOn uses (line 420-428), not a second
+    // holiday list. A national holiday closes every active location (DE and NL); a
+    // regional holiday closes only the locations whose Bundesland (or PLZ-derived
+    // Bundesland) matches. NL locations have no Bundesland, so they only ever close
+    // on national holidays — there are no Dutch regional rows in PublicHolidays.
+    public async Task<WicHolidaysResult> GetHolidaysAsync(int? daysParam)
+    {
+        var days = Math.Clamp(daysParam ?? DefaultDays, 1, 180);
+        var from = DateOnly.FromDateTime(DateTime.Today);
+        var to   = from.AddDays(days - 1);
+
+        var locations = await _db.WicLocations.Where(l => l.IsActive)
+            .OrderBy(l => l.Country).ThenBy(l => l.City).ToListAsync();
+        var holidays = await _db.PublicHolidays
+            .Where(h => h.HolidayDate >= from && h.HolidayDate <= to)
+            .ToListAsync();
+
+        var nationalByDate = holidays.Where(h => h.IsNational)
+            .GroupBy(h => h.HolidayDate)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var result = new List<WicHolidayDay>();
+        for (var date = from; date <= to; date = date.AddDays(1))
+        {
+            if (nationalByDate.TryGetValue(date, out var nat))
+            {
+                result.Add(new WicHolidayDay(date.ToString("yyyy-MM-dd"), nat.Name, true,
+                    locations.Select(l => new WicHolidayLocation(l.LocationCode, l.DisplayName, l.City ?? "", l.Country ?? "")).ToList()));
+                continue;
+            }
+
+            var closed = new List<WicHolidayLocation>();
+            string name = "";
+            foreach (var loc in locations)
+            {
+                var bundesland = loc.Bundesland ?? PlzBundesland.Get(loc.LocationCode, loc.PostalCode, loc.Country);
+                if (bundesland == null) continue;
+                var h = holidays.FirstOrDefault(h => h.HolidayDate == date &&
+                    string.Equals(h.Bundesland, bundesland, StringComparison.OrdinalIgnoreCase));
+                if (h != null)
+                {
+                    if (name.Length == 0) name = h.Name;
+                    closed.Add(new WicHolidayLocation(loc.LocationCode, loc.DisplayName, loc.City ?? "", loc.Country ?? ""));
+                }
+            }
+            if (closed.Count > 0)
+                result.Add(new WicHolidayDay(date.ToString("yyyy-MM-dd"), name, false, closed));
+        }
+
+        return new WicHolidaysResult(from.ToString("yyyy-MM-dd"), to.ToString("yyyy-MM-dd"), result);
+    }
 }
 
 public static class WicCoverageGapEndpointMapper
@@ -637,6 +697,12 @@ public static class WicCoverageGapEndpointMapper
         {
             if (RosterAccess.DenyResult(ctx) is { } deny) return deny;
             return Results.Ok(await svc.GetGapsAsync(days));
+        });
+
+        grp.MapGet("/holidays", async (int? days, HttpContext ctx, WicCoverageGapService svc) =>
+        {
+            if (RosterAccess.DenyResult(ctx) is { } deny) return deny;
+            return Results.Ok(await svc.GetHolidaysAsync(days));
         });
     }
 }

@@ -1055,3 +1055,17 @@ legacy fallback can still work, so remove the old task separately.
 Do not rerun `Backend\schema.sql` against any database as part of verification:
 its embedded `USE GSDDashboard` can override a test target. No SQL or live
 verification is authorized by this file-only update.
+
+## Holiday marking in Overview (2026-10-21)
+
+Added a read-only endpoint `GET /api/wic/holidays?days=N` (RosterAccess-gated) returning, for each
+day in the horizon, the public-holiday name and the WIC locations closed by that holiday. It reuses
+the exact national + regional (per-Bundesland) matching `WicCoverageGapService.IsOpenOn` already uses
+— no second holiday list. The Overview day strip (`OverviewV21.tsx`) marks holiday days with the PH
+badge colour (`--st-holiday-*`) and a tooltip (name + closed locations); a national holiday marks the
+whole day. NL locations are included for national holidays; there are no Dutch regional rows in
+`PublicHolidays`, so NL-specific holidays are not yet representable.
+
+Deploy is a **backend + frontend** change (the backend DLL changed, so a frontend-only static copy is
+NOT sufficient): `dotnet build -c Release` + `npm run build`, then
+`C:\PulseOps\Deploy-Pulse.ps1 -Source "C:\GSDDashboard_secure\Backend\bin\Release\net8.0"`.
