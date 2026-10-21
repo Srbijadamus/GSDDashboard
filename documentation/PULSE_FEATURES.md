@@ -131,7 +131,8 @@ The full shift grid: all agents × all dates, colour-coded by shift type. Read *
 - **Shift cell menu**: change type, edit the time, delete, swap with another agent. Overriding a
   system-generated `OFF_WEEKEND` or `PH` cell requires an explicit confirmation dialog.
 - **Legal validation**: a shift change is checked server-side first; a violation opens a dialog that
-  the user must explicitly override before the save is re-sent.
+  the user must explicitly override before the save is re-sent. Rule **R8** warns when a WIC duty is
+  assigned to a centre closed that day by a public holiday (R1 WIC_CLOSED).
 - Task badge per row (WIC, VWIC, Voice, Backlog, Dispatcher, SME, SSP). Setting Task = WIC opens a
   location picker populated from the WIC location master data.
 - **Coverage per hour** bar, showing the projected mix of Voice / vWIC / WIC / Backlog / Other /

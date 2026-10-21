@@ -760,9 +760,9 @@ public class RosterService
             // every MAIN centre shut, or a 2+-open day with no earlier decision — BO).
             List<WicSegment> segments;
             if (input.Rotation)
-                segments = await DecideWicDayAsync(input, wicHours!, d, runDecisions, ambiguousDays);
+                segments = await DecideWicDayAsync(input, wicHours!, d, runDecisions, ambiguousDays, holidaysInRange);
             else if (input.Location != null)
-                segments = ExplicitLocationSegments(input, wicHours!, d);
+                segments = ExplicitLocationSegments(input, wicHours!, d, holidaysInRange);
             else
                 segments = new List<WicSegment>();
 
@@ -839,10 +839,11 @@ public class RosterService
     ///     gone with it.
     /// </summary>
     private async Task<List<WicSegment>> DecideWicDayAsync(PlanInput input, List<WicOpeningHour> allHours,
-        DateOnly date, Dictionary<DayOfWeek, List<WicSegment>> runDecisions, List<string> ambiguousDays)
+        DateOnly date, Dictionary<DayOfWeek, List<WicSegment>> runDecisions, List<string> ambiguousDays,
+        IReadOnlyCollection<PublicHoliday> holidays)
     {
         var open = new List<(WicLocation Loc, string Start, string End)>();
-        foreach (var loc in OpenMainLocations(input, allHours, date))
+        foreach (var loc in OpenMainLocations(input, allHours, date, holidays))
         {
             var h = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy,
                 (int)date.DayOfWeek, date);
@@ -961,12 +962,14 @@ public class RosterService
     /// explicit LocationCode is a deliberate REGIONAL/BACKUP choice and is honoured
     /// exactly as given for the whole period.
     /// </summary>
-    private static List<WicSegment> ExplicitLocationSegments(PlanInput input, List<WicOpeningHour> allHours, DateOnly date)
+    private static List<WicSegment> ExplicitLocationSegments(PlanInput input, List<WicOpeningHour> allHours, DateOnly date,
+        IReadOnlyCollection<PublicHoliday> holidays)
     {
         var loc = input.Location!;
         var h = WicHoursResolver.Resolve(allHours, loc.LocationCode, loc.LocationCodeLegacy,
             (int)date.DayOfWeek, date);
         if (h is not { IsClosed: false }) return new List<WicSegment>();
+        if (HolidayMatcher.IsHoliday(loc, date, holidays)) return new List<WicSegment>();
         var (s, e) = WicHoursResolver.DutyWindow(h);
         // No usable window on the row: keep the agent's own shift instead of
         // inventing hours or dropping a deliberately chosen day. ValidateAsync
@@ -985,13 +988,13 @@ public class RosterService
     /// of these, which hid the second centre of the Demmin dual-centre day.
     /// </summary>
     private static List<WicLocation> OpenMainLocations(PlanInput input,
-        List<WicOpeningHour> allHours, DateOnly date)
+        List<WicOpeningHour> allHours, DateOnly date, IReadOnlyCollection<PublicHoliday> holidays)
     {
         var open = new List<WicLocation>();
         if (input.MainLocations.Length == 0) return open;
         foreach (var loc in input.MainLocations)
         {
-            if (WicHoursResolver.IsOpenOn(allHours, loc, date))
+            if (WicHoursResolver.IsOpenOn(allHours, loc, date) && !HolidayMatcher.IsHoliday(loc, date, holidays))
                 open.Add(loc);
         }
         return open;

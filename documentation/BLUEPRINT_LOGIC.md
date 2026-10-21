@@ -587,7 +587,9 @@ national-only, country-unaware rule for the NotRecorded summary — left as-is, 
 ### Holiday business rules (owner decision 21.10.2026)
 
 - **R1 WIC_CLOSED** — a location's holiday (its country + Bundesland) closes the WIC: nobody is sent
-  there and no gap is produced.
+  there and no gap is produced. Enforced on input and at the source: `ShiftValidationService` R8 warns
+  on a WIC duty assigned to a holiday-closed centre, and `RosterService` no longer generates a WIC row
+  for a holiday-closed centre (`OpenMainLocations` / `ExplicitLocationSegments`).
 - **R2 EMPLOYEE_HOLIDAY** — an employee's holiday is their own `Employees.Bundesland`; the day is paid.
 - **R3** — an employee whose Bundesland has a holiday MAY work at an open WIC in a Bundesland without
   that holiday; such work is paid extra.

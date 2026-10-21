@@ -60,6 +60,25 @@ public class ShiftValidationService
             }
         }
 
+        // R8 — WIC closed on public holiday (R1 WIC_CLOSED). A WIC duty whose centre is
+        // closed that day by a holiday must not be created silently: warn instead.
+        if (newShiftType == ShiftTypes.WicDuty && !string.IsNullOrWhiteSpace(shift.AgentTask))
+        {
+            var wicLoc = (await _db.WicLocations.Where(l => l.IsActive).ToListAsync())
+                .FirstOrDefault(l => WicLocationMatcher.MatchesAgentTask(shift.AgentTask, l));
+            if (wicLoc != null)
+            {
+                var dateHolidays = await _db.PublicHolidays.Where(h => h.HolidayDate == date).ToListAsync();
+                if (HolidayMatcher.IsHoliday(wicLoc, date, dateHolidays))
+                {
+                    var hol = dateHolidays.FirstOrDefault(h => HolidayMatcher.Applies(h, wicLoc));
+                    violations.Add(new ValidationViolation("R8",
+                        $"WIC centre {wicLoc.DisplayName} is closed on {date:yyyy-MM-dd} due to a public holiday{(hol != null ? $" ({hol.Name})" : "")}.",
+                        "§ Public Holiday Law", false));
+                }
+            }
+        }
+
         if (!isWorkingType) return new ValidationResult(!violations.Any(v => v.IsHardBlock), violations);
 
         if (!TimeSpan.TryParse(newStart, out var startTs) || !TimeSpan.TryParse(newEnd, out var endTs))
