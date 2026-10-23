@@ -851,7 +851,7 @@ Taken-days validation (`PATCH /api/employees/{employeeId}/albalance`): `alUsed` 
 have at most 1 decimal place, and not exceed the employee's `EligibleDays`. Enforced on both
 layers — frontend `ALBalance.tsx` (`parseFloat`, reject >1 decimal, compare against the row's
 `eligibleDays`) and backend `EmployeeService.cs` (`IsValidTakenDays`, then `alUsed <= EligibleDays`,
-else 400). The allowed decimal step (at most 1 decimal vs a fixed 0.5 step) has not been decided.
+else 400). Odluka korisnika 23.10.2026: PlannedTakenAL dozvoljava najviše 1 decimalu (npr. 12.5, 12.3); korak 0.5 se NE primenjuje.
 
 ---
 

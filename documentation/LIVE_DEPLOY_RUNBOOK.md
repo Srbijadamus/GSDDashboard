@@ -1134,4 +1134,4 @@ bundle `index-CqctBLlN.js` SHA256 `936e763acdca4e0a404892baf06b5cc54e34abbf26dc5
 (both static roots); PID `12800` → `12248`; snapshot `C:\ProgramData\PulseRollback\20261023-172050`;
 downtime nije zabeleženo.
 
-Otvoreno: pravilo decimala (do 1 decimale vs korak 0.5) čeka poslovnu odluku.
+Odluka korisnika 23.10.2026: PlannedTakenAL dozvoljava najviše 1 decimalu (npr. 12.5, 12.3); korak 0.5 se NE primenjuje.
