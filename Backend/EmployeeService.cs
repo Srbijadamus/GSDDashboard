@@ -137,7 +137,7 @@ public class EmployeeService
                              s.ShiftType != "OFF" && s.ShiftType != "OFF_WEEKEND");
     }
 
-    public async Task<EmployeeDto?> UpdateALBalanceAsync(string employeeId, int alUsed)
+    public async Task<EmployeeDto?> UpdateALBalanceAsync(string employeeId, decimal alUsed)
     {
         var year = BerlinTime.Today.Year;
         ALBalanceModel? bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == employeeId && b.Year == year);
@@ -148,6 +148,8 @@ public class EmployeeService
             bal = new ALBalanceModel { EmployeeId = employeeId, EmployeeName = emp.FullName, EligibleDays = 28, Year = year };
             _db.ALBalances.Add(bal);
         }
+        if (alUsed > bal.EligibleDays)
+            throw new ArgumentOutOfRangeException(nameof(alUsed), "Taken days cannot exceed the eligible days.");
         bal.PlannedTakenAL = alUsed;
         bal.RemainingAL    = bal.EligibleDays - alUsed;
         bal.LastUpdated    = DateTime.UtcNow;
@@ -159,6 +161,11 @@ public class EmployeeService
     // AL days must be non-negative and have at most 2 decimal places.
     public static bool IsValidEligibleDays(decimal eligibleDays) =>
         eligibleDays >= 0 && Math.Round(eligibleDays, 2) == eligibleDays;
+
+    // Validation for PATCH /{employeeId}/albalance: taken days must be non-negative and
+    // have at most 1 decimal place (PlannedTakenAL is DECIMAL(10,1) in the database).
+    public static bool IsValidTakenDays(decimal takenDays) =>
+        takenDays >= 0 && Math.Round(takenDays, 1) == takenDays;
 
     public async Task<EmployeeDto?> UpdateALEligibleDaysAsync(string employeeId, decimal eligibleDays)
     {
@@ -233,7 +240,7 @@ public record UpdateEmployeeDto(
     string? FullName, string? Engagement, string? PrimaryRole,
     string? TeamLeadName, string? Category, bool? IsActive
 , string? Bundesland, string? ShiftPattern = null, bool? IsOnDemand = null);
-public record ALBalanceUpdateDto(int AlUsed);
+public record ALBalanceUpdateDto(decimal AlUsed);
 public record ALEligibleDaysUpdateDto(decimal EligibleDays);
 
 public static class EmployeeEndpointMapper
@@ -289,8 +296,17 @@ public static class EmployeeEndpointMapper
 
         grp.MapPatch("/{employeeId}/albalance", async (string employeeId, ALBalanceUpdateDto dto, EmployeeService svc) =>
         {
-            var emp = await svc.UpdateALBalanceAsync(employeeId, dto.AlUsed);
-            return emp == null ? Results.NotFound() : Results.Ok(emp);
+            if (!EmployeeService.IsValidTakenDays(dto.AlUsed))
+                return Results.BadRequest("Taken days must be >= 0 with at most 1 decimal place");
+            try
+            {
+                var emp = await svc.UpdateALBalanceAsync(employeeId, dto.AlUsed);
+                return emp == null ? Results.NotFound() : Results.Ok(emp);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return Results.BadRequest("Taken days cannot exceed the eligible days");
+            }
         });
 
         grp.MapPatch("/{employeeId}/albalance/eligible", async (string employeeId, ALEligibleDaysUpdateDto dto, EmployeeService svc) =>

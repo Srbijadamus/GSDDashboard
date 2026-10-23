@@ -554,7 +554,8 @@
     "colProgress": "Progress",
     "clickToEdit": "Click to edit",
     "footerRecords": "records · click Eligible or Taken value to edit",
-    "errorTakenRange": "Value must be between 0 and 28",
+    "errorTakenDecimal": "Value must be 0 or more, with at most 1 decimal place",
+    "errorTakenExceeds": "Value cannot exceed your eligible days ({{max}})",
     "errorEligibleRange": "Value must be 0 or more, with at most 2 decimal places",
     "errorUpdateFailed": "Failed to update AL balance"
   },

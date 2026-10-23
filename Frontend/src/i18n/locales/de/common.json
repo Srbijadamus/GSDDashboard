@@ -554,7 +554,8 @@
     "colProgress": "Fortschritt",
     "clickToEdit": "Klicken zum Bearbeiten",
     "footerRecords": "Einträge · Anspruch oder Genommen anklicken zum Bearbeiten",
-    "errorTakenRange": "Wert muss zwischen 0 und 28 liegen",
+    "errorTakenDecimal": "Wert muss mindestens 0 sein, mit höchstens 1 Nachkommastelle",
+    "errorTakenExceeds": "Wert darf Ihre anspruchsberechtigten Tage nicht überschreiten ({{max}})",
     "errorEligibleRange": "Wert muss mindestens 0 sein, mit höchstens 2 Nachkommastellen",
     "errorUpdateFailed": "Aktualisierung des AL-Saldos fehlgeschlagen"
   },

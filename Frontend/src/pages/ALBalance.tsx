@@ -32,9 +32,16 @@ export default function ALBalance() {
   const warning  = filtered.filter((a: any) => a.remainingAL > 5 && a.remainingAL <= 10).length
 
   const handleEditSave = async (employeeId: string) => {
-    const val = parseInt(editVal)
-    if (isNaN(val) || val < 0 || val > 28) {
-      setError(t("alBalance.errorTakenRange"))
+    const normalized = editVal.replace(",", ".")
+    const val = parseFloat(normalized)
+    const decimals = (normalized.split(".")[1] ?? "").length
+    if (isNaN(val) || val < 0 || decimals > 1) {
+      setError(t("alBalance.errorTakenDecimal"))
+      return
+    }
+    const eligible = data?.find((a: any) => a.employeeId === employeeId)?.eligibleDays ?? 0
+    if (val > eligible) {
+      setError(t("alBalance.errorTakenExceeds", { max: eligible }))
       return
     }
     try {
