@@ -847,6 +847,12 @@ Manual balance adjustment uses `PATCH /api/employees/{employeeId}/albalance` (ta
 `ALBalance` rows are now scoped per employee **and** per calendar year (`ALBalance.Year`, unique
 constraint `(EmployeeId, Year)`); both endpoints operate on the current year's row.
 
+Taken-days validation (`PATCH /api/employees/{employeeId}/albalance`): `alUsed` must be `>= 0`,
+have at most 1 decimal place, and not exceed the employee's `EligibleDays`. Enforced on both
+layers — frontend `ALBalance.tsx` (`parseFloat`, reject >1 decimal, compare against the row's
+`eligibleDays`) and backend `EmployeeService.cs` (`IsValidTakenDays`, then `alUsed <= EligibleDays`,
+else 400). The allowed decimal step (at most 1 decimal vs a fixed 0.5 step) has not been decided.
+
 ---
 
 ## 7.9 Employees
@@ -859,7 +865,7 @@ Base path: `/api/employees`
 | POST | `/api/employees/` | Employee body | `Employee` |
 | PUT | `/api/employees/{id}` | Employee body | `Employee` |
 | DELETE | `/api/employees/{id}` | — | `{ deleted: true }` |
-| PATCH | `/api/employees/{employeeId}/albalance` | `{ alUsed: int }` | updated balance |
+| PATCH | `/api/employees/{employeeId}/albalance` | `{ alUsed: decimal }` | updated balance, or 400 if < 0 / >1 decimal / > EligibleDays |
 | PATCH | `/api/employees/{employeeId}/albalance/eligible` | `{ eligibleDays: decimal }` | updated balance, or 400 if `< 0` / more than 2 decimals |
 
 ---

@@ -1111,3 +1111,27 @@ A prepared, idempotent NL script and its rollback live at `C:\PulseOps\pending\`
   7× 2027-01-06) — on-site WIC rows on holiday-closed centres. Backup
   `C:\PulseOps\backup\r1_assignments_before_20261021-163432.csv`, rollback
   `rollback_r1_assignments_20261021-163432.sql`.
+
+## AL balance: decimal taken days and dynamic eligible-days limit (2026-10-23)
+
+The "TAKEN" (`PlannedTakenAL`) field now accepts decimal values (at most 1 decimal place,
+e.g. `12.5`) instead of being truncated to an integer, and the hardcoded upper limit of 28 is
+replaced by a check against the employee's actual `EligibleDays`.
+
+- Commit `f93ef7d` (`fix(al-balance): support decimal input and dynamic eligible days limit`),
+  branch `feature/overview-v21`, deployed 23.10.2026 17:20.
+- Backend `EmployeeService.cs`: `ALBalanceUpdateDto.AlUsed` and `UpdateALBalanceAsync` are now
+  `decimal`; `IsValidTakenDays` (`>= 0`, at most 1 decimal — `:167-168`); `alUsed` must not
+  exceed `EligibleDays` (`:151-152`, enforced at the endpoint, 400 otherwise).
+- Frontend `ALBalance.tsx:35-45`: `parseFloat` (comma-normalised), reject >1 decimal, and the
+  `> 28` check replaced by a comparison against the row's `eligibleDays`.
+- i18n EN/DE: dynamic `{{max}}` message + a new decimal-format message.
+- Endpoint `PATCH /api/employees/{employeeId}/albalance`; DB schema unchanged (column
+  `ALBalance.PlannedTakenAL` was already `DECIMAL(10,1)`).
+
+Deploy record: DLL SHA256 `7d4332f77b4509ec922a1a844385d3d624718127ad9daa6b98b7e5f44be713b0`;
+bundle `index-CqctBLlN.js` SHA256 `936e763acdca4e0a404892baf06b5cc54e34abbf26dc5b48132e66cb8238e93f`
+(both static roots); PID `12800` → `12248`; snapshot `C:\ProgramData\PulseRollback\20261023-172050`;
+downtime nije zabeleženo.
+
+Otvoreno: pravilo decimala (do 1 decimale vs korak 0.5) čeka poslovnu odluku.
