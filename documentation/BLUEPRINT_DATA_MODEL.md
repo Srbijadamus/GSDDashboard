@@ -328,6 +328,8 @@ Read by: ALBalance page, ALCalendar page, VacationsHandler (assistant).
 | CountWorkingSundays | INT NOT NULL DEFAULT 0 | Sundays worked |
 | CountFreeSundays | INT NOT NULL DEFAULT 0 | Sundays off |
 | LastUpdated | DATETIME2 NOT NULL | Last update timestamp |
+| ManualChangeBy | NVARCHAR(100) NULL | Who last changed the balance by hand — the signed-in user's KID (`AuthClaims.Kid`, fallback `"UI-MANUAL"`). Added 2026-10-26; `NULL` on pre-existing rows (historical actor unknown). |
+| ManualChangeAt | DATETIME2 NULL | When the balance was last changed by hand (UTC). Added 2026-10-26; `NULL` on pre-existing rows. |
 
 **Unique constraint:** `UQ_ALBalance_EmpYear` on (EmployeeId, Year) — replaces the pre-2026 `UQ_ALBalance_EmpId` on (EmployeeId) alone, since a single employee can now have one row per year.
 
@@ -338,10 +340,15 @@ Validated client-side (`Frontend/src/pages/ALBalance.tsx`) and server-side
 KPI cards (Low/Critical/Negative) on the AL Balance page recompute automatically from the new value since
 they are derived client-side from `eligibleDays`/`remainingAL` on every render.
 
-**No audit log:** the project has no audit-log or user-authentication system (no `AuditLog` table, no
-`ClaimsPrincipal`/`[Authorize]` anywhere in `Backend/`), so an EligibleDays change is not attributed to a
-"who". `LastUpdated` records the "when"; the previous value is only visible via a DB backup/point-in-time
-query, not a built-in history view.
+**Manual-change audit (added 2026-10-26):** `ManualChangeBy`/`ManualChangeAt` now record **who** and
+**when** the balance was last changed by hand on the *taken-days* path
+(`PATCH /api/employees/{id}/albalance`), not only `LastUpdated`'s "when". The actor is the signed-in
+user's KID (`AuthClaims.Kid`), with the fixed `"UI-MANUAL"` tag as fallback while
+`Auth:EnforceAuthorization` is off (`ResolveManualActor`). Both columns are nullable: pre-existing rows
+stay `NULL` because their historical actor is unknown — the same marker contract as
+`ShiftEntries.ManualChangeBy/At`. The *eligible-days* path (`PATCH .../albalance/eligible`) still updates
+only `LastUpdated` and is not attributed to a "who". There is still no `AuditLog` table or history view:
+the previous value is only visible via a DB backup/point-in-time query.
 
 ---
 

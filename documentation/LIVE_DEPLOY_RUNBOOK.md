@@ -1195,3 +1195,28 @@ Dutch national holidays). Half-days (0.5) and zero-day rows were left untouched.
   periods now show 4 (2026-08-21→26) and 8 (2026-12-21→31) for every source.
 - **ALBalance**: `PlannedTakenAL` is a running sum and was NOT changed; for 42 employees it now differs
   from the `Vacations.WorkDaysNet` sum (max difference 17.0 days) — reported, not fixed.
+
+## AL balance: manual-change audit columns (2026-10-26)
+
+Schema change: `ALBalance` gains two nullable audit columns — `ManualChangeBy NVARCHAR(100) NULL`
+and `ManualChangeAt DATETIME2 NULL` — recording **who** last changed the balance by hand, not only
+**when**. Additive and idempotent (the same `COL_LENGTH IS NULL` guard as the ShiftEntries marker):
+no backfill; pre-existing rows stay NULL (their historical actor is unknown).
+
+- Commit `9bbdfb0` (`feat(albalance): manual change audit columns`), branch `feature/overview-v21`.
+- `Backend/OtherModels.cs` (`ALBalance`): `[MaxLength(100)] string? ManualChangeBy`, `DateTime? ManualChangeAt`.
+- Actor = session KID (`AuthClaims.Kid`), fallback `"UI-MANUAL"` while `Auth:EnforceAuthorization` is off.
+
+Deploy record: DLL SHA256 `d01a39a4cc05432864fac00eeeb84a3a74086aa343b289a46cc5731dbf03353b`;
+bundle `index-CFzU1rgS.js` SHA256 `0131e793f6ade3a3be97cd4387a274511add36b3e6b3273571d64bf44e39c0fa`
+(unchanged, both static roots); deployed 26.10.2026 20:11; snapshot `C:\ProgramData\PulseRollback\20261026-201126`;
+PID `8608` (post-restart). Post-deploy check: `ALBalance` = 121 rows, `ManualChangeBy IS NOT NULL` = 0.
+
+**Full backup:** `C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\Backup\GSDDashboard_ALAudit_20261026-195202.bak`.
+
+**Rollback (schema only — drops the two audit columns):**
+
+```sql
+ALTER TABLE ALBalance DROP COLUMN ManualChangeBy;
+ALTER TABLE ALBalance DROP COLUMN ManualChangeAt;
+```
