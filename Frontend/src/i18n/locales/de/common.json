@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 20.–21. Oktober: Feiertage erscheinen im Overview-Tagesstreifen pro WIC-Standort (der Tooltip nennt Feiertag und geschlossene Standorte; Lücken haben immer Vorrang). Abwesenheitsgründe sind getrennt — unentschuldigtes Fehlen, Krankmeldung, sonstiger Urlaub, ausgeschieden, Feiertag, regionaler Feiertag, frei. Der Schichtplan markiert Feiertage in der Tagesüberschrift. Feiertage gelten jetzt pro Land (DE und NL), einschließlich niederländischer Feiertage. Die Zuweisung an einen feiertagsbedingt geschlossenen WIC warnt, und der Dienstplangenerator erstellt solche Zuweisungen nicht mehr. Vertretungsvorschläge zeigen die korrekte Entfernung für NRW-Mitarbeiter.",
+    "body": "Neu am 23. Oktober: Der Wert „Genommen" im AL-Saldo akzeptiert jetzt Dezimalstellen (z. B. 12,5 für halbe Tage) statt auf ganze Tage gerundet zu werden, und das feste Limit von 28 Tagen wird durch eine Prüfung gegen die eigenen Anspruchstage ersetzt.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }
