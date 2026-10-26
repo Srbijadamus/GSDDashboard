@@ -1150,3 +1150,16 @@ Deploy record: DLL SHA256 `7d4332f77b4509ec922a1a844385d3d624718127ad9daa6b98b7e
 (unchanged); bundle `index-CFzU1rgS.js` SHA256 `0131e793f6ade3a3be97cd4387a274511add36b3e6b3273571d64bf44e39c0fa`
 (both static roots); PID `12248` → `32164`; snapshot `C:\ProgramData\PulseRollback\20261026-092843`;
 downtime not recorded.
+
+## Change log 2026-10-26 — Bundesland backfill (NRW)
+
+Data change, authorized by user decision 2026-10-26 (source of truth is the user, not the DB or HR):
+active employees with no `Bundesland` and no `WicAgentAssignments` record work in Düsseldorf, so their
+`Employees.Bundesland` was set to `NRW`.
+
+- **Set**: 19 active employees (no `Bundesland`, no active WIC assignment, `EmployeeId <> 'DEMO-001'`).
+- **Updated**: `Employees.Bundesland = 'NRW'` (19 rows; active NRW count 58 → 77).
+- **Excluded (left without Bundesland)**: 5 employees on NL WIC locations (9044352, 9047339, 9074512,
+  9132070, 9132851) and the demo account `DEMO-001` — 6 total remain without `Bundesland`.
+- **Backup**: `C:\PulseOps\backup\20261026-163304_employees_bundesland.csv`
+- **Rollback**: `C:\PulseOps\backup\20261026-163304_rollback.sql` (individual `UPDATE ... SET Bundesland = NULL` per EmployeeId)
