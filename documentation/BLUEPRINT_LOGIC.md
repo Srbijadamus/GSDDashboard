@@ -380,6 +380,24 @@ Take:   first
 
 Result: The most-recently-effective row. Null means no hours are defined — treated as closed.
 
+### Owner decision 2026-10-26 — Mülheim hours and RawSchedule
+
+Mülheim (`WicLocations` Id 64, DE/NRW, Moritzstr. 16-22) operates **Thursdays only, 08:00-12:00**.
+Its 2 `WicShiftEntries` on 2026-10-29 (Thursday) and 0 on 2026-10-28/30 are therefore correct — not
+a defect.
+
+`RawSchedule` is **display-only** and is never parsed. `WicHoursResolver.Resolve` (:18-25),
+`DutyWindow` (:50-56) and `Intervals` (:85-92) use only `OpenTime`/`CloseTime` (and
+`OpenTime2`/`CloseTime2`) plus `DayOfWeek`/`EffectiveFrom`/`ExceptionDate`/`IsClosed`. 67
+`WicOpeningHours` rows carry a non-standard `RawSchedule` (e.g. `8:00-12:00`) — cosmetic only, no
+logic impact.
+
+**OPEN — Rendsburg duplicate:** `WicOpeningHours` holds two identical 7-row sets for
+`EffectiveFrom = 2026-09-28` (Id 724-730 and 731-737). `WicHoursResolver.Resolve` (:119-126) uses
+`OrderByDescending(EffectiveFrom).FirstOrDefault()` with **no secondary ordering**, so the choice
+between two rows with the same `EffectiveFrom` is undefined. Harmless today (the two sets are
+identical); Pfaffenhofen (9 rows for 2026-09-10) was not checked.
+
 ---
 
 ## 4.3 Substitution Candidate Selection
@@ -438,6 +456,21 @@ For each candidate:
 2. If HQ-based role (SSP, Voice, VWIC, Chat, Dispatcher, SME, Booking Tool) → `"51.2154,6.7837"` (Düsseldorf HQ)
 3. If `Bundesland` is set → use `_bundeslandCentroids` (approximate regional centroid)
 4. Otherwise → null (no distance calculated)
+
+### Owner decision 2026-10-26 — multiple active MAIN per WIC is allowed
+
+Multiple active `WicAgentAssignments` rows of type `MAIN` on the **same** WIC are allowed and a
+business requirement. Den Bosch (`WicLocations` Id 78, NL) has three — 9047339, 9074512, 9132070 —
+and that is correct; it is not a data error and must not be "fixed".
+
+The code supports this:
+- `RosterService.cs:553-558` limits MAIN **per employee** (`WHERE EmployeeName == …`), never per WIC.
+- `SubstitutionService.cs:188` and `WicCardsService.cs:193` collect **all** MAIN (`.ToList()`).
+- `WicAssistantService.cs:335/351` picks **per agent** (their own `WicRoles`).
+- `WicCoverageService.cs:202` only **counts** MAIN (`MainCount = 3` for Den Bosch).
+
+Note: `WicAgentAssignments` links assignments by `EmployeeName`; it has no `WicId`, no validity
+period and no `ManualChangeBy`.
 
 ---
 
