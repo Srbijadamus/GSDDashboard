@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 23. Oktober: Der Wert „Genommen" im AL-Saldo akzeptiert jetzt Dezimalstellen (z. B. 12,5 für halbe Tage) statt auf ganze Tage gerundet zu werden, und das feste Limit von 28 Tagen wird durch eine Prüfung gegen die eigenen Anspruchstage ersetzt.",
+    "body": "Neu am 23. Oktober: Der Wert „Genommen“ im AL-Saldo akzeptiert jetzt eine Nachkommastelle (z. B. 12.5); bisher wurden Nachkommastellen abgeschnitten. Das feste Limit von 28 Tagen wird durch eine Prüfung gegen die eigenen Anspruchstage ersetzt.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

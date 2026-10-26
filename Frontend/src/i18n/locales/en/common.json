@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 23 October: the AL Balance Taken value now accepts decimals (e.g. 12.5 for half-days) instead of being rounded to whole days, and the fixed 28-day limit is replaced by a check against the employee's own eligible days.",
+    "body": "What's new for 23 October: the Taken value in AL Balance now accepts one decimal place (e.g. 12.5); previously, decimals were cut off. The fixed 28-day limit is replaced by a check against the employee's own eligible days.",
     "menu": "What's new",
     "dismiss": "Got it"
   }
