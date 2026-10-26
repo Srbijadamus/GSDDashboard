@@ -1180,3 +1180,18 @@ Deploy record: DLL SHA256 `5ebc6461bfb3f6b840ebeb9881674604f0920966391bd9ad7e7a9
 bundle `index-CFzU1rgS.js` SHA256 `0131e793f6ade3a3be97cd4387a274511add36b3e6b3273571d64bf44e39c0fa`
 (unchanged); PID `32164` → `16064`; snapshot `C:\ProgramData\PulseRollback\20261026-165638`;
 downtime not recorded.
+
+## Change log 2026-10-26 — Vacations.WorkDaysNet recalculation
+
+Data change, authorized by user decision 2026-10-26: recalculated `Vacations.WorkDaysNet` for all
+existing rows using the new formula (working days Mon–Fri minus public holidays, R2; NL employees use
+Dutch national holidays). Half-days (0.5) and zero-day rows were left untouched.
+
+- **Rows updated**: 120 (109 rows that had NULL got a value; 11 full rows changed value — 10 decreased,
+  1 increased).
+- **Backup**: `C:\PulseOps\backup\20261026-172611_vacations_workdaysnet.csv`
+- **Rollback**: `C:\PulseOps\backup\20261026-172611_rollback.sql` (individual `UPDATE` per Id, NULL restored where NULL)
+- **After**: 0 rows with NULL `WorkDaysNet`; half-days 56 and zero-days 12 unchanged; the reported
+  periods now show 4 (2026-08-21→26) and 8 (2026-12-21→31) for every source.
+- **ALBalance**: `PlannedTakenAL` is a running sum and was NOT changed; for 42 employees it now differs
+  from the `Vacations.WorkDaysNet` sum (max difference 17.0 days) — reported, not fixed.
