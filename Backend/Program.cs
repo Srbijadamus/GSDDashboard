@@ -568,6 +568,7 @@ app.UseDefaultFiles();
     //   ShiftEntries.ManualChangeBy/At/Note  - a human deliberately set this row
     //   WicOpeningHours.ExceptionDate        - this row applies to that ONE date only
     //   WicOpeningHours.ManualChangeBy/At    - who recorded the exception
+    //   ALBalance.ManualChangeBy/At          - who/when last changed the balance (added 2026-10-26)
     db.Database.ExecuteSqlRaw("""
         IF COL_LENGTH('ShiftEntries','ManualChangeBy') IS NULL
             ALTER TABLE ShiftEntries ADD ManualChangeBy NVARCHAR(100) NULL
@@ -581,6 +582,10 @@ app.UseDefaultFiles();
             ALTER TABLE WicOpeningHours ADD ManualChangeBy NVARCHAR(100) NULL
         IF COL_LENGTH('WicOpeningHours','ManualChangeAt') IS NULL
             ALTER TABLE WicOpeningHours ADD ManualChangeAt DATETIME2 NULL
+        IF COL_LENGTH('ALBalance','ManualChangeBy') IS NULL
+            ALTER TABLE ALBalance ADD ManualChangeBy NVARCHAR(100) NULL
+        IF COL_LENGTH('ALBalance','ManualChangeAt') IS NULL
+            ALTER TABLE ALBalance ADD ManualChangeAt DATETIME2 NULL
     """);
 
     // ROLLOUT (added 2026-10-08): the manual "Rollout" page. Two NEW tables only --

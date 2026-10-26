@@ -108,6 +108,11 @@ public class ALBalance
     public int CountUL { get; set; } = 0;
     public int CountWorkingSundays { get; set; } = 0;
     public int CountFreeSundays { get; set; } = 0;
+    // Who/when last changed the balance by hand (added 2026-10-26), same marker
+    // contract as ShiftEntries.ManualChangeBy/At. NULL on pre-existing rows: we do
+    // not know who changed them historically.
+    [MaxLength(100)] public string? ManualChangeBy { get; set; }
+    public DateTime? ManualChangeAt { get; set; }
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 }
 

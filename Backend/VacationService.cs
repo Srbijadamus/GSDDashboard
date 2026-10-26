@@ -3,6 +3,7 @@ using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using ALBalanceModel = GSDDashboard.API.Data.Models.ALBalance;
 using Microsoft.EntityFrameworkCore;
+using GSDDashboard.API.Modules.Auth;
 using GSDDashboard.API.Services;
 
 namespace GSDDashboard.API.Modules.Vacations;
@@ -124,7 +125,7 @@ public class VacationService
         return result;
     }
 
-    public async Task<VacationDto?> CreateAsync(CreateVacationDto dto)
+    public async Task<VacationDto?> CreateAsync(CreateVacationDto dto, string actor)
     {
         if (!DateOnly.TryParse(dto.FirstDay, out var firstDay) || !DateOnly.TryParse(dto.LastDay, out var lastDay))
             return null;
@@ -189,6 +190,8 @@ public class VacationService
             }
             bal.PlannedTakenAL = bal.PlannedTakenAL + workDays;
             bal.RemainingAL    = bal.EligibleDays - bal.PlannedTakenAL;
+            bal.ManualChangeBy = actor;
+            bal.ManualChangeAt = DateTime.UtcNow;
             bal.LastUpdated    = DateTime.UtcNow;
         }
 
@@ -232,7 +235,7 @@ public class VacationService
     }
 
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(int id, string actor)
     {
         var vac = await _db.Vacations.FindAsync(id);
         if (vac == null) return false;
@@ -246,6 +249,8 @@ public class VacationService
             {
                 bal.PlannedTakenAL = Math.Max(0m, bal.PlannedTakenAL - vac.WorkDaysNet.Value);
                 bal.RemainingAL    = bal.EligibleDays - bal.PlannedTakenAL;
+                bal.ManualChangeBy = actor;
+                bal.ManualChangeAt = DateTime.UtcNow;
                 bal.LastUpdated    = DateTime.UtcNow;
             }
         }
@@ -305,6 +310,12 @@ public class VacationService
 
 public static class VacationEndpointMapper
 {
+    // Prefer the logged-in user's KID; fall back to a fixed tag while
+    // Auth:EnforceAuthorization is still in its rollout phase (same contract as
+    // WicShiftService.ResolveManualActor).
+    private static string ResolveManualActor(HttpContext ctx) =>
+        ctx.User.FindFirst(AuthClaims.Kid)?.Value is { Length: > 0 and <= 100 } kid ? kid : "UI-MANUAL";
+
     public static void MapVacationEndpoints(this WebApplication app)
     {
         var grp = app.MapGroup("/api/vacations").WithTags("Vacations");
@@ -329,15 +340,15 @@ public static class VacationEndpointMapper
             return Results.Ok(await svc.GetLeaveAvailabilityAsync(f, t, maxLeave ?? 8));
         });
 
-        grp.MapPost("/", async (CreateVacationDto dto, VacationService svc) =>
+        grp.MapPost("/", async (CreateVacationDto dto, VacationService svc, HttpContext ctx) =>
         {
-            var vac = await svc.CreateAsync(dto);
+            var vac = await svc.CreateAsync(dto, ResolveManualActor(ctx));
             return vac == null ? Results.BadRequest("Invalid date range or unknown employee") : Results.Ok(vac);
         });
 
-        grp.MapDelete("/{id:int}", async (int id, VacationService svc) =>
+        grp.MapDelete("/{id:int}", async (int id, VacationService svc, HttpContext ctx) =>
         {
-            var ok = await svc.DeleteAsync(id);
+            var ok = await svc.DeleteAsync(id, ResolveManualActor(ctx));
             return ok ? Results.Ok(new { deleted = true }) : Results.NotFound();
         });
 

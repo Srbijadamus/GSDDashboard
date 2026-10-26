@@ -1,6 +1,7 @@
 using GSDDashboard.API.Data;
 using ALBalanceModel = GSDDashboard.API.Data.Models.ALBalance;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Modules.Auth;
 using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -137,7 +138,7 @@ public class EmployeeService
                              s.ShiftType != "OFF" && s.ShiftType != "OFF_WEEKEND");
     }
 
-    public async Task<EmployeeDto?> UpdateALBalanceAsync(string employeeId, decimal alUsed)
+    public async Task<EmployeeDto?> UpdateALBalanceAsync(string employeeId, decimal alUsed, string? actor = null)
     {
         var year = BerlinTime.Today.Year;
         ALBalanceModel? bal = await _db.ALBalances.FirstOrDefaultAsync(b => b.EmployeeId == employeeId && b.Year == year);
@@ -152,6 +153,8 @@ public class EmployeeService
             throw new ArgumentOutOfRangeException(nameof(alUsed), "Taken days cannot exceed the eligible days.");
         bal.PlannedTakenAL = alUsed;
         bal.RemainingAL    = bal.EligibleDays - alUsed;
+        bal.ManualChangeBy = actor;
+        bal.ManualChangeAt = DateTime.UtcNow;
         bal.LastUpdated    = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return await GetByIdAsync(employeeId);
@@ -245,6 +248,12 @@ public record ALEligibleDaysUpdateDto(decimal EligibleDays);
 
 public static class EmployeeEndpointMapper
 {
+    // Prefer the logged-in user's KID; fall back to a fixed tag while
+    // Auth:EnforceAuthorization is still in its rollout phase (same contract as
+    // WicShiftService.ResolveManualActor).
+    private static string ResolveManualActor(HttpContext ctx) =>
+        ctx.User.FindFirst(AuthClaims.Kid)?.Value is { Length: > 0 and <= 100 } kid ? kid : "UI-MANUAL";
+
     public static void MapEmployeeEndpoints(this WebApplication app)
     {
         var grp = app.MapGroup("/api/employees").WithTags("Employees");
@@ -294,13 +303,13 @@ public static class EmployeeEndpointMapper
         grp.MapGet("/{employeeId}/future-shifts", async (string employeeId, EmployeeService svc) =>
             Results.Ok(new { count = await svc.GetFutureShiftCountAsync(employeeId) }));
 
-        grp.MapPatch("/{employeeId}/albalance", async (string employeeId, ALBalanceUpdateDto dto, EmployeeService svc) =>
+        grp.MapPatch("/{employeeId}/albalance", async (string employeeId, ALBalanceUpdateDto dto, EmployeeService svc, HttpContext ctx) =>
         {
             if (!EmployeeService.IsValidTakenDays(dto.AlUsed))
                 return Results.BadRequest("Taken days must be >= 0 with at most 1 decimal place");
             try
             {
-                var emp = await svc.UpdateALBalanceAsync(employeeId, dto.AlUsed);
+                var emp = await svc.UpdateALBalanceAsync(employeeId, dto.AlUsed, ResolveManualActor(ctx));
                 return emp == null ? Results.NotFound() : Results.Ok(emp);
             }
             catch (ArgumentOutOfRangeException)
