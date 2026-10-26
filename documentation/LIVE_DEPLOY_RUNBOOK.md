@@ -1163,3 +1163,20 @@ active employees with no `Bundesland` and no `WicAgentAssignments` record work i
   9132070, 9132851) and the demo account `DEMO-001` — 6 total remain without `Bundesland`.
 - **Backup**: `C:\PulseOps\backup\20261026-163304_employees_bundesland.csv`
 - **Rollback**: `C:\PulseOps\backup\20261026-163304_rollback.sql` (individual `UPDATE ... SET Bundesland = NULL` per EmployeeId)
+
+## AL day counting: working days minus public holidays (2026-10-26)
+
+Backend-only change: the AL day count formula is now *working days (Mon–Fri) minus public holidays that
+apply to the employee* (R2). Previously it counted working days without holidays, and NULL `WorkDaysNet`
+rows fell back to calendar days.
+
+- Commit `69372d2` (`fix(al): working days minus public holidays`), branch `feature/overview-v21`.
+- `Backend/VacationService.cs`: `CountWeekdays` → `ComputeWorkDaysAsync` (async); holidays resolved via
+  `HolidayMatcher.Applies(h, country, bundesland)`, country-scoped (DE default; NL for employees with an NL
+  WIC assignment); half-days (0.5) and zero-day rows unchanged; the calendar-day fallback in `Map` is removed
+  (NULL `WorkDaysNet` is computed on the fly for display).
+
+Deploy record: DLL SHA256 `5ebc6461bfb3f6b840ebeb9881674604f0920966391bd9ad7e7a9bce17bd8aee`;
+bundle `index-CFzU1rgS.js` SHA256 `0131e793f6ade3a3be97cd4387a274511add36b3e6b3273571d64bf44e39c0fa`
+(unchanged); PID `32164` → `16064`; snapshot `C:\ProgramData\PulseRollback\20261026-165638`;
+downtime not recorded.

@@ -630,6 +630,16 @@ national-only, country-unaware rule for the NotRecorded summary — left as-is, 
 These rules are a business reference only; the code is not (yet) aligned to them, and every deviation
 is reported in OPEN_ITEMS_AND_RISKS.md.
 
+### AL day count (owner decision 2026-10-26)
+
+The number of AL days for a vacation period is **working days (Mon–Fri) minus public holidays** that
+apply to the employee (`Backend/VacationService.cs` `ComputeWorkDaysAsync`). Holiday matching reuses
+`HolidayMatcher.Applies(h, country, bundesland)`: national holidays are country-scoped — DE by default;
+an employee with no `Bundesland` who has an active WIC assignment on an NL location uses Dutch national
+holidays; regional holidays match `Employees.Bundesland` (R2). Half-days (0.5) and zero-day rows are not
+affected. The old calendar-day fallback for NULL `WorkDaysNet` is removed — the value is computed on the
+fly for display.
+
 ---
 
 ## 4.8 Assistant Router
