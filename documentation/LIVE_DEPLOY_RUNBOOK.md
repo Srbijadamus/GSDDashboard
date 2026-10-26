@@ -1135,3 +1135,18 @@ bundle `index-CqctBLlN.js` SHA256 `936e763acdca4e0a404892baf06b5cc54e34abbf26dc5
 downtime nije zabeleženo.
 
 User decision 2026-10-23: PlannedTakenAL allows at most 1 decimal place (e.g. 12.5, 12.3); a fixed 0.5 step is NOT applied.
+
+## What's new v4 (2026-10-26)
+
+Frontend-only deploy: the "What's new" modal was updated to v4 (AL Balance decimal input),
+also fixing an invalid JSON in the German body (a stray ASCII `U+0022` closing quote was
+replaced with the proper `U+201C`).
+
+- Commit `60e4360` (`fix(whatsnew): v4 DE JSON quote + wording`), branch `feature/overview-v21`.
+- `WHATS_NEW_VERSION` = `v4`; body changed in `en/common.json` and `de/common.json` only.
+- No backend change — the DLL is unchanged from `f93ef7d`.
+
+Deploy record: DLL SHA256 `7d4332f77b4509ec922a1a844385d3d624718127ad9daa6b98b7e5f44be713b0`
+(unchanged); bundle `index-CFzU1rgS.js` SHA256 `0131e793f6ade3a3be97cd4387a274511add36b3e6b3273571d64bf44e39c0fa`
+(both static roots); PID `12248` → `32164`; snapshot `C:\ProgramData\PulseRollback\20261026-092843`;
+downtime not recorded.
