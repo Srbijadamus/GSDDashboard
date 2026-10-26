@@ -53,9 +53,16 @@ public class VacationService
         var rows = await q.OrderBy(v => v.FirstDay).ToListAsync();
         var empIds = rows.Select(r => r.EmployeeId).Where(x => x != null).Distinct().ToList();
         var empMap = await _db.Employees.Where(e => empIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
+
+        // Compute work-days for rows that never stored a value (new formula: weekdays minus
+        // holidays), instead of the old calendar-day fallback.
+        var fallbackDays = new Dictionary<int, decimal>();
+        foreach (var v in rows.Where(v => v.WorkDaysNet == null && v.EmployeeId != null && empMap.ContainsKey(v.EmployeeId)))
+            fallbackDays[v.Id] = await ComputeWorkDaysAsync(empMap[v.EmployeeId!], v.FirstDay, v.LastDay);
+
         return rows
             .Where(v => v.EmployeeId != null && empMap.ContainsKey(v.EmployeeId))
-            .Select(v => Map(v, empMap[v.EmployeeId!]))
+            .Select(v => Map(v, empMap[v.EmployeeId!], fallbackDays.GetValueOrDefault(v.Id)))
             .ToList();
     }
 
@@ -139,7 +146,7 @@ public class VacationService
             return new VacationDto(
                 0, dto.EmployeeId, emp.LastName, emp.FirstName,
                 firstDay.ToString("yyyy-MM-dd"), lastDay.ToString("yyyy-MM-dd"),
-                CountWeekdays(firstDay, lastDay), dto.Comments, null, null,
+                await ComputeWorkDaysAsync(emp, firstDay, lastDay), dto.Comments, null, null,
                 emp.SourceSheet, false, emp.TeamLeadName
             );
         }
@@ -154,7 +161,7 @@ public class VacationService
             s.EmployeeId == dto.EmployeeId && s.FirstDay <= lastDay && s.LastDay >= firstDay);
         if (hasSickLeaveOverlap) return null;
 
-        decimal workDays = dto.IsHalfDay ? 0.5m : CountWeekdays(firstDay, lastDay);
+        decimal workDays = dto.IsHalfDay ? 0.5m : await ComputeWorkDaysAsync(emp, firstDay, lastDay);
         string shiftType = dto.IsHalfDay ? "HALF_AL" : "AL";
         // Half-day: first and last day must be the same day
         if (dto.IsHalfDay) lastDay = firstDay;
@@ -192,12 +199,36 @@ public class VacationService
         return Map(vac, emp);
     }
 
-    private static int CountWeekdays(DateOnly from, DateOnly to)
+    // Working days (Mon–Fri) minus public holidays that apply to the employee.
+    // National holidays are country-scoped (DE by default; NL for employees with an NL
+    // WIC assignment); regional holidays match the employee's Bundesland (R2).
+    private async Task<decimal> ComputeWorkDaysAsync(Employee emp, DateOnly from, DateOnly to)
     {
+        var country = await DetermineCountryAsync(emp);
+        var holidayDates = (await _db.PublicHolidays
+                .Where(h => h.HolidayDate >= from && h.HolidayDate <= to)
+                .ToListAsync())
+            .Where(h => HolidayMatcher.Applies(h, country, emp.Bundesland))
+            .Select(h => h.HolidayDate)
+            .ToHashSet();
+
         int count = 0;
         for (var d = from; d <= to; d = d.AddDays(1))
-            if (d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday) count++;
+        {
+            if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday) continue;
+            if (holidayDates.Contains(d)) continue;
+            count++;
+        }
         return count;
+    }
+
+    // DE by default; NL when the employee has an active WIC assignment on an NL location.
+    private async Task<string> DetermineCountryAsync(Employee emp)
+    {
+        var nl = await _db.WicAgentAssignments
+            .Where(a => a.EmployeeName == emp.FullName && a.IsActive)
+            .AnyAsync(a => a.LocationCode.StartsWith("NL"));
+        return nl ? "NL" : "DE";
     }
 
 
@@ -261,12 +292,12 @@ public class VacationService
         return ms.ToArray();
     }
 
-    private static VacationDto Map(Vacation v, Employee? emp = null) => new(
+    private static VacationDto Map(Vacation v, Employee? emp = null, decimal? fallbackDays = null) => new(
         v.Id, v.EmployeeId,
         "",
         emp?.FullName ?? v.FirstName,
         v.FirstDay.ToString("yyyy-MM-dd"), v.LastDay.ToString("yyyy-MM-dd"),
-        v.WorkDaysNet ?? (decimal)(v.LastDay.DayNumber - v.FirstDay.DayNumber + 1),
+        v.WorkDaysNet ?? fallbackDays,
         v.Comments, v.ApprovedDenied, v.ApproverName,
         v.SourceSheet, v.IsOverhead, emp?.TeamLeadName
     );
