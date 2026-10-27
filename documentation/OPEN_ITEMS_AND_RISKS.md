@@ -81,6 +81,16 @@ document — nothing here is invented or rounded off.
 | D12 | **Historical attendance is not valid evidence of individual performance.** Recorded as a data-protection position; must be honoured in any reporting built from it. | **High** | Recorded in the kiosk documentation |
 | D13 | **The kiosk client migration is in progress, not finished.** On 2026-10-11 the live registry lists 63 computers: **44 hosts on the legacy shared key** (`credential_type='legacy_key'`) and **19 hosts on the new device credential** (`credential_type='device_token'`). The legacy count is the reason the shared key cannot yet be retired. | Medium | Live `sec_kiosk_registry.credential_type`, 2026-10-11 |
 
+### AL balance — RTM decisions 27.10.2026
+
+Recorded from the RTM's 27.10.2026 review of AL-balance overruns. These are decisions, not defects — **do not change**:
+
+- **9047339, 9044352** — NL employees may exceed `EligibleDays` (hourly balance). Not an error. Do not change.
+- **9132075, 9130648** — left the company; to be removed from `ALBalance` on 01.11.2026. The overrun is because entitlement is counted to the last working day after leave was already taken. Do not change.
+- **9132077** — pending check whether one requested day was a public holiday in his Bundesland (see the 27.10.2026 Task 3 result).
+- **9130643** and every overrun of 0.5 day — approved by team leads. Do not change.
+- **Berlin 16.11.2026** — both Berlin locations open (Brückenstr exceptionally). 17.11.2026 pending confirmation.
+
 ---
 
 ## 3. Functional gaps and defects
