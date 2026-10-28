@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 23 October: the Taken value in AL Balance now accepts one decimal place (e.g. 12.5); previously, decimals were cut off. The fixed 28-day limit is replaced by a check against the employee's own eligible days.",
+    "body": "What's new for 26–27 October: annual leave is now counted as working days (Monday to Friday) minus the public holidays that apply to the employee. Existing leave entries were recalculated; half days are unchanged. Manual changes to the AL balance now record who made the change and when. Former employees were removed from the AL Balance list.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

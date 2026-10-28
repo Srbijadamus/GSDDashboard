@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 23. Oktober: Der Wert „Genommen“ im AL-Saldo akzeptiert jetzt eine Nachkommastelle (z. B. 12.5); bisher wurden Nachkommastellen abgeschnitten. Das feste Limit von 28 Tagen wird durch eine Prüfung gegen die eigenen Anspruchstage ersetzt.",
+    "body": "Neu am 26.–27. Oktober: Urlaub wird jetzt als Arbeitstage (Montag bis Freitag) abzüglich der für den Mitarbeiter geltenden Feiertage gezählt. Bestehende Urlaubseinträge wurden neu berechnet; halbe Tage bleiben unverändert. Manuelle Änderungen am AL-Saldo speichern jetzt, wer sie wann vorgenommen hat. Ehemalige Mitarbeiter wurden aus der AL-Saldo-Liste entfernt.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }
