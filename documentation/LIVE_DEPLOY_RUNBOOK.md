@@ -12,6 +12,9 @@
 
 ## Deploy invariants (2026-10-06) - read before any promotion
 
+Production deploy path: `C:\PulseOps\Deploy-Pulse.ps1` (snapshot in `C:\ProgramData\PulseRollback\<ts>`, auto-rollback). `PS1_19_FinalBuildVerify.ps1` is legacy (see the npm/dist note in this runbook) and is not used for production deploy.
+
+- **Every deploy: update What's new (EN + DE) with the user-visible changes of the last 24 hours and bump `WHATS_NEW_VERSION`.**
 - **Sentinel:** `C:\HealthCheck\DEPLOY_IN_PROGRESS`. It must exist for the whole
   stop -> copy -> verify window; watchdogs refuse to start or restart the backend
   while it is present.
