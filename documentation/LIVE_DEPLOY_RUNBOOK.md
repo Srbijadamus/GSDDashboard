@@ -1072,9 +1072,7 @@ day background/border and the tooltip carries both the gap text and the holiday 
 included for national holidays; there are no Dutch regional rows in
 `PublicHolidays`, so NL-specific holidays are not yet representable.
 
-Deploy is a **backend + frontend** change (the backend DLL changed, so a frontend-only static copy is
-NOT sufficient): `dotnet build -c Release` + `npm run build`, then
-`C:\PulseOps\Deploy-Pulse.ps1 -Source "C:\GSDDashboard_secure\Backend\bin\Release\net8.0"`.
+Order: `npm run build` (Frontend), `dotnet build -c Release` (Backend), then `robocopy Backend\wwwroot Backend\bin\Release\net8.0\wwwroot /E` (dotnet build does not copy wwwroot). Verify the new `index-*.js` and marker there before running `Deploy-Pulse.ps1`.
 
 ## PublicHolidays — yearly maintenance
 
