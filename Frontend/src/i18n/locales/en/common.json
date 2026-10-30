@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 26–27 October: annual leave is now counted as working days (Monday to Friday) minus the public holidays that apply to the employee. Existing leave entries were recalculated; half days are unchanged. Manual changes to the AL balance now record who made the change and when. Former employees were removed from the AL Balance list.",
+    "body": "What's new for 30 October: weekend days marked OFF_WEEKEND inside an annual leave period are no longer reported as a conflict between the AL Tracker and the Shift Plan.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

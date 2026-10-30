@@ -56,6 +56,7 @@ public static class AlTrackerOverrides
         if (string.IsNullOrWhiteSpace(shiftType)) return false;
         if (AvailabilityResolver.FullAbsenceTypes.Contains(shiftType)) return false;
         if (string.Equals(shiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase)) return false;
+        if (string.Equals(shiftType, ShiftTypes.OffWeekend, StringComparison.OrdinalIgnoreCase)) return false;
         return true;
     }
 

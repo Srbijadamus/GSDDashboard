@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 26.–27. Oktober: Urlaub wird jetzt als Arbeitstage (Montag bis Freitag) abzüglich der für den Mitarbeiter geltenden Feiertage gezählt. Bestehende Urlaubseinträge wurden neu berechnet; halbe Tage bleiben unverändert. Manuelle Änderungen am AL-Saldo speichern jetzt, wer sie wann vorgenommen hat. Ehemalige Mitarbeiter wurden aus der AL-Saldo-Liste entfernt.",
+    "body": "Neu am 30. Oktober: Als OFF_WEEKEND markierte Wochenendtage innerhalb eines Urlaubszeitraums werden nicht mehr als Widerspruch zwischen AL-Tracker und Schichtplan gemeldet.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }
