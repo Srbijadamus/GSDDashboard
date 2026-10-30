@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 30. Oktober: Eine Krankmeldung ersetzt jetzt einen manuell geplanten Dienst (z. B. WIC) am selben Tag, sodass Daily Attendance und WIC Attendance denselben Status anzeigen. Als OFF_WEEKEND markierte Wochenendtage innerhalb eines Urlaubszeitraums werden nicht mehr als Widerspruch zwischen AL-Tracker und Schichtplan gemeldet.",
+    "body": "Neu am 30. Oktober: Eine manuelle oder Kiosk-Anmeldung zählt jetzt für jeden Agenten im heutigen WIC-Dienstplan, auch wenn der Kiosk ihn in einer anderen Gruppe (z. B. BO) führt. Eine Krankmeldung ersetzt jetzt einen manuell geplanten Dienst am selben Tag. Als OFF_WEEKEND markierte Wochenendtage innerhalb eines Urlaubszeitraums werden nicht mehr als Widerspruch gemeldet.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

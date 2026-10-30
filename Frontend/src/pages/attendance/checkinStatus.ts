@@ -312,9 +312,9 @@ export function buildCheckinStatus(
   // unclassified check-in is no longer ambiguous and must NOT inflate Expected/
   // Checked-in/Not-yet-in here — those agents have their own page
   // (Remote Attendance). Only rows explicitly labelled "WIC" are kept.
-  const allKiosk = (kiosk ?? [])
+  const usableKiosk = (kiosk ?? [])
     .filter(r => !isTestEmployee(r.employee_id) || isManualKioskEvent(r))
-    .filter(r => (r.agent_group ?? "").trim().toUpperCase() === "WIC")
+  const allKiosk = usableKiosk.filter(r => (r.agent_group ?? "").trim().toUpperCase() === "WIC")
 
   // ── Roster side: rostered at an OPEN centre, one row per employee ──────────
   const rosterExpected: ExpectedAgent[] = []
@@ -339,8 +339,12 @@ export function buildCheckinStatus(
   }
 
   // ── Kiosk side ────────────────────────────────────────────────────────────
-  const checkedInRows = allKiosk.filter(r => CHECKED_IN_STATUSES.has(r.attendance_status))
-  const blankKioskIdCount = checkedInRows.filter(r => isBlankKioskId(r.employee_id)).length
+  const wicCheckedInRows = allKiosk.filter(r => CHECKED_IN_STATUSES.has(r.attendance_status))
+  const blankKioskIdCount = wicCheckedInRows.filter(r => isBlankKioskId(r.employee_id)).length
+
+  // A rostered agent's check-in counts regardless of the group the kiosk labels him
+  // with (e.g. a BO-labelled agent on today's WIC roster).
+  const checkedInRows = usableKiosk.filter(r => CHECKED_IN_STATUSES.has(r.attendance_status))
 
   // One row per employee; a blank id is nobody.
   const kioskById = new Map<string, CheckinKioskRecord>()
@@ -349,9 +353,15 @@ export function buildCheckinStatus(
     if (!kioskById.has(r.employee_id)) kioskById.set(r.employee_id, r)
   }
 
-  // Everyone checked in but not on the roster becomes Expected too, with no centre.
+  // Off-roster "checked in but not rostered" stays WIC-only.
+  const wicCheckedInById = new Map<string, CheckinKioskRecord>()
+  for (const r of wicCheckedInRows) {
+    if (isBlankKioskId(r.employee_id)) continue
+    if (!wicCheckedInById.has(r.employee_id)) wicCheckedInById.set(r.employee_id, r)
+  }
+
   const offRoster: ExpectedAgent[] = []
-  for (const [id, record] of kioskById) {
+  for (const [id, record] of wicCheckedInById) {
     if (seen.has(id)) continue
     offRoster.push({
       employeeId: id,
