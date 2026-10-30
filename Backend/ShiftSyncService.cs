@@ -22,7 +22,7 @@ public class ShiftSyncService
             if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday) continue;
 
             var existing = await _db.ShiftEntries.FirstOrDefaultAsync(x => x.EmployeeId == employeeId && x.ShiftDate == d);
-            if (_db.PreserveManualShift(existing, "Sick leave sync")) continue;
+            if (existing != null && existing.IsManualChange && !AlTrackerOverrides.IsNonAbsenceManualType(existing.ShiftType)) continue;
             if (existing != null)
             {
                 existing.PreviousStatus = existing.ShiftType;

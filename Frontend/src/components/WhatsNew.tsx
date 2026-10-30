@@ -4,7 +4,7 @@ import { useAuth } from "../auth/AuthContext"
 import { useFeatures } from "../utils/useFeatures"
 
 // Bump when the content changes so every user sees it once more.
-const WHATS_NEW_VERSION = "v6"
+const WHATS_NEW_VERSION = "v7"
 export const WHATS_NEW_OPEN_EVENT = "pulse:whats-new-open"
 
 function readLocal(key: string): string | null {

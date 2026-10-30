@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 30 October: weekend days marked OFF_WEEKEND inside an annual leave period are no longer reported as a conflict between the AL Tracker and the Shift Plan.",
+    "body": "What's new for 30 October: sick leave now replaces a manually planned duty (for example WIC) on the same day, so Daily Attendance and WIC Attendance show the same status. Weekend days marked OFF_WEEKEND inside an annual leave period are no longer reported as a conflict between the AL Tracker and the Shift Plan.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

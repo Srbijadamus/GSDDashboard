@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 30. Oktober: Als OFF_WEEKEND markierte Wochenendtage innerhalb eines Urlaubszeitraums werden nicht mehr als Widerspruch zwischen AL-Tracker und Schichtplan gemeldet.",
+    "body": "Neu am 30. Oktober: Eine Krankmeldung ersetzt jetzt einen manuell geplanten Dienst (z. B. WIC) am selben Tag, sodass Daily Attendance und WIC Attendance denselben Status anzeigen. Als OFF_WEEKEND markierte Wochenendtage innerhalb eines Urlaubszeitraums werden nicht mehr als Widerspruch zwischen AL-Tracker und Schichtplan gemeldet.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }
