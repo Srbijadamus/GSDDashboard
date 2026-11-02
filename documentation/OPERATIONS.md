@@ -269,6 +269,14 @@ must be read from the observation log; the tunnel watchdog's health probe follow
 redirect to a sign-in page is read as healthy; and the `alerted_at` column on anomalies is never
 written, so nothing escalates automatically.
 
+**Restart notification (`PulseRestartNotify`):** a SYSTEM scheduled task (`AtStartup`, delay `PT3M`,
+`MultipleInstances=IgnoreNew`) runs `C:\PulseOps\notify_restart.py`, which POSTs an AdaptiveCard
+"Pulse server restartovan" (boot time, send time, hostname) to a Teams/Power Automate webhook. The
+webhook URL is read from `C:\PulseOps\notify_webhook.url` (ACL: `SYSTEM` read, `Administrators` full —
+the URL itself is a secret and is never stored in the repo). Each attempt's outcome (time, attempt,
+`OK` or error type + HTTP status, never the URL) is appended to `C:\PulseOps\notify_restart.log`.
+It retries up to 10× every 3 minutes and treats any HTTP 2xx as success.
+
 ---
 
 ## 8. Known operational faults and their workarounds
