@@ -275,15 +275,16 @@ written, so nothing escalates automatically.
 webhook URL is read from `C:\PulseOps\notify_webhook.url` (ACL: `SYSTEM` read, `Administrators` full —
 the URL itself is a secret and is never stored in the repo). Each attempt's outcome (time, attempt,
 `OK` or error type + HTTP status, never the URL) is appended to `C:\PulseOps\notify_restart.log`.
+Timestamps in the log, and the boot and send times in the card, are written in UTC.
 It retries up to 10× every 3 minutes and treats any HTTP 2xx as success. The Power Automate flow
 'Webhookwarnungen an test senden' (E.ON default environment) also sends an e-mail (Office 365 Outlook,
 Send an email V2) to the operator's Infosys address after each webhook call.
 
 **Post-restart smoke test (`Smoke-Pulse.ps1` + `PulseSmokeAfterLogon`):** read-only
 `C:\PulseOps\Smoke-Pulse.ps1` verifies, after a reboot: OS boot time/uptime; an `OK` line in
-`C:\PulseOps\notify_restart.log` since boot; the states of the service tasks (`GSDDashboard-Backend`,
-`ShiftKioskServer`, the three tunnel tasks, `LaptopTracker-App`, `ServiceHealthCheck`,
-`PulseRestartNotify`); HTTP 200 on `:5000/` plus the referenced `index-*.js` in both static roots;
+`C:\PulseOps\notify_restart.log` since boot (timestamps compared in UTC); the states of the service tasks (`GSDDashboard-Backend`,
+`ShiftKioskServer`, the three tunnel tasks, `LaptopTracker-App`, `ServiceHealthCheck`); HTTP 200 on
+`:5000/` plus the referenced `index-*.js` in both static roots;
 `:8000/health` and `/api/attendance`; `:5016` listening; the three devtunnel hosts;
 `MSSQL$SQLEXPRESS` Running; zero `.NET Runtime` 1026 / `Application Error` for
 `GSDDashboard.API.exe`/`python.exe` since boot; the deploy sentinel absent; and the last `health.log`
