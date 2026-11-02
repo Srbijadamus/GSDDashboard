@@ -275,7 +275,9 @@ written, so nothing escalates automatically.
 webhook URL is read from `C:\PulseOps\notify_webhook.url` (ACL: `SYSTEM` read, `Administrators` full —
 the URL itself is a secret and is never stored in the repo). Each attempt's outcome (time, attempt,
 `OK` or error type + HTTP status, never the URL) is appended to `C:\PulseOps\notify_restart.log`.
-It retries up to 10× every 3 minutes and treats any HTTP 2xx as success.
+It retries up to 10× every 3 minutes and treats any HTTP 2xx as success. The Power Automate flow
+'Webhookwarnungen an test senden' (E.ON default environment) also sends an e-mail (Office 365 Outlook,
+Send an email V2) to the operator's Infosys address after each webhook call.
 
 ---
 
