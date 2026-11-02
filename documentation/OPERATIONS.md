@@ -279,6 +279,20 @@ It retries up to 10× every 3 minutes and treats any HTTP 2xx as success. The Po
 'Webhookwarnungen an test senden' (E.ON default environment) also sends an e-mail (Office 365 Outlook,
 Send an email V2) to the operator's Infosys address after each webhook call.
 
+**Post-restart smoke test (`Smoke-Pulse.ps1` + `PulseSmokeAfterLogon`):** read-only
+`C:\PulseOps\Smoke-Pulse.ps1` verifies, after a reboot: OS boot time/uptime; an `OK` line in
+`C:\PulseOps\notify_restart.log` since boot; the states of the service tasks (`GSDDashboard-Backend`,
+`ShiftKioskServer`, the three tunnel tasks, `LaptopTracker-App`, `ServiceHealthCheck`,
+`PulseRestartNotify`); HTTP 200 on `:5000/` plus the referenced `index-*.js` in both static roots;
+`:8000/health` and `/api/attendance`; `:5016` listening; the three devtunnel hosts;
+`MSSQL$SQLEXPRESS` Running; zero `.NET Runtime` 1026 / `Application Error` for
+`GSDDashboard.API.exe`/`python.exe` since boot; the deploy sentinel absent; and the last `health.log`
+line. Each check prints `PASS`/`FAIL` and the result is written to
+`C:\PulseOps\smoke\smoke_<yyyyMMdd-HHmmss>.txt` with a final `UKUPNO: PASS/FAIL`. The
+`PulseSmokeAfterLogon` task (`S69307`, Interactive, Highest, `AtLogOn` `U-DOM1\S69307` delay `PT5M`,
+`MultipleInstances=IgnoreNew`) runs it only when uptime < 2 hours (first logon after a restart) and
+opens the latest result in Notepad.
+
 ---
 
 ## 8. Known operational faults and their workarounds
