@@ -29,6 +29,9 @@ this document summarises and cross-links rather than replacing them.
 independent installer, so a `/health` 200 proves only that something is listening — not that the
 deploy is correct. This is a recorded lesson, not a theory.
 
+The operational scripts and the scheduled-task XML definitions are versioned in
+`ops\` (see `ops\README.md` for restoring them onto a new server).
+
 ---
 
 ## 2. The deploy sentinel — the most important operational rule
