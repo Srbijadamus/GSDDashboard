@@ -294,6 +294,9 @@ line. Each check prints `PASS`/`FAIL` and the result is written to
 `MultipleInstances=IgnoreNew`) runs it only when uptime < 2 hours (first logon after a restart) and
 opens the latest result in Notepad.
 
+The PulseOps scripts and the two scheduled-task XML definitions are versioned in
+`ops\pulseops\` (see its README for restoring them onto a new server).
+
 ---
 
 ## 8. Known operational faults and their workarounds
