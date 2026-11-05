@@ -255,3 +255,11 @@ alarmed about:
 - Roster generation is reversible by construction.
 - Four of the nine kiosk security flags are enforced, including the ones that close the credential
   chain that was actually exploited-class in the October review.
+
+---
+
+## 7. Frankfurt am Main WIC — follow-ups (added 2026-11-05)
+
+- 2027-03-31: Frankfurt am Main WIC closes. Set ShiftKioskDB wic_centers.active = 0 for id 45 on 2027-04-01
+  (the kiosk has no end-date concept; Pulse closes automatically via opening hours).
+- 9140993 has no windows_username in ShiftKioskDB; kiosk cannot identify the agent.
