@@ -262,4 +262,3 @@ alarmed about:
 
 - 2027-03-31: Frankfurt am Main WIC closes. Set ShiftKioskDB wic_centers.active = 0 for id 45 on 2027-04-01
   (the kiosk has no end-date concept; Pulse closes automatically via opening hours).
-- 9140993 has no windows_username in ShiftKioskDB; kiosk cannot identify the agent.
