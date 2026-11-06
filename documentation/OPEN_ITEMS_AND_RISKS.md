@@ -83,6 +83,8 @@ document — nothing here is invented or rounded off.
 | D14 | **ALBalance rows are not auto-created for new employees.** The AL Balance list reads the `ALBalance` table directly (`Backend/ALBalanceService.cs:21`), and a row is created only when the balance is first edited (`Backend/EmployeeService.cs:144-150`, `:176-182`) or on a vacation create (`Backend/VacationService.cs:185-189`). New active employees therefore have no row and RTM cannot enter `EligibleDays` for them. | Medium | Code paths above; 9 rows back-filled with `EligibleDays=0` on 2026-11-06 |
 | D15 | **SickLeaves still holds non-sick `LeaveType` values.** On 2026-11-06 the 27 `LeaveType='AL'` rows were migrated to `Vacations` (they were duplicates of existing `Vacations` rows) and deleted — backup `C:\PulseOps\backup\20261106-122828_sickleaves_AL_*.csv`, rollback `..._rollback.sql`. The table still contains `OFF` (23), `OL` (8), `UL` (2) and `CD` (1). OFF, OL, UL and CD rows in SickLeaves are valid official data and must NOT be deleted or migrated. | Low | Live `SickLeaves` |
 
+Overlapping sick-leave spells (same employee, share ≥1 day; **22 pairs**, recorded 2026-11-06, **NOT deleted** — listed for RTM): `9074557` (53/61, 61/107, 157/169, 217/226, 226/246, 246/314), `9074573` (10/54, 117/145, 161/171, 264/313, 288/313), `9074579` (195/220), `9085123` (208/222), `9114617` (160/168, 168/176), `9120980` (174/178, 178/185), `9125521` (329/339, 329/341, 339/341), `9126877` (198/224, 210/224).
+
 ### AL balance — RTM decisions 27.10.2026
 
 Recorded from the RTM's 27.10.2026 review of AL-balance overruns. These are decisions, not defects — **do not change**:

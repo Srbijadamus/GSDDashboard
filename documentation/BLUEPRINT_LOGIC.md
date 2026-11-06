@@ -856,6 +856,12 @@ Base path: `/api/sickleave`
 On create: writes SL ShiftEntries via ShiftSyncService. On delete: reverts ShiftEntries.
 On patch with a new endDate: rewrites the ShiftEntry range.
 
+Sick-leave days are counted as **working days** (Mon–Fri minus the employee's public holidays, via
+`WorkingDays.Count` — the same function the AL work-day calculation uses). `DurationDays` holds the
+working days of each period; the Sick Leave tab **TOTAL DAYS** per employee is the number of DISTINCT
+working days across their spells (overlaps counted once), and AL Balance **SL Days** uses the same
+distinct-working-days rule for the calendar year.
+
 ---
 
 ## 7.7 Vacations
