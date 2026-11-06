@@ -208,21 +208,10 @@ public class VacationService
     private async Task<decimal> ComputeWorkDaysAsync(Employee emp, DateOnly from, DateOnly to)
     {
         var country = await DetermineCountryAsync(emp);
-        var holidayDates = (await _db.PublicHolidays
-                .Where(h => h.HolidayDate >= from && h.HolidayDate <= to)
-                .ToListAsync())
-            .Where(h => HolidayMatcher.Applies(h, country, emp.Bundesland))
-            .Select(h => h.HolidayDate)
-            .ToHashSet();
-
-        int count = 0;
-        for (var d = from; d <= to; d = d.AddDays(1))
-        {
-            if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday) continue;
-            if (holidayDates.Contains(d)) continue;
-            count++;
-        }
-        return count;
+        var holidays = await _db.PublicHolidays
+            .Where(h => h.HolidayDate >= from && h.HolidayDate <= to)
+            .ToListAsync();
+        return WorkingDays.Count(holidays, country, emp.Bundesland, from, to);
     }
 
     // DE by default; NL when the employee has an active WIC assignment on an NL location.

@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 30. Oktober:\n• Eine Krankmeldung ersetzt jetzt einen geplanten Dienst am selben Tag, auch wenn die Schicht manuell bearbeitet wurde. Daily Attendance und WIC Attendance zeigen jetzt denselben Status.\n• Eine manuelle oder Kiosk-Anmeldung zählt jetzt für jeden Agenten im heutigen WIC-Dienstplan, auch wenn der Kiosk ihn in einer anderen Gruppe (z. B. BO) führt.\n• Wochenendtage innerhalb eines Urlaubszeitraums werden nicht mehr als Widerspruch zwischen AL-Tracker und Schichtplan gemeldet.",
+    "body": "Neu am 6. November:\n• Die SL-Tage im AL-Saldo werden jetzt aus den Krankmeldungen berechnet (Arbeitstage pro Jahr).\n• Neue Mitarbeiter erscheinen jetzt in der AL-Saldo-Liste, sodass ihre Anspruchstage eingetragen werden können.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

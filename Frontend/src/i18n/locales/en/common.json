@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 30 October:\n• Sick leave now replaces a planned duty on the same day, also when the shift was edited manually. Daily Attendance and WIC Attendance now show the same status.\n• A manual or kiosk check-in now counts for every agent on today's WIC roster, even if the kiosk lists the agent in another group (for example BO).\n• Weekend days inside an annual leave period are no longer reported as a conflict between the AL Tracker and the Shift Plan.",
+    "body": "What's new for 6 November:\n• SL Days in AL Balance are now calculated from the Sick Leave entries (working days per year).\n• New employees now appear in the AL Balance list, so their eligible days can be entered.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

@@ -896,6 +896,12 @@ layers — frontend `ALBalance.tsx` (`parseFloat`, reject >1 decimal, compare ag
 `eligibleDays`) and backend `EmployeeService.cs` (`IsValidTakenDays`, then `alUsed <= EligibleDays`,
 else 400). User decision 2026-10-23: PlannedTakenAL allows at most 1 decimal place (e.g. 12.5, 12.3); a fixed 0.5 step is NOT applied.
 
+The `CountSL` field in `ALBalanceDto` (shown as "SL Days") is now calculated at read time from `SickLeaves` —
+the sum of working days (Mon–Fri minus the employee's public holidays, via `WorkingDays.Count`, the same
+function `VacationService.ComputeWorkDaysAsync` uses) of every real sick-leave row (`LeaveType` Self / SL / Child)
+that overlaps the year, counting only the part of the period inside the year; `LeaveType='AL'` rows are ignored.
+The `ALBalance.CountSL` column is no longer read and remains untouched.
+
 ---
 
 ## 7.9 Employees
