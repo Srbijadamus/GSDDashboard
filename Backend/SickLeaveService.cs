@@ -67,7 +67,7 @@ public record PatchSickLeaveRequest(
 
 public record CreateSickLeaveResult(SickLeaveDto? Dto, string? Error);
 
-public record PatchSickLeaveResult(SickLeaveDto? Dto, string? Error, bool NotFound = false);
+public record PatchSickLeaveResult(SickLeaveDto? Dto, string? Error, bool NotFound = false, bool BadRequest = false);
 
 public class SickLeaveService
 {
@@ -85,6 +85,9 @@ public class SickLeaveService
     // child's sickness never reached "Currently Sick" at all.
     // List (not HashSet) so EF Core translates Contains into a SQL IN clause.
     private static readonly List<string> SickLeaveTypes = new() { "SL", "Self", "Child" };
+
+    private static bool IsValidLeaveType(string type) =>
+        SickLeaveTypes.Any(t => string.Equals(t, type, StringComparison.OrdinalIgnoreCase));
 
     // SourceSheet marker for a row that came from the manual /shifts SL cell, not a record.
     private const string ShiftSourcedSheet = "Shifts";
@@ -264,6 +267,9 @@ public class SickLeaveService
     {
         if (!DateOnly.TryParse(req.StartDate, out var start)) return new CreateSickLeaveResult(null, "Ungültiges Datumsformat (erwartet yyyy-MM-dd). / Invalid date format (expected yyyy-MM-dd).");
         if (!DateOnly.TryParse(req.EndDate,   out var end))   return new CreateSickLeaveResult(null, "Ungültiges Datumsformat (erwartet yyyy-MM-dd). / Invalid date format (expected yyyy-MM-dd).");
+        var leaveType = string.IsNullOrWhiteSpace(req.Type) ? "Self" : req.Type.Trim();
+        if (!IsValidLeaveType(leaveType))
+            return new CreateSickLeaveResult(null, "Annual leave must be entered under Vacations.");
         var emp = req.EmployeeId != null ? await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == req.EmployeeId) : null;
 
         if (req.EmployeeId != null)
@@ -304,7 +310,7 @@ public class SickLeaveService
             FirstDay     = start,
             LastDay      = end,
             DurationDays = (end.DayNumber - start.DayNumber) + 1,
-            LeaveType    = req.Type ?? "Self",
+            LeaveType    = leaveType,
             ChildName    = req.ChildName,
             Comments     = req.Notes,
             SourceSheet  = "UI",
@@ -322,6 +328,9 @@ public class SickLeaveService
     {
         var entry = await _db.SickLeaves.FindAsync(id);
         if (entry == null) return new PatchSickLeaveResult(null, null, NotFound: true);
+
+        if (req.Type != null && !IsValidLeaveType(req.Type.Trim()))
+            return new PatchSickLeaveResult(null, "Annual leave must be entered under Vacations.", BadRequest: true);
 
         // Compute the effective date range after the patch, without modifying entry yet
         var effectiveStart = req.StartDate != null && DateOnly.TryParse(req.StartDate, out var ps) ? ps : entry.FirstDay;
@@ -493,7 +502,10 @@ public static class SickLeaveEndpointMapper
         {
             var result = await svc.PatchAsync(id, req);
             if (result.NotFound) return Results.NotFound();
-            if (result.Error != null) return Results.Conflict(new { error = result.Error });
+            if (result.Error != null)
+                return result.BadRequest
+                    ? Results.BadRequest(new { error = result.Error })
+                    : Results.Conflict(new { error = result.Error });
             return Results.Ok(result.Dto);
         });
 

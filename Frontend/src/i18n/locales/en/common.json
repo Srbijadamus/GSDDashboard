@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 6 November:\n• SL Days in AL Balance are now calculated from the Sick Leave entries (working days per year).\n• New employees now appear in the AL Balance list, so their eligible days can be entered.",
+    "body": "What's new for 6 November:\n• SL Days in AL Balance are now calculated from the Sick Leave entries (working days per year).\n• New employees now appear in the AL Balance list, so their eligible days can be entered.\n• Sick Leave now accepts only sick leave types. Annual leave must be entered under Vacations.",
     "menu": "What's new",
     "dismiss": "Got it"
   }
