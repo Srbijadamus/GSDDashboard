@@ -517,7 +517,7 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd, onEdit, 
       if (!seen.has(k) || p.leaveType !== "SL") seen.set(k, p)
     })
     const periods = Array.from(seen.values()).sort((a, b) => a.firstDay.localeCompare(b.firstDay))
-    if (key === "totalDays") return periods.reduce((sum, p) => sum + (p.durationDays ?? 0), 0)
+    if (key === "totalDays") return first.totalWorkingDays ?? 0
     if (key === "periods") return periods.length
     if (key === "lastSick") return periods[periods.length - 1]?.lastDay ?? ""
     return ""
@@ -590,7 +590,7 @@ function GroupedSickTable({ data, commentCache, setCommentCache, onEnd, onEdit, 
               })
               const periods = Array.from(seen.values()).sort((a, b) => a.firstDay.localeCompare(b.firstDay))
 
-              const totalDays = periods.reduce((sum, p) => sum + (p.durationDays ?? 0), 0)
+              const totalDays = first.totalWorkingDays ?? 0
               const lastSick = periods[periods.length - 1]?.lastDay ?? ""
               const multi = periods.length > 1
 

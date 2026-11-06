@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 6. November:\n• Die SL-Tage im AL-Saldo werden jetzt aus den Krankmeldungen berechnet (Arbeitstage pro Jahr).\n• Neue Mitarbeiter erscheinen jetzt in der AL-Saldo-Liste, sodass ihre Anspruchstage eingetragen werden können.\n• Krankmeldungen akzeptieren jetzt nur noch Krankheitsarten. Urlaub wird unter Vacations eingetragen.",
+    "body": "Neu am 6. November:\n• Krankheitstage werden jetzt überall als Arbeitstage gezählt (Krankmeldungen und AL-Saldo). Wochenenden und Feiertage zählen nicht.\n• Die SL-Tage im AL-Saldo werden jetzt aus den Krankmeldungen berechnet.\n• Neue Mitarbeiter erscheinen jetzt in der AL-Saldo-Liste, sodass ihre Anspruchstage eingetragen werden können.\n• Krankmeldungen akzeptieren jetzt nur noch Krankheitsarten. Urlaub wird unter Vacations eingetragen.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

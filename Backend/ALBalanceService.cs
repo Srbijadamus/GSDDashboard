@@ -89,14 +89,16 @@ public class ALBalanceService
             .Where(h => h.HolidayDate >= from && h.HolidayDate <= to)
             .ToListAsync();
 
-        foreach (var s in leaves)
+        foreach (var g in leaves.GroupBy(s => s.EmployeeId))
         {
-            var empId = s.EmployeeId;
+            var empId = g.Key;
             if (empId == null || !emps.TryGetValue(empId, out var emp)) continue;
             var country = emp.FullName != null && nlNames.Contains(emp.FullName) ? "NL" : "DE";
-            var start = s.FirstDay < from ? from : s.FirstDay;
-            var end   = s.LastDay > to ? to : s.LastDay;
-            result[empId] = result.GetValueOrDefault(empId) + WorkingDays.Count(holidays, country, emp.Bundesland, start, end);
+            var periods = g.Select(s => (
+                From: s.FirstDay < from ? from : s.FirstDay,
+                To:   s.LastDay > to ? to : s.LastDay
+            )).ToList();
+            result[empId] = WorkingDays.DistinctCount(periods, holidays, country, emp.Bundesland);
         }
         return result;
     }

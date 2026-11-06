@@ -34,7 +34,9 @@ public record SickLeaveDto(
     string? PeriodEnd = null,
     int? PeriodDays = null,
     int? DaysSoFar = null,
-    string? ExpectedReturn = null
+    string? ExpectedReturn = null,
+    // Per-employee total of DISTINCT working days across their periods (overlaps once).
+    int TotalWorkingDays = 0
 );
 
 public record SickLeaveStatsDto(
@@ -130,7 +132,10 @@ public class SickLeaveService
         // duration in a list can never disagree with the modal again.
         var sets = await _periods.BuildAsync(
             list.Select(r => r.EmployeeId!).Distinct(StringComparer.OrdinalIgnoreCase).ToList(), fromDate, toDate);
-        return list.Select(r => ApplyPeriod(r, sets, today)).ToList();
+        var distinctDays = await ComputeDistinctWorkingDaysAsync(
+            list.Select(r => r.EmployeeId!).Distinct().ToList(), fromDate, toDate);
+        return list.Select(r => ApplyPeriod(
+            r with { TotalWorkingDays = distinctDays.GetValueOrDefault(r.EmployeeId ?? "") }, sets, today)).ToList();
     }
 
     public async Task<List<SickLeaveDto>> GetActiveOnDateAsync(DateOnly date)
@@ -140,11 +145,9 @@ public class SickLeaveService
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
         var active = await GetActiveSickAsync(today);
-        // Every active row covers today by construction, so the time served is start→today.
-        // DaysSoFar is the merged-spell value from the shared rule (see SickLeavePeriodResolver).
+        // Every active row covers today by construction; DurationDays is now WORKING days.
         var avgDuration = active.Any()
-            ? active.Average(s => (double)(s.DaysSoFar
-                ?? (today.DayNumber - DateOnly.ParseExact(s.FirstDay, "yyyy-MM-dd").DayNumber + 1)))
+            ? active.Average(s => (double)(s.DurationDays ?? 0))
             : 0;
 
         var byTL = active
@@ -263,6 +266,65 @@ public class SickLeaveService
             s.DurationDays, s.LeaveType, s.ChildName, s.Comments, s.SourceSheet);
     }
 
+    /// <summary>Working days (Mon–Fri minus the employee's public holidays) of a sick-leave
+    /// period — the same WorkingDays.Count the AL work-day calculation uses.</summary>
+    private async Task<int> ComputeDurationDaysAsync(string? employeeId, DateOnly from, DateOnly to)
+    {
+        var emp = employeeId != null ? await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == employeeId) : null;
+        var country = await DetermineCountryAsync(emp?.FullName);
+        var holidays = await _db.PublicHolidays
+            .Where(h => h.HolidayDate >= from && h.HolidayDate <= to)
+            .ToListAsync();
+        return WorkingDays.Count(holidays, country, emp?.Bundesland, from, to);
+    }
+
+    // Same country rule as VacationService.DetermineCountryAsync: NL when the employee has
+    // an active WIC assignment on an NL location, DE otherwise.
+    private async Task<string> DetermineCountryAsync(string? fullName)
+    {
+        if (string.IsNullOrEmpty(fullName)) return "DE";
+        var nl = await _db.WicAgentAssignments
+            .Where(a => a.EmployeeName == fullName && a.IsActive)
+            .AnyAsync(a => a.LocationCode.StartsWith("NL"));
+        return nl ? "NL" : "DE";
+    }
+
+    /// <summary>Per-employee DISTINCT working days across their sick-leave periods in
+    /// [from, to] — overlapping spells are counted once (used for the Sick Leave tab TOTAL DAYS).</summary>
+    private async Task<Dictionary<string, int>> ComputeDistinctWorkingDaysAsync(List<string> empIds, DateOnly from, DateOnly to)
+    {
+        var result = new Dictionary<string, int>();
+        if (empIds.Count == 0) return result;
+
+        var leaves = (await _db.SickLeaves
+                .Where(s => s.EmployeeId != null && empIds.Contains(s.EmployeeId)
+                         && s.FirstDay <= to && s.LastDay >= from)
+                .ToListAsync())
+            .Where(s => SickLeaveTypes.Any(t => string.Equals(s.LeaveType, t, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        if (leaves.Count == 0) return result;
+
+        var emps = await _db.Employees.Where(e => empIds.Contains(e.EmployeeId)).ToDictionaryAsync(e => e.EmployeeId, e => e);
+        var nlNames = (await _db.WicAgentAssignments
+                .Where(a => a.IsActive && a.LocationCode.StartsWith("NL"))
+                .Select(a => a.EmployeeName).ToListAsync())
+            .Where(n => n != null).ToHashSet();
+        var holidays = await _db.PublicHolidays.Where(h => h.HolidayDate >= from && h.HolidayDate <= to).ToListAsync();
+
+        foreach (var g in leaves.GroupBy(s => s.EmployeeId))
+        {
+            var empId = g.Key;
+            if (empId == null || !emps.TryGetValue(empId, out var emp)) continue;
+            var country = emp.FullName != null && nlNames.Contains(emp.FullName) ? "NL" : "DE";
+            var periods = g.Select(s => (
+                From: s.FirstDay < from ? from : s.FirstDay,
+                To:   s.LastDay > to ? to : s.LastDay
+            )).ToList();
+            result[empId] = WorkingDays.DistinctCount(periods, holidays, country, emp.Bundesland);
+        }
+        return result;
+    }
+
     public async Task<CreateSickLeaveResult> CreateAsync(CreateSickLeaveRequest req)
     {
         if (!DateOnly.TryParse(req.StartDate, out var start)) return new CreateSickLeaveResult(null, "Ungültiges Datumsformat (erwartet yyyy-MM-dd). / Invalid date format (expected yyyy-MM-dd).");
@@ -309,7 +371,7 @@ public class SickLeaveService
             TeamLeadName = emp?.TeamLeadName,
             FirstDay     = start,
             LastDay      = end,
-            DurationDays = (end.DayNumber - start.DayNumber) + 1,
+            DurationDays = await ComputeDurationDaysAsync(req.EmployeeId, start, end),
             LeaveType    = leaveType,
             ChildName    = req.ChildName,
             Comments     = req.Notes,
@@ -356,8 +418,9 @@ public class SickLeaveService
 
         var oldFrom = entry.FirstDay;
         var oldTo   = entry.LastDay;
-        if (req.EndDate   != null && DateOnly.TryParse(req.EndDate,   out var newEnd))   { entry.LastDay  = newEnd;   entry.DurationDays = (entry.LastDay.DayNumber  - entry.FirstDay.DayNumber) + 1; }
-        if (req.StartDate != null && DateOnly.TryParse(req.StartDate, out var newStart)) { entry.FirstDay = newStart; entry.DurationDays = (entry.LastDay.DayNumber  - entry.FirstDay.DayNumber) + 1; }
+        if (req.EndDate   != null && DateOnly.TryParse(req.EndDate,   out var newEnd))   { entry.LastDay  = newEnd; }
+        if (req.StartDate != null && DateOnly.TryParse(req.StartDate, out var newStart)) { entry.FirstDay = newStart; }
+        entry.DurationDays = await ComputeDurationDaysAsync(entry.EmployeeId, entry.FirstDay, entry.LastDay);
         if (req.Type      != null) entry.LeaveType = req.Type;
         if (req.Notes     != null) entry.Comments  = req.Notes;
         PatchSickLeaveResult? strategyError = null;
@@ -414,7 +477,7 @@ public class SickLeaveService
         foreach (var sl in active)
         {
             sl.LastDay = today;
-            sl.DurationDays = (today.DayNumber - sl.FirstDay.DayNumber) + 1;
+            sl.DurationDays = await ComputeDurationDaysAsync(sl.EmployeeId, sl.FirstDay, today);
         }
         if (active.Count > 0)
             await _db.SaveChangesAsync();

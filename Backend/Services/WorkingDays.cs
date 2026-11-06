@@ -28,4 +28,27 @@ public static class WorkingDays
         }
         return count;
     }
+
+    /// <summary>Number of DISTINCT Mon–Fri days (minus applicable public holidays) across
+    /// a set of possibly-overlapping periods. The same day is counted once, so overlapping
+    /// sick-leave spells never double-count.</summary>
+    public static int DistinctCount(IEnumerable<(DateOnly From, DateOnly To)> periods, IEnumerable<PublicHoliday> holidays, string country, string? bundesland)
+    {
+        var holidayDates = holidays
+            .Where(h => HolidayMatcher.Applies(h, country, bundesland))
+            .Select(h => h.HolidayDate)
+            .ToHashSet();
+
+        var days = new HashSet<DateOnly>();
+        foreach (var (from, to) in periods)
+        {
+            for (var d = from; d <= to; d = d.AddDays(1))
+            {
+                if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday) continue;
+                if (holidayDates.Contains(d)) continue;
+                days.Add(d);
+            }
+        }
+        return days.Count;
+    }
 }
