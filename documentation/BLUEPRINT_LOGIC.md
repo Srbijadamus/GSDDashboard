@@ -956,8 +956,10 @@ Base path: `/api/pipeline`
 |---|---|---|---|
 | GET | `/api/pipeline` | — | `WicPipelineItem[]` |
 | POST | `/api/pipeline` | `WicPipelineItem` body | Created item |
-| PUT | `/api/pipeline/{id}` | Updated body | Updated item |
+| PATCH | `/api/pipeline/{id}` | Updated body | Updated item |
 | DELETE | `/api/pipeline/{id}` | — | `{ deleted: true }` |
+
+> **Update is `PATCH` (not `PUT`).** Items may carry a `SecondAgent` (same semantics as `PrimaryAgent`) and a `HandlingType` (`ADDITIONAL`/`LOCAL`, default `ADDITIONAL`). `POST` and `PATCH` validate and return **400** with `{ error }` for invalid input: title/date/location required; `PipelineDateEnd >= PipelineDate`; `EndTime > StartTime`; `Status` ∈ PLANNED/CONFIRMED/CANCELLED; `HandlingType` ∈ ADDITIONAL/LOCAL; no duplicate agent across Primary/Second/Backup; `AgentsRequired >= 1`. `LocationCode` is free text — if it matches a `WicLocations.LocationCode` the location name is shown, otherwise the entered text is shown.
 
 ---
 

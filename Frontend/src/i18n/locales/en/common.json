@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 6 November:\n• Sick leave days are now counted as working days everywhere (Sick Leave tab and AL Balance). Weekends and public holidays are not counted.\n• SL Days in AL Balance are now calculated from the Sick Leave entries.\n• New employees now appear in the AL Balance list, so their eligible days can be entered.\n• Sick Leave now accepts only sick leave types. Annual leave must be entered under Vacations.",
+    "body": "What's new for 9 November:\n• Pipeline: events can now have a second agent, and the Handling type (Additional/Local) is saved and shown correctly.\n• Pipeline: dates are shown as day.month.year, locations outside the WIC network can be entered, and incomplete or invalid events are rejected with a clear message.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

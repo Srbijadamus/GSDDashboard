@@ -292,13 +292,14 @@ WIC pipeline event management — special activities (meter readings, campaigns,
 **Main API calls:**
 - `GET /api/pipeline` → `WicPipelineItem[]`
 - `POST /api/pipeline` — create event
-- `PUT /api/pipeline/{id}` — update event
+- `PATCH /api/pipeline/{id}` — update event
 - `DELETE /api/pipeline/{id}` — delete event
 
 **Key components:**
 - `EventModal` — create/edit form
 - `Badge` component using `STATUS_COLORS` and `HANDLING_COLORS` from token values
-- Location dropdown populated from `GET /api/wic/locations`
+- Location dropdown populated from `GET /api/wic/locations`, plus a free-text "custom" option for locations outside the WIC network
+- `EventModal` has `Second Agent` and `Handling Type` (ADDITIONAL/LOCAL) fields; backend validation errors (HTTP 400) are shown inline and keep the modal open
 
 ---
 

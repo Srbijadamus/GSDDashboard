@@ -588,6 +588,16 @@ app.UseDefaultFiles();
             ALTER TABLE ALBalance ADD ManualChangeAt DATETIME2 NULL
     """);
 
+    // PIPELINE (added 2026-11-09): second agent + handling type. Additive and
+    // nullable only -- same idempotent COL_LENGTH guard pattern; existing rows are
+    // not rewritten (their new columns stay NULL).
+    db.Database.ExecuteSqlRaw("""
+        IF COL_LENGTH('WicPipeline','SecondAgent') IS NULL
+            ALTER TABLE WicPipeline ADD SecondAgent NVARCHAR(200) NULL
+        IF COL_LENGTH('WicPipeline','HandlingType') IS NULL
+            ALTER TABLE WicPipeline ADD HandlingType NVARCHAR(20) NULL
+    """);
+
     // ROLLOUT (added 2026-10-08): the manual "Rollout" page. Two NEW tables only --
     // additive and idempotent, no existing table or column is altered and no existing row
     // is written by this migration. WicRolloutDays is the authority for one WIC centre

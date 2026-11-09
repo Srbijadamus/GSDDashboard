@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 6. November:\n• Krankheitstage werden jetzt überall als Arbeitstage gezählt (Krankmeldungen und AL-Saldo). Wochenenden und Feiertage zählen nicht.\n• Die SL-Tage im AL-Saldo werden jetzt aus den Krankmeldungen berechnet.\n• Neue Mitarbeiter erscheinen jetzt in der AL-Saldo-Liste, sodass ihre Anspruchstage eingetragen werden können.\n• Krankmeldungen akzeptieren jetzt nur noch Krankheitsarten. Urlaub wird unter Vacations eingetragen.",
+    "body": "Neu am 9. November:\n• Pipeline: Ereignisse können jetzt einen zweiten Agenten haben, und der Handling-Typ (Additional/Local) wird korrekt gespeichert und angezeigt.\n• Pipeline: Datumsangaben erscheinen als Tag.Monat.Jahr, Standorte außerhalb des WIC-Netzes können eingetragen werden, und unvollständige oder ungültige Ereignisse werden mit einer klaren Meldung abgelehnt.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

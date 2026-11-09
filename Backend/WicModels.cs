@@ -60,9 +60,11 @@ public class WicPipelineItem
     [MaxLength(200)]  public string? Title { get; set; }
     [MaxLength(1000)] public string? Description { get; set; }
     [MaxLength(200)]  public string? PrimaryAgent { get; set; }
+    [MaxLength(200)]  public string? SecondAgent { get; set; }
     [MaxLength(200)]  public string? BackupAgent { get; set; }
     public int AdditionalAgentsNeeded { get; set; } = 0;
     [MaxLength(20)]   public string? HandledBy { get; set; }
+    [MaxLength(20)]   public string? HandlingType { get; set; } = "ADDITIONAL";
     [MaxLength(200)]  public string? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     [MaxLength(20)] public string Status { get; set; } = "PLANNED";

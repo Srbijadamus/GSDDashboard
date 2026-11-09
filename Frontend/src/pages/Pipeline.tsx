@@ -17,14 +17,21 @@ const inputCls = "bg-sunken border border-line-subtle text-ink"
 const labelStyle: any = { fontSize:11, marginBottom:4, display:"block" }
 const labelCls = "text-ink-soft"
 
+const fmtDate = (d: string | null | undefined) => d ? `${d.slice(8,10)}.${d.slice(5,7)}.${d.slice(0,4)}` : ""
+
 function Badge({ text, style }: { text: string; style: any }) {
   return <span style={{ ...style, padding:"2px 8px", borderRadius:4, fontSize:10, fontWeight:600, border:`1px solid ${style.border}` }}>{text}</span>
 }
 
 function EventModal({ event, locations, onClose, onSave }: any) {
+  const isWicCode = (c: string) => locations.some((l: any) => l.locationCode === c)
+  const initialCode = event?.locationCode ?? ""
+  const [locationIsCustom, setLocationIsCustom] = useState(!!initialCode && !isWicCode(initialCode))
+  const [error, setError] = useState("")
+  const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     title: event?.title ?? "",
-    locationCode: event?.locationCode ?? "",
+    locationCode: initialCode,
     pipelineDate: event?.pipelineDate ?? new Date().toISOString().split("T")[0],
     pipelineDateEnd: event?.pipelineDateEnd ?? "",
     startTime: event?.startTime ?? "",
@@ -32,6 +39,7 @@ function EventModal({ event, locations, onClose, onSave }: any) {
     handlingType: event?.handlingType ?? "ADDITIONAL",
     agentsRequired: event?.agentsRequired ?? 1,
     primaryAgent: event?.primaryAgent ?? "",
+    secondAgent: event?.secondAgent ?? "",
     backupAgent: event?.backupAgent ?? "",
     additionalAgentsNeeded: event?.additionalAgentsNeeded ?? 0,
     handledBy: event?.handledBy ?? "",
@@ -42,6 +50,8 @@ function EventModal({ event, locations, onClose, onSave }: any) {
   const h = (field: string, val: any) => setForm(f => ({ ...f, [field]: val }))
 
   const handleSave = async () => {
+    setError("")
+    setSaving(true)
     const body: any = {
       locationCode: form.locationCode || null,
       pipelineDate: form.pipelineDate,
@@ -49,20 +59,31 @@ function EventModal({ event, locations, onClose, onSave }: any) {
       title: form.title,
       description: form.description || null,
       primaryAgent: form.primaryAgent || null,
+      secondAgent: form.secondAgent || null,
       backupAgent: form.backupAgent || null,
       additionalAgentsNeeded: Number(form.additionalAgentsNeeded),
       handledBy: form.handledBy || null,
+      handlingType: form.handlingType || "ADDITIONAL",
       startTime: form.startTime || null,
       endTime: form.endTime || null,
       agentsRequired: Number(form.agentsRequired),
     }
-    if (event) {
-      body.status = form.status
-      await fetch(`${BASE}/api/pipeline/${event.id}`, { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) })
-    } else {
-      await fetch(`${BASE}/api/pipeline`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) })
+    try {
+      const r = event
+        ? await fetch(`${BASE}/api/pipeline/${event.id}`, { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ ...body, status: form.status }) })
+        : await fetch(`${BASE}/api/pipeline`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) })
+      if (!r.ok) {
+        let msg = `API ${r.status}`
+        try { const j = await r.json(); if (j && j.error) msg = j.error } catch { /* ignore */ }
+        setError(msg)
+        setSaving(false)
+        return
+      }
+      onSave()
+    } catch {
+      setError("Request failed.")
+      setSaving(false)
     }
-    onSave()
   }
 
   return (
@@ -73,10 +94,16 @@ function EventModal({ event, locations, onClose, onSave }: any) {
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           <div><label className={labelCls} style={labelStyle}>Title</label><input value={form.title} onChange={e => h("title", e.target.value)} className={inputCls} style={inputStyle} placeholder="Event title..." /></div>
           <div><label className={labelCls} style={labelStyle}>Location</label>
-            <select value={form.locationCode} onChange={e => h("locationCode", e.target.value)} className={inputCls} style={inputStyle}>
-              <option value="">-- No specific location --</option>
+            <select value={locationIsCustom ? "__custom__" : form.locationCode} onChange={e => {
+                const v = e.target.value
+                if (v === "__custom__") { setLocationIsCustom(true); h("locationCode", "") }
+                else { setLocationIsCustom(false); h("locationCode", v) }
+              }} className={inputCls} style={inputStyle}>
+              <option value="">-- Select WIC location --</option>
               {locations.map((l: any) => <option key={l.locationCode} value={l.locationCode}>{l.displayName}</option>)}
+              <option value="__custom__">-- Custom location (free text) --</option>
             </select>
+            {locationIsCustom && <input value={form.locationCode} onChange={e => h("locationCode", e.target.value)} className={inputCls} style={{ ...inputStyle, marginTop:6 }} placeholder="Location name or address..." />}
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <div style={{ flex:1 }}><label className={labelCls} style={labelStyle}>Date From</label><input type="date" value={form.pipelineDate} onChange={e => h("pipelineDate", e.target.value)} className={inputCls} style={inputStyle} /></div>
@@ -99,6 +126,7 @@ function EventModal({ event, locations, onClose, onSave }: any) {
             <div style={{ flex:1 }}><label className={labelCls} style={labelStyle}>Additional Needed</label><input type="number" min="0" value={form.additionalAgentsNeeded} onChange={e => h("additionalAgentsNeeded", e.target.value)} className={inputCls} style={inputStyle} /></div>
           </div>
           <div><label className={labelCls} style={labelStyle}>Primary Agent</label><input value={form.primaryAgent} onChange={e => h("primaryAgent", e.target.value)} className={inputCls} style={inputStyle} placeholder="Primary agent name..." /></div>
+          <div><label className={labelCls} style={labelStyle}>Second Agent</label><input value={form.secondAgent} onChange={e => h("secondAgent", e.target.value)} className={inputCls} style={inputStyle} placeholder="Second agent name..." /></div>
           <div><label className={labelCls} style={labelStyle}>Backup Agent</label><input value={form.backupAgent} onChange={e => h("backupAgent", e.target.value)} className={inputCls} style={inputStyle} placeholder="Backup agent name..." /></div>
           <div><label className={labelCls} style={labelStyle}>Handled By</label><input value={form.handledBy} onChange={e => h("handledBy", e.target.value)} className={inputCls} style={inputStyle} placeholder="Team lead or handler..." /></div>
           {event && (
@@ -109,10 +137,11 @@ function EventModal({ event, locations, onClose, onSave }: any) {
             </div>
           )}
           <div><label className={labelCls} style={labelStyle}>Notes</label><textarea value={form.description} onChange={(e: any) => h("description", e.target.value)} rows={3} className={inputCls} style={{ ...inputStyle, resize:"vertical" }} placeholder="Notes..." /></div>
+          {error && <div style={{ fontSize:12, color:"rgb(var(--st-crit-fg))" }}>{error}</div>}
         </div>
         <div style={{ display:"flex", gap:8, justifyContent:"flex-end", marginTop:20 }}>
           <button onClick={onClose} className="bg-sunken border border-line-subtle text-ink-muted" style={{ padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer" }}>Cancel</button>
-          <button onClick={handleSave} className="bg-info-solid" style={{ border:"none", color:"#fff", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>{event ? "Save Changes" : "Create Event"}</button>
+          <button onClick={handleSave} disabled={saving} className="bg-info-solid" style={{ border:"none", color:"#fff", padding:"8px 16px", borderRadius:6, fontSize:12, cursor:"pointer", fontWeight:600 }}>{event ? "Save Changes" : "Create Event"}</button>
         </div>
       </div>
     </div>
@@ -168,7 +197,7 @@ export default function Pipeline() {
     const d = new Date(today); d.setDate(d.getDate() + i)
     dates.push(d.toISOString().split("T")[0])
   }
-  const timelineLocations = [...new Set(events.filter(e => e.locationName).map(e => e.locationName))]
+  const timelineLocations = [...new Set(events.map(e => e.locationName || e.locationCode).filter(Boolean))]
 
   const tdStyle: any = { padding:"9px 12px", fontSize:12 }
   const tdCls = "border-b border-line-subtle text-ink"
@@ -207,8 +236,8 @@ export default function Pipeline() {
                   const sc = STATUS_COLORS[e.status] ?? STATUS_COLORS.PLANNED
                   const hc = HANDLING_COLORS[e.handlingType ?? "ADDITIONAL"] ?? HANDLING_COLORS.ADDITIONAL
                   const dateStr = e.pipelineDateEnd && e.pipelineDateEnd !== e.pipelineDate
-                    ? `${e.pipelineDate?.slice(5).replace("-",".")} – ${e.pipelineDateEnd?.slice(5).replace("-",".")}`
-                    : e.pipelineDate?.slice(5).replace("-",".")
+                    ? `${fmtDate(e.pipelineDate)} – ${fmtDate(e.pipelineDateEnd)}`
+                    : fmtDate(e.pipelineDate)
                   return (
                     <tr key={e.id} className="hover:bg-hovered">
                       <td className={tdCls} style={{ ...tdStyle, fontWeight:600, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.title ?? "—"}</td>
@@ -218,7 +247,8 @@ export default function Pipeline() {
                       <td className={tdCls} style={tdStyle}><Badge text={e.handlingType ?? "ADDITIONAL"} style={hc} /></td>
                       <td className={`${tdCls} text-ink-muted`} style={{ ...tdStyle, fontSize:11 }}>
                         <div>{e.agentsRequired} req.</div>
-                        {e.primaryAgent && <div style={{ fontSize:10, color:"rgb(var(--st-info-fg))" }}>P: {e.primaryAgent}</div>}
+                        {e.additionalAgentsNeeded > 0 && <div style={{ fontSize:10, color:"rgb(var(--st-crit-fg))" }}>+{e.additionalAgentsNeeded} add.</div>}
+                        {(e.primaryAgent || e.secondAgent) && <div style={{ fontSize:10, color:"rgb(var(--st-info-fg))" }}>P: {[e.primaryAgent, e.secondAgent].filter(Boolean).join(", ")}</div>}
                         {e.backupAgent  && <div className="text-learn-fg" style={{ fontSize:10 }}>B: {e.backupAgent}</div>}
                       </td>
                       <td className={tdCls} style={tdStyle}><Badge text={e.status} style={sc} /></td>
@@ -265,7 +295,7 @@ export default function Pipeline() {
                   <tr key={locName}>
                     <td className={`${tdCls} bg-raised`} style={{ ...tdStyle, position:"sticky", left:0, fontWeight:500, minWidth:140 }}>{locName}</td>
                     {dates.map(d => {
-                      const ev = events.find(e => e.locationName === locName && e.pipelineDate <= d && (e.pipelineDateEnd ?? e.pipelineDate) >= d)
+                      const ev = events.find(e => (e.locationName || e.locationCode) === locName && e.pipelineDate <= d && (e.pipelineDateEnd ?? e.pipelineDate) >= d)
                       if (!ev) return <td key={d} className={`${tdCls} border-l border-line-subtle`} style={{ ...tdStyle, padding:0, width:36 }} />
                       const isFirst = ev.pipelineDate === d
                       const color = ev.status === "CONFIRMED" ? "rgb(var(--st-good-mid))" : ev.status === "CANCELLED" ? "rgb(var(--st-neutral-bg))" : "rgb(var(--st-info-mid))"
@@ -286,12 +316,12 @@ export default function Pipeline() {
                 <div>
                   <div className="text-ink" style={{ fontSize:14, fontWeight:700, marginBottom:6 }}>{selectedEvent.title}</div>
                   <div className="text-ink-muted" style={{ display:"flex", gap:12, fontSize:11 }}>
-                    <span>{selectedEvent.locationName}</span>
-                    <span>{selectedEvent.pipelineDate} {selectedEvent.pipelineDateEnd ? `– ${selectedEvent.pipelineDateEnd}` : ""}</span>
+                    <span>{selectedEvent.locationName || selectedEvent.locationCode}</span>
+                    <span>{fmtDate(selectedEvent.pipelineDate)}{selectedEvent.pipelineDateEnd ? ` – ${fmtDate(selectedEvent.pipelineDateEnd)}` : ""}</span>
                     {selectedEvent.startTime && <span>{selectedEvent.startTime}–{selectedEvent.endTime}</span>}
                     <span>{selectedEvent.agentsRequired} required</span>
                   </div>
-                  {selectedEvent.primaryAgent && <div style={{ fontSize:11, color:"rgb(var(--st-info-fg))", marginTop:4 }}>Primary: {selectedEvent.primaryAgent}</div>}
+                  {(selectedEvent.primaryAgent || selectedEvent.secondAgent) && <div style={{ fontSize:11, color:"rgb(var(--st-info-fg))", marginTop:4 }}>Primary: {[selectedEvent.primaryAgent, selectedEvent.secondAgent].filter(Boolean).join(", ")}</div>}
                   {selectedEvent.backupAgent  && <div className="text-learn-fg" style={{ fontSize:11 }}>Backup: {selectedEvent.backupAgent}</div>}
                   {selectedEvent.description  && <div className="text-ink-soft" style={{ fontSize:11, marginTop:4 }}>{selectedEvent.description}</div>}
                 </div>

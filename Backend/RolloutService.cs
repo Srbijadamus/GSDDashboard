@@ -128,7 +128,7 @@ public sealed class RolloutService(GSDContext db)
     /// <summary>
     /// The people RTM can put on this rollout day. "From Pipeline" means the worker is one
     /// of the agents the Pipeline page recorded for this centre and date. Pipeline stores
-    /// free-text agent names (PrimaryAgent / BackupAgent), not employee ids, so the match
+    /// free-text agent names (PrimaryAgent / SecondAgent / BackupAgent), not employee ids, so the match
     /// is by name — names that match no employee are returned separately so the RTM can
     /// see them. Everyone else is offered too, but the UI must mark that as "not in
     /// Pipeline" and require the choice to be deliberate.
@@ -702,7 +702,7 @@ public sealed class RolloutService(GSDContext db)
             .ToListAsync();
 
         return rows
-            .SelectMany(p => new[] { p.PrimaryAgent, p.BackupAgent })
+            .SelectMany(p => new[] { p.PrimaryAgent, p.SecondAgent, p.BackupAgent })
             .Where(n => !string.IsNullOrWhiteSpace(n))
             .Select(n => n!.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
