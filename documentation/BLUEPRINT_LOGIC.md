@@ -856,6 +856,14 @@ Base path: `/api/sickleave`
 On create: writes SL ShiftEntries via ShiftSyncService. On delete: reverts ShiftEntries.
 On patch with a new endDate: rewrites the ShiftEntry range.
 
+**Shift Plan SL → register (2026-11-09):** sick leave is one thing wherever it is entered, and the
+`SickLeaves` register is the single source for SL counting. A manual `/shifts` cell edit (or Bulk RTM
+`/assign`) that moves a day **onto** SL extends the adjacent register row (ending the previous workday
+or starting the next) or creates a new `Self` row (`SourceSheet='SHIFTPLAN'`); a day moved **off** SL
+shortens/splits/deletes the row covering it. The write is direct (`SickLeaveService.SyncSickLeaveFromShiftPlanAsync`),
+never through `ShiftSyncService`, so there is no re-sync loop; `SyncSickLeaveAsync` also skips manual
+SL rows (`ShiftSyncService.cs:25`).
+
 Sick-leave days are counted as **working days** (Mon–Fri minus the employee's public holidays, via
 `WorkingDays.Count` — the same function the AL work-day calculation uses). `DurationDays` holds the
 working days of each period; the Sick Leave tab **TOTAL DAYS** per employee is the number of DISTINCT
