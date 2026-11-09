@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
 using GSDDashboard.API.Modules.Auth;
+using GSDDashboard.API.Modules.SickLeave;
 using GSDDashboard.API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -109,7 +110,9 @@ public class ShiftService
 {
     private readonly GSDContext _db;
     private readonly IConfiguration _config;
-    public ShiftService(GSDContext db, IConfiguration config) { _db = db; _config = config; }
+    private readonly SickLeaveService _sickLeave;
+    public ShiftService(GSDContext db, IConfiguration config, SickLeaveService sickLeave)
+    { _db = db; _config = config; _sickLeave = sickLeave; }
 
     /// <summary>
     /// The Shift Plan is a roster of PEOPLE, not of shift rows. It starts from every
@@ -269,6 +272,7 @@ public class ShiftService
         bool halfAlWicRequest = string.Equals(dto.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(shift.ShiftType, ShiftTypes.HalfAL, StringComparison.OrdinalIgnoreCase);
 
+        var oldType = shift.ShiftType;
         if (dto.ShiftType        != null && !halfAlWicRequest) shift.ShiftType = dto.ShiftType;
         if (dto.ShiftType        != null && !string.Equals(dto.ShiftType, ShiftTypes.WicDuty, StringComparison.OrdinalIgnoreCase)) shift.IsWicDuty = false;
         if (dto.ShiftStart       != null && !halfAlWicRequest) shift.ShiftStart = dto.ShiftStart;
@@ -289,6 +293,15 @@ public class ShiftService
             // MANUAL RTM cell edit: the only writer allowed to clear a stale WIC centre name
             // from AgentTask when the cell goes WIC_DUTY -> WORKING/BO (see GSDContext).
             _db.RecordManualRtmShiftEdit(shift, manualActor);
+
+            // Sick leave is one thing wherever it is entered: a manual cell edit that
+            // moves a day onto or off SL keeps the SickLeaves register in step (the
+            // register is the single source for SL counting). Written directly, never
+            // through ShiftSyncService, so there is no re-sync loop.
+            var isNowSick = string.Equals(shift.ShiftType, ShiftTypes.SickLeave, StringComparison.OrdinalIgnoreCase);
+            var wasSick   = string.Equals(oldType, ShiftTypes.SickLeave, StringComparison.OrdinalIgnoreCase);
+            if (isNowSick != wasSick)
+                await _sickLeave.SyncSickLeaveFromShiftPlanAsync(shift.EmployeeId, shift.ShiftDate, isNowSick);
         }
         await _db.SaveChangesAsync();
 
@@ -319,6 +332,7 @@ public class ShiftService
 
         var existing = await _db.ShiftEntries.FirstOrDefaultAsync(
             s => s.EmployeeId == dto.EmployeeId && s.ShiftDate == date);
+        var oldType = existing?.ShiftType;
 
         if (manualActor == null && _db.PreserveManualShift(existing, "Shift assignment/bulk import"))
             return new(null, "Manual shift is protected; use a human cell edit.");
@@ -368,6 +382,12 @@ public class ShiftService
             shift.IsWicDuty = shift.ShiftType == ShiftTypes.WicDuty;
             // MANUAL RTM cell / Bulk RTM paste (AL/OFF/CD/NIGHT): see UpdateShiftAsync.
             _db.RecordManualRtmShiftEdit(shift, manualActor);
+
+            // Same sick-leave register sync as UpdateShiftAsync (single source for SL).
+            var isNowSick = string.Equals(shift.ShiftType, ShiftTypes.SickLeave, StringComparison.OrdinalIgnoreCase);
+            var wasSick   = string.Equals(oldType, ShiftTypes.SickLeave, StringComparison.OrdinalIgnoreCase);
+            if (isNowSick != wasSick)
+                await _sickLeave.SyncSickLeaveFromShiftPlanAsync(shift.EmployeeId, shift.ShiftDate, isNowSick);
         }
         await _db.SaveChangesAsync();
 

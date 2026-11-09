@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 9. November:\n• Pipeline: Ereignisse können jetzt einen zweiten Agenten haben, und der Handling-Typ (Additional/Local) wird korrekt gespeichert und angezeigt.\n• Pipeline: Datumsangaben erscheinen als Tag.Monat.Jahr, Standorte außerhalb des WIC-Netzes können eingetragen werden, und unvollständige oder ungültige Ereignisse werden mit einer klaren Meldung abgelehnt.",
+    "body": "Neu am 9. November:\n• Krankheit, die im Schichtplan eingetragen wird, zählt jetzt genauso wie eine Krankmeldung: Sie erscheint im Krankmeldungen-Tab und in den SL-Tagen im AL-Saldo.\n• Pipeline: Ereignisse können jetzt einen zweiten Agenten haben; Handling, Datumsanzeige und Prüfung wurden korrigiert.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 9 November:\n• Pipeline: events can now have a second agent, and the Handling type (Additional/Local) is saved and shown correctly.\n• Pipeline: dates are shown as day.month.year, locations outside the WIC network can be entered, and incomplete or invalid events are rejected with a clear message.",
+    "body": "What's new for 9 November:\n• Sick leave set in the Shift Plan now counts the same as a sick note: it appears in the Sick Leave tab and in SL Days in AL Balance.\n• Pipeline: events can now have a second agent; Handling, dates and validation are fixed.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

@@ -325,6 +325,110 @@ public class SickLeaveService
         return result;
     }
 
+    // ── Shift Plan SL → register (2026-11-09) ──────────────────────────────────
+    // Sick leave is one thing wherever it is entered. A manual /shifts cell edit
+    // that sets a day to SL (or moves it off SL) keeps the SickLeaves register in
+    // step, because the register is the single source for SL counting. This writes
+    // the register DIRECTLY — never through ShiftSyncService — so a cell edit cannot
+    // re-trigger the SickLeave→Shift sync and there is no loop. ShiftEntries are
+    // never touched here; only SickLeaves rows are added/extended/shortened/split.
+    public async Task SyncSickLeaveFromShiftPlanAsync(string employeeId, DateOnly shiftDate, bool becameSick)
+    {
+        if (becameSick)
+        {
+            var covering = await _db.SickLeaves.FirstOrDefaultAsync(s =>
+                s.EmployeeId == employeeId && s.FirstDay <= shiftDate && s.LastDay >= shiftDate);
+            if (covering != null) return; // already covered — nothing to do
+
+            var prev = PreviousWorkday(shiftDate);
+            var next = NextWorkday(shiftDate);
+
+            var before = await _db.SickLeaves.FirstOrDefaultAsync(s =>
+                s.EmployeeId == employeeId && s.LastDay == prev);
+            if (before != null)
+            {
+                before.LastDay = shiftDate;
+                before.DurationDays = await ComputeDurationDaysAsync(employeeId, before.FirstDay, shiftDate);
+            }
+            else
+            {
+                var after = await _db.SickLeaves.FirstOrDefaultAsync(s =>
+                    s.EmployeeId == employeeId && s.FirstDay == next);
+                if (after != null)
+                {
+                    after.FirstDay = shiftDate;
+                    after.DurationDays = await ComputeDurationDaysAsync(employeeId, shiftDate, after.LastDay);
+                }
+                else
+                {
+                    var emp = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == employeeId);
+                    _db.SickLeaves.Add(new SickLeaveModel
+                    {
+                        EmployeeId   = employeeId,
+                        FirstName    = emp?.FirstName,
+                        LastName     = emp?.LastName,
+                        TeamLeadName = emp?.TeamLeadName,
+                        FirstDay     = shiftDate,
+                        LastDay      = shiftDate,
+                        DurationDays = 1,
+                        LeaveType    = "Self",
+                        SourceSheet  = "SHIFTPLAN",
+                        CreatedAt    = DateTime.UtcNow,
+                    });
+                }
+            }
+        }
+        else
+        {
+            var row = await _db.SickLeaves.FirstOrDefaultAsync(s =>
+                s.EmployeeId == employeeId && s.FirstDay <= shiftDate && s.LastDay >= shiftDate);
+            if (row == null) return; // not covered — nothing to do
+
+            if (row.FirstDay == shiftDate && row.LastDay == shiftDate)
+            {
+                _db.SickLeaves.Remove(row);
+            }
+            else if (shiftDate == row.FirstDay)
+            {
+                row.FirstDay = NextWorkday(shiftDate);
+                row.DurationDays = await ComputeDurationDaysAsync(employeeId, row.FirstDay, row.LastDay);
+            }
+            else if (shiftDate == row.LastDay)
+            {
+                row.LastDay = PreviousWorkday(shiftDate);
+                row.DurationDays = await ComputeDurationDaysAsync(employeeId, row.FirstDay, row.LastDay);
+            }
+            else
+            {
+                // The day is in the middle of a spell: split it around that day.
+                var leftEnd    = PreviousWorkday(shiftDate);
+                var rightStart = NextWorkday(shiftDate);
+                var originalEnd = row.LastDay;
+                row.LastDay = leftEnd;
+                row.DurationDays = await ComputeDurationDaysAsync(employeeId, row.FirstDay, leftEnd);
+                _db.SickLeaves.Add(new SickLeaveModel
+                {
+                    EmployeeId   = row.EmployeeId,
+                    FirstName    = row.FirstName,
+                    LastName     = row.LastName,
+                    TeamLeadName = row.TeamLeadName,
+                    FirstDay     = rightStart,
+                    LastDay      = originalEnd,
+                    DurationDays = await ComputeDurationDaysAsync(employeeId, rightStart, originalEnd),
+                    LeaveType    = row.LeaveType,
+                    SourceSheet  = row.SourceSheet,
+                    CreatedAt    = DateTime.UtcNow,
+                });
+            }
+        }
+    }
+
+    private static bool IsWeekend(DateOnly d) =>
+        d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday;
+
+    private static DateOnly PreviousWorkday(DateOnly d) { d = d.AddDays(-1); while (IsWeekend(d)) d = d.AddDays(-1); return d; }
+    private static DateOnly NextWorkday(DateOnly d)     { d = d.AddDays(1);  while (IsWeekend(d)) d = d.AddDays(1);  return d; }
+
     public async Task<CreateSickLeaveResult> CreateAsync(CreateSickLeaveRequest req)
     {
         if (!DateOnly.TryParse(req.StartDate, out var start)) return new CreateSickLeaveResult(null, "Ungültiges Datumsformat (erwartet yyyy-MM-dd). / Invalid date format (expected yyyy-MM-dd).");
