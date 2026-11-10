@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 
 const BASE = ""
 
@@ -18,6 +18,29 @@ const labelStyle: any = { fontSize:11, marginBottom:4, display:"block" }
 const labelCls = "text-ink-soft"
 
 const fmtDate = (d: string | null | undefined) => d ? `${d.slice(8,10)}.${d.slice(5,7)}.${d.slice(0,4)}` : ""
+
+const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+const groupLabel = (iso: string) => {
+  const d = new Date(iso + "T00:00:00")
+  return `${WEEKDAYS[d.getDay()]} ${fmtDate(iso)}`
+}
+// Renders a Description; the sentence containing "pending" is shown in orange (warn).
+function renderDesc(desc: string) {
+  const idx = desc.toLowerCase().indexOf("pending")
+  if (idx < 0) return desc
+  let start = 0
+  for (let i = idx; i >= 0; i--) {
+    if (i > 0 && desc[i] === "." && desc[i + 1] === " " && desc[i + 2] && /[A-Z]/.test(desc[i + 2])) { start = i + 2; break }
+  }
+  const before = desc.slice(0, start).trim()
+  const note = desc.slice(start).trim()
+  return (
+    <>
+      {before}{before ? " " : ""}
+      <span style={{ color:"rgb(var(--st-warn-fg))" }}>{note}</span>
+    </>
+  )
+}
 
 function Badge({ text, style }: { text: string; style: any }) {
   return <span style={{ ...style, padding:"2px 8px", borderRadius:4, fontSize:10, fontWeight:600, border:`1px solid ${style.border}` }}>{text}</span>
@@ -156,6 +179,8 @@ export default function Pipeline() {
   const [showModal, setShowModal] = useState(false)
   const [editEvent, setEditEvent] = useState<any>(null)
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
+  const [filter, setFilter] = useState<"upcoming"|"past"|"all">("upcoming")
+  const [search, setSearch] = useState("")
 
   const today = new Date()
   const fromDate = today.toISOString().split("T")[0]
@@ -199,10 +224,35 @@ export default function Pipeline() {
   }
   const timelineLocations = [...new Set(events.map(e => e.locationName || e.locationCode).filter(Boolean))]
 
-  const tdStyle: any = { padding:"9px 12px", fontSize:12 }
-  const tdCls = "border-b border-line-subtle text-ink"
-  const thStyle: any = { padding:"10px 12px", fontSize:10, fontWeight:500, textTransform:"uppercase" as const, letterSpacing:".07em" }
+  // List: filter + search + group by start date (ascending).
+  const filtered = useMemo(() => {
+    let evs = events.filter(e => {
+      const end = e.pipelineDateEnd ?? e.pipelineDate
+      if (filter === "upcoming") return end >= fromDate
+      if (filter === "past") return end < fromDate
+      return true
+    })
+    const q = search.trim().toLowerCase()
+    if (q) {
+      evs = evs.filter(e =>
+        [e.title, e.locationName, e.locationCode, e.primaryAgent, e.secondAgent, e.backupAgent]
+          .filter(Boolean).join(" ").toLowerCase().includes(q))
+    }
+    return evs
+  }, [events, filter, search, fromDate])
+
+  const groups = useMemo(() => {
+    const m = new Map<string, any[]>()
+    for (const e of filtered) {
+      const k = e.pipelineDate
+      if (!m.has(k)) m.set(k, [])
+      m.get(k)!.push(e)
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  }, [filtered])
+
   const thCls = "text-ink-soft border-b border-line-subtle bg-sunken"
+  const thStyle: any = { padding:"10px 12px", fontSize:10, fontWeight:500, textTransform:"uppercase" as const, letterSpacing:".07em" }
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
@@ -224,47 +274,75 @@ export default function Pipeline() {
 
       {/* LIST VIEW */}
       {view === "list" && !loading && (
-        <div className="bg-raised border border-line-subtle" style={{ borderRadius:8, overflow:"hidden" }}>
-          <div style={{ overflowX:"auto" }}>
-            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
-              <thead>
-                <tr>{["Title","Location","Dates","Time","Handling","Agents","Status","Actions"].map(h => <th key={h} className={thCls} style={thStyle}>{h}</th>)}</tr>
-              </thead>
-              <tbody>
-                {events.length === 0 && <tr><td colSpan={8} className={`${tdCls} text-ink-soft`} style={{ ...tdStyle, textAlign:"center" }}>No pipeline events</td></tr>}
-                {events.map(e => {
-                  const sc = STATUS_COLORS[e.status] ?? STATUS_COLORS.PLANNED
-                  const hc = HANDLING_COLORS[e.handlingType ?? "ADDITIONAL"] ?? HANDLING_COLORS.ADDITIONAL
-                  const dateStr = e.pipelineDateEnd && e.pipelineDateEnd !== e.pipelineDate
-                    ? `${fmtDate(e.pipelineDate)} – ${fmtDate(e.pipelineDateEnd)}`
-                    : fmtDate(e.pipelineDate)
-                  return (
-                    <tr key={e.id} className="hover:bg-hovered">
-                      <td className={tdCls} style={{ ...tdStyle, fontWeight:600, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.title ?? "—"}</td>
-                      <td className={`${tdCls} text-ink-muted`} style={tdStyle}>{e.locationName ?? "—"}</td>
-                      <td className={`${tdCls} font-mono text-ink-muted`} style={{ ...tdStyle, fontSize:11 }}>{dateStr}</td>
-                      <td className={`${tdCls} font-mono text-ink-muted`} style={{ ...tdStyle, fontSize:11 }}>{e.startTime && e.endTime ? `${e.startTime}–${e.endTime}` : "—"}</td>
-                      <td className={tdCls} style={tdStyle}><Badge text={e.handlingType ?? "ADDITIONAL"} style={hc} /></td>
-                      <td className={`${tdCls} text-ink-muted`} style={{ ...tdStyle, fontSize:11 }}>
-                        <div>{e.agentsRequired} req.</div>
-                        {e.additionalAgentsNeeded > 0 && <div style={{ fontSize:10, color:"rgb(var(--st-crit-fg))" }}>+{e.additionalAgentsNeeded} add.</div>}
-                        {(e.primaryAgent || e.secondAgent) && <div style={{ fontSize:10, color:"rgb(var(--st-info-fg))" }}>P: {[e.primaryAgent, e.secondAgent].filter(Boolean).join(", ")}</div>}
-                        {e.backupAgent  && <div className="text-learn-fg" style={{ fontSize:10 }}>B: {e.backupAgent}</div>}
-                      </td>
-                      <td className={tdCls} style={tdStyle}><Badge text={e.status} style={sc} /></td>
-                      <td className={tdCls} style={tdStyle}>
-                        <div style={{ display:"flex", gap:4 }}>
-                          <button onClick={() => setEditEvent(e)} className="bg-info-bg border border-info-bd text-info-fg" style={{ padding:"4px 8px", borderRadius:4, fontSize:10, cursor:"pointer" }}>Edit</button>
-                          <button onClick={() => handleDelete(e.id)} className="bg-crit-bg border border-crit-bd text-crit-fg" style={{ padding:"4px 8px", borderRadius:4, fontSize:10, cursor:"pointer" }}>Delete</button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          <div style={{ display:"flex", gap:8, alignItems:"center", justifyContent:"space-between" }}>
+            <div className="bg-sunken border border-line-subtle" style={{ display:"flex", gap:2, borderRadius:6, padding:3 }}>
+              {(["upcoming","past","all"] as const).map(f => (
+                <button key={f} onClick={() => setFilter(f)} className={filter===f ? "bg-info-solid" : "text-ink-soft"}
+                  style={{ border:"none", color: filter===f ? "#fff" : undefined, padding:"5px 14px", borderRadius:4, fontSize:11, cursor:"pointer", fontWeight: filter===f ? 600 : 400, textTransform:"capitalize" }}>
+                  {f}
+                </button>
+              ))}
+            </div>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search title, location, agent..."
+              className="bg-sunken border border-line-subtle text-ink" style={{ padding:"7px 10px", borderRadius:6, fontSize:12, width:260, outline:"none" }} />
           </div>
-          <div className="border-t border-line-subtle text-ink-soft font-mono" style={{ padding:"8px 12px", fontSize:11 }}>{events.length} events</div>
+
+          {groups.length === 0 && <div className="bg-raised border border-line-subtle text-ink-soft" style={{ borderRadius:8, padding:40, textAlign:"center" }}>No pipeline events</div>}
+
+          {groups.map(([dateKey, evs]) => (
+            <div key={dateKey} className="bg-raised border border-line-subtle" style={{ borderRadius:8, overflow:"hidden" }}>
+              <div className="bg-sunken border-b border-line-subtle text-ink" style={{ padding:"8px 12px", fontSize:12, fontWeight:600 }}>{groupLabel(dateKey)}</div>
+              {evs.map((e: any) => {
+                const sc = STATUS_COLORS[e.status] ?? STATUS_COLORS.PLANNED
+                const hc = HANDLING_COLORS[e.handlingType ?? "ADDITIONAL"] ?? HANDLING_COLORS.ADDITIONAL
+                const cancelled = e.status === "CANCELLED"
+                const period = e.pipelineDateEnd && e.pipelineDateEnd !== e.pipelineDate
+                  ? `${fmtDate(e.pipelineDate)} – ${fmtDate(e.pipelineDateEnd)}` : null
+                const staffCount = (e.primaryAgent ? 1 : 0) + (e.secondAgent ? 1 : 0)
+                const req = e.agentsRequired ?? 1
+                const staffFull = staffCount >= req
+                const agents: { label: string; name: string }[] = []
+                if (e.primaryAgent) agents.push({ label:"P", name:e.primaryAgent })
+                if (e.secondAgent)  agents.push({ label:"P", name:e.secondAgent })
+                if (e.backupAgent)  agents.push({ label:"B", name:e.backupAgent })
+                return (
+                  <div key={e.id} className="border-b border-line-subtle" style={{ padding:"10px 12px", display:"flex", gap:16, alignItems:"flex-start", borderBottom: evs[evs.length-1] === e ? "none" : undefined }}>
+                    <div style={{ flex:2, minWidth:0 }}>
+                      <div className="text-ink" style={{ fontSize:13, fontWeight:600, textDecoration: cancelled ? "line-through" : undefined }}>{e.title ?? "—"}</div>
+                      {e.description && <div style={{ fontSize:11, color:"rgb(var(--text-secondary))", marginTop:2 }}>{renderDesc(e.description)}</div>}
+                      {period && <div className="font-mono" style={{ fontSize:10, color:"rgb(var(--text-tertiary))", marginTop:2 }}>{period}</div>}
+                    </div>
+                    <div style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:3 }}>
+                      <div style={{ fontSize:12, color:"rgb(var(--text-secondary))" }}>{e.locationName || e.locationCode || "—"}</div>
+                      <div className="font-mono" style={{ fontSize:11, color:"rgb(var(--text-secondary))" }}>{e.startTime && e.endTime ? `${e.startTime}–${e.endTime}` : "—"}</div>
+                      <div><Badge text={e.handlingType ?? "ADDITIONAL"} style={hc} /></div>
+                    </div>
+                    <div style={{ flex:1.5, minWidth:0 }}>
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                        {agents.map((a, i) => (
+                          <span key={i} className="bg-sunken border border-line-subtle" style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"1px 6px", borderRadius:4, fontSize:10 }}>
+                            <span style={{ fontWeight:700, color:"rgb(var(--text-tertiary))" }}>{a.label}</span>
+                            <span className="text-ink">{a.name}</span>
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ fontSize:11, fontWeight:600, marginTop:4, color: staffFull ? "rgb(var(--st-good-fg))" : "rgb(var(--st-warn-fg))" }}>
+                        {staffCount}/{req} staffed
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6, flexShrink:0 }}>
+                      <Badge text={e.status} style={sc} />
+                      <div style={{ display:"flex", gap:4 }}>
+                        <button onClick={() => setEditEvent(e)} className="bg-info-bg border border-info-bd text-info-fg" style={{ padding:"3px 7px", borderRadius:4, fontSize:10, cursor:"pointer" }}>Edit</button>
+                        <button onClick={() => handleDelete(e.id)} className="bg-crit-bg border border-crit-bd text-crit-fg" style={{ padding:"3px 7px", borderRadius:4, fontSize:10, cursor:"pointer" }}>Delete</button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ))}
         </div>
       )}
 
@@ -289,18 +367,18 @@ export default function Pipeline() {
               </thead>
               <tbody>
                 {timelineLocations.length === 0 && (
-                  <tr><td colSpan={dates.length+1} className={`${tdCls} text-ink-soft`} style={{ ...tdStyle, textAlign:"center" }}>No pipeline events</td></tr>
+                  <tr><td colSpan={dates.length+1} className="text-ink-soft" style={{ padding:"20px 12px", fontSize:12, textAlign:"center" }}>No pipeline events</td></tr>
                 )}
                 {timelineLocations.map(locName => (
                   <tr key={locName}>
-                    <td className={`${tdCls} bg-raised`} style={{ ...tdStyle, position:"sticky", left:0, fontWeight:500, minWidth:140 }}>{locName}</td>
+                    <td className="bg-raised" style={{ padding:"9px 12px", fontSize:12, position:"sticky", left:0, fontWeight:500, minWidth:140 }}>{locName}</td>
                     {dates.map(d => {
                       const ev = events.find(e => (e.locationName || e.locationCode) === locName && e.pipelineDate <= d && (e.pipelineDateEnd ?? e.pipelineDate) >= d)
-                      if (!ev) return <td key={d} className={`${tdCls} border-l border-line-subtle`} style={{ ...tdStyle, padding:0, width:36 }} />
+                      if (!ev) return <td key={d} className="border-l border-line-subtle" style={{ padding:0, width:36 }} />
                       const isFirst = ev.pipelineDate === d
                       const color = ev.status === "CONFIRMED" ? "rgb(var(--st-good-mid))" : ev.status === "CANCELLED" ? "rgb(var(--st-neutral-bg))" : "rgb(var(--st-info-mid))"
                       return (
-                        <td key={d} onClick={() => setSelectedEvent(ev)} className={tdCls} style={{ ...tdStyle, padding:0, width:36, background:color, borderLeft:"1px solid rgb(var(--line-subtle))", cursor:"pointer", overflow:"hidden", whiteSpace:"nowrap" }}>
+                        <td key={d} onClick={() => setSelectedEvent(ev)} style={{ padding:0, width:36, background:color, borderLeft:"1px solid rgb(var(--line-subtle))", cursor:"pointer", overflow:"hidden", whiteSpace:"nowrap" }}>
                           {isFirst && <span className="text-ink" style={{ fontSize:9, padding:"0 3px" }}>{ev.title?.slice(0,8)}</span>}
                         </td>
                       )

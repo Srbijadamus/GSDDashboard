@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 9 November:\n• Sick leave set in the Shift Plan now counts the same as a sick note: it appears in the Sick Leave tab and in SL Days in AL Balance.\n• Pipeline: events can now have a second agent; Handling, dates and validation are fixed.",
+    "body": "What's new for 10 November:\n• Pipeline: clearer list, grouped by date, with filters (Upcoming/Past/All), search and a staffing indicator per event.\n• Sick leave set in the Shift Plan now counts the same as a sick note.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 9. November:\n• Krankheit, die im Schichtplan eingetragen wird, zählt jetzt genauso wie eine Krankmeldung: Sie erscheint im Krankmeldungen-Tab und in den SL-Tagen im AL-Saldo.\n• Pipeline: Ereignisse können jetzt einen zweiten Agenten haben; Handling, Datumsanzeige und Prüfung wurden korrigiert.",
+    "body": "Neu am 10. November:\n• Pipeline: übersichtlichere Liste, nach Datum gruppiert, mit Filtern (Upcoming/Past/All), Suche und Besetzungsanzeige pro Ereignis.\n• Krankheit, die im Schichtplan eingetragen wird, zählt jetzt genauso wie eine Krankmeldung.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }
