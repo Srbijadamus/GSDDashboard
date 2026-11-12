@@ -9,8 +9,12 @@ const SKIP_LABELS = {
   INVALID_FIXED_TIME: "Invalid fixed time / Ungültige feste Zeit",
 }
 
-export default function AdjustTimesModal({ locationCode, locationName, shiftIds, onClose, onSuccess }) {
+export default function AdjustTimesModal({ locationCode, locationName, shiftIds = null, defaultFrom, defaultTo, onClose, onSuccess }) {
+  const todayStr = new Date().toISOString().split("T")[0]
+  const isPeriod = shiftIds == null
   const [mode, setMode] = useState("opening") // "opening" | "fixed"
+  const [from, setFrom] = useState(defaultFrom ?? todayStr)
+  const [to, setTo] = useState(defaultTo ?? todayStr)
   const [fixedStart, setFixedStart] = useState("")
   const [fixedEnd, setFixedEnd] = useState("")
   const [preview, setPreview] = useState(null) // { results: [...] }
@@ -20,7 +24,9 @@ export default function AdjustTimesModal({ locationCode, locationName, shiftIds,
 
   const body = () => ({
     locationCode,
-    shiftIds,
+    shiftIds: isPeriod ? null : shiftIds,
+    from: isPeriod ? from : null,
+    to: isPeriod ? to : null,
     mode: mode === "opening" ? "OPENING_HOURS" : "FIXED",
     start: mode === "fixed" ? fixedStart : null,
     end: mode === "fixed" ? fixedEnd : null,
@@ -72,7 +78,7 @@ export default function AdjustTimesModal({ locationCode, locationName, shiftIds,
         <div style={{ padding: "16px 20px", borderBottom: "1px solid rgb(var(--line-subtle))", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: "rgb(var(--text-primary))" }}>Adjust times / Zeiten anpassen</div>
-            <div style={{ fontSize: 11, color: "rgb(var(--text-secondary))", marginTop: 2 }}>{locationName} · {shiftIds.length} selected / ausgewählt</div>
+            <div style={{ fontSize: 11, color: "rgb(var(--text-secondary))", marginTop: 2 }}>{locationName} · {isPeriod ? `${from} → ${to}` : `${shiftIds.length} selected / ausgewählt`}</div>
           </div>
           <button onClick={onClose} disabled={busy} style={{ background: "none", border: "none", color: "rgb(var(--text-secondary))", fontSize: 18, cursor: "pointer" }}>X</button>
         </div>
@@ -103,6 +109,21 @@ export default function AdjustTimesModal({ locationCode, locationName, shiftIds,
                   </button>
                 </div>
               </div>
+
+              {isPeriod && (
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 11, color: "rgb(var(--text-secondary))", display: "block", marginBottom: 4 }}>From / Von</label>
+                    <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+                      style={{ width: "100%", background: "rgb(var(--surface-sunken))", border: "1px solid rgb(var(--line-subtle))", color: "rgb(var(--text-primary))", padding: "7px 10px", borderRadius: 6, fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 11, color: "rgb(var(--text-secondary))", display: "block", marginBottom: 4 }}>To / Bis</label>
+                    <input type="date" value={to} onChange={e => setTo(e.target.value)}
+                      style={{ width: "100%", background: "rgb(var(--surface-sunken))", border: "1px solid rgb(var(--line-subtle))", color: "rgb(var(--text-primary))", padding: "7px 10px", borderRadius: 6, fontSize: 12, outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                </div>
+              )}
 
               {mode === "fixed" && (
                 <div style={{ display: "flex", gap: 10 }}>

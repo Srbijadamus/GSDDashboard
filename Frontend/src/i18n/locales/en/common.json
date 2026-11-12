@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 12 November:\n• WIC Schedule: shift times can now be adjusted for many shifts at once (\"Adjust times\"), either to the opening hours of each day or to a fixed time, with a preview before saving.\n• New WIC shifts now take the location's opening hours by default.",
+    "body": "What's new for 12 November:\n• WIC Schedule: shift times can now be adjusted for many shifts at once (\"Adjust times\"), for a whole period or selected shifts, either to the opening hours of each day or to a fixed time, with a preview before saving.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

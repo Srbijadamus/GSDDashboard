@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 12. November:\n• WIC Schedule: Schichtzeiten können jetzt für viele Schichten gleichzeitig angepasst werden (\"Adjust times\"), entweder an die Öffnungszeiten des jeweiligen Tages oder an eine feste Zeit, mit Vorschau vor dem Speichern.\n• Neue WIC-Schichten übernehmen jetzt standardmäßig die Öffnungszeiten des Standorts.",
+    "body": "Neu am 12. November:\n• WIC Schedule: Schichtzeiten können jetzt für viele Schichten gleichzeitig angepasst werden (\"Adjust times\"), für einen ganzen Zeitraum oder ausgewählte Schichten, entweder an die Öffnungszeiten des jeweiligen Tages oder an eine feste Zeit, mit Vorschau vor dem Speichern.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

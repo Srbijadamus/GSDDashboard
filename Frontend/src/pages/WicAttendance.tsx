@@ -14,6 +14,7 @@ import { ManualCheckinModal } from "./ManualCheckinModal"
 import { Panel } from "../components/Panel"
 import { DataTable, type DataColumn } from "../components/DataTable"
 import { MoveToGsdBacklogAction } from "../components/MoveToGsdBacklogAction"
+import AdjustTimesModal from "./WICShifts/AdjustTimesModal"
 import {
   ABSENCE_MARKERS,
   buildCheckinStatus,
@@ -385,6 +386,7 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
   const [error, setError] = useState<string | null>(null)
   const [consequences, setConsequences] = useState<any[] | null>(null)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [adjustOpen, setAdjustOpen] = useState(false)
 
   // Pre-populate from current effective schedule whenever location or hours load
   useEffect(() => {
@@ -654,6 +656,14 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
                       <AlertTriangle size={11} className="inline text-warn-fg align-text-bottom" /> Saved (effective {savedAt}). {consequences.length} existing assignment(s) now conflict with the new schedule:
                       / Gespeichert (gültig ab {savedAt}). {consequences.length} bestehende Einsatz/Einsätze kollidieren mit dem neuen Plan:
                     </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                      <button
+                        onClick={() => setAdjustOpen(true)}
+                        style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid rgb(var(--st-info-bd))", background: "rgb(var(--st-info-bg))", color: "rgb(var(--st-info-solid))", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+                      >
+                        Adjust times / Zeiten anpassen
+                      </button>
+                    </div>
                     <div style={{ overflowX: "auto" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                         <thead>
@@ -695,6 +705,17 @@ function WicScheduleEditor({ locationCode }: { locationCode: string }) {
           </div>
         )}
       </SectionCard>
+      {adjustOpen && (
+        <AdjustTimesModal
+          locationCode={locationCode}
+          locationName={locHours?.displayName ?? locationCode}
+          shiftIds={null}
+          defaultFrom={todayStr}
+          defaultTo={consequences?.length ? consequences.reduce((m: string, c: any) => (c.date > m ? c.date : m), "") : todayStr}
+          onClose={() => setAdjustOpen(false)}
+          onSuccess={() => setAdjustOpen(false)}
+        />
+      )}
     </div>
   )
 }
