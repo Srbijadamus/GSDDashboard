@@ -41,6 +41,10 @@ Production deploy path: `C:\PulseOps\Deploy-Pulse.ps1` (snapshot in `C:\ProgramD
   `/assets/*` files are content-hashed and served `immutable` (`Backend/Program.cs:692-712`);
   there is no service worker. If the browser still shows an old bundle, first verify the NEW
   hash bundle actually exists in BOTH static roots — not whether it is cached.
+- **Deploy proof (b) must cover `/` AND at least one deep route.** `GET http://localhost:5000/` and
+  `GET http://localhost:5000/wic-schedule` must BOTH reference the same, new `index-*.js`; a dev
+  tunnel can cache deep-route HTML responses, so verify a deep route (e.g. `/wic-schedule`) too —
+  not just `/`.
 
 ### Resolved incident 2026-10-20: Pulse "Kiosk offline" — stale .NET runtime, not config/token
 

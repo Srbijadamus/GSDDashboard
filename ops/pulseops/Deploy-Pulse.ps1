@@ -137,6 +137,27 @@ try {
         if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Recurse -Force }
         Copy-Item -LiteralPath $srcWwwroot -Destination $dest -Recurse -Force
     }
+    # Verify index.html in BOTH static roots references the SAME bundle after the copy.
+    function Get-IndexBundle([string]$p) {
+        if (-not (Test-Path -LiteralPath $p)) { return $null }
+        $m = [regex]::Match((Get-Content -LiteralPath $p -Raw), 'index-([A-Za-z0-9_-]+)\.js')
+        if ($m.Success) { return $m.Groups[1].Value }
+        return $null
+    }
+    $bundleLive = Get-IndexBundle (Join-Path $liveWwwroot 'index.html')
+    $bundleRel  = Get-IndexBundle (Join-Path $releaseWwwroot 'index.html')
+    if (-not $bundleLive -or -not $bundleRel -or $bundleLive -ne $bundleRel) {
+        Write-Warning "index.html mismatch after copy (wwwroot=$bundleLive, bin\Release=$bundleRel); rolling back"
+        foreach ($dest in @($liveWwwroot, $releaseWwwroot)) {
+            if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Recurse -Force }
+            if (Test-Path -LiteralPath (Join-Path $snapshot 'wwwroot')) {
+                Copy-Item -LiteralPath (Join-Path $snapshot 'wwwroot') -Destination $dest -Recurse -Force
+            }
+        }
+        Copy-Item -Path (Join-Path $snapshot 'release\*') -Destination $release -Recurse -Force
+        throw "index.html mismatch after copy; snapshot restored from $snapshot"
+    }
+    Write-Step "index.html OK: both roots reference index-$bundleLive.js"
     Write-Step "Copied build -> $release (appsettings untouched)"
 }
 finally {
