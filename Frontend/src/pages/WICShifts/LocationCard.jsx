@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import AgentRow from "./AgentRow"
+import AdjustTimesModal from "./AdjustTimesModal"
 import { NppBadge } from "../../components/NppBadge"
 
 const borderColor = { covered: "rgb(var(--st-good-solid))", partial: "rgb(var(--st-warn-solid))", uncovered: "rgb(var(--st-crit-solid))" }
@@ -13,6 +14,8 @@ const statusBd    = { covered: "rgb(var(--st-good-bd))",    partial: "rgb(var(--
 export default function LocationCard({ location, onAgentClick, onDrop, dragAgent, setDragAgent, onActionSuccess, shiftDate, canAssign, assignInfo, onAssignClick }) {
   const { t } = useTranslation()
   const [isDragOver, setIsDragOver] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [adjustOpen, setAdjustOpen] = useState(false)
   const checkInNotRecorded = location.checkInNotRecordedCount ?? 0
   const effectiveCoverage = location.agents.filter(a => !a.absent).length
   const rawStatus = location.status || "uncovered"
@@ -20,6 +23,19 @@ export default function LocationCard({ location, onAgentClick, onDrop, dragAgent
     ? "uncovered"
     : rawStatus
   const showAssign = canAssign && s === "uncovered"
+  const selectable = location.agents.filter(a => !a.absent && a.employeeId)
+  const allSelected = selectable.length > 0 && selectable.every(a => selectedIds.has(a.id))
+  const toggleAll = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allSelected) selectable.forEach(a => next.delete(a.id))
+      else selectable.forEach(a => next.add(a.id))
+      return next
+    })
+  }
+  const toggleOne = (id, on) => {
+    setSelectedIds(prev => { const next = new Set(prev); if (on) next.add(id); else next.delete(id); return next })
+  }
 
   return (
     <div
@@ -74,6 +90,21 @@ export default function LocationCard({ location, onAgentClick, onDrop, dragAgent
             {s.toUpperCase()}
           </span>
         </div>
+        {canAssign && selectable.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "rgb(var(--text-secondary))", cursor: "pointer" }}>
+              <input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ accentColor: "rgb(var(--st-info-solid))", cursor: "pointer" }} />
+              Select all shown / Alle auswählen
+            </label>
+            <button
+              onClick={() => setAdjustOpen(true)}
+              disabled={selectedIds.size === 0}
+              style={{ padding: "4px 12px", borderRadius: 5, border: "1px solid rgb(var(--st-info-bd))", background: selectedIds.size === 0 ? "transparent" : "rgb(var(--st-info-bg))", color: selectedIds.size === 0 ? "rgb(var(--text-secondary))" : "rgb(var(--st-info-solid))", fontSize: 11, fontWeight: 600, cursor: selectedIds.size === 0 ? "not-allowed" : "pointer" }}
+            >
+              Adjust times / Zeiten anpassen
+            </button>
+          </div>
+        )}
         {showAssign && assignInfo && (
           <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
             {assignInfo.hasSensibleCandidate ? (
@@ -128,11 +159,23 @@ export default function LocationCard({ location, onAgentClick, onDrop, dragAgent
                 onClick={onAgentClick}
                 onActionSuccess={onActionSuccess}
                 shiftDate={shiftDate}
+                selectable={canAssign && !agent.absent && !!agent.employeeId}
+                selected={selectedIds.has(agent.id)}
+                onToggle={toggleOne}
               />
             </div>
           ))
         )}
       </div>
+      {adjustOpen && (
+        <AdjustTimesModal
+          locationCode={location.id}
+          locationName={location.name}
+          shiftIds={Array.from(selectedIds)}
+          onClose={() => setAdjustOpen(false)}
+          onSuccess={() => { setAdjustOpen(false); setSelectedIds(new Set()); onActionSuccess?.() }}
+        />
+      )}
     </div>
   )
 }

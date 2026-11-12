@@ -59,6 +59,7 @@ builder.Services.AddDbContext<GSDContext>(options =>
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<ShiftService>();
 builder.Services.AddScoped<WicShiftService>();
+builder.Services.AddScoped<WicBulkTimeService>();
 builder.Services.AddScoped<WicCardsService>();
 builder.Services.AddScoped<WicCoverageGapService>();
 builder.Services.AddScoped<WicAssignCandidatesService>();
@@ -731,6 +732,7 @@ app.MapKioskEndpoints();
 app.MapDashboardEndpoints();
 app.MapShiftEndpoints();
 app.MapWicEndpoints();
+app.MapWicBulkTimeEndpoints();
 app.MapWicCardsEndpoints();
 app.MapWicCoverageGapEndpoints();
 app.MapWicAssignCandidatesEndpoints();

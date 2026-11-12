@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 10. November:\n• Pipeline: übersichtlichere Liste, nach Datum gruppiert, mit Filtern (Upcoming/Past/All), Suche und Besetzungsanzeige pro Ereignis.\n• Krankheit, die im Schichtplan eingetragen wird, zählt jetzt genauso wie eine Krankmeldung.",
+    "body": "Neu am 12. November:\n• WIC Schedule: Schichtzeiten können jetzt für viele Schichten gleichzeitig angepasst werden (\"Adjust times\"), entweder an die Öffnungszeiten des jeweiligen Tages oder an eine feste Zeit, mit Vorschau vor dem Speichern.\n• Neue WIC-Schichten übernehmen jetzt standardmäßig die Öffnungszeiten des Standorts.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

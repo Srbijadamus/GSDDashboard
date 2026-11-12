@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 10 November:\n• Pipeline: clearer list, grouped by date, with filters (Upcoming/Past/All), search and a staffing indicator per event.\n• Sick leave set in the Shift Plan now counts the same as a sick note.",
+    "body": "What's new for 12 November:\n• WIC Schedule: shift times can now be adjusted for many shifts at once (\"Adjust times\"), either to the opening hours of each day or to a fixed time, with a preview before saving.\n• New WIC shifts now take the location's opening hours by default.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

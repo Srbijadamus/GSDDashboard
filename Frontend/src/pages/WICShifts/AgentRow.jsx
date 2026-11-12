@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { MoveToGsdBacklogAction } from "../../components/MoveToGsdBacklogAction"
 
-export default function AgentRow({ agent, onDragStart, onDragEnd, onClick, onActionSuccess, shiftDate }) {
+export default function AgentRow({ agent, onDragStart, onDragEnd, onClick, onActionSuccess, shiftDate, selectable, selected, onToggle }) {
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
   const s = agent.agentStatus || (agent.al === true ? "AL" : null)
@@ -27,6 +27,15 @@ export default function AgentRow({ agent, onDragStart, onDragEnd, onClick, onAct
       onClick={() => onClick(agent)}
       className="hover:bg-hovered"
       style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 12px", borderRadius: 6, cursor: "grab", transition: "background .15s", position: "relative" }}>
+      {selectable && (
+        <input
+          type="checkbox"
+          checked={!!selected}
+          onChange={e => onToggle?.(agent.id, e.target.checked)}
+          onClick={e => e.stopPropagation()}
+          style={{ marginRight: 6, cursor: "pointer", accentColor: "rgb(var(--st-info-solid))", flexShrink: 0 }}
+        />
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 12, color: "rgb(var(--text-primary))", fontWeight: 500 }}>{agent.name}</span>
         <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, textTransform: "uppercase", letterSpacing: ".06em", fontWeight: 600,
