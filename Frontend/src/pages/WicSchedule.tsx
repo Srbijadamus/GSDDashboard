@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { NppBadge } from "../components/NppBadge"
+import AdjustTimesModal from "./WICShifts/AdjustTimesModal"
 
 const BASE = ""
 
@@ -68,6 +69,7 @@ export default function WicSchedule() {
   const [weekStart,setWeekStart]=useState(getMondayOfWeek(new Date()))
   const [locationFilter,setLocationFilter]=useState("")
   const [teamLeadFilter,setTeamLeadFilter]=useState("")
+  const [adjustOpen,setAdjustOpen]=useState(false)
 
   const weekEnd=new Date(new Date(weekStart).getTime()+6*24*60*60*1000).toISOString().split("T")[0]
 
@@ -147,6 +149,15 @@ export default function WicSchedule() {
             <option value="">All Locations</option>
             {allLocations.map((l:any)=><option key={l} value={l}>{l}</option>)}
           </select>
+        </div>
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
+          <button
+            onClick={()=>setAdjustOpen(true)}
+            disabled={!locationFilter}
+            style={{padding:"7px 14px",borderRadius:6,border:"1px solid rgb(var(--st-info-bd))",background:locationFilter?"rgb(var(--st-info-bg))":"transparent",color:locationFilter?"rgb(var(--st-info-solid))":"rgb(var(--text-secondary))",fontSize:12,fontWeight:600,cursor:locationFilter?"pointer":"not-allowed"}}
+          >
+            {locationFilter?"Adjust times / Zeiten anpassen":"Select one location"}
+          </button>
         </div>
         {loading&&<div className="text-ink-soft" style={{padding:40,textAlign:"center"}}>Loading...</div>}
         {!loading&&(
@@ -278,6 +289,17 @@ export default function WicSchedule() {
           <div className="font-mono border-t border-line-subtle text-ink-soft" style={{padding:"8px 12px",fontSize:11}}>{openingHours.length} locations</div>
         </div>
       </>)}
+      {adjustOpen && (
+        <AdjustTimesModal
+          locationCode={locationFilter}
+          locationName={locationFilter}
+          shiftIds={null}
+          defaultFrom={from}
+          defaultTo={to}
+          onClose={()=>setAdjustOpen(false)}
+          onSuccess={()=>{setAdjustOpen(false);fetchAgents(from,to)}}
+        />
+      )}
     </div>
   )
 }
