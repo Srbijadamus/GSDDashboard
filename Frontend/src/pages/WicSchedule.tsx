@@ -149,8 +149,6 @@ export default function WicSchedule() {
             <option value="">All Locations</option>
             {allLocations.map((l:any)=><option key={l} value={l}>{l}</option>)}
           </select>
-        </div>
-        <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
           <button
             onClick={()=>setAdjustOpen(true)}
             disabled={!locationFilter}
