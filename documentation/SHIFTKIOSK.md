@@ -60,6 +60,10 @@ and only then removes the old client (`kiosk-ng/deploy/install_kiosk.bat:70-75`)
 package deliberately contains **no legacy key** — the builder strips it and forces
 `legacy_fallback = false`.
 
+After every successful build or refresh, the builder also mirrors the finished package into
+`C:\ShiftKiosk\PAKETI\_POSLEDNJI\<HOST>` (the latest package for quick access; `_POSLEDNJI` is not
+itself a package and is never recorded in SPISAK).
+
 The legacy clients are nevertheless still working, which is why the shared key cannot be retired yet.
 In the last 90 days the server recorded 438 events tagged `2.1.1` and 198 tagged `3.0.0-ng`.
 
