@@ -482,9 +482,22 @@ public class SickLeaveService
             Comments     = req.Notes,
             SourceSheet  = "UI",
         };
-        _db.SickLeaves.Add(entry);
-        await _db.SaveChangesAsync();
-        await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id, actor);
+        CreateSickLeaveResult? strategyError = null;
+        var strategy = _db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () => {
+            await using var tx = await _db.Database.BeginTransactionAsync();
+            try {
+                _db.SickLeaves.Add(entry);
+                await _db.SaveChangesAsync();
+                await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id, actor);
+                await tx.CommitAsync();
+            } catch (Exception ex) {
+                await tx.RollbackAsync();
+                _logger.LogError(ex, "CreateAsync failed for SickLeave employee {EmployeeId}", entry.EmployeeId);
+                strategyError = new CreateSickLeaveResult(null, "Ein Datenbankfehler ist aufgetreten. / A database error occurred.");
+            }
+        });
+        if (strategyError != null) return strategyError;
         return new CreateSickLeaveResult(new SickLeaveDto(entry.Id, entry.EmployeeId, entry.FirstName, entry.LastName,
             ((entry.FirstName ?? "") + " " + (entry.LastName ?? "")).Trim(),
             entry.TeamLeadName, entry.FirstDay.ToString("yyyy-MM-dd"), entry.LastDay.ToString("yyyy-MM-dd"),
@@ -548,6 +561,14 @@ public class SickLeaveService
             ((entry.FirstName ?? "") + " " + (entry.LastName ?? "")).Trim(),
             entry.TeamLeadName, entry.FirstDay.ToString("yyyy-MM-dd"), entry.LastDay.ToString("yyyy-MM-dd"),
             entry.DurationDays, entry.LeaveType, entry.ChildName, entry.Comments, entry.SourceSheet), null);
+    }
+
+    public async Task<bool> ResyncAsync(int id, string actor)
+    {
+        var entry = await _db.SickLeaves.FindAsync(id);
+        if (entry == null || entry.EmployeeId == null) return false;
+        await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId, entry.FirstDay, entry.LastDay, entry.Id, actor);
+        return true;
     }
 
     public async Task<bool> DeleteAsync(int id, string actor)
@@ -675,6 +696,20 @@ public static class SickLeaveEndpointMapper
         {
             var closed = await svc.EndActiveAsync(employeeId, ResolveActor(ctx));
             return Results.Ok(new { closed });
+        });
+
+        grp.MapPost("/{id:int}/resync", async (int id, SickLeaveService svc, HttpContext ctx) =>
+        {
+            if (ctx.User.Identity?.IsAuthenticated != true)
+                return Results.Json(new { error = "Authentication required" }, statusCode: 401);
+            var role = ctx.User.FindFirst(AuthClaims.Role)?.Value;
+            if (role is not (AppRoles.Dev or AppRoles.Rtm))
+                return Results.Json(new { error = "Forbidden" }, statusCode: 403);
+            var actor = ctx.User.FindFirst(AuthClaims.Kid)?.Value;
+            if (string.IsNullOrWhiteSpace(actor) || actor.Length > 100)
+                return Results.Json(new { error = "Forbidden" }, statusCode: 403);
+            var ok = await svc.ResyncAsync(id, actor);
+            return ok ? Results.Ok(new { resynced = true }) : Results.NotFound();
         });
 
         grp.MapPatch("/{id:int}", async (int id, PatchSickLeaveRequest req, SickLeaveService svc, HttpContext ctx) =>
