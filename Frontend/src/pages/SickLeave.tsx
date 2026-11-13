@@ -77,14 +77,18 @@ function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved:
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const { data: employees } = useQuery({ queryKey: ["employees"], queryFn: () => api.employees.get() })
-  const workDays = () => {
+  const [workingDays, setWorkingDays] = useState<number | null>(null)
+  useEffect(() => {
+    setWorkingDays(null)
+    if (!employeeId || !startDate || !endDate) return
     const s = new Date(startDate), e = new Date(endDate)
-    let count = 0
-    for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
-      if (d.getDay() !== 0 && d.getDay() !== 6) count++
-    }
-    return count
-  }
+    if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return
+    let cancelled = false
+    api.sickLeave.workingDays(employeeId, startDate, endDate)
+      .then(r => { if (!cancelled) setWorkingDays(r.workingDays) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [employeeId, startDate, endDate])
   const save = async () => {
     if (!employeeId) { setError("Bitte Agent auswaehlen"); return }
     if (endDate < startDate) { setError("Enddatum muss nach Startdatum liegen"); return }
@@ -136,7 +140,7 @@ function AddSickLeaveModal({ onClose, onSaved }: { onClose: () => void; onSaved:
             <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="optional..." className={inpCls} />
           </div>
           <div style={{ borderRadius: 6, padding: "10px 14px", fontSize: 12 }} className="bg-sunken text-ink-muted">
-            Arbeitstage: <strong className="text-ink font-mono">{workDays()}</strong>
+            Arbeitstage / working days: <strong className="text-ink font-mono">{workingDays != null ? `${workingDays}d` : "…"}</strong>
           </div>
           {error && <div style={{ fontSize: 12 }} className="text-warn-fg">{error}</div>}
         </div>
@@ -157,13 +161,18 @@ function EditSickLeaveModal({ id, entry, onClose, onSaved }: { id: number; entry
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
 
-  const calcDuration = () => {
-    if (!firstDay) return "?"
-    if (!lastDay) return "open"
+  const [workingDays, setWorkingDays] = useState<number | null>(null)
+  useEffect(() => {
+    setWorkingDays(null)
+    if (!firstDay || !lastDay) return
     const s = new Date(firstDay), e = new Date(lastDay)
-    if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return "?"
-    return (Math.floor((e.getTime() - s.getTime()) / 86400000) + 1) + "d"
-  }
+    if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return
+    let cancelled = false
+    api.sickLeave.workingDays(entry.employeeId, firstDay, lastDay)
+      .then(r => { if (!cancelled) setWorkingDays(r.workingDays) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [firstDay, lastDay])
 
   const save = async () => {
     if (!firstDay) { setError("Startdatum fehlt"); return }
@@ -203,7 +212,7 @@ function EditSickLeaveModal({ id, entry, onClose, onSaved }: { id: number; entry
             <input value={comments} onChange={e => setComments(e.target.value)} placeholder="optional..." className={inpCls} />
           </div>
           <div style={{ borderRadius: 6, padding: "10px 14px", fontSize: 12 }} className="bg-sunken text-ink-muted">
-            Dauer: <strong className="text-ink font-mono">{calcDuration()}</strong>
+            Dauer · Arbeitstage / working days: <strong className="text-ink font-mono">{!firstDay ? "?" : !lastDay ? "offen" : workingDays != null ? `${workingDays}d` : "…"}</strong>
           </div>
           {error && <div style={{ fontSize: 12 }} className="text-crit-fg">{error}</div>}
         </div>

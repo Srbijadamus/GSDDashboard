@@ -60,6 +60,7 @@ export const api = {
     get:          (params: string) => apiFetch<any[]>(`/api/sickleave?${params}`),
     active:       (date?: string)  => apiFetch<any[]>(`/api/sickleave/active?date=${date ?? today()}`),
     stats:        ()               => apiFetch<any>("/api/sickleave/stats"),
+    workingDays:  (employeeId: string, from: string, to: string) => apiFetch<{ workingDays: number }>(`/api/sickleave/working-days?employeeId=${encodeURIComponent(employeeId)}&from=${from}&to=${to}`),
     downloadToday: () => downloadExcel(`/api/sickleave/download?from=${today()}&to=${today()}`, `SickLeave_${today()}.xlsx`),
     download7:     () => downloadExcel(`/api/sickleave/download?from=${daysAgo(7)}&to=${today()}`, `SickLeave_7days.xlsx`),
     download30:    () => downloadExcel(`/api/sickleave/download?from=${daysAgo(30)}&to=${today()}`, `SickLeave_30days.xlsx`),

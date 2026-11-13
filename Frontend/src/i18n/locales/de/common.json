@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 12. November:\n• WIC Schedule: Schichtzeiten können jetzt für viele Schichten gleichzeitig angepasst werden (\"Adjust times\"), für einen ganzen Zeitraum oder ausgewählte Schichten, entweder an die Öffnungszeiten des jeweiligen Tages oder an eine feste Zeit, mit Vorschau vor dem Speichern.",
+    "body": "Neu am 13. November:\n• Krankmeldungen können wieder angelegt oder verlängert werden, wenn im Schichtplan an diesen Tagen ein manuell geplanter Dienst steht (behebt \"Ein Datenbankfehler ist aufgetreten\").\n• Der Krankmeldungs-Dialog zeigt die Dauer jetzt in Arbeitstagen.\n• WIC Schedule: \"Adjust times\" ändert die Schichtzeiten vieler Schichten auf einmal.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

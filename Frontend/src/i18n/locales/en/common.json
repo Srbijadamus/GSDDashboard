@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 12 November:\n• WIC Schedule: shift times can now be adjusted for many shifts at once (\"Adjust times\"), for a whole period or selected shifts, either to the opening hours of each day or to a fixed time, with a preview before saving.",
+    "body": "What's new for 13 November:\n• Sick leave can again be entered or extended when the Shift Plan has a manually planned duty on those days (fixes \"A database error occurred\").\n• The sick leave dialog now shows the duration in working days.\n• WIC Schedule: \"Adjust times\" changes shift times for many shifts at once.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

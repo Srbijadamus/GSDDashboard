@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 
 using SickLeaveModel = GSDDashboard.API.Data.Models.SickLeave;
 using GSDDashboard.API.Services;
+using GSDDashboard.API.Modules.Auth;
 namespace GSDDashboard.API.Modules.SickLeave;
 
 public record SickLeaveDto(
@@ -268,7 +269,7 @@ public class SickLeaveService
 
     /// <summary>Working days (Mon–Fri minus the employee's public holidays) of a sick-leave
     /// period — the same WorkingDays.Count the AL work-day calculation uses.</summary>
-    private async Task<int> ComputeDurationDaysAsync(string? employeeId, DateOnly from, DateOnly to)
+    public async Task<int> ComputeDurationDaysAsync(string? employeeId, DateOnly from, DateOnly to)
     {
         var emp = employeeId != null ? await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == employeeId) : null;
         var country = await DetermineCountryAsync(emp?.FullName);
@@ -429,7 +430,7 @@ public class SickLeaveService
     private static DateOnly PreviousWorkday(DateOnly d) { d = d.AddDays(-1); while (IsWeekend(d)) d = d.AddDays(-1); return d; }
     private static DateOnly NextWorkday(DateOnly d)     { d = d.AddDays(1);  while (IsWeekend(d)) d = d.AddDays(1);  return d; }
 
-    public async Task<CreateSickLeaveResult> CreateAsync(CreateSickLeaveRequest req)
+    public async Task<CreateSickLeaveResult> CreateAsync(CreateSickLeaveRequest req, string actor)
     {
         if (!DateOnly.TryParse(req.StartDate, out var start)) return new CreateSickLeaveResult(null, "Ungültiges Datumsformat (erwartet yyyy-MM-dd). / Invalid date format (expected yyyy-MM-dd).");
         if (!DateOnly.TryParse(req.EndDate,   out var end))   return new CreateSickLeaveResult(null, "Ungültiges Datumsformat (erwartet yyyy-MM-dd). / Invalid date format (expected yyyy-MM-dd).");
@@ -483,14 +484,14 @@ public class SickLeaveService
         };
         _db.SickLeaves.Add(entry);
         await _db.SaveChangesAsync();
-        await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id);
+        await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id, actor);
         return new CreateSickLeaveResult(new SickLeaveDto(entry.Id, entry.EmployeeId, entry.FirstName, entry.LastName,
             ((entry.FirstName ?? "") + " " + (entry.LastName ?? "")).Trim(),
             entry.TeamLeadName, entry.FirstDay.ToString("yyyy-MM-dd"), entry.LastDay.ToString("yyyy-MM-dd"),
             entry.DurationDays, entry.LeaveType, entry.ChildName, entry.Comments, entry.SourceSheet), null);
     }
 
-    public async Task<PatchSickLeaveResult> PatchAsync(int id, PatchSickLeaveRequest req)
+    public async Task<PatchSickLeaveResult> PatchAsync(int id, PatchSickLeaveRequest req, string actor)
     {
         var entry = await _db.SickLeaves.FindAsync(id);
         if (entry == null) return new PatchSickLeaveResult(null, null, NotFound: true);
@@ -533,8 +534,8 @@ public class SickLeaveService
             await using var tx = await _db.Database.BeginTransactionAsync();
             try {
                 await _db.SaveChangesAsync();
-                await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId ?? "", oldFrom, oldTo, entry.Id);
-                await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id);
+                await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId ?? "", oldFrom, oldTo, entry.Id, actor);
+                await _shiftSync.SyncSickLeaveAsync(entry.EmployeeId ?? "", entry.FirstDay, entry.LastDay, entry.Id, actor);
                 await tx.CommitAsync();
             } catch (Exception ex) {
                 await tx.RollbackAsync();
@@ -549,7 +550,7 @@ public class SickLeaveService
             entry.DurationDays, entry.LeaveType, entry.ChildName, entry.Comments, entry.SourceSheet), null);
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(int id, string actor)
     {
         var entry = await _db.SickLeaves.FindAsync(id);
         if (entry == null) return false;
@@ -560,7 +561,7 @@ public class SickLeaveService
                 _db.SickLeaves.Remove(entry);
                 await _db.SaveChangesAsync();
                 if (entry.EmployeeId != null)
-                    await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId, entry.FirstDay, entry.LastDay, entry.Id);
+                    await _shiftSync.RevertSickLeaveAsync(entry.EmployeeId, entry.FirstDay, entry.LastDay, entry.Id, actor);
                 await tx.CommitAsync();
             } catch (Exception ex) {
                 await tx.RollbackAsync();
@@ -571,7 +572,7 @@ public class SickLeaveService
         return true;
     }
 
-    public async Task<int> EndActiveAsync(string employeeId)
+    public async Task<int> EndActiveAsync(string employeeId, string actor)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
         var active = await _db.SickLeaves
@@ -587,8 +588,8 @@ public class SickLeaveService
             await _db.SaveChangesAsync();
         foreach (var (id, firstDay, oldLastDay) in snapshot)
         {
-            await _shiftSync.RevertSickLeaveAsync(employeeId, firstDay, oldLastDay, id);
-            await _shiftSync.SyncSickLeaveAsync(employeeId, firstDay, today, id);
+            await _shiftSync.RevertSickLeaveAsync(employeeId, firstDay, oldLastDay, id, actor);
+            await _shiftSync.SyncSickLeaveAsync(employeeId, firstDay, today, id, actor);
         }
         return active.Count;
     }
@@ -652,22 +653,33 @@ public static class SickLeaveEndpointMapper
         grp.MapGet("/stats", async (string? from, string? to, SickLeaveService svc) =>
             Results.Ok(await svc.GetStatsAsync(from, to)));
 
-        grp.MapPost("/", async (CreateSickLeaveRequest req, SickLeaveService svc) =>
+        static string ResolveActor(HttpContext ctx) =>
+            ctx.User.FindFirst(AuthClaims.Kid)?.Value is { Length: > 0 and <= 100 } kid ? kid : "UI-MANUAL";
+
+        grp.MapGet("/working-days", async (string employeeId, string from, string to, SickLeaveService svc) =>
         {
-            var r = await svc.CreateAsync(req);
+            if (!DateOnly.TryParse(from, out var f) || !DateOnly.TryParse(to, out var t) || t < f)
+                return Results.BadRequest(new { error = "Invalid date range." });
+            var days = await svc.ComputeDurationDaysAsync(employeeId, f, t);
+            return Results.Ok(new { workingDays = days });
+        });
+
+        grp.MapPost("/", async (CreateSickLeaveRequest req, SickLeaveService svc, HttpContext ctx) =>
+        {
+            var r = await svc.CreateAsync(req, ResolveActor(ctx));
             if (r.Dto != null) return Results.Created($"/api/sickleave/{r.Dto.Id}", r.Dto);
             return Results.BadRequest(new { error = r.Error });
         });
 
-        grp.MapPost("/end-active/{employeeId}", async (string employeeId, SickLeaveService svc) =>
+        grp.MapPost("/end-active/{employeeId}", async (string employeeId, SickLeaveService svc, HttpContext ctx) =>
         {
-            var closed = await svc.EndActiveAsync(employeeId);
+            var closed = await svc.EndActiveAsync(employeeId, ResolveActor(ctx));
             return Results.Ok(new { closed });
         });
 
-        grp.MapPatch("/{id:int}", async (int id, PatchSickLeaveRequest req, SickLeaveService svc) =>
+        grp.MapPatch("/{id:int}", async (int id, PatchSickLeaveRequest req, SickLeaveService svc, HttpContext ctx) =>
         {
-            var result = await svc.PatchAsync(id, req);
+            var result = await svc.PatchAsync(id, req, ResolveActor(ctx));
             if (result.NotFound) return Results.NotFound();
             if (result.Error != null)
                 return result.BadRequest
@@ -676,9 +688,9 @@ public static class SickLeaveEndpointMapper
             return Results.Ok(result.Dto);
         });
 
-        grp.MapDelete("/{id:int}", async (int id, SickLeaveService svc) =>
+        grp.MapDelete("/{id:int}", async (int id, SickLeaveService svc, HttpContext ctx) =>
         {
-            var ok = await svc.DeleteAsync(id);
+            var ok = await svc.DeleteAsync(id, ResolveActor(ctx));
             return ok ? Results.NoContent() : Results.NotFound();
         });
 
