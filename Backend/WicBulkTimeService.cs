@@ -115,6 +115,33 @@ public class WicBulkTimeService
     private static string? Normalize(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Replace(" ", "");
 
+    private async Task<HashSet<(string EmployeeId, DateOnly Date)>> LoadLeaveCoverageAsync(
+        List<string> empIds, DateOnly minDate, DateOnly maxDate)
+    {
+        var covered = new HashSet<(string, DateOnly)>();
+        var vacs = await _db.Vacations
+            .Where(v => v.EmployeeId != null && empIds.Contains(v.EmployeeId) && v.FirstDay <= maxDate && v.LastDay >= minDate)
+            .ToListAsync();
+        foreach (var v in vacs)
+        {
+            var start = v.FirstDay > minDate ? v.FirstDay : minDate;
+            var end   = v.LastDay  < maxDate ? v.LastDay  : maxDate;
+            for (var d = start; d <= end; d = d.AddDays(1))
+                covered.Add((v.EmployeeId!, d));
+        }
+        var sls = await _db.SickLeaves
+            .Where(s => s.EmployeeId != null && empIds.Contains(s.EmployeeId) && s.FirstDay <= maxDate && s.LastDay >= minDate)
+            .ToListAsync();
+        foreach (var s in sls)
+        {
+            var start = s.FirstDay > minDate ? s.FirstDay : minDate;
+            var end   = s.LastDay  < maxDate ? s.LastDay  : maxDate;
+            for (var d = start; d <= end; d = d.AddDays(1))
+                covered.Add((s.EmployeeId!, d));
+        }
+        return covered;
+    }
+
     public async Task<(BulkTimePreviewResponse? Response, string? Error)> PreviewAsync(BulkTimeRequest req)
     {
         var (entries, error) = await ResolveEntriesAsync(req);
@@ -130,6 +157,9 @@ public class WicBulkTimeService
             .Where(s => empIds.Contains(s.EmployeeId) && dates.Contains(s.ShiftDate))
             .Select(s => new { s.EmployeeId, s.ShiftDate, s.ShiftType })
             .ToListAsync();
+        var leaveCoverage = entries.Count > 0
+            ? await LoadLeaveCoverageAsync(empIds, dates.Min(), dates.Max())
+            : new HashSet<(string, DateOnly)>();
 
         var results = new List<BulkTimeShiftResult>();
         foreach (var w in entries)
@@ -144,6 +174,8 @@ public class WicBulkTimeService
                 if (st != null && AbsenceShiftTypes.Contains(st))
                     skipReason = "ABSENCE";
             }
+            if (skipReason == null && leaveCoverage.Contains((w.EmployeeId, w.ShiftDate)))
+                skipReason = "ABSENCE";
 
             results.Add(new BulkTimeShiftResult(
                 w.Id, w.EmployeeId, w.ShiftDate.ToString("yyyy-MM-dd"),
@@ -180,6 +212,9 @@ public class WicBulkTimeService
             var siblingRows = await _db.WicShiftEntries
                 .Where(w => w.IsOnSite && empIds.Contains(w.EmployeeId) && dates.Contains(w.ShiftDate))
                 .ToListAsync();
+            var leaveCoverage = entries.Count > 0
+                ? await LoadLeaveCoverageAsync(empIds, dates.Min(), dates.Max())
+                : new HashSet<(string, DateOnly)>();
 
             foreach (var w in entries)
             {
@@ -191,6 +226,8 @@ public class WicBulkTimeService
                 var shiftEntry = shiftEntries.FirstOrDefault(s =>
                     s.EmployeeId == w.EmployeeId && s.ShiftDate == w.ShiftDate);
                 if (skipReason == null && shiftEntry != null && AbsenceShiftTypes.Contains(shiftEntry.ShiftType ?? ""))
+                    skipReason = "ABSENCE";
+                if (skipReason == null && leaveCoverage.Contains((w.EmployeeId, w.ShiftDate)))
                     skipReason = "ABSENCE";
 
                 if (skipReason != null)

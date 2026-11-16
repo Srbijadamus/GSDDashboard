@@ -55,6 +55,8 @@ public class WicScheduleService
     private readonly ILogger<WicScheduleService> _log;
     public WicScheduleService(GSDContext db, ILogger<WicScheduleService> log) { _db = db; _log = log; }
 
+    private static readonly string[] AbsenceShiftTypes = { "AL", "SL", "OFF", "OL", "UL", "CD" };
+
     private static string DayName(int d) => d switch {
         1 => "Mon", 2 => "Tue", 3 => "Wed", 4 => "Thu",
         5 => "Fri", 6 => "Sat", 7 => "Sun", _ => "?"
@@ -86,6 +88,13 @@ public class WicScheduleService
 
         var assignments = await _db.WicAgentAssignments.Where(a => a.IsActive).ToListAsync();
 
+        var absenceByEmpDate = (await _db.ShiftEntries
+            .Where(s => wicEmployeeIds.Contains(s.EmployeeId) && s.ShiftDate >= fromDate && s.ShiftDate <= toDate
+                     && s.ShiftType != null && AbsenceShiftTypes.Contains(s.ShiftType))
+            .ToListAsync())
+            .GroupBy(s => s.EmployeeId)
+            .ToDictionary(g => g.Key, g => g.ToDictionary(x => x.ShiftDate, x => x.ShiftType!));
+
         var result = new List<WicAgentScheduleDto>();
         foreach (var emp in employees.OrderBy(e => e.TeamLeadName).ThenBy(e => e.FullName))
         {
@@ -104,9 +113,16 @@ public class WicScheduleService
             for (var d = fromDate; d <= toDate; d = d.AddDays(1))
             {
                 empEntries.TryGetValue(d, out var entry);
-                days.Add(new WicDayDto(d.ToString("yyyy-MM-dd"), GetDow(d),
-                    entry?.SupportLocation, entry?.WicOpeningHours, entry?.WorkingShift,
-                    entry?.IsOnSite ?? false, entry?.IsOffDay ?? false, entry?.Task, entry?.IsGSDDay ?? false));
+                if (absenceByEmpDate.TryGetValue(emp.EmployeeId, out var byDate) && byDate.TryGetValue(d, out var absenceType))
+                {
+                    days.Add(new WicDayDto(d.ToString("yyyy-MM-dd"), GetDow(d), null, null, absenceType, false, true, null, false));
+                }
+                else
+                {
+                    days.Add(new WicDayDto(d.ToString("yyyy-MM-dd"), GetDow(d),
+                        entry?.SupportLocation, entry?.WicOpeningHours, entry?.WorkingShift,
+                        entry?.IsOnSite ?? false, entry?.IsOffDay ?? false, entry?.Task, entry?.IsGSDDay ?? false));
+                }
             }
 
             result.Add(new WicAgentScheduleDto(emp.EmployeeId, emp.FullName ?? emp.EmployeeId,

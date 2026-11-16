@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 13. November:\n• Krankmeldungen können wieder angelegt oder verlängert werden, wenn im Schichtplan an diesen Tagen ein manuell geplanter Dienst steht (behebt \"Ein Datenbankfehler ist aufgetreten\").\n• Der Krankmeldungs-Dialog zeigt die Dauer jetzt in Arbeitstagen.\n• WIC Schedule: \"Adjust times\" ändert die Schichtzeiten vieler Schichten auf einmal.",
+    "body": "Neu am 16. November:\n• WIC Schedule: Tage mit Urlaub oder Krankmeldung zeigen jetzt AL/SL statt der alten Schichtzeit.\n• \"Adjust times\" ändert nie Tage mit Urlaub oder Krankmeldung.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

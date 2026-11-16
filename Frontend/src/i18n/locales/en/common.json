@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 13 November:\n• Sick leave can again be entered or extended when the Shift Plan has a manually planned duty on those days (fixes \"A database error occurred\").\n• The sick leave dialog now shows the duration in working days.\n• WIC Schedule: \"Adjust times\" changes shift times for many shifts at once.",
+    "body": "What's new for 16 November:\n• WIC Schedule: days with annual leave or sick leave now show AL/SL instead of the old shift time.\n• \"Adjust times\" never changes days with annual leave or sick leave.",
     "menu": "What's new",
     "dismiss": "Got it"
   }
