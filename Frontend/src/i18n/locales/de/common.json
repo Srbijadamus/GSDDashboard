@@ -982,7 +982,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 16. November:\n• WIC Schedule: Tage mit Urlaub oder Krankmeldung zeigen jetzt AL/SL statt der alten Schichtzeit.\n• \"Adjust times\" ändert nie Tage mit Urlaub oder Krankmeldung.",
+    "body": "Neu am 16. November:\n• Eine im Kiosk gemeldete Krankmeldung erscheint jetzt automatisch als Krankmeldung in Pulse (Krankmeldungen, Schichtplan, AL-Saldo).\n• WIC Schedule: Tage mit Urlaub oder Krankmeldung zeigen jetzt AL/SL statt der alten Schichtzeit.\n• \"Adjust times\" ändert nie Tage mit Urlaub oder Krankmeldung.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

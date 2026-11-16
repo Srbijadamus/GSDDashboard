@@ -430,7 +430,7 @@ public class SickLeaveService
     private static DateOnly PreviousWorkday(DateOnly d) { d = d.AddDays(-1); while (IsWeekend(d)) d = d.AddDays(-1); return d; }
     private static DateOnly NextWorkday(DateOnly d)     { d = d.AddDays(1);  while (IsWeekend(d)) d = d.AddDays(1);  return d; }
 
-    public async Task<CreateSickLeaveResult> CreateAsync(CreateSickLeaveRequest req, string actor)
+    public async Task<CreateSickLeaveResult> CreateAsync(CreateSickLeaveRequest req, string actor, string sourceSheet = "UI")
     {
         if (!DateOnly.TryParse(req.StartDate, out var start)) return new CreateSickLeaveResult(null, "Ungültiges Datumsformat (erwartet yyyy-MM-dd). / Invalid date format (expected yyyy-MM-dd).");
         if (!DateOnly.TryParse(req.EndDate,   out var end))   return new CreateSickLeaveResult(null, "Ungültiges Datumsformat (erwartet yyyy-MM-dd). / Invalid date format (expected yyyy-MM-dd).");
@@ -480,7 +480,7 @@ public class SickLeaveService
             LeaveType    = leaveType,
             ChildName    = req.ChildName,
             Comments     = req.Notes,
-            SourceSheet  = "UI",
+            SourceSheet  = sourceSheet,
         };
         CreateSickLeaveResult? strategyError = null;
         var strategy = _db.Database.CreateExecutionStrategy();

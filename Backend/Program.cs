@@ -104,6 +104,10 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddHttpClient<IKioskProxy, KioskProxy>()
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 
+// Background sync: kiosk SICK_LEAVE → Pulse SickLeaves register (every 5 minutes,
+// today only; disabled when Kiosk:SickLeaveSync:Enabled is false).
+builder.Services.AddHostedService<KioskSickLeaveSyncService>();
+
 // KID-only cookie login. SecurePolicy.SameAsRequest: the session cookie is Secure
 // over the https devtunnel URL and plain on http://localhost:5000, so login works
 // over BOTH (hard requirement — see documentation/auth_rbac.md).
