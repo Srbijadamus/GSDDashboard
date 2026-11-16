@@ -572,10 +572,18 @@ export function groupZoneBRows(rows: ZoneBRow[]): ZoneBGroups {
 export interface PresencePair {
   /**
    * Rostered here today AND kiosk-present (ACTIVE or on a break), by employee_id only.
+   * This is the COMBINED presence: both on-site (WIC) and remote (HOME_OFFICE) check-ins.
    * Their work mode still has to be read off each record: a HOME_OFFICE check-in is
    * NOT on-site presence, so the UI shows the badge rather than implying it.
    */
   presentKiosk: CheckinKioskRecord[]
+  /**
+   * The subset of presentKiosk checked in remotely (HOME_OFFICE / Virtual WIC Support),
+   * i.e. NOT physically on site. The left-list presence dot counts ON-SITE check-ins
+   * only, so it reads presentKiosk minus presentRemote; this field carries the remote
+   * part for a separate, muted counter.
+   */
+  presentRemote: CheckinKioskRecord[]
   /** Rostered for WIC duty here today (absences/GSD excluded). */
   rostered: CheckinAgent[]
   /** Rostered here but no present (ACTIVE / PAUSE) kiosk record. */
@@ -586,7 +594,7 @@ export function buildPresencePair(
   centre: CheckinLocation | null | undefined,
   kiosk: CheckinKioskRecord[] | null | undefined,
 ): PresencePair {
-  const empty: PresencePair = { presentKiosk: [], rostered: [], rosteredNotPresent: [] }
+  const empty: PresencePair = { presentKiosk: [], presentRemote: [], rostered: [], rosteredNotPresent: [] }
   if (!centre) return empty
 
   const rostered = (centre.assignedAgents ?? []).filter(
@@ -602,10 +610,15 @@ export function buildPresencePair(
       && !isTestEmployee(r.employee_id),
   )
   const presentKiosk = active.filter(r => rosteredIds.has(r.employee_id))
+  // Remote (HOME_OFFICE / Virtual WIC Support) check-ins are presence, but NOT on-site:
+  // they must not light the on-site presence dot (Brokdorf 16.11. was UNCOVERED on the
+  // plan while a single HOME_OFFICE check-in made the dot read "1").
+  const presentRemote = presentKiosk.filter(r => workModeOf(r) === "HOME_OFFICE")
   const presentIds = new Set(presentKiosk.map(r => r.employee_id))
 
   return {
     presentKiosk,
+    presentRemote,
     rostered,
     rosteredNotPresent: rostered.filter(a => !presentIds.has(a.employeeId)),
   }

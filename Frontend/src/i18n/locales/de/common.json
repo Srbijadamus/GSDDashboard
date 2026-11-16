@@ -437,7 +437,8 @@
       "rostered": "Eingeplant · {{n}}",
       "rosteredLabel": "Eingeplant",
       "notPresent": "{{n}} eingeplant, nicht angemeldet",
-      "notPresentHint": "Heute für den WIC-Dienst hier eingeplant, aber ohne aktive Kiosk-Anmeldung."
+      "notPresentHint": "Heute für den WIC-Dienst hier eingeplant, aber ohne aktive Kiosk-Anmeldung.",
+      "remote": "Remote-Anmeldungen"
     },
     "onBreak": "In Pause",
     "onBreakFor": "Pause {{n}} Min.",
@@ -982,7 +983,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 16. November:\n• Eine im Kiosk gemeldete Krankmeldung erscheint jetzt automatisch als Krankmeldung in Pulse (Krankmeldungen, Schichtplan, AL-Saldo).\n• WIC Schedule: Tage mit Urlaub oder Krankmeldung zeigen jetzt AL/SL statt der alten Schichtzeit.\n• \"Adjust times\" ändert nie Tage mit Urlaub oder Krankmeldung.",
+    "body": "Neu am 16. November:\n• Eine im Kiosk gemeldete Krankmeldung erscheint jetzt automatisch als Krankmeldung in Pulse (Krankmeldungen, Schichtplan, AL-Saldo).\n• WIC Schedule: Tage mit Urlaub oder Krankmeldung zeigen jetzt AL/SL statt der alten Schichtzeit.\n• WIC Attendance: Die grüne Anwesenheitszahl zählt jetzt nur Anmeldungen am Standort; Remote-Anmeldungen werden separat angezeigt.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

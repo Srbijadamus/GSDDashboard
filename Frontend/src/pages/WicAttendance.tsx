@@ -1234,7 +1234,12 @@ export default function WicAttendance() {
                 const status         = dayData?.status ?? "CLOSED"
                 const isSelected     = loc.locationCode === selectedLocationCode
                 const locCard        = cards?.find(c => c.locationCode === loc.locationCode)
-                const locActiveCount = buildPresencePair(locCard ?? { ...loc, todaySchedule: { isClosed: false }, assignedAgents: [] }, kioskData).presentKiosk.length
+                const locPresence    = buildPresencePair(locCard ?? { ...loc, todaySchedule: { isClosed: false }, assignedAgents: [] }, kioskData)
+                // The green presence dot counts ON-SITE check-ins only: a HOME_OFFICE /
+                // Virtual WIC Support check-in is presence, but not at this location, so it
+                // must not light the dot (and must never make an UNCOVERED centre look staffed).
+                const locActiveCount = locPresence.presentKiosk.length - locPresence.presentRemote.length
+                const locRemoteCount = locPresence.presentRemote.length
                 return (
                   <div
                     key={loc.locationCode}
@@ -1267,6 +1272,17 @@ export default function WicAttendance() {
                             }} />
                             <span className="font-mono" style={{ fontSize: 9, color: "rgb(var(--signal-live))" }}>
                               {locActiveCount}
+                            </span>
+                          </span>
+                        )}
+                        {locRemoteCount > 0 && (
+                          <span title={t("attendance.presence.remote")} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            <span style={{
+                              width: 6, height: 6, borderRadius: "50%",
+                              background: "rgb(var(--text-disabled))", display: "inline-block",
+                            }} />
+                            <span className="font-mono" style={{ fontSize: 9, color: "rgb(var(--text-secondary))" }}>
+                              {locRemoteCount}
                             </span>
                           </span>
                         )}

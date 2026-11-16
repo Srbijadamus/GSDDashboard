@@ -360,6 +360,21 @@ test("a blank-id kiosk row is never counted as present at a centre", () => {
   assert.equal(p.presentKiosk.length, 0)
 })
 
+test("presentRemote carries HOME_OFFICE check-ins; the on-site dot must not light", () => {
+  // Brokdorf 2026-11-16 regression: one HOME_OFFICE (Virtual WIC Support) check-in on an
+  // UNCOVERED centre must NOT light the green presence dot.
+  const brokdorf = centre("Brokdorf", [{ id: "9074345", name: "A", start: "06:00" }])
+  const p = buildPresencePair(brokdorf, [kioskRow("9074345", "A", "ACTIVE", "HOME_OFFICE")])
+  assert.equal(p.presentKiosk.length, 1, "still present (combined)")
+  assert.equal(p.presentRemote.length, 1, "HOME_OFFICE is remote")
+  assert.equal(p.presentKiosk.length - p.presentRemote.length, 0, "no on-site check-in → dot stays off")
+
+  const augsburg = centre("Augsburg", [{ id: "1", name: "B", start: "07:30" }])
+  const p2 = buildPresencePair(augsburg, [kioskRow("1", "B", "ACTIVE", "WIC")])
+  assert.equal(p2.presentRemote.length, 0, "WIC is on-site, not remote")
+  assert.equal(p2.presentKiosk.length - p2.presentRemote.length, 1, "one on-site check-in")
+})
+
 test("a rostered agent who has not badged in shows under rosteredNotPresent", () => {
   const c = centre("Trier", [{ id: "1", name: "Suhrab Sadieqy", start: "08:00" }])
   const p = buildPresencePair(c, [kioskRow("1", "Suhrab Sadieqy", "NOT_CHECKED_IN")])

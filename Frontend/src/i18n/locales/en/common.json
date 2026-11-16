@@ -437,7 +437,8 @@
       "rostered": "Rostered · {{n}}",
       "rosteredLabel": "Rostered",
       "notPresent": "{{n}} rostered, not checked in",
-      "notPresentHint": "Rostered for WIC duty here today but with no active kiosk check-in."
+      "notPresentHint": "Rostered for WIC duty here today but with no active kiosk check-in.",
+      "remote": "remote check-ins"
     },
     "onBreak": "On break",
     "onBreakFor": "Pause {{n}}m",
@@ -982,7 +983,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 16 November:\n• Sick leave reported in the kiosk now automatically appears as sick leave in Pulse (Sick Leave tab, Shift Plan, AL Balance).\n• WIC Schedule: days with annual leave or sick leave now show AL/SL instead of the old shift time.\n• \"Adjust times\" never changes days with annual leave or sick leave.",
+    "body": "What's new for 16 November:\n• Sick leave reported in the kiosk now automatically appears as sick leave in Pulse (Sick Leave tab, Shift Plan, AL Balance).\n• WIC Schedule: days with annual leave or sick leave now show AL/SL instead of the old shift time.\n• WIC Attendance: the green presence count now counts only check-ins at the location; remote check-ins are shown separately.",
     "menu": "What's new",
     "dismiss": "Got it"
   }
