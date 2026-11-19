@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { MapPin, Users, Car, Search, ChevronRight, Shield, ShieldCheck, ShieldAlert, Globe } from "lucide-react"
+import { MapPin, Users, Car, Search, ChevronRight, Shield, ShieldCheck, ShieldAlert, Globe, UserPlus, Trash2 } from "lucide-react"
 import { apiFetch, api } from "../api/client"
 import { Sheet } from "../components/Sheet"
 import { NppBadge } from "../components/NppBadge"
@@ -10,10 +10,16 @@ import { NppBadge } from "../components/NppBadge"
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AgentTierDto {
-  name:       string
-  hasCar:     boolean | null
-  employeeId: string | null
-  primaryKid: string | null
+  name:         string
+  hasCar:       boolean | null
+  employeeId:   string | null
+  primaryKid:   string | null
+  assignmentId?: number | null
+}
+
+interface EmployeeOption {
+  employeeId: string
+  fullName:   string | null
 }
 
 interface WicRoleDto {
@@ -315,12 +321,14 @@ function WicCard({ wic, onClick }: { wic: WicListItemDto; onClick: () => void })
 
 // ─── Tier section ─────────────────────────────────────────────────────────────
 
-function TierSection({ title, agents, accent, icon }: {
-  title:   string
-  agents:  AgentTierDto[]
-  accent:  string
-  icon:    React.ReactNode
+function TierSection({ title, agents, accent, icon, onRemove }: {
+  title:    string
+  agents:   AgentTierDto[]
+  accent:   string
+  icon:     React.ReactNode
+  onRemove?: (a: AgentTierDto) => void
 }) {
+  const { t } = useTranslation()
   if (agents.length === 0) return null
   return (
     <div>
@@ -339,6 +347,15 @@ function TierSection({ title, agents, accent, icon }: {
               )}
             </div>
             <CarBadge hasCar={a.hasCar} />
+            {onRemove && a.assignmentId != null && (
+              <button
+                onClick={() => onRemove(a)}
+                title={t("wicCoverage.remove")}
+                className="flex items-center gap-1 px-2 py-1 text-[10px] rounded cursor-pointer bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-none flex-shrink-0"
+              >
+                <Trash2 size={11} /> {t("wicCoverage.remove")}
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -371,12 +388,67 @@ function WicDetail({ locationCode }: { locationCode: string }) {
     },
   })
 
+  // ── Add / remove Main & Backup agents ─────────────────────────────────────
+  const [adding, setAdding] = useState(false)
+  const [empSearch, setEmpSearch] = useState("")
+  const [selectedEmpId, setSelectedEmpId] = useState<string | null>(null)
+  const [role, setRole] = useState<"MAIN" | "BACKUP">("MAIN")
+  const [addError, setAddError] = useState<string | null>(null)
+
+  const { data: employees = [] } = useQuery<EmployeeOption[]>({
+    queryKey: ["wic-coverage-active-employees"],
+    queryFn:  () => apiFetch<EmployeeOption[]>("/api/employees?active=true"),
+    enabled:  adding,
+  })
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["wic-coverage-wic", locationCode] })
+    qc.invalidateQueries({ queryKey: ["wic-coverage-wics"] })
+  }
+
+  const create = useMutation({
+    mutationFn: (body: { locationCode: string; employeeId: string; assignmentType: string }) =>
+      api.wicCoverage.createAssignment(body),
+    onSuccess: () => {
+      setAdding(false)
+      setEmpSearch("")
+      setSelectedEmpId(null)
+      setAddError(null)
+      refresh()
+    },
+    onError: (e: Error) => setAddError(e.message),
+  })
+
+  const remove = useMutation({
+    mutationFn: (id: number) => api.wicCoverage.removeAssignment(id),
+    onSuccess: refresh,
+  })
+
   if (!wic)
     return <div className="text-ink-soft text-sm">{t("wicCoverage.loading")}</div>
 
   const backupBExtra = reachable?.filter(
     r => !wic.backupB.some(b => b.name.toLowerCase() === r.name.toLowerCase())
   ) ?? []
+
+  const q = empSearch.trim().toLowerCase()
+  const candidates = employees
+    .filter(e => q === "" || (e.fullName ?? "").toLowerCase().includes(q))
+    .slice(0, 30)
+
+  function openAdd() {
+    setAdding(true)
+    setAddError(null)
+    setEmpSearch("")
+    setSelectedEmpId(null)
+  }
+
+  function confirmRemove(a: AgentTierDto) {
+    if (a.assignmentId == null) return
+    if (window.confirm(t("wicCoverage.removeConfirm", { name: a.name }))) {
+      remove.mutate(a.assignmentId)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -406,11 +478,79 @@ function WicDetail({ locationCode }: { locationCode: string }) {
         <div className="text-[11px] text-ink-muted">{wic.fullAddress}</div>
       )}
 
+      {/* Add agent (Main / Backup) */}
+      {!adding ? (
+        <button
+          onClick={openAdd}
+          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer bg-info-solid text-white border-none"
+        >
+          <UserPlus size={14} /> {t("wicCoverage.addAgent")}
+        </button>
+      ) : (
+        <div className="flex flex-col gap-2 px-3 py-3 bg-sunken rounded-lg">
+          <div className="flex items-center gap-2">
+            <select
+              value={role}
+              onChange={e => setRole(e.target.value as "MAIN" | "BACKUP")}
+              className="px-2 py-1.5 rounded-md border border-line-subtle bg-raised text-ink text-xs outline-none"
+            >
+              <option value="MAIN">{t("wicCoverage.roleMain")}</option>
+              <option value="BACKUP">{t("wicCoverage.roleBackup")}</option>
+            </select>
+            <input
+              autoFocus
+              value={empSearch}
+              onChange={e => setEmpSearch(e.target.value)}
+              placeholder={t("wicCoverage.addAgentSearch")}
+              className="flex-1 px-2 py-1.5 rounded-md border border-line-subtle bg-raised text-ink text-xs outline-none"
+            />
+          </div>
+
+          {candidates.length > 0 && (
+            <div className="max-h-44 overflow-y-auto flex flex-col gap-0.5">
+              {candidates.map(e => (
+                <button
+                  key={e.employeeId}
+                  onClick={() => setSelectedEmpId(e.employeeId)}
+                  className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-left text-xs cursor-pointer border-none ${selectedEmpId === e.employeeId ? "bg-info-solid text-white" : "text-ink hover:bg-raised"}`}
+                >
+                  <span className="truncate">{e.fullName ?? e.employeeId}</span>
+                  <span className={`text-[10px] font-mono flex-shrink-0 ${selectedEmpId === e.employeeId ? "text-white/80" : "text-ink-soft"}`}>{e.employeeId}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {q !== "" && candidates.length === 0 && (
+            <div className="text-[11px] text-ink-muted">{t("wicCoverage.addAgentEmpty")}</div>
+          )}
+
+          {addError && <div className="text-[11px] text-red-600">{addError}</div>}
+
+          <div className="flex justify-end gap-1.5">
+            <button
+              onClick={() => { setAdding(false); setAddError(null); setEmpSearch(""); setSelectedEmpId(null) }}
+              className="px-2.5 py-1.5 rounded-md text-[11px] cursor-pointer bg-raised text-ink-muted border border-line-subtle"
+            >
+              {t("wicCoverage.cancel")}
+            </button>
+            <button
+              disabled={!selectedEmpId || create.isPending}
+              onClick={() => selectedEmpId && create.mutate({ locationCode, employeeId: selectedEmpId, assignmentType: role })}
+              className="px-2.5 py-1.5 rounded-md text-[11px] cursor-pointer bg-info-solid text-white border-none disabled:opacity-50"
+            >
+              {t("wicCoverage.save")}
+            </button>
+          </div>
+        </div>
+      )}
+
       <TierSection
         title={t("wicCoverage.main")}
         agents={wic.main}
         accent="text-green-600 dark:text-green-400"
         icon={<ShieldCheck size={13} className="text-green-600 dark:text-green-400" />}
+        onRemove={confirmRemove}
       />
 
       <TierSection
@@ -418,6 +558,7 @@ function WicDetail({ locationCode }: { locationCode: string }) {
         agents={wic.backupA}
         accent="text-blue-600 dark:text-blue-400"
         icon={<Shield size={13} className="text-blue-600 dark:text-blue-400" />}
+        onRemove={confirmRemove}
       />
 
       {(wic.backupB.length > 0 || backupBExtra.length > 0) && (

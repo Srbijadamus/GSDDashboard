@@ -1,5 +1,6 @@
 using GSDDashboard.API.Data;
 using GSDDashboard.API.Data.Models;
+using GSDDashboard.API.Modules.Auth;
 using Microsoft.EntityFrameworkCore;
 
 namespace GSDDashboard.API.Services;
@@ -36,7 +37,7 @@ public record WicCoverageDto(
     AgentTierDto[] BackupC
 );
 
-public record AgentTierDto(string Name, bool? HasCar, string? EmployeeId, string? PrimaryKid);
+public record AgentTierDto(string Name, bool? HasCar, string? EmployeeId, string? PrimaryKid, int? AssignmentId);
 
 public record WicListItemDto(
     string  LocationCode,
@@ -51,6 +52,7 @@ public record WicListItemDto(
 
 public record PatchAgentDto(bool? HasCar, string? GroupRegion);
 public record PinBackupBDto(string EmployeeName);
+public record CreateAssignmentDto(string LocationCode, string EmployeeId, string AssignmentType);
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
@@ -71,10 +73,10 @@ public class WicCoverageService(GSDContext db)
         return sep >= 0 ? displayName[..sep].Trim() : displayName.Trim();
     }
 
-    private static AgentTierDto ToTierDto(string name, ILookup<string, Employee> byName)
+    private static AgentTierDto ToTierDto(string name, ILookup<string, Employee> byName, int? assignmentId = null)
     {
         var emp = byName[name.Trim().ToLowerInvariant()].FirstOrDefault();
-        return new AgentTierDto(name, emp?.HasCar, emp?.EmployeeId, emp?.PrimaryKid);
+        return new AgentTierDto(name, emp?.HasCar, emp?.EmployeeId, emp?.PrimaryKid, assignmentId);
     }
 
     // ── Agents ────────────────────────────────────────────────────────────────
@@ -281,6 +283,77 @@ public class WicCoverageService(GSDContext db)
         return true;
     }
 
+    // ── Main / Backup assignment editing ─────────────────────────────────────
+
+    /// <summary>
+    /// Creates a new ACTIVE Main/Backup assignment. The employee is stored the same
+    /// way the table already does (EmployeeName = Employees.FullName); EmployeeId is
+    /// used only to resolve and validate the employee, not persisted (the column does
+    /// not exist). Returns the created row or a clear 400 error.
+    /// </summary>
+    public async Task<(WicAgentAssignment? Created, string? Error)> CreateAssignmentAsync(
+        string locationCode, string employeeId, string assignmentType, string actor)
+    {
+        var type = (assignmentType ?? "").Trim().ToUpperInvariant();
+        if (type is not ("MAIN" or "BACKUP"))
+            return (null, "assignmentType must be MAIN or BACKUP");
+
+        var code = (locationCode ?? "").Trim();
+        if (code.Length == 0)
+            return (null, "locationCode is required");
+
+        var location = await db.WicLocations.FirstOrDefaultAsync(w =>
+            (w.LocationCode == code || w.LocationCodeLegacy == code) && w.IsActive);
+        if (location == null)
+            return (null, "Location not found or inactive");
+
+        var employee = await db.Employees.FirstOrDefaultAsync(e => e.EmployeeId == employeeId && e.IsActive);
+        if (employee == null)
+            return (null, "Employee not found or inactive");
+
+        var name = (employee.FullName ?? "").Trim();
+        if (name.Length == 0)
+            return (null, "Employee has no name");
+
+        // Same employee must not already hold an ACTIVE assignment of the same role at
+        // this location. Matched by EmployeeName, the exact string the table joins on.
+        var duplicate = await db.WicAgentAssignments.AnyAsync(a =>
+            a.IsActive && a.LocationCode == location.LocationCode &&
+            a.AssignmentType == type && a.EmployeeName == name);
+        if (duplicate)
+            return (null, $"Employee already has an active {type} assignment at this location");
+
+        var assignment = new WicAgentAssignment
+        {
+            LocationCode   = location.LocationCode,
+            EmployeeName   = name,
+            AssignmentType = type,
+            IsActive       = true,
+            CreatedAt      = DateTime.UtcNow,
+            CreatedBy      = actor,
+        };
+        db.WicAgentAssignments.Add(assignment);
+        await db.SaveChangesAsync();
+        return (assignment, null);
+    }
+
+    /// <summary>Deactivates an assignment (IsActive=0) — the row is never deleted.</summary>
+    public async Task<(bool NotFound, string? Error)> DeactivateAssignmentAsync(int id, string actor)
+    {
+        var assignment = await db.WicAgentAssignments.FindAsync(id);
+        if (assignment == null)
+            return (true, null);
+
+        if (!assignment.IsActive)
+            return (false, null); // idempotent — already inactive
+
+        assignment.IsActive      = false;
+        assignment.DeactivatedAt = DateTime.UtcNow;
+        assignment.DeactivatedBy = actor;
+        await db.SaveChangesAsync();
+        return (false, null);
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private async Task<WicCoverageDto> BuildWicCoverageDto(WicLocation wic)
@@ -289,9 +362,13 @@ public class WicCoverageService(GSDContext db)
             .Where(a => a.LocationCode == wic.LocationCode && a.IsActive)
             .ToListAsync();
 
-        var mainNames    = assignments.Where(a => a.AssignmentType == "MAIN")     .Select(a => a.EmployeeName).ToList();
-        var backupANames = assignments.Where(a => a.AssignmentType == "BACKUP")   .Select(a => a.EmployeeName).ToList();
-        var backupCNames = assignments.Where(a => a.AssignmentType == "REGIONAL") .Select(a => a.EmployeeName).ToList();
+        var mainAssignments    = assignments.Where(a => a.AssignmentType == "MAIN").ToList();
+        var backupAAssignments = assignments.Where(a => a.AssignmentType == "BACKUP").ToList();
+        var backupCAssignments = assignments.Where(a => a.AssignmentType == "REGIONAL").ToList();
+
+        var mainNames    = mainAssignments.Select(a => a.EmployeeName).ToList();
+        var backupANames = backupAAssignments.Select(a => a.EmployeeName).ToList();
+        var backupCNames = backupCAssignments.Select(a => a.EmployeeName).ToList();
 
         var alreadyAssigned = mainNames.Concat(backupANames)
             .Select(n => n.Trim().ToLowerInvariant())
@@ -321,7 +398,7 @@ public class WicCoverageService(GSDContext db)
             .ToListAsync())
             .ToLookup(e => e.FullName?.Trim().ToLowerInvariant() ?? "");
 
-        AgentTierDto ToDto(string name) => ToTierDto(name, empsByName);
+        AgentTierDto ToDto(string name, int? assignmentId = null) => ToTierDto(name, empsByName, assignmentId);
 
         var backupB = reachableRows
             .Where(c => !alreadyAssigned.Contains(c.EmployeeName.Trim().ToLowerInvariant()))
@@ -338,10 +415,10 @@ public class WicCoverageService(GSDContext db)
         return new WicCoverageDto(
             wic.LocationCode, wic.DisplayName, wic.City, wic.Bundesland,
             wic.OpeningDay, wic.Comment, address, wic.IsNpp,
-            mainNames   .Where(n => !IsExcluded(n)).Select(ToDto).ToArray(),
-            backupANames.Where(n => !IsExcluded(n)).Select(ToDto).ToArray(),
+            mainAssignments   .Where(a => !IsExcluded(a.EmployeeName)).Select(a => ToDto(a.EmployeeName, a.Id)).ToArray(),
+            backupAAssignments.Where(a => !IsExcluded(a.EmployeeName)).Select(a => ToDto(a.EmployeeName, a.Id)).ToArray(),
             backupB,
-            backupCNames.Where(n => !IsExcluded(n)).Select(ToDto).ToArray()
+            backupCAssignments.Where(a => !IsExcluded(a.EmployeeName)).Select(a => ToDto(a.EmployeeName, a.Id)).ToArray()
         );
     }
 }
@@ -386,5 +463,37 @@ public static class WicCoverageEndpoints
             var ok = await svc.PinBackupBAsync(locationCode, dto);
             return ok ? Results.Ok() : Results.NotFound();
         });
+
+        // Add / remove Main and Backup agents (added 2026-11-19). Write access is
+        // DEV/RTM only, enforced here (not RbacMiddleware) so it holds even while
+        // Auth:EnforceAuthorization is off — anonymous 401, other roles 403.
+        grp.MapPost("/assignments", async (CreateAssignmentDto dto, WicCoverageService svc, HttpContext ctx) =>
+        {
+            if (DenyAssignmentEdit(ctx) is { } deny) return deny;
+            var (created, error) = await svc.CreateAssignmentAsync(
+                dto.LocationCode, dto.EmployeeId, dto.AssignmentType, ResolveActor(ctx));
+            if (error != null) return Results.BadRequest(new { error });
+            return Results.Created($"/api/wic-coverage/assignments/{created!.Id}", new { id = created.Id });
+        });
+
+        grp.MapDelete("/assignments/{id:int}", async (int id, WicCoverageService svc, HttpContext ctx) =>
+        {
+            if (DenyAssignmentEdit(ctx) is { } deny) return deny;
+            var (notFound, _) = await svc.DeactivateAssignmentAsync(id, ResolveActor(ctx));
+            if (notFound) return Results.NotFound();
+            return Results.Ok(new { deactivated = true });
+        });
+    }
+
+    private static string ResolveActor(HttpContext ctx) =>
+        ctx.User.FindFirst(AuthClaims.Kid)?.Value is { Length: > 0 and <= 100 } kid ? kid : "UI-MANUAL";
+
+    private static IResult? DenyAssignmentEdit(HttpContext ctx)
+    {
+        if (ctx.User.Identity?.IsAuthenticated != true)
+            return Results.Json(new { error = "Authentication required" }, statusCode: StatusCodes.Status401Unauthorized);
+        if (ctx.User.FindFirst(AuthClaims.Role)?.Value is not (AppRoles.Dev or AppRoles.Rtm))
+            return Results.Json(new { error = "Forbidden" }, statusCode: StatusCodes.Status403Forbidden);
+        return null;
     }
 }

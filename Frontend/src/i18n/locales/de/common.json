@@ -480,7 +480,15 @@
     "pinNote": "Pinnen",
     "note": "Hinweis",
     "agentDetail": "Agent-Details",
-    "wicDetail": "WIC-Details"
+    "wicDetail": "WIC-Details",
+    "addAgent": "Agent hinzufügen",
+    "addAgentSearch": "Aktiven Mitarbeiter suchen...",
+    "addAgentEmpty": "Keine Mitarbeiter gefunden",
+    "roleMain": "Main",
+    "roleBackup": "Backup",
+    "remove": "Entfernen",
+    "removeConfirm": "{{name}} von diesem Standort entfernen?",
+    "cancel": "Abbrechen"
   },
   "wicShifts": {
     "newShift": {
@@ -983,7 +991,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 16. November:\n• Eine im Kiosk gemeldete Krankmeldung erscheint jetzt automatisch als Krankmeldung in Pulse (Krankmeldungen, Schichtplan, AL-Saldo).\n• WIC Schedule: Tage mit Urlaub oder Krankmeldung zeigen jetzt AL/SL statt der alten Schichtzeit.\n• WIC Attendance: Die grüne Anwesenheitszahl zählt jetzt nur Anmeldungen am Standort; Remote-Anmeldungen werden separat angezeigt.",
+    "body": "Neu am 19. November:\n• WIC Assignments: Main- und Backup-Agenten können jetzt direkt im WIC-Detail hinzugefügt und entfernt werden.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

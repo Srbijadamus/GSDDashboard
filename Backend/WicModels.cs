@@ -12,6 +12,13 @@ public class WicAgentAssignment
     [Required, MaxLength(10)]  public string AssignmentType { get; set; } = "MAIN";
     public bool IsActive { get; set; } = true;
     [MaxLength(200)] public string? Notes { get; set; }
+
+    // Audit (added 2026-11-19): who/when an assignment was created or deactivated.
+    // Nullable — pre-existing rows stay NULL; only new writes populate them.
+    public DateTime? CreatedAt { get; set; }
+    [MaxLength(100)] public string? CreatedBy { get; set; }
+    public DateTime? DeactivatedAt { get; set; }
+    [MaxLength(100)] public string? DeactivatedBy { get; set; }
 }
 
 [Table("WicOpeningHours")]

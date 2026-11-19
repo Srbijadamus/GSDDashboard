@@ -117,6 +117,18 @@ export const api = {
       fetch(`${API_BASE}/api/wic-coverage/wics/${encodeURIComponent(code)}/backup-b`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       }),
+    createAssignment: (body: { locationCode: string; employeeId: string; assignmentType: string }) =>
+      apiFetch<{ id: number }>("/api/wic-coverage/assignments", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      }),
+    removeAssignment: async (id: number) => {
+      const res = await fetch(`${API_BASE}/api/wic-coverage/assignments/${id}`, { method: "DELETE" })
+      if (!res.ok) {
+        let msg = `API error ${res.status}`
+        try { const body = await res.json(); if (body?.error) msg = body.error } catch { /* ignore */ }
+        throw new Error(msg)
+      }
+    },
   },
   boList: {
     get:    (date: string) => apiFetch<any[]>(`/api/bo-list?date=${date}`),

@@ -480,7 +480,15 @@
     "pinNote": "Pin",
     "note": "Note",
     "agentDetail": "Agent Detail",
-    "wicDetail": "WIC Detail"
+    "wicDetail": "WIC Detail",
+    "addAgent": "Add agent",
+    "addAgentSearch": "Search active employee...",
+    "addAgentEmpty": "No employees found",
+    "roleMain": "Main",
+    "roleBackup": "Backup",
+    "remove": "Remove",
+    "removeConfirm": "Remove {{name}} from this location?",
+    "cancel": "Cancel"
   },
   "wicShifts": {
     "newShift": {
@@ -983,7 +991,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 16 November:\n• Sick leave reported in the kiosk now automatically appears as sick leave in Pulse (Sick Leave tab, Shift Plan, AL Balance).\n• WIC Schedule: days with annual leave or sick leave now show AL/SL instead of the old shift time.\n• WIC Attendance: the green presence count now counts only check-ins at the location; remote check-ins are shown separately.",
+    "body": "What's new for 19 November:\n• WIC Assignments: Main and Backup agents can now be added and removed directly in the WIC detail panel.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

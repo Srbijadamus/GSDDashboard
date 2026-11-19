@@ -593,6 +593,20 @@ app.UseDefaultFiles();
             ALTER TABLE ALBalance ADD ManualChangeAt DATETIME2 NULL
     """);
 
+    // WicAgentAssignments audit (added 2026-11-19): who/when a Main/Backup assignment
+    // was created or deactivated. Additive and nullable only -- same idempotent
+    // COL_LENGTH guard; existing rows are not rewritten (their new columns stay NULL).
+    db.Database.ExecuteSqlRaw("""
+        IF COL_LENGTH('WicAgentAssignments','CreatedAt') IS NULL
+            ALTER TABLE WicAgentAssignments ADD CreatedAt DATETIME2 NULL
+        IF COL_LENGTH('WicAgentAssignments','CreatedBy') IS NULL
+            ALTER TABLE WicAgentAssignments ADD CreatedBy NVARCHAR(100) NULL
+        IF COL_LENGTH('WicAgentAssignments','DeactivatedAt') IS NULL
+            ALTER TABLE WicAgentAssignments ADD DeactivatedAt DATETIME2 NULL
+        IF COL_LENGTH('WicAgentAssignments','DeactivatedBy') IS NULL
+            ALTER TABLE WicAgentAssignments ADD DeactivatedBy NVARCHAR(100) NULL
+    """);
+
     // PIPELINE (added 2026-11-09): second agent + handling type. Additive and
     // nullable only -- same idempotent COL_LENGTH guard pattern; existing rows are
     // not rewritten (their new columns stay NULL).
