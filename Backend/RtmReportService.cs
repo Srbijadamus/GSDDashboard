@@ -168,13 +168,16 @@ public class RtmReportService
         var friday = monday.AddDays(4);
         var plan = await LoadPlanAsync(monday, friday);
 
-        // Active WicLocations, keyed by postal code, for the wic_centers -> WicLocations
-        // mapping (the kiosk's wic_centers.location is "DE~<PLZ>~<City>~<Street>").
+        // Active WicLocations keyed by the postal code embedded in LocationCode
+        // ("DE~<PLZ>~<City>~<Street>"). The kiosk's wic_centers.location is the same
+        // string, so the numeric PLZ is the stable join key. (WicLocations.PostalCode is
+        // NOT populated in the live DB — hence the extraction from LocationCode.)
         var locations = await _db.WicLocations.Where(l => l.IsActive).ToListAsync();
         var byPostal = locations
-            .Where(l => !string.IsNullOrWhiteSpace(l.PostalCode))
-            .GroupBy(l => l.PostalCode!.Trim())
-            .ToDictionary(g => g.Key, g => g.ToList());
+            .Select(l => (Loc: l, Plz: PlzOf(l.LocationCode)))
+            .Where(x => x.Plz != null)
+            .GroupBy(x => x.Plz!)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Loc).ToList());
 
         var kioskByDate = new Dictionary<DateOnly, Dictionary<string, KioskAgentRecord>>();
         for (var d = monday; d <= friday; d = d.AddDays(1))
@@ -280,30 +283,43 @@ public class RtmReportService
 
     /// <summary>
     /// Maps the kiosk's <c>wic_centers.location</c> string ("DE~&lt;PLZ&gt;~&lt;City&gt;~&lt;Street&gt;")
-    /// to a <see cref="WicLocation.LocationCode"/> by postal code. Where two centres share a
-    /// postal code (Demmin), the street disambiguates. Returns null when the centre cannot be
-    /// resolved — the caller then falls back to the planned location.
+    /// to a <see cref="WicLocation.LocationCode"/> by the postal code embedded in both strings.
+    /// Where two centres share a postal code (Demmin), the street disambiguates. Returns null
+    /// when the centre cannot be resolved — the caller then falls back to the planned location.
     /// </summary>
     private static string? MapKioskCenterToLocation(string? kioskLocation,
         Dictionary<string, List<WicLocation>> byPostal)
     {
         if (string.IsNullOrWhiteSpace(kioskLocation)) return null;
-        var parts = kioskLocation.Split('~');
-        if (parts.Length < 4) return null;
-        var plz = parts[1].Trim();
-        var street = parts[3].Trim();
-        if (plz.Length == 0 || !byPostal.TryGetValue(plz, out var candidates) || candidates.Count == 0)
+        var plz = PlzOf(kioskLocation);
+        var street = StreetOf(kioskLocation);
+        if (plz == null || !byPostal.TryGetValue(plz, out var candidates) || candidates.Count == 0)
             return null;
         if (candidates.Count == 1) return candidates[0].LocationCode;
-        foreach (var c in candidates)
-        {
-            var addr = (c.FullAddress ?? "").Trim();
-            if (addr.Length > 0 &&
-                (addr.Contains(street, StringComparison.OrdinalIgnoreCase) ||
-                 street.Contains(addr, StringComparison.OrdinalIgnoreCase)))
-                return c.LocationCode;
-        }
+        if (street != null)
+            foreach (var c in candidates)
+            {
+                var locStreet = StreetOf(c.LocationCode);
+                if (locStreet != null &&
+                    (locStreet.Contains(street, StringComparison.OrdinalIgnoreCase) ||
+                     street.Contains(locStreet, StringComparison.OrdinalIgnoreCase)))
+                    return c.LocationCode;
+            }
         return null; // ambiguous → fall back to planned
+    }
+
+    private static string? PlzOf(string? locationCode)
+    {
+        if (string.IsNullOrWhiteSpace(locationCode)) return null;
+        var parts = locationCode.Split('~');
+        return parts.Length >= 2 ? parts[1].Trim() : null;
+    }
+
+    private static string? StreetOf(string? locationCode)
+    {
+        if (string.IsNullOrWhiteSpace(locationCode)) return null;
+        var parts = locationCode.Split('~');
+        return parts.Length >= 4 ? parts[3].Trim() : null;
     }
 
     // ── Daily corrections ──────────────────────────────────────────────────────
