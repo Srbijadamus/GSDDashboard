@@ -1,11 +1,18 @@
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, Sun, Moon } from 'lucide-react'
-import { NAV_GROUPS, AGENT_NAV } from './navItems'
+import { NAV_GROUPS, AGENT_NAV, type NavGroup } from './navItems'
 import { useNavTheme } from './useNavTheme'
 import { useAuth } from '../auth/AuthContext'
 
 declare const __APP_VERSION__: string
+
+/** Drop nav items whose `roles` excludes the current role (undefined = everyone). */
+function filterByRole(groups: NavGroup[], role: string | undefined): NavGroup[] {
+  return groups
+    .map(g => ({ ...g, items: g.items.filter(it => !it.roles || (role != null && it.roles.includes(role))) }))
+    .filter(g => g.items.length > 0)
+}
 
 interface SidebarProps {
   collapsed: boolean
@@ -17,7 +24,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const { navTheme, toggle: toggleNavTheme } = useNavTheme()
   const { session } = useAuth()
   // AGENT: only the own read-only view. Enforcement is server-side; this is just the UI.
-  const groups = session?.role === 'AGENT' ? AGENT_NAV : NAV_GROUPS
+  const groups = session?.role === 'AGENT' ? AGENT_NAV : filterByRole(NAV_GROUPS, session?.role)
 
   return (
     <aside className={[

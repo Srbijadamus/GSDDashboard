@@ -325,6 +325,7 @@ public class GSDContext : DbContext
     public DbSet<RosterBatch>         RosterBatches        { get; set; }
     public DbSet<WicRolloutDay>       WicRolloutDays       { get; set; }
     public DbSet<WicRolloutWorker>    WicRolloutWorkers    { get; set; }
+    public DbSet<RtmReportSnapshot>   RtmReportSnapshots   { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -439,6 +440,9 @@ public class GSDContext : DbContext
         modelBuilder.Entity<WicRolloutWorker>(e => {
             e.HasIndex(x => new { x.RolloutDayId, x.EmployeeId })
              .IsUnique().HasDatabaseName("UQ_WicRolloutWorkers_DayEmp");
+        });
+        modelBuilder.Entity<RtmReportSnapshot>(e => {
+            e.HasIndex(x => x.CreatedAt).HasDatabaseName("IX_RtmReportSnapshots_CreatedAt");
         });
         base.OnModelCreating(modelBuilder);
     }

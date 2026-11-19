@@ -650,3 +650,31 @@ paths:
     post:
       tags: [Debug]
       summary: Client error log (rate-limited)
+  /api/rtm-reports/weekly:
+    get:
+      tags: [RTM Reports]
+      summary: 7-day WIC forecast (role-gated DEV/RTM)
+  /api/rtm-reports/last-week:
+    get:
+      tags: [RTM Reports]
+      summary: Last week on-site WIC attendance (role-gated DEV/RTM)
+  /api/rtm-reports/corrections:
+    get:
+      tags: [RTM Reports]
+      summary: Daily corrections since the last sent report (role-gated DEV/RTM)
+  /api/rtm-reports/mark-sent:
+    post:
+      tags: [RTM Reports]
+      summary: Mark a report as sent (snapshot; role-gated DEV/RTM)
+  /api/rtm-reports/download/weekly:
+    get:
+      tags: [RTM Reports]
+      summary: Download weekly forecast as Excel
+  /api/rtm-reports/download/last-week:
+    get:
+      tags: [RTM Reports]
+      summary: Download last week attendance as Excel
+  /api/rtm-reports/download/corrections:
+    get:
+      tags: [RTM Reports]
+      summary: Download daily corrections as Excel

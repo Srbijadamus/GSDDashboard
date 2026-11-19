@@ -31,6 +31,7 @@
     "bulkRtm": "RTM-Sammeleingabe",
     "roster": "Dienstplan-Generator",
     "export": "HR-Export",
+    "rtmReports": "RTM-Berichte",
     "myView": "Meine Ansicht",
     "collapseSidebar": "Einklappen",
     "expandSidebar": "Ausklappen",
@@ -989,9 +990,40 @@
       }
     }
   },
+  "rtmReports": {
+    "title": "RTM-Berichte",
+    "tab": {
+      "weekly": "Wochenvorschau",
+      "corrections": "Tägliche Korrekturen",
+      "lastWeek": "Anwesenheit letzte Woche"
+    },
+    "startDate": "Startdatum",
+    "week": "Woche (Montag)",
+    "location": "Standort",
+    "closed": "Geschlossen",
+    "uncovered": "Nicht besetzt",
+    "notPresent": "Nicht anwesend",
+    "planned": "Geplant: {{name}}",
+    "copyEmail": "Für E-Mail kopieren",
+    "downloadExcel": "Excel herunterladen",
+    "markSent": "Als gesendet markieren",
+    "markedSent": "Als gesendet markiert",
+    "copied": "In die Zwischenablage kopiert",
+    "copyFailed": "Kopieren fehlgeschlagen",
+    "lastSent": "Zuletzt gesendet {{when}} von {{who}}",
+    "noChanges": "Keine Änderungen seit {{when}}",
+    "sendWeeklyFirst": "Zuerst eine Wochenvorschau senden",
+    "openDays": "Offene Tage",
+    "daysWithPresence": "Tage mit Anwesenheit",
+    "date": "Datum",
+    "before": "Vorher",
+    "now": "Jetzt",
+    "loading": "Lädt…",
+    "error": "Laden fehlgeschlagen"
+  },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 19. November:\n• WIC Assignments: Main- und Backup-Agenten können jetzt direkt im WIC-Detail hinzugefügt und entfernt werden.",
+    "body": "Neu am 19. November:\n• Neuer Bereich RTM Reports: 7-Tage-WIC-Vorschau (wer an welchem WIC ist), tägliche Korrekturen mit nur den Änderungen seit dem letzten Bericht und die Anwesenheit der letzten Woche (wer tatsächlich an jedem WIC war), mit Kopieren für E-Mail und Excel-Download.\n• WIC Assignments: Main- und Backup-Agenten können jetzt direkt im WIC-Detail hinzugefügt und entfernt werden.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }

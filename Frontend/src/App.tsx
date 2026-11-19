@@ -30,6 +30,7 @@ import WicAnnualLeave from "./pages/WicAnnualLeave"
 import BulkRtm from "./pages/BulkRtm"
 import WicAssistant from "./pages/WicAssistant"
 import Export from "./pages/Export"
+import RtmReports from "./pages/RtmReports"
 
 export default function App() {
   return (
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/bo-list"         element={<BoList />} />
           <Route path="/bulk-rtm"        element={<BulkRtm />} />
           <Route path="/export"          element={<Export />} />
+          <Route path="/rtm-reports"     element={<RtmReports />} />
         </Route>
       </Routes>
       </AuthProvider>

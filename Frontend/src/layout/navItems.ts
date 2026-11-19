@@ -2,7 +2,7 @@ import {
   LayoutDashboard, ClipboardList, Building2, Headphones, Coffee,
   Calendar, MapPin, ShieldCheck, Users, Scale, Heart,
   Bot, ListChecks, FileText, CalendarOff, Download, User, CalendarPlus,
-  Radio, UserPlus,
+  Radio, UserPlus, FileBarChart,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -13,6 +13,8 @@ export type NavItem = {
   i18nKey?: string
   /** Temporary string for items not yet in locale files; removed in Step 4 */
   label?: string
+  /** Roles that may see this item; undefined = every non-AGENT session. */
+  roles?: string[]
 }
 
 export type NavGroup = {
@@ -38,6 +40,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/training',   icon: Users,         i18nKey: 'nav.training' },
       { to: '/pipeline',   icon: ClipboardList, i18nKey: 'nav.pipeline' },
       { to: '/rollout',    icon: UserPlus,      i18nKey: 'nav.rollout' },
+      { to: '/rtm-reports', icon: FileBarChart, i18nKey: 'nav.rtmReports', roles: ['DEV', 'RTM'] },
     ],
   },
   {

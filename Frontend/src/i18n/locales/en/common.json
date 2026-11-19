@@ -31,6 +31,7 @@
     "bulkRtm": "Bulk RTM Entry",
     "roster": "Roster Generator",
     "export": "HR Export",
+    "rtmReports": "RTM Reports",
     "myView": "My View",
     "collapseSidebar": "Collapse",
     "expandSidebar": "Expand",
@@ -989,9 +990,40 @@
       }
     }
   },
+  "rtmReports": {
+    "title": "RTM Reports",
+    "tab": {
+      "weekly": "Weekly forecast",
+      "corrections": "Daily corrections",
+      "lastWeek": "Last week attendance"
+    },
+    "startDate": "Start date",
+    "week": "Week (Monday)",
+    "location": "Location",
+    "closed": "Closed",
+    "uncovered": "Uncovered",
+    "notPresent": "Not present",
+    "planned": "Planned: {{name}}",
+    "copyEmail": "Copy for email",
+    "downloadExcel": "Download Excel",
+    "markSent": "Mark as sent",
+    "markedSent": "Marked as sent",
+    "copied": "Copied to clipboard",
+    "copyFailed": "Copy failed",
+    "lastSent": "Last sent {{when}} by {{who}}",
+    "noChanges": "No changes since {{when}}",
+    "sendWeeklyFirst": "Send a weekly forecast first",
+    "openDays": "Open days",
+    "daysWithPresence": "Days with presence",
+    "date": "Date",
+    "before": "Before",
+    "now": "Now",
+    "loading": "Loading…",
+    "error": "Failed to load"
+  },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 19 November:\n• WIC Assignments: Main and Backup agents can now be added and removed directly in the WIC detail panel.",
+    "body": "What's new for 19 November:\n• New section RTM Reports: 7-day WIC forecast (who is at which WIC), daily corrections with only the changes since the last report, and last week's attendance (who was actually at each WIC), with Copy for email and Excel download.\n• WIC Assignments: Main and Backup agents can now be added and removed directly in the WIC detail panel.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

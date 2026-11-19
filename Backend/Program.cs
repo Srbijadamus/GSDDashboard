@@ -88,6 +88,7 @@ builder.Services.AddSingleton<ReachabilityService>();
 builder.Services.AddScoped<CoverageEvaluator>();
 builder.Services.AddScoped<SubstitutionService>();
 builder.Services.AddScoped<ForecastService>();
+builder.Services.AddScoped<RtmReportService>();
 builder.Services.AddScoped<WhatIfService>();
 builder.Services.AddScoped<BriefingService>();
 builder.Services.AddScoped<ALPlanningService>();
@@ -617,6 +618,24 @@ app.UseDefaultFiles();
             ALTER TABLE WicPipeline ADD HandlingType NVARCHAR(20) NULL
     """);
 
+    // RTM REPORTS (added 2026-11-19): "Mark as sent" snapshot store. One NEW table only --
+    // additive and idempotent, no existing table or column is altered and no existing row
+    // is written. PayloadJson holds the displayed report plan (RtmPlanResponse JSON) so
+    // "daily corrections" can diff the current plan against the last sent one.
+    db.Database.ExecuteSqlRaw("""
+        IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'RtmReportSnapshots')
+        CREATE TABLE RtmReportSnapshots (
+            Id          INT            IDENTITY(1,1) PRIMARY KEY,
+            ReportType  NVARCHAR(20)   NOT NULL,
+            PeriodFrom  DATE           NOT NULL,
+            PeriodTo    DATE           NOT NULL,
+            CreatedAt   DATETIME2      NOT NULL,
+            CreatedBy   NVARCHAR(100)  NULL,
+            PayloadJson NVARCHAR(MAX)  NULL
+        )
+    """);
+    db.Database.ExecuteSqlRaw("IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_RtmReportSnapshots_CreatedAt') CREATE INDEX IX_RtmReportSnapshots_CreatedAt ON RtmReportSnapshots (CreatedAt)");
+
     // ROLLOUT (added 2026-10-08): the manual "Rollout" page. Two NEW tables only --
     // additive and idempotent, no existing table or column is altered and no existing row
     // is written by this migration. WicRolloutDays is the authority for one WIC centre
@@ -773,6 +792,7 @@ app.MapReachabilityEndpoints();
 app.MapSubstitutionEndpoints();
 app.MapSubstituteAcceptEndpoints();
 app.MapForecastEndpoints();
+app.MapRtmReportEndpoints();
 app.MapWhatIfEndpoints();
 app.MapBriefingEndpoints();
 app.MapALPlanningEndpoints();
