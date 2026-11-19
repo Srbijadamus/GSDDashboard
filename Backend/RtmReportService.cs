@@ -168,9 +168,69 @@ public class RtmReportService
         var friday = monday.AddDays(4);
         var plan = await LoadPlanAsync(monday, friday);
 
+        // Active WicLocations, keyed by postal code, for the wic_centers -> WicLocations
+        // mapping (the kiosk's wic_centers.location is "DE~<PLZ>~<City>~<Street>").
+        var locations = await _db.WicLocations.Where(l => l.IsActive).ToListAsync();
+        var byPostal = locations
+            .Where(l => !string.IsNullOrWhiteSpace(l.PostalCode))
+            .GroupBy(l => l.PostalCode!.Trim())
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var kioskByDate = new Dictionary<DateOnly, Dictionary<string, KioskAgentRecord>>();
         for (var d = monday; d <= friday; d = d.AddDays(1))
             kioskByDate[d] = await GetKioskForDateAsync(d);
+
+        // Planned agents per (location, date), plus a reverse lookup so an agent with no
+        // day_wic_center_id falls back to the location(s) they were planned at.
+        var plannedIds = new Dictionary<(string Loc, string Date), HashSet<string>>();
+        var plannedNames = new Dictionary<(string Loc, string Date), Dictionary<string, string>>();
+        var plannedLocsByAgent = new Dictionary<(string Date, string Emp), List<string>>();
+        foreach (var loc in plan.Locations)
+            foreach (var day in loc.Days)
+            {
+                if (day.Status == "CLOSED") continue;
+                var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var a in day.Agents)
+                {
+                    ids.Add(a.EmployeeId);
+                    names[a.EmployeeId] = a.Name;
+                    var key = (day.Date, a.EmployeeId);
+                    if (!plannedLocsByAgent.TryGetValue(key, out var list))
+                        plannedLocsByAgent[key] = list = new List<string>();
+                    list.Add(loc.LocationCode);
+                }
+                plannedIds[(loc.LocationCode, day.Date)] = ids;
+                plannedNames[(loc.LocationCode, day.Date)] = names;
+            }
+
+        // Actual presence per (date, location). A HOME_OFFICE check-in is never presence;
+        // otherwise the day is attributed to the centre the agent checked in at
+        // (day_wic_center_id -> WicLocations) or, without a centre, to their planned centre.
+        var present = new Dictionary<(string Date, string Loc), List<(string Emp, string Name, string? In, string? Out)>>();
+        foreach (var (date, kiosk) in kioskByDate)
+        {
+            var dateStr = date.ToString("yyyy-MM-dd");
+            foreach (var r in kiosk.Values)
+            {
+                if (!PresentStatuses.Contains(r.AttendanceStatus ?? "")) continue;
+                if (string.Equals(r.DayWorkLocation?.Trim(), "HOME_OFFICE", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                List<string> targets;
+                var mapped = MapKioskCenterToLocation(r.DayWicCenterLocation, byPostal);
+                if (mapped != null) targets = new List<string> { mapped };
+                else if (plannedLocsByAgent.TryGetValue((dateStr, r.EmployeeId), out var list)) targets = list;
+                else targets = new List<string>();
+
+                foreach (var loc in targets)
+                {
+                    var key = (dateStr, loc);
+                    if (!present.TryGetValue(key, out var list2))
+                        present[key] = list2 = new List<(string, string, string?, string?)>();
+                    list2.Add((r.EmployeeId, r.Name, ToHhMm(r.CheckInTime), ToHhMm(r.CheckOutTime)));
+                }
+            }
+        }
 
         var locList = new List<RtmLocationAttendance>();
         foreach (var loc in plan.Locations)
@@ -181,7 +241,6 @@ public class RtmReportService
 
             foreach (var day in loc.Days)
             {
-                var date = DateOnly.ParseExact(day.Date, "yyyy-MM-dd", CultureInfo.InvariantCulture);
                 if (day.Status == "CLOSED")
                 {
                     days.Add(new RtmAttendanceDay(day.Date, "CLOSED",
@@ -190,29 +249,25 @@ public class RtmReportService
                 }
 
                 openDays++;
-                var kiosk = kioskByDate.TryGetValue(date, out var map) ? map : new Dictionary<string, KioskAgentRecord>();
-                var present = new List<RtmPresentAgent>();
-                var absent = new List<string>();
+                var key = (day.Date, loc.LocationCode);
+                present.TryGetValue(key, out var presList);
+                var presList2 = presList ?? new List<(string, string, string?, string?)>();
+                var presentDtos = presList2
+                    .Select(p => new RtmPresentAgent(p.Emp, p.Name, p.In, p.Out))
+                    .OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var presentIds = presList2.Select(p => p.Emp).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-                foreach (var agent in day.Agents)
-                {
-                    if (kiosk.TryGetValue(agent.EmployeeId, out var rec) &&
-                        PresentStatuses.Contains(rec.AttendanceStatus ?? "") &&
-                        !string.Equals(rec.WorkLocation?.Trim(), "HOME_OFFICE", StringComparison.OrdinalIgnoreCase))
-                    {
-                        present.Add(new RtmPresentAgent(
-                            agent.EmployeeId, agent.Name,
-                            ToHhMm(rec.CheckInTime), ToHhMm(rec.CheckOutTime)));
-                    }
-                    else
-                    {
-                        absent.Add(agent.Name);
-                    }
-                }
+                var plannedAbsent = new List<string>();
+                if (plannedNames.TryGetValue(key, out var names))
+                    foreach (var (emp, name) in names)
+                        if (!presentIds.Contains(emp))
+                            plannedAbsent.Add(name);
+                plannedAbsent.Sort(StringComparer.OrdinalIgnoreCase);
 
-                var status = present.Count == 0 ? "NOT_PRESENT" : "PRESENT";
-                if (present.Count > 0) presenceDays++;
-                days.Add(new RtmAttendanceDay(day.Date, status, present, absent));
+                var status = presentDtos.Count == 0 ? "NOT_PRESENT" : "PRESENT";
+                if (presentDtos.Count > 0) presenceDays++;
+                days.Add(new RtmAttendanceDay(day.Date, status, presentDtos, plannedAbsent));
             }
 
             locList.Add(new RtmLocationAttendance(
@@ -221,6 +276,34 @@ public class RtmReportService
         }
 
         return new RtmAttendanceResponse(monday.ToString("yyyy-MM-dd"), friday.ToString("yyyy-MM-dd"), locList);
+    }
+
+    /// <summary>
+    /// Maps the kiosk's <c>wic_centers.location</c> string ("DE~&lt;PLZ&gt;~&lt;City&gt;~&lt;Street&gt;")
+    /// to a <see cref="WicLocation.LocationCode"/> by postal code. Where two centres share a
+    /// postal code (Demmin), the street disambiguates. Returns null when the centre cannot be
+    /// resolved — the caller then falls back to the planned location.
+    /// </summary>
+    private static string? MapKioskCenterToLocation(string? kioskLocation,
+        Dictionary<string, List<WicLocation>> byPostal)
+    {
+        if (string.IsNullOrWhiteSpace(kioskLocation)) return null;
+        var parts = kioskLocation.Split('~');
+        if (parts.Length < 4) return null;
+        var plz = parts[1].Trim();
+        var street = parts[3].Trim();
+        if (plz.Length == 0 || !byPostal.TryGetValue(plz, out var candidates) || candidates.Count == 0)
+            return null;
+        if (candidates.Count == 1) return candidates[0].LocationCode;
+        foreach (var c in candidates)
+        {
+            var addr = (c.FullAddress ?? "").Trim();
+            if (addr.Length > 0 &&
+                (addr.Contains(street, StringComparison.OrdinalIgnoreCase) ||
+                 street.Contains(addr, StringComparison.OrdinalIgnoreCase)))
+                return c.LocationCode;
+        }
+        return null; // ambiguous → fall back to planned
     }
 
     // ── Daily corrections ──────────────────────────────────────────────────────
@@ -471,7 +554,9 @@ public class RtmReportService
                     GetStr(el, "attendance_status"),
                     GetStr(el, "checkin_time"),
                     GetStr(el, "checkout_time"),
-                    GetStr(el, "work_location"));
+                    GetStr(el, "work_location"),
+                    GetStr(el, "day_work_location"),
+                    GetStr(el, "day_wic_center_location"));
                 result[empId] = rec;
             }
         }
@@ -488,7 +573,8 @@ public class RtmReportService
 
     private sealed record KioskAgentRecord(
         string EmployeeId, string Name, string? AttendanceStatus,
-        string? CheckInTime, string? CheckOutTime, string? WorkLocation);
+        string? CheckInTime, string? CheckOutTime, string? WorkLocation,
+        string? DayWorkLocation, string? DayWicCenterLocation);
 }
 
 // ── Endpoints (DEV and RTM only; 401 without a session, 403 otherwise) ────────
