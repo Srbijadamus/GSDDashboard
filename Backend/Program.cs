@@ -863,6 +863,8 @@ using (var vacScope = app.Services.CreateScope())
         var vacSync = vacScope.ServiceProvider.GetRequiredService<GSDDashboard.API.Services.ShiftSyncService>();
         var vacFixed = await vacSync.ReconcileFutureVacationsAsync();
         Console.WriteLine("Vacation reconcile: " + vacFixed + " future leave day(s) corrected");
+        var vacOrphaned = await vacSync.ReconcileOrphanedVacationDaysAsync();
+        Console.WriteLine("Orphaned vacation reconcile: " + vacOrphaned + " orphaned AL day(s) reverted");
     }
     catch (Exception ex)
     {

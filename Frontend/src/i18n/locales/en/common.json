@@ -1023,7 +1023,7 @@
   },
   "whatsNew": {
     "title": "What's new",
-    "body": "What's new for 19 November:\n• New section RTM Reports: 7-day WIC forecast (who is at which WIC), daily corrections with only the changes since the last report, and last week's attendance (who was actually at each WIC), with Copy for email and Excel download.\n• WIC Assignments: Main and Backup agents can now be added and removed directly in the WIC detail panel.",
+    "body": "What's new for 19 November:\n• New section RTM Reports: 7-day WIC forecast (who is at which WIC), daily corrections with only the changes since the last report, and last week's attendance (who was actually at each WIC), with Copy for email and Excel download.\n• WIC Assignments: Main and Backup agents can now be added and removed directly in the WIC detail panel.\n• Cancelling or deleting annual leave now always frees the days in the Shift Plan.",
     "menu": "What's new",
     "dismiss": "Got it"
   }

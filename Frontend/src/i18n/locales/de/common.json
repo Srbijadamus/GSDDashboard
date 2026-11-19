@@ -1023,7 +1023,7 @@
   },
   "whatsNew": {
     "title": "Was ist neu",
-    "body": "Neu am 19. November:\n• Neuer Bereich RTM Reports: 7-Tage-WIC-Vorschau (wer an welchem WIC ist), tägliche Korrekturen mit nur den Änderungen seit dem letzten Bericht und die Anwesenheit der letzten Woche (wer tatsächlich an jedem WIC war), mit Kopieren für E-Mail und Excel-Download.\n• WIC Assignments: Main- und Backup-Agenten können jetzt direkt im WIC-Detail hinzugefügt und entfernt werden.",
+    "body": "Neu am 19. November:\n• Neuer Bereich RTM Reports: 7-Tage-WIC-Vorschau (wer an welchem WIC ist), tägliche Korrekturen mit nur den Änderungen seit dem letzten Bericht und die Anwesenheit der letzten Woche (wer tatsächlich an jedem WIC war), mit Kopieren für E-Mail und Excel-Download.\n• WIC Assignments: Main- und Backup-Agenten können jetzt direkt im WIC-Detail hinzugefügt und entfernt werden.\n• Das Stornieren oder Löschen von Urlaub gibt die Tage im Schichtplan jetzt immer frei.",
     "menu": "Was ist neu",
     "dismiss": "Verstanden"
   }
