@@ -55,3 +55,6 @@ Tools/**/*.pid
 Tools/**/Deploy/*.json
 Tools/**/Analysis/*.sql
 Tools/**/Analysis/*.json
+
+# Graphify knowledge graph output (not committed yet)
+graphify-out/
