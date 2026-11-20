@@ -51,12 +51,66 @@ function lastMonday(): string {
   d.setDate(t.getDate() - dow - 7)
   return localDate(d)
 }
+function nextMonday(): string {
+  const t = new Date()
+  const dow = (t.getDay() + 6) % 7 // Mon=0 … Sun=6
+  const days = dow === 0 ? 7 : 7 - dow
+  const d = new Date(t)
+  d.setDate(t.getDate() + days)
+  return localDate(d)
+}
 function todayStr(): string {
   return localDate(new Date())
 }
-function dayHeader(dateStr: string): string {
+
+const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+const WEEKDAYS_DE = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"]
+// "Mon 23.11." (EN) / "Mo 23.11." (DE)
+function dayHeader(dateStr: string, de = false): string {
   const d = new Date(dateStr + "T00:00:00")
-  return d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "2-digit" })
+  const wd = (de ? WEEKDAYS_DE : WEEKDAYS_EN)[d.getDay()]
+  const dd = String(d.getDate()).padStart(2, "0")
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  return `${wd} ${dd}.${mm}.`
+}
+
+// Workdays (Mon–Fri) are always shown; a weekend day is shown only if at least one
+// location is open that day. Returns the visible dates in order.
+function visibleDays(locations: { days: RtmPlanDay[] }[]): string[] {
+  const first = locations[0]
+  if (!first || first.days.length === 0) return []
+  return first.days
+    .filter(d => {
+      const dow = new Date(d.date + "T00:00:00").getDay()
+      if (dow >= 1 && dow <= 5) return true
+      return locations.some(loc => loc.days.some(x => x.date === d.date && x.status !== "CLOSED"))
+    })
+    .map(d => d.date)
+}
+
+// Column descriptors for the weekly forecast: null = the week-1/week-2 separator.
+function dayColumns(locations: { days: RtmPlanDay[] }[]): (string | null)[] {
+  const dates = visibleDays(locations)
+  const start = dates[0]
+  const week2 = start ? addDays(start, 7) : null
+  const cols: (string | null)[] = []
+  let inserted = false
+  for (const d of dates) {
+    if (!inserted && week2 && d >= week2) { cols.push(null); inserted = true }
+    cols.push(d)
+  }
+  return cols
+}
+
+// "City – Street" (no raw LocationCode), mirroring the backend Excel export.
+function streetOf(locationCode: string): string | null {
+  const parts = locationCode.split("~")
+  return parts.length >= 4 && parts[3].trim() ? parts[3].trim() : null
+}
+function locationLabel(loc: { locationCode: string; city: string; displayName: string }): string {
+  const street = streetOf(loc.locationCode)
+  const city = loc.city?.trim() ? loc.city : loc.displayName
+  return street ? `${city} – ${street}` : city
 }
 
 // ── Canonical cell text (mirrors the backend so the email/Excel text matches) ─
@@ -108,18 +162,38 @@ async function copyForEmail(html: string, plain: string): Promise<boolean> {
   return ok
 }
 
-const cellStyle = "border:1px solid #cbd5e1;padding:4px 8px;vertical-align:top;font-family:Arial,sans-serif;font-size:12px;"
-const headStyle = cellStyle + "background:#f1f5f9;font-weight:bold;"
+// Same palette as the Excel export so the pasted table matches the download.
+const EMAIL_HEADER_BG = "#1F4E79"
+const EMAIL_CLOSED_BG = "#E7E6E6"
+const EMAIL_CLOSED_FG = "#595959"
+const EMAIL_UNCOVERED_BG = "#F8CBAD"
+const EMAIL_UNCOVERED_FG = "#C00000"
+const EMAIL_ALT_BG = "#DDEBF7"
+const EMAIL_NOW_BG = "#FFF2CC"
 
-function buildTable(headers: string[], rows: string[][]): { html: string; plain: string } {
+const cellStyle = "border:1px solid #BFBFBF;padding:4px 8px;vertical-align:top;font-family:Arial,sans-serif;font-size:12px;"
+const headStyle = cellStyle + `background:${EMAIL_HEADER_BG};color:#ffffff;font-weight:bold;text-align:center;`
+
+interface EmailCell { text: string; bg?: string; fg?: string; bold?: boolean; italic?: boolean }
+
+function cellHtml(c: EmailCell): string {
+  let s = cellStyle
+  if (c.bg) s += `background:${c.bg};`
+  if (c.fg) s += `color:${c.fg};`
+  if (c.bold) s += "font-weight:bold;"
+  if (c.italic) s += "font-style:italic;"
+  return `<td style="${s}">${escapeHtml(c.text)}</td>`
+}
+
+function buildReportTable(headers: string[], rows: EmailCell[][]): { html: string; plain: string } {
   const html = [
     '<table style="border-collapse:collapse;width:100%;">',
     "<thead><tr>" + headers.map(h => `<th style="${headStyle}">${escapeHtml(h)}</th>`).join("") + "</tr></thead>",
     "<tbody>",
-    ...rows.map(r => "<tr>" + r.map(c => `<td style="${cellStyle}">${escapeHtml(c)}</td>`).join("") + "</tr>"),
+    ...rows.map(r => "<tr>" + r.map(cellHtml).join("") + "</tr>"),
     "</tbody></table>",
   ].join("")
-  const plain = [headers.join("\t"), ...rows.map(r => r.join("\t"))].join("\n")
+  const plain = [headers.join("\t"), ...rows.map(r => r.map(c => c.text).join("\t"))].join("\n")
   return { html, plain }
 }
 
@@ -127,14 +201,29 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>")
 }
 
+function planEmailCell(day: RtmPlanDay | undefined, parity: number): EmailCell {
+  if (!day || day.status === "CLOSED") return { text: "Closed", bg: EMAIL_CLOSED_BG, fg: EMAIL_CLOSED_FG }
+  if (day.status === "UNCOVERED") return { text: "Uncovered", bg: EMAIL_UNCOVERED_BG, fg: EMAIL_UNCOVERED_FG, bold: true }
+  const text = planCellText(day)
+  return parity % 2 === 0 ? { text } : { text, bg: EMAIL_ALT_BG }
+}
+
+function attendanceEmailCell(day: RtmAttendanceDay | undefined, parity: number): EmailCell {
+  if (!day || day.status === "CLOSED") return { text: "Closed", bg: EMAIL_CLOSED_BG, fg: EMAIL_CLOSED_FG }
+  if (day.status === "NOT_PRESENT") return { text: "Not present", bg: EMAIL_UNCOVERED_BG, fg: EMAIL_UNCOVERED_FG, bold: true }
+  const text = attendanceCellText(day)
+  return parity % 2 === 0 ? { text } : { text, bg: EMAIL_ALT_BG }
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function RtmReports() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const qc = useQueryClient()
+  const isDe = (i18n.resolvedLanguage ?? i18n.language ?? "en").toLowerCase().startsWith("de")
 
   const [tab, setTab] = useState<Tab>("weekly")
-  const [startDate, setStartDate] = useState(() => addDays(todayStr(), 1))
+  const [startDate, setStartDate] = useState(() => nextMonday())
   const [monday, setMonday] = useState(() => lastMonday())
   const [copyState, setCopyState] = useState<string | null>(null)
   const [marking, setMarking] = useState(false)
@@ -187,37 +276,48 @@ export default function RtmReports() {
     }
   }
 
-  // ── Weekly forecast ─────────────────────────────────────────────────────────
+  // ── Weekly forecast (two weeks) ─────────────────────────────────────────────
   const weeklyPlan = weekly.data?.plan
+  const weeklyCols = useMemo(() => (weeklyPlan ? dayColumns(weeklyPlan.locations) : []), [weeklyPlan])
   const weeklyTable = useMemo(() => {
     if (!weeklyPlan) return null
-    const headers = ["Location", ...(weeklyPlan.locations[0]?.days.map(d => dayHeader(d.date)) ?? [])]
-    const rows = weeklyPlan.locations.map(loc => [
-      `${loc.city} (${loc.locationCode})`,
-      ...loc.days.map(d => planCellText(d)),
-    ])
-    return buildTable(headers, rows)
-  }, [weeklyPlan])
+    const headers = ["Location"]
+    for (const c of weeklyCols) headers.push(c === null ? "" : dayHeader(c, isDe))
+    const rows: EmailCell[][] = weeklyPlan.locations.map((loc, ri) => {
+      const row: EmailCell[] = [{ text: locationLabel(loc), bold: true }]
+      for (const c of weeklyCols) {
+        if (c === null) { row.push({ text: "" }); continue }
+        row.push(planEmailCell(loc.days.find(x => x.date === c), ri))
+      }
+      return row
+    })
+    return buildReportTable(headers, rows)
+  }, [weeklyPlan, weeklyCols, isDe])
 
   // ── Last week attendance ────────────────────────────────────────────────────
   const lastWeekTable = useMemo(() => {
     if (!lastWeek.data) return null
-    const headers = ["Location", ...(lastWeek.data.locations[0]?.days.map(d => dayHeader(d.date)) ?? []), "Open days", "Days with presence"]
-    const rows = lastWeek.data.locations.map(loc => [
-      `${loc.city} (${loc.locationCode})`,
-      ...loc.days.map(d => attendanceCellText(d)),
-      String(loc.openDays),
-      String(loc.daysWithPresence),
+    const headers = ["Location", ...(lastWeek.data.locations[0]?.days.map(d => dayHeader(d.date, isDe)) ?? []), "Open days", "Days with presence"]
+    const rows: EmailCell[][] = lastWeek.data.locations.map((loc, ri) => [
+      { text: locationLabel(loc), bold: true },
+      ...loc.days.map(d => attendanceEmailCell(d, ri)),
+      { text: String(loc.openDays) },
+      { text: String(loc.daysWithPresence) },
     ])
-    return buildTable(headers, rows)
-  }, [lastWeek.data])
+    return buildReportTable(headers, rows)
+  }, [lastWeek.data, isDe])
 
   // ── Daily corrections ───────────────────────────────────────────────────────
   const correctionsTable = useMemo(() => {
     if (!corrections.data) return null
     const headers = ["Date", "Location", "Before", "Now"]
-    const rows = corrections.data.changes.map(c => [c.date, `${c.location} (${c.locationCode})`, c.before, c.now])
-    return buildTable(headers, rows)
+    const rows: EmailCell[][] = corrections.data.changes.map(c => [
+      { text: c.date },
+      { text: c.location, bold: true },
+      { text: c.before },
+      { text: c.now, bg: EMAIL_NOW_BG },
+    ])
+    return buildReportTable(headers, rows)
   }, [corrections.data])
 
   const inputCls = "bg-sunken border border-line-subtle text-ink py-[6px] px-[10px] rounded-[6px] text-[13px] outline-none focus:border-accent"
@@ -238,6 +338,14 @@ export default function RtmReports() {
       {icon}
       {label}
     </button>
+  )
+
+  // Separator cell between week 1 and week 2 in the on-screen table.
+  const sepTh = (key: string) => (
+    <th key={key} className="border-b border-line-subtle" style={{ width: 12, minWidth: 12, background: "rgb(var(--border-subtle))" }} />
+  )
+  const sepTd = (key: string) => (
+    <td key={key} className="border-b border-line-subtle" style={{ width: 12, minWidth: 12, background: "rgb(var(--border-subtle))" }} />
   )
 
   return (
@@ -271,13 +379,13 @@ export default function RtmReports() {
               <button className={btnCls} onClick={() => weeklyTable && doCopy(weeklyTable.html, weeklyTable.plain)}>
                 <Copy size={14} /> {t("rtmReports.copyEmail")}
               </button>
-              <button className={btnCls} onClick={() => downloadExcel(`/api/rtm-reports/download/weekly?start=${startDate}`, `RTM_Weekly_${startDate}.xlsx`)}>
+              <button className={btnCls} onClick={() => downloadExcel(`/api/rtm-reports/download/weekly?start=${startDate}`, `WIC_Forecast_${startDate}_to_${addDays(startDate, 13)}.xlsx`)}>
                 <Download size={14} /> {t("rtmReports.downloadExcel")}
               </button>
               <button
                 className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-colors duration-fast bg-accent text-white disabled:opacity-50"
                 disabled={marking}
-                onClick={() => doMarkSent("WEEKLY", startDate, addDays(startDate, 6))}
+                onClick={() => doMarkSent("WEEKLY", startDate, addDays(startDate, 13))}
               >
                 <CheckCheck size={14} /> {t("rtmReports.markSent")}
               </button>
@@ -302,9 +410,11 @@ export default function RtmReports() {
                 <thead>
                   <tr className="bg-sunken">
                     <th className="text-left px-3 py-2 text-xs uppercase tracking-wide text-ink-soft border-b border-line-subtle sticky left-0 bg-sunken">Location</th>
-                    {weeklyPlan.locations[0]?.days.map(d => (
-                      <th key={d.date} className="px-2 py-2 text-xs font-medium text-ink-soft border-b border-line-subtle whitespace-nowrap">{dayHeader(d.date)}</th>
-                    ))}
+                    {weeklyCols.map((c, i) =>
+                      c === null ? sepTh(`sep-${i}`) : (
+                        <th key={c} className="px-2 py-2 text-xs font-medium text-ink-soft border-b border-line-subtle whitespace-nowrap">{dayHeader(c, isDe)}</th>
+                      )
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -313,24 +423,29 @@ export default function RtmReports() {
                       <td className="px-3 py-2 text-ink font-medium whitespace-nowrap sticky left-0 bg-raised">
                         {loc.city} <span className="text-ink-muted font-mono text-xs">({loc.locationCode})</span>
                       </td>
-                      {loc.days.map(d => (
-                        <td key={d.date} className="px-2 py-2 align-top">
-                          {d.status === "CLOSED" ? (
-                            <span className="text-ink-muted">{t("rtmReports.closed")}</span>
-                          ) : d.status === "UNCOVERED" ? (
-                            <span className="text-crit-fg font-semibold">{t("rtmReports.uncovered")}</span>
-                          ) : (
-                            <div className="space-y-0.5">
-                              {d.agents.map(a => (
-                                <div key={a.employeeId} className="whitespace-nowrap">
-                                  <span className="text-ink">{a.name}</span>{" "}
-                                  {a.start && a.end && <span className="text-ink-soft font-mono text-xs">{a.start}–{a.end}</span>}
+                      {weeklyCols.map((c, i) =>
+                        c === null ? sepTd(`sep-${i}`) : (() => {
+                          const d = loc.days.find(x => x.date === c)
+                          return (
+                            <td key={c} className="px-2 py-2 align-top">
+                              {d?.status === "CLOSED" ? (
+                                <span className="text-ink-muted">{t("rtmReports.closed")}</span>
+                              ) : d?.status === "UNCOVERED" ? (
+                                <span className="text-crit-fg font-semibold">{t("rtmReports.uncovered")}</span>
+                              ) : (
+                                <div className="space-y-0.5">
+                                  {d?.agents.map(a => (
+                                    <div key={a.employeeId} className="whitespace-nowrap">
+                                      <span className="text-ink">{a.name}</span>{" "}
+                                      {a.start && a.end && <span className="text-ink-soft font-mono text-xs">{a.start}–{a.end}</span>}
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-                      ))}
+                              )}
+                            </td>
+                          )
+                        })()
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -347,7 +462,7 @@ export default function RtmReports() {
             <button className={btnCls} onClick={() => correctionsTable && doCopy(correctionsTable.html, correctionsTable.plain)} disabled={!correctionsTable}>
               <Copy size={14} /> {t("rtmReports.copyEmail")}
             </button>
-            <button className={btnCls} onClick={() => downloadExcel("/api/rtm-reports/download/corrections", `RTM_Corrections_${todayStr()}.xlsx`)}>
+            <button className={btnCls} onClick={() => downloadExcel("/api/rtm-reports/download/corrections", `WIC_Corrections_${todayStr()}.xlsx`)}>
               <Download size={14} /> {t("rtmReports.downloadExcel")}
             </button>
             {corrections.data && !corrections.data.noWeeklySent && corrections.data.lastSent && (
@@ -396,7 +511,7 @@ export default function RtmReports() {
                       <td className="px-3 py-2 font-mono whitespace-nowrap">{c.date}</td>
                       <td className="px-3 py-2">{c.location} <span className="text-ink-muted font-mono text-xs">({c.locationCode})</span></td>
                       <td className="px-3 py-2 text-ink-muted whitespace-pre-line">{c.before}</td>
-                      <td className="px-3 py-2 text-ink font-medium whitespace-pre-line">{c.now}</td>
+                      <td className="px-3 py-2 text-ink font-medium whitespace-pre-line" style={{ background: EMAIL_NOW_BG }}>{c.now}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -418,7 +533,7 @@ export default function RtmReports() {
               <button className={btnCls} onClick={() => lastWeekTable && doCopy(lastWeekTable.html, lastWeekTable.plain)}>
                 <Copy size={14} /> {t("rtmReports.copyEmail")}
               </button>
-              <button className={btnCls} onClick={() => downloadExcel(`/api/rtm-reports/download/last-week?monday=${monday}`, `RTM_LastWeek_${monday}.xlsx`)}>
+              <button className={btnCls} onClick={() => downloadExcel(`/api/rtm-reports/download/last-week?monday=${monday}`, `WIC_Attendance_${monday}_to_${addDays(monday, 4)}.xlsx`)}>
                 <Download size={14} /> {t("rtmReports.downloadExcel")}
               </button>
             </div>
@@ -435,7 +550,7 @@ export default function RtmReports() {
                   <tr className="bg-sunken">
                     <th className="text-left px-3 py-2 text-xs uppercase tracking-wide text-ink-soft border-b border-line-subtle sticky left-0 bg-sunken">Location</th>
                     {lastWeek.data.locations[0]?.days.map(d => (
-                      <th key={d.date} className="px-2 py-2 text-xs font-medium text-ink-soft border-b border-line-subtle whitespace-nowrap">{dayHeader(d.date)}</th>
+                      <th key={d.date} className="px-2 py-2 text-xs font-medium text-ink-soft border-b border-line-subtle whitespace-nowrap">{dayHeader(d.date, isDe)}</th>
                     ))}
                     <th className="px-2 py-2 text-xs font-medium text-ink-soft border-b border-line-subtle">{t("rtmReports.openDays")}</th>
                     <th className="px-2 py-2 text-xs font-medium text-ink-soft border-b border-line-subtle">{t("rtmReports.daysWithPresence")}</th>
@@ -464,7 +579,7 @@ export default function RtmReports() {
                                 </div>
                               ))}
                               {d.plannedAbsent.map(n => (
-                                <div key={n} className="text-ink-muted text-xs whitespace-nowrap">{t("rtmReports.planned", { name: n })}</div>
+                                <div key={n} className="text-ink-muted text-xs whitespace-nowrap italic">{t("rtmReports.planned", { name: n })}</div>
                               ))}
                             </div>
                           )}

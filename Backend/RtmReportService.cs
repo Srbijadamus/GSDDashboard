@@ -349,7 +349,8 @@ public class RtmReportService
                     .SelectMany(l => l.Days.Select(d => (l.LocationCode, l.City, d)))
                     .ToDictionary(x => (x.LocationCode, x.d.Date), x => (x.City, Text: PlanCellText(x.d)));
 
-                var nowPlan = await LoadPlanAsync(today, last.PeriodTo);
+                var from = last.PeriodFrom != default ? last.PeriodFrom : today;
+                var nowPlan = await LoadPlanAsync(from, last.PeriodTo);
                 foreach (var loc in nowPlan.Locations)
                 {
                     foreach (var day in loc.Days)
@@ -433,79 +434,180 @@ public class RtmReportService
 
     // ── Excel exports ──────────────────────────────────────────────────────────
 
-    public async Task<byte[]> ExportWeeklyToExcelAsync(DateOnly start)
+    public const int WeeklyDays = 14;
+
+    private static readonly XLColor HeaderBlue     = XLColor.FromHtml("#1F4E79");
+    private static readonly XLColor ClosedBg       = XLColor.FromHtml("#E7E6E6");
+    private static readonly XLColor UncoveredBg    = XLColor.FromHtml("#F8CBAD");
+    private static readonly XLColor AltRowBg       = XLColor.FromHtml("#DDEBF7");
+    private static readonly XLColor CorrectionBg   = XLColor.FromHtml("#FFF2CC");
+    private static readonly XLColor BorderGray     = XLColor.FromHtml("#BFBFBF");
+    private static readonly XLColor ClosedFont     = XLColor.FromHtml("#595959");
+    private static readonly XLColor UncoveredFont  = XLColor.FromHtml("#C00000");
+
+    public async Task<byte[]> ExportWeeklyToExcelAsync(DateOnly start, string? actor)
     {
-        var plan = await LoadPlanAsync(start, start.AddDays(6));
+        var to = start.AddDays(WeeklyDays - 1);
+        var plan = await LoadPlanAsync(start, to);
+        var colDefs = DayColumns(start, VisibleDates(plan.Locations, start, to));
+
         using var wb = new XLWorkbook();
-        var ws = wb.Worksheets.Add("Weekly forecast");
-        ws.Cell(1, 1).Value = "Location";
-        for (var i = 0; i < 7; i++)
-            ws.Cell(1, i + 2).Value = DayHeader(start.AddDays(i));
-        StyleHeader(ws, 1, 8);
-        var r = 2;
+        var ws = wb.Worksheets.Add("WIC Weekly Forecast");
+        int lastCol = 1 + colDefs.Count;
+        ApplyTitle(ws, "WIC Weekly Forecast", start, to, actor, lastCol);
+
+        const int headerRow = 3;
+        ws.Cell(headerRow, 1).Value = "Location";
+        for (var i = 0; i < colDefs.Count; i++)
+            if (colDefs[i] is DateOnly d) ws.Cell(headerRow, i + 2).Value = DayHeader(d);
+        StyleHeaderRow(ws, headerRow, lastCol);
+
+        var r = headerRow + 1;
+        var parity = 0;
         foreach (var loc in plan.Locations)
         {
-            ws.Cell(r, 1).Value = $"{loc.City} ({loc.LocationCode})";
-            for (var i = 0; i < loc.Days.Count && i < 7; i++)
-                ws.Cell(r, i + 2).Value = PlanCellText(loc.Days[i]);
+            var locCell = ws.Cell(r, 1);
+            locCell.Value = LocationLabel(loc.LocationCode, loc.City, loc.DisplayName);
+            locCell.Style.Font.Bold = true;
+            locCell.Style.Alignment.WrapText = true;
+            locCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+
+            var maxLines = VisualLines(LocationLabel(loc.LocationCode, loc.City, loc.DisplayName), 32);
+            for (var i = 0; i < colDefs.Count; i++)
+            {
+                var cell = ws.Cell(r, i + 2);
+                if (colDefs[i] is not DateOnly d)
+                {
+                    cell.Style.Fill.BackgroundColor = BorderGray;
+                    continue;
+                }
+                var day = loc.Days.FirstOrDefault(x => x.Date == d.ToString("yyyy-MM-dd"))
+                          ?? new RtmPlanDay(d.ToString("yyyy-MM-dd"), "CLOSED", new List<RtmPlanAgent>());
+                SetPlanCell(cell, day, parity);
+                maxLines = Math.Max(maxLines, VisualLines(PlanCellText(day), 22));
+            }
+            ws.Row(r).Height = Math.Max(22, maxLines * 14 + 4);
             r++;
+            parity++;
         }
-        ws.Columns().AdjustToContents();
+
+        ws.Column(1).Width = 34;
+        for (var i = 0; i < colDefs.Count; i++)
+            ws.Column(i + 2).Width = colDefs[i] is DateOnly ? 24 : 2;
+
+        ThinBorders(ws, headerRow, r - 1, lastCol);
+        ApplyTableSetup(ws, headerRow, lastCol, r - 1);
+
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         return ms.ToArray();
     }
 
-    public async Task<byte[]> ExportLastWeekToExcelAsync(DateOnly monday)
+    public async Task<byte[]> ExportLastWeekToExcelAsync(DateOnly monday, string? actor)
     {
         var att = await GetLastWeekAsync(monday);
+        var friday = monday.AddDays(4);
+
         using var wb = new XLWorkbook();
-        var ws = wb.Worksheets.Add("Last week attendance");
-        ws.Cell(1, 1).Value = "Location";
+        var ws = wb.Worksheets.Add("WIC Last Week Attendance");
+        const int lastCol = 8;
+        ApplyTitle(ws, "WIC Last Week Attendance", monday, friday, actor, lastCol);
+
+        const int headerRow = 3;
+        ws.Cell(headerRow, 1).Value = "Location";
         for (var i = 0; i < 5; i++)
-            ws.Cell(1, i + 2).Value = DayHeader(monday.AddDays(i));
-        ws.Cell(1, 7).Value = "Open days";
-        ws.Cell(1, 8).Value = "Days with presence";
-        StyleHeader(ws, 1, 8);
-        var r = 2;
+            ws.Cell(headerRow, i + 2).Value = DayHeader(monday.AddDays(i));
+        ws.Cell(headerRow, 7).Value = "Open days";
+        ws.Cell(headerRow, 8).Value = "Days with presence";
+        StyleHeaderRow(ws, headerRow, lastCol);
+
+        var r = headerRow + 1;
+        var parity = 0;
         foreach (var loc in att.Locations)
         {
-            ws.Cell(r, 1).Value = $"{loc.City} ({loc.LocationCode})";
+            var locCell = ws.Cell(r, 1);
+            locCell.Value = LocationLabel(loc.LocationCode, loc.City, loc.DisplayName);
+            locCell.Style.Font.Bold = true;
+            locCell.Style.Alignment.WrapText = true;
+            locCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+
+            var maxLines = VisualLines(LocationLabel(loc.LocationCode, loc.City, loc.DisplayName), 32);
             for (var i = 0; i < loc.Days.Count && i < 5; i++)
-                ws.Cell(r, i + 2).Value = AttendanceCellText(loc.Days[i]);
+            {
+                var cell = ws.Cell(r, i + 2);
+                SetAttendanceCell(cell, loc.Days[i], parity);
+                maxLines = Math.Max(maxLines, VisualLines(AttendanceCellText(loc.Days[i]), 22));
+            }
             ws.Cell(r, 7).Value = loc.OpenDays;
             ws.Cell(r, 8).Value = loc.DaysWithPresence;
+            ws.Cell(r, 7).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            ws.Cell(r, 8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            ws.Row(r).Height = Math.Max(22, maxLines * 14 + 4);
             r++;
+            parity++;
         }
-        ws.Columns().AdjustToContents();
+
+        ws.Column(1).Width = 34;
+        for (var i = 2; i <= 6; i++) ws.Column(i).Width = 24;
+        ws.Column(7).Width = 10;
+        ws.Column(8).Width = 16;
+
+        ThinBorders(ws, headerRow, r - 1, lastCol);
+        ApplyTableSetup(ws, headerRow, lastCol, r - 1);
+
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         return ms.ToArray();
     }
 
-    public async Task<byte[]> ExportCorrectionsToExcelAsync()
+    public async Task<byte[]> ExportCorrectionsToExcelAsync(RtmCorrectionsResponse corr, string? actor,
+        DateOnly periodFrom, DateOnly periodTo)
     {
-        var corr = await GetCorrectionsAsync();
         using var wb = new XLWorkbook();
-        var ws = wb.Worksheets.Add("Daily corrections");
+        var ws = wb.Worksheets.Add("WIC Daily Corrections");
+        const int lastCol = 4;
+        ApplyTitle(ws, "WIC Daily Corrections", periodFrom, periodTo, actor, lastCol);
+
+        const int headerRow = 3;
         var headers = new[] { "Date", "Location", "Before", "Now" };
         for (var i = 0; i < headers.Length; i++)
-        {
-            ws.Cell(1, i + 1).Value = headers[i];
-            ws.Cell(1, i + 1).Style.Font.Bold = true;
-            ws.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#b91c1c");
-            ws.Cell(1, i + 1).Style.Font.FontColor = XLColor.White;
-        }
-        var r = 2;
+            ws.Cell(headerRow, i + 1).Value = headers[i];
+        StyleHeaderRow(ws, headerRow, lastCol);
+
+        var r = headerRow + 1;
         foreach (var c in corr.Changes)
         {
-            ws.Cell(r, 1).Value = c.Date;
-            ws.Cell(r, 2).Value = $"{c.Location} ({c.LocationCode})";
-            ws.Cell(r, 3).Value = c.Before;
-            ws.Cell(r, 4).Value = c.Now;
+            var dateCell = ws.Cell(r, 1);
+            dateCell.Value = c.Date;
+            dateCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            var locCell = ws.Cell(r, 2);
+            locCell.Value = c.Location;
+            locCell.Style.Font.Bold = true;
+
+            var beforeCell = ws.Cell(r, 3);
+            beforeCell.Value = c.Before;
+            beforeCell.Style.Alignment.WrapText = true;
+            beforeCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+
+            var nowCell = ws.Cell(r, 4);
+            nowCell.Value = c.Now;
+            nowCell.Style.Alignment.WrapText = true;
+            nowCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+            nowCell.Style.Fill.BackgroundColor = CorrectionBg;
+
+            ws.Row(r).Height = Math.Max(22, Math.Max(VisualLines(c.Before, 34), VisualLines(c.Now, 34)) * 14 + 4);
             r++;
         }
-        ws.Columns().AdjustToContents();
+
+        ws.Column(1).Width = 12;
+        ws.Column(2).Width = 34;
+        ws.Column(3).Width = 34;
+        ws.Column(4).Width = 34;
+
+        ThinBorders(ws, headerRow, Math.Max(r - 1, headerRow), lastCol);
+        ApplyTableSetup(ws, headerRow, lastCol, Math.Max(r - 1, headerRow));
+
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         return ms.ToArray();
@@ -527,16 +629,174 @@ public class RtmReportService
     }
 
     private static string DayHeader(DateOnly d) =>
-        d.ToString("ddd dd.MM", CultureInfo.InvariantCulture);
+        d.ToString("ddd dd.MM.", CultureInfo.InvariantCulture);
 
-    private static void StyleHeader(IXLWorksheet ws, int row, int cols)
+    private static void ApplyTitle(IXLWorksheet ws, string title, DateOnly from, DateOnly to, string? actor, int lastCol)
     {
-        for (var i = 1; i <= cols; i++)
+        var t = ws.Cell(1, 1);
+        t.Value = title;
+        t.Style.Font.Bold = true;
+        t.Style.Font.FontSize = 14;
+        if (lastCol > 1) ws.Range(1, 1, 1, lastCol).Merge();
+
+        var p = ws.Cell(2, 1);
+        p.Value = $"{from:dd.MM.yyyy} – {to:dd.MM.yyyy}";
+        p.Style.Font.Bold = true;
+
+        var g = ws.Cell(2, 2);
+        g.Value = $"Generated: {DateTime.Now:dd.MM.yyyy HH:mm} by {actor ?? "—"}";
+        g.Style.Font.FontColor = ClosedFont;
+        g.Style.Font.FontSize = 10;
+        if (lastCol > 2)
         {
-            ws.Cell(row, i).Style.Font.Bold = true;
-            ws.Cell(row, i).Style.Fill.BackgroundColor = XLColor.FromHtml("#b91c1c");
-            ws.Cell(row, i).Style.Font.FontColor = XLColor.White;
+            ws.Range(2, 2, 2, lastCol).Merge();
+            ws.Range(2, 2, 2, lastCol).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
         }
+    }
+
+    private static void StyleHeaderRow(IXLWorksheet ws, int row, int lastCol)
+    {
+        for (var i = 1; i <= lastCol; i++)
+        {
+            var c = ws.Cell(row, i);
+            c.Style.Font.Bold = true;
+            c.Style.Font.FontColor = XLColor.White;
+            c.Style.Fill.BackgroundColor = HeaderBlue;
+            c.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            c.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            c.Style.Alignment.WrapText = true;
+        }
+        ws.Row(row).Height = 22;
+    }
+
+    private static void SetPlanCell(IXLCell cell, RtmPlanDay day, int parity)
+    {
+        cell.Style.Alignment.WrapText = true;
+        cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+        cell.Value = PlanCellText(day);
+        switch (day.Status)
+        {
+            case "CLOSED":
+                cell.Style.Fill.BackgroundColor = ClosedBg;
+                cell.Style.Font.FontColor = ClosedFont;
+                break;
+            case "UNCOVERED":
+                cell.Style.Fill.BackgroundColor = UncoveredBg;
+                cell.Style.Font.FontColor = UncoveredFont;
+                cell.Style.Font.Bold = true;
+                break;
+            default:
+                cell.Style.Fill.BackgroundColor = parity % 2 == 0 ? XLColor.White : AltRowBg;
+                break;
+        }
+    }
+
+    private static void SetAttendanceCell(IXLCell cell, RtmAttendanceDay day, int parity)
+    {
+        cell.Style.Alignment.WrapText = true;
+        cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+        if (day.Status == "CLOSED")
+        {
+            cell.Value = "Closed";
+            cell.Style.Fill.BackgroundColor = ClosedBg;
+            cell.Style.Font.FontColor = ClosedFont;
+            return;
+        }
+        if (day.Status == "NOT_PRESENT")
+        {
+            cell.Value = "Not present";
+            cell.Style.Fill.BackgroundColor = UncoveredBg;
+            cell.Style.Font.FontColor = UncoveredFont;
+            cell.Style.Font.Bold = true;
+            return;
+        }
+        cell.Style.Fill.BackgroundColor = parity % 2 == 0 ? XLColor.White : AltRowBg;
+        var rt = cell.CreateRichText();
+        var first = true;
+        foreach (var p in day.Present)
+        {
+            if (!first) rt.AddNewLine();
+            var time = p.CheckIn != null ? (p.CheckOut != null ? $"{p.CheckIn}–{p.CheckOut}" : p.CheckIn) : null;
+            rt.AddText(time != null ? $"{p.Name} {time}" : p.Name);
+            first = false;
+        }
+        foreach (var n in day.PlannedAbsent)
+        {
+            if (!first) rt.AddNewLine();
+            rt.AddText($"Planned: {n}").SetItalic().SetFontColor(ClosedFont);
+            first = false;
+        }
+    }
+
+    private static void ThinBorders(IXLWorksheet ws, int firstRow, int lastRow, int lastCol)
+    {
+        if (lastRow < firstRow) return;
+        var range = ws.Range(firstRow, 1, lastRow, lastCol);
+        range.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+        range.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        range.Style.Border.InsideBorderColor = BorderGray;
+        range.Style.Border.OutsideBorderColor = BorderGray;
+    }
+
+    private static void ApplyTableSetup(IXLWorksheet ws, int headerRow, int lastCol, int lastRow)
+    {
+        ws.SheetView.Freeze(headerRow, 1);
+        ws.Range(headerRow, 1, headerRow, lastCol).SetAutoFilter();
+        ws.PageSetup.PageOrientation = XLPageOrientation.Landscape;
+        ws.PageSetup.PaperSize = XLPaperSize.A4Paper;
+        ws.PageSetup.FitToPages(1, 0);
+        ws.PageSetup.SetRowsToRepeatAtTop(1, headerRow);
+    }
+
+    private static int VisualLines(string? text, int charsPerLine)
+    {
+        if (string.IsNullOrEmpty(text)) return 1;
+        var lines = 0;
+        foreach (var line in text.Split('\n'))
+            lines += Math.Max(1, (int)Math.Ceiling(line.Length / (double)Math.Max(1, charsPerLine)));
+        return Math.Max(1, lines);
+    }
+
+    private static string LocationLabel(string locationCode, string? city, string displayName)
+    {
+        var street = StreetOf(locationCode);
+        var c = string.IsNullOrWhiteSpace(city) ? displayName : city;
+        return string.IsNullOrWhiteSpace(street) ? c : $"{c} – {street}";
+    }
+
+    private static List<DateOnly> VisibleDates(List<RtmLocationPlan> locations, DateOnly from, DateOnly to)
+    {
+        var result = new List<DateOnly>();
+        for (var d = from; d <= to; d = d.AddDays(1))
+        {
+            if (d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)) { result.Add(d); continue; }
+            var ds = d.ToString("yyyy-MM-dd");
+            if (locations.Any(loc => loc.Days.Any(x => x.Date == ds && x.Status != "CLOSED")))
+                result.Add(d);
+        }
+        return result;
+    }
+
+    // Column descriptors for the weekly forecast: null = the week-1/week-2 separator band.
+    private static List<DateOnly?> DayColumns(DateOnly start, List<DateOnly> visible)
+    {
+        var result = new List<DateOnly?>();
+        var week2 = start.AddDays(7);
+        var inserted = false;
+        foreach (var d in visible)
+        {
+            if (!inserted && d >= week2) { result.Add(null); inserted = true; }
+            result.Add(d);
+        }
+        return result;
+    }
+
+    public static DateOnly NextMonday()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var days = ((int)DayOfWeek.Monday - (int)today.DayOfWeek + 7) % 7;
+        if (days == 0) days = 7;
+        return today.AddDays(days);
     }
 
     private static string? ToHhMm(string? dt)
@@ -620,8 +880,8 @@ public static class RtmReportEndpointMapper
         {
             if (Deny(ctx) is { } deny) return deny;
             var from = start != null && DateOnly.TryParse(start, out var d)
-                ? d : DateOnly.FromDateTime(DateTime.Today).AddDays(1);
-            var plan = await svc.GetPlanAsync(from, from.AddDays(6));
+                ? d : RtmReportService.NextMonday();
+            var plan = await svc.GetPlanAsync(from, from.AddDays(RtmReportService.WeeklyDays - 1));
             var last = await svc.GetLastWeeklySentAsync();
             return Results.Ok(new RtmWeeklyResponse(plan, last));
         });
@@ -668,9 +928,10 @@ public static class RtmReportEndpointMapper
         {
             if (Deny(ctx) is { } deny) return deny;
             var from = start != null && DateOnly.TryParse(start, out var d)
-                ? d : DateOnly.FromDateTime(DateTime.Today).AddDays(1);
-            var bytes = await svc.ExportWeeklyToExcelAsync(from);
-            return Results.File(bytes, ExcelHeaders(ctx, $"RTM_Weekly_{from:yyyy-MM-dd}.xlsx"));
+                ? d : RtmReportService.NextMonday();
+            var to = from.AddDays(RtmReportService.WeeklyDays - 1);
+            var bytes = await svc.ExportWeeklyToExcelAsync(from, ResolveActor(ctx));
+            return Results.File(bytes, ExcelHeaders(ctx, $"WIC_Forecast_{from:yyyy-MM-dd}_to_{to:yyyy-MM-dd}.xlsx"));
         });
 
         grp.MapGet("/download/last-week", async (string? monday, RtmReportService svc, HttpContext ctx) =>
@@ -684,15 +945,20 @@ public static class RtmReportEndpointMapper
                 var diff = ((int)today.DayOfWeek - (int)DayOfWeek.Monday + 7) % 7;
                 from = today.AddDays(-diff).AddDays(-7);
             }
-            var bytes = await svc.ExportLastWeekToExcelAsync(from);
-            return Results.File(bytes, ExcelHeaders(ctx, $"RTM_LastWeek_{from:yyyy-MM-dd}.xlsx"));
+            var to = from.AddDays(4);
+            var bytes = await svc.ExportLastWeekToExcelAsync(from, ResolveActor(ctx));
+            return Results.File(bytes, ExcelHeaders(ctx, $"WIC_Attendance_{from:yyyy-MM-dd}_to_{to:yyyy-MM-dd}.xlsx"));
         });
 
         grp.MapGet("/download/corrections", async (RtmReportService svc, HttpContext ctx) =>
         {
             if (Deny(ctx) is { } deny) return deny;
-            var bytes = await svc.ExportCorrectionsToExcelAsync();
-            return Results.File(bytes, ExcelHeaders(ctx, $"RTM_Corrections_{DateTime.Today:yyyy-MM-dd}.xlsx"));
+            var corr = await svc.GetCorrectionsAsync();
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var from = DateOnly.TryParse(corr.LastSent?.PeriodFrom, out var f) ? f : today;
+            var to = DateOnly.TryParse(corr.LastSent?.PeriodTo, out var t2) ? t2 : today;
+            var bytes = await svc.ExportCorrectionsToExcelAsync(corr, ResolveActor(ctx), from, to);
+            return Results.File(bytes, ExcelHeaders(ctx, $"WIC_Corrections_{from:yyyy-MM-dd}_to_{to:yyyy-MM-dd}.xlsx"));
         });
     }
 }
